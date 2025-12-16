@@ -90,11 +90,14 @@ fi
 # Generate Corefile
 echo "📝 Generating Corefile..."
 cat <<EOF > $COREFILE_PATH
-. {
-    tls :853 {
-        cert $CERT_FILE
-        key $KEY_FILE
-    }
+tls://.:853 {
+    tls $CERT_FILE $KEY_FILE
+    forward . $UPSTREAM_DNS
+    $(echo -e "$DNS_LOG_CONFIG")
+}
+
+https://.:443 https://.:784 https://.:2443 {
+    tls $CERT_FILE $KEY_FILE
     forward . $UPSTREAM_DNS
     $(echo -e "$DNS_LOG_CONFIG")
 }
