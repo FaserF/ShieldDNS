@@ -35,6 +35,9 @@ if [ -f "$OPTIONS_PATH" ]; then
     if [[ "$CERT_FILE" != /* ]]; then CERT_FILE="/ssl/$CERT_FILE"; fi
     if [[ "$KEY_FILE" != /* ]]; then KEY_FILE="/ssl/$KEY_FILE"; fi
 
+    FALLBACK_DNS_ENABLED=$(read_option "fallback_dns")
+    FALLBACK_DNS_SERVER=$(read_option "fallback_dns_server")
+
 else
     echo "ℹ️  Standard Docker environment detected."
     UPSTREAM_DNS=${UPSTREAM_DNS:-$DEFAULT_UPSTREAM}
@@ -42,10 +45,41 @@ else
     KEY_FILE=${KEY_FILE:-$DEFAULT_KEY}
     TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     LOG_LEVEL=${LOG_LEVEL:-"error"}
+
+    FALLBACK_DNS_ENABLED=${FALLBACK_DNS_ENABLED:-"false"}
+    FALLBACK_DNS_SERVER=${FALLBACK_DNS_SERVER:-"1.1.1.1"}
+fi
+
+# Default fallback server if not set
+[ -z "$FALLBACK_DNS_SERVER" ] && FALLBACK_DNS_SERVER="1.1.1.1"
+
+# Check Reachability and Fallback Logic
+ACTIVE_DNS_SERVER="$UPSTREAM_DNS"
+DNS_MODE="Main"
+
+if [ "$FALLBACK_DNS_ENABLED" == "true" ]; then
+    echo "🔍 Checking availability of Upstream DNS: $UPSTREAM_DNS"
+
+    # Simple check using ping (assuming ICMP allowed) or nc if available.
+    # Since this is a DNS container, we might not have nc/ping.
+    # Let's assume we can use timeout + bash /dev/tcp or just see if we can resolve/connect
+    # but technically Upstream is often an IP.
+    # We will try a simple ping with small timeout.
+
+    if ping -c 1 -W 2 "$UPSTREAM_DNS" &> /dev/null; then
+         echo "✅ Upstream DNS ($UPSTREAM_DNS) is reachable."
+    else
+         echo "⚠️  Upstream DNS ($UPSTREAM_DNS) is NOT reachable!"
+         echo "🔄 Switching to Fallback DNS: $FALLBACK_DNS_SERVER"
+         ACTIVE_DNS_SERVER="$FALLBACK_DNS_SERVER"
+         DNS_MODE="Fallback"
+    fi
+else
+    echo "ℹ️  Fallback DNS is disabled. Using configured Upstream: $UPSTREAM_DNS"
 fi
 
 echo "🔧 Configuration:"
-echo "   Upstream: $UPSTREAM_DNS"
+echo "   Upstream: $ACTIVE_DNS_SERVER ($DNS_MODE)"
 echo "   Cert:     $CERT_FILE"
 echo "   Key:      $KEY_FILE"
 if [ -n "$TUNNEL_TOKEN" ]; then
@@ -61,6 +95,17 @@ if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
     echo "⚠️  WARNING: Certificates not found at specified paths!"
     echo "   Running in non-TLS mode might fail or server might not start if TLS block is active."
 fi
+
+# Write Status for Info Page
+mkdir -p /var/www/html
+cat <<EOF > /var/www/html/status.json
+{
+  "status": "online",
+  "mode": "$DNS_MODE",
+  "upstream": "$ACTIVE_DNS_SERVER",
+  "checked_at": "$(date)"
+}
+EOF
 
 # Determine Logging Configuration for CoreDNS
 # CoreDNS plugins: errors (always), log (query log), debug (packet/trace)
@@ -87,21 +132,68 @@ if [ -n "$TUNNEL_TOKEN" ]; then
 fi
 
 
+
+# Start Optional Web Server
+ENABLE_INFO_PAGE=${ENABLE_INFO_PAGE:-"false"}
+WEB_PORT=${WEB_PORT:-8080}
+
+if [ "$ENABLE_INFO_PAGE" == "true" ]; then
+    echo "🌍 Starting Web Server (Info Page) on port $WEB_PORT..."
+
+    # Configure Nginx (Minimal)
+    # Ensure PID dir exists
+    mkdir -p /run/nginx
+
+    cat <<EOF > /etc/nginx/http.d/default.conf
+server {
+    listen $WEB_PORT;
+    root /var/www/html;
+    index index.html;
+    server_name _;
+
+    # Logs to stdout/stderr
+    error_log /dev/stderr info;
+    access_log /dev/stdout;
+}
+EOF
+
+    # Start Nginx in background
+    nginx &
+    NGINX_PID=$!
+    echo "   Web Server started with PID $NGINX_PID"
+fi
+
 # Generate Corefile
 echo "📝 Generating Corefile..."
-cat <<EOF > $COREFILE_PATH
+
+# Validation
+if [ -z "$DOT_PORT" ] && [ -z "$DOH_PORT" ]; then
+    echo "❌ CRITICAL: Neither DOT_PORT nor DOH_PORT is set!"
+    exit 1
+fi
+
+# Clear file
+> $COREFILE_PATH
+
+if [ -n "$DOT_PORT" ]; then
+cat <<EOF >> $COREFILE_PATH
 tls://.:853 {
     tls $CERT_FILE $KEY_FILE
-    forward . $UPSTREAM_DNS
-    $(echo -e "$DNS_LOG_CONFIG")
-}
-
-https://.:443 https://.:784 https://.:2443 {
-    tls $CERT_FILE $KEY_FILE
-    forward . $UPSTREAM_DNS
+    forward . $ACTIVE_DNS_SERVER
     $(echo -e "$DNS_LOG_CONFIG")
 }
 EOF
+fi
+
+if [ -n "$DOH_PORT" ]; then
+cat <<EOF >> $COREFILE_PATH
+https://.:$ACTUAL_COREDNS_PORT {
+    tls $CERT_FILE $KEY_FILE
+    forward . $ACTIVE_DNS_SERVER
+    $(echo -e "$DNS_LOG_CONFIG")
+}
+EOF
+fi
 
 # Start CoreDNS
 echo "🚀 Starting CoreDNS..."
@@ -110,24 +202,25 @@ echo "🚀 Starting CoreDNS..."
 # However, if cloudflared crashes, the container might stay alive but tunnel down.
 # Ideally we should monitor both. But for simplicity in this script, we exec CoreDNS.
 # Check if tunnel is backgrounded
-if [ -n "$TUNNEL_PID" ]; then
-    # We cannot use exec because we want to keep checking tunnel?
-    # Actually, standard Docker practice: main process is the one we want.
-    # If DNS dies, container dies. If Tunnel dies, we might want container to die too?
-    # Let's keep it simple: Exec CoreDNS. If Tunnel dies, user will see logs (if forwarded).
-    # But ideally use a supervisor like s6. Since we don't have s6, we just rely on happy path.
+# Check if we have background processes to monitor (Tunnel or Nginx)
+if [ -n "$TUNNEL_PID" ] || [ -n "$NGINX_PID" ]; then
+
+    # Start CoreDNS in background so we can wait on all PIDs
     /usr/bin/coredns -conf $COREFILE_PATH &
     DNS_PID=$!
 
-    # Wait for any process to exit
-    wait -n $DNS_PID $TUNNEL_PID
+    # Wait for ANY process to exit
+    # Construct list of PIDs
+    PIDS="$DNS_PID $TUNNEL_PID $NGINX_PID"
+
+    wait -n $PIDS
 
     # If we are here, one of them exited.
     echo "❌ One of the processes exited. Shutting down..."
-    kill $DNS_PID 2>/dev/null
-    kill $TUNNEL_PID 2>/dev/null
+    # Kill all
+    kill $DNS_PID $TUNNEL_PID $NGINX_PID 2>/dev/null
     exit 1
 else
-    # No tunnel, just exec
+    # No background services, just exec CoreDNS directly
     exec /usr/bin/coredns -conf $COREFILE_PATH
 fi

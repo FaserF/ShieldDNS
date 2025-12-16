@@ -12,7 +12,14 @@ FROM alpine:latest
 # bind-tools: gives us 'dig'/'kdig'
 # ca-certificates: needed for TLS
 # libc6-compat: needed for cloudflared on Alpine
-RUN apk add --no-cache jq ca-certificates bash curl libc6-compat
+RUN apk add --no-cache jq ca-certificates bash curl libc6-compat nginx
+
+# Create web root and required directories
+RUN mkdir -p /var/www/html /run/nginx
+
+# Copy Web Assets
+COPY www/index.html /var/www/html/index.html
+COPY logo.png /var/www/html/logo.png
 
 # Copy CoreDNS binary
 COPY --from=binary /coredns /usr/bin/coredns

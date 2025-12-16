@@ -29,12 +29,41 @@ services:
     environment:
       - UPSTREAM_DNS=1.1.1.1
       - CLOUDFLARE_TUNNEL_TOKEN=eyJh... # Optional
+      - ENABLE_INFO_PAGE=true # Optional: Enable Info Page on DoH Port
       - LOG_LEVEL=info # debug, info, error
       - CERT_FILE=/certs/fullchain.pem
       - KEY_FILE=/certs/privkey.pem
     volumes:
       - ./certs:/certs
 ```
+
+## Optional: Info Page
+You can enable a lightweight "Fancy" Info Page to display a professional landing page for your DNS endpoint.
+- **Why?** To inform visitors (or yourself) that this is a private DNS endpoint and not a public website.
+- **Enable**: Set `ENABLE_INFO_PAGE=true`.
+- **Port**: Default is `8080` (mapped in Docker).
+
+## 🛡️ Security Best Practices
+
+Since you are exposing a DNS server to the public (via Tunnel or Port Forwarding), you should secure it to prevent abuse (DNS Amplification, Scanning, DDoS).
+
+### 1. Cloudflare Tunnel (Highly Recommended)
+Using Cloudflare Tunnel hides your Origin IP and allows you to use **Cloudflare Zero Trust** features.
+- **WAF / Custom Rules**:
+    - **Block Countries**: Block all countries except your own.
+    - **Block Bots**: Enable "Bot Fight Mode" or block known bot User-Agents.
+- **Rate Limiting**: Set a Rate Limiting rule for your hostname (e.g. max 50 requests / 10 seconds per IP) to prevent flooding.
+- **Zero Trust Authentication**: If feasible, put the DNS endpoint behind Cloudflare Access (Note: This breaks standard DoH clients unless they support authentication headers. For a pure public endpoint, rely on WAF).
+
+### 2. General Firewalls
+If running without Cloudflare (Direct Exposure):
+- **Whitelist IPs**: Only allow your own mobile IP ranges or specific networks if possible.
+- **Fail2Ban**: Monitor logs and ban abusive IPs (requires mounting logs to host).
+- **Limit Rates**: Use `iptables` or UFW to limit connection rates on port 853/443.
+
+### 3. Client Configuration
+- **Android**: Use strict Private DNS hostname. Android verifies the certificate chain.
+- **iOS**: Use a `.mobileconfig` that enforces HTTPS and specific SNI.
 
 ## Setup Guide
 
