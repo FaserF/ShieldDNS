@@ -1,4 +1,6 @@
-# ![ShieldDNS Logo](logo.png) ShieldDNS 🛡️
+<img src="logo.png" align="right" width="128" height="128">
+
+# ShieldDNS 🛡️
 
 **ShieldDNS** is a lightweight, efficient, and privacy-focused DNS-over-TLS (DoT) proxy.
 
@@ -79,4 +81,4 @@ Windows 11 supports DoH natively.
 
 ## Home Assistant Addon
 This project is also available as a Home Assistant Addon.
-See [addon/README.md](addon/README.md) for details.
+[View on GitHub](https://github.com/FaserF/hassio-addons/tree/master/ShieldDNS)
