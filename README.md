@@ -65,48 +65,71 @@ If running without Cloudflare (Direct Exposure):
 - **Android**: Use strict Private DNS hostname. Android verifies the certificate chain.
 - **iOS**: Use a `.mobileconfig` that enforces HTTPS and specific SNI.
 
+## 💡 Concepts & Protocols
+
+To use ShieldDNS effectively, it helps to understand the two main protocols:
+
+| Protocol | Port | Description | Android Support |
+| :--- | :--- | :--- | :--- |
+| **DoT (DNS-over-TLS)** | `853` (TCP) | Uses a dedicated secure port. | **Native Support**. Used by "Private DNS" setting. |
+| **DoH (DNS-over-HTTPS)** | `443` (TCP) | Uses standard HTTPS web port. | **Requires App** (Intra/Nebulo) or Browser Config. |
+| **UDP/53** | `53` (UDP) | Standard unencrypted DNS. | Legacy. Not supported by ShieldDNS (by design). |
+
+### ⚠️ Important for Cloudflare Tunnel Users
+**Cloudflare Tunnel** (without Enterprise/Spectrum) only proxies HTTP/HTTPS traffic (DoH). It **does not** proxy raw TCP (DoT/853).
+- **If you use Cloudflare Tunnel**: You **MUST** use DoH (via an App on Android). "Private DNS" setting will **FAIL** because it tries to use DoT/853.
+- **If you use Port Forwarding**: You can use both DoT (Private DNS) and DoH.
+
 ## Setup Guide
 
-### 1. Requirements for Public Access (DoH/DoT)
-To use DoH/DoT over the internet, you need:
+### 1. Requirements
 1.  A **Public Domain** (e.g., `dns.example.com`).
 2.  A **Valid SSL Certificate** for that domain.
     *   **Android Private DNS** checks for a valid chain (Let's Encrypt or similar).
     *   **Cloudflare Tunnel**: You can usage a Cloudflare Origin Certificate (lasts 15 years) on your server, and let Cloudflare Edge handle the valid public cert.
 
-### 2. Cloudflare Tunnel Integration
-You can use the built-in tunnel support or an external tunnel.
+### 2. Complex Architecture (Cloudflare Tunnel + AdGuard Home)
+This is the recommended setup for Home Assistant users:
 
-#### Using Built-in Tunnel & Certificates
-1.  Generate a **Cloudflare Origin Certificate** in the Cloudflare Dashboard (SSL/TLS > Origin Server).
-2.  Save the items as `fullchain.pem` (Certificate) and `privkey.pem` (Private Key) in your `./certs` folder.
-3.  Set the environment variable `CLOUDFLARE_TUNNEL_TOKEN`.
-4.  ShieldDNS will use these certs to run DoT/DoH, and the Tunnel will route traffic to it.
-5.  *Tip*: In your Tunnel Public Hostname configuration, point traffic to `HTTPS://localhost:443` and enable "No TLS Verify" if using self-signed, or rely on the Origin Cert.
+1.  **Mobile Client** (Android/iOS) sends encrypted query to `dns.example.com`.
+2.  **Cloudflare Edge** receives request (Port 443).
+3.  **Cloudflare Tunnel** routes request to **ShieldDNS** (running in HA).
+4.  **ShieldDNS** terminates TLS and forwards plain query to **AdGuard Home**.
+5.  **AdGuard Home** filters ads/trackers and resolves the IP.
+6.  Response travels back the same path.
 
 ### 3. Client Configuration
 
-#### 📱 Android (Private DNS)
-Android natively supports **DNS-over-TLS (DoT)**.
+#### 📱 Android (Samsung / Pixel / etc.)
+
+**Option A: Cloudflare Tunnel (Recommended)**
+*Since Tunnel only supports DoH, you cannot use "Private DNS" setting.*
+1.  Install **[Intra](https://play.google.com/store/apps/details?id=app.intra)** (by Jigsaw/Google) or **Nebulo**.
+2.  Open Intra > Settings > **DNS over HTTPS Server**.
+3.  Select **Custom Server URL**.
+4.  Enter: `https://dns.example.com/dns-query`
+5.  Enable Intra.
+
+**Option B: Port Forwarding (Native Setting)**
+*Requires opening Port 853 on your router to Home Assistant.*
 1.  Go to **Settings > Network & Internet > Private DNS**.
 2.  Select **Private DNS provider hostname**.
-3.  Enter your domain: `dns.example.com`.
-4.  *Note:* Only works if port `853` is reachable or tunneled, and the certificate is valid and trusted by Android.
+3.  Enter your domain: `dns.example.com` (just the domain, no https/port).
+4.  *Note:* Fails immediately if Port 853 is unreachable.
 
-#### 🍎 iOS (iPhone/iPad)
-iOS does not natively support custom DoT/DoH in settings without a **Configuration Profile**.
-1.  Create a `.mobileconfig` file (using tools like [DNS Profile Creator](https://github.com/paulmillr/encrypted-dns)).
-2.  Email or AirDrop it to your device.
-3.  Install via **Settings > Profile Downloaded**.
-4.  *Alternative:* Use apps like **DNSCloak** or **AdGuard** and configure your server details manually (`https://dns.example.com/dns-query` for DoH).
+#### 🍎 iOS (iPhone / iPad)
+
+iOS supports native encrypted DNS via **Configuration Profiles**.
+1.  Use a tool like [Encoded DNS Generator](https://github.com/paulmillr/encrypted-dns) or create a `.mobileconfig` manually.
+2.  Payload should be **HTTPS** (for Tunnel) or **TLS** (for Port Forwarding).
+3.  Email/AirDrop file to device -> **Settings > Profile Downloaded** -> Install.
+4.  Result: System-wide ad-blocking on 4G/5G/Wifi.
 
 #### 💻 Windows 11
-Windows 11 supports DoH natively.
-1.  Set your DNS Server IP to be the IP where ShieldDNS is running (or 127.0.0.1 if using DoH client proxy).
-2.  Run: `netsh dns add global doh https://dns.example.com/dns-query` (Command Line)
-3.  Or go to **Settings > Network > Ethernet/Wi-Fi > DNS settings > Edit**.
-    - Set IPv4 DNS to your server IP.
-    - Set **DNS over HTTPS** to **On (Manual)** and enter the URI template: `https://dns.example.com/dns-query`.
+1.  **Settings > Network > Ethernet/Wi-Fi > DNS settings > Edit**.
+2.  Set IPv4 DNS to `127.0.0.1` (dummy) or actual server IP.
+3.  Set **DNS over HTTPS** to **On (Manual)**.
+4.  Template: `https://dns.example.com/dns-query`.
 
 ## Home Assistant Addon
 This project is also available as a Home Assistant Addon.
