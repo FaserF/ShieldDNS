@@ -122,10 +122,10 @@ This gives you the best of both worlds: Tunnel security where possible, and raw 
 #### 🍎 iOS (iPhone / iPad)
 
 iOS supports native encrypted DNS via **Configuration Profiles**.
-1.  Use a tool like [Encoded DNS Generator](https://github.com/paulmillr/encrypted-dns) or create a `.mobileconfig` manually.
-2.  Payload should be **HTTPS** (for Tunnel) or **TLS** (for Port Forwarding).
-3.  Email/AirDrop file to device -> **Settings > Profile Downloaded** -> Install.
-4.  Result: System-wide ad-blocking on 4G/5G/Wifi.
+1.  **Download Template**: Get the [mobileconfig-template.mobileconfig](./mobileconfig-template.mobileconfig) file from this repository.
+2.  **Edit**: Open it with a text editor and replace `REPLACE_ME_DOMAIN` with your domain (e.g. `doh.example.com`).
+3.  **Install**: Email/AirDrop file to device -> **Settings > Profile Downloaded** -> Install.
+4.  **Result**: System-wide ad-blocking on 4G/5G/Wifi.
 
 #### 💻 Windows 11
 1.  **Settings > Network > Ethernet/Wi-Fi > DNS settings > Edit**.

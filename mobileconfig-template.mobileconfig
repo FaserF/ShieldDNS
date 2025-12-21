@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>DNSSettings</key>
+            <dict>
+                <key>DNSProtocol</key>
+                <string>HTTPS</string>
+                <key>ServerURL</key>
+                <string>https://REPLACE_ME_DOMAIN/dns-query</string>
+            </dict>
+            <key>PayloadDescription</key>
+            <string>Configures ShieldDNS via Cloudflare Tunnel (DoH)</string>
+            <key>PayloadDisplayName</key>
+            <string>ShieldDNS (DoH)</string>
+            <key>PayloadIdentifier</key>
+            <string>com.example.shielddns.dns</string>
+            <key>PayloadType</key>
+            <string>com.apple.dnsSettings.managed</string>
+            <key>PayloadUUID</key>
+            <string>8C7AD0B8-5536-407D-8973-1D7453B2FC61</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+        </dict>
+    </array>
+    <key>PayloadDisplayName</key>
+    <string>ShieldDNS Configuration</string>
+    <key>PayloadIdentifier</key>
+    <string>com.example.shielddns.profile</string>
+    <key>PayloadRemovalDisallowed</key>
+    <false/>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>4C381711-A533-47F6-A0F1-5369A891788E</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+</dict>
+</plist>
