@@ -48,6 +48,10 @@ else
 
     FALLBACK_DNS_ENABLED=${FALLBACK_DNS_ENABLED:-"false"}
     FALLBACK_DNS_SERVER=${FALLBACK_DNS_SERVER:-"1.1.1.1"}
+
+    # Ports
+    DOT_PORT=${DOT_PORT:-853}
+    DOH_PORT=${DOH_PORT:-443}
 fi
 
 # Default fallback server if not set
@@ -177,7 +181,7 @@ fi
 
 if [ -n "$DOT_PORT" ]; then
 cat <<EOF >> $COREFILE_PATH
-tls://.:853 {
+tls://.:$DOT_PORT {
     tls $CERT_FILE $KEY_FILE
     forward . $ACTIVE_DNS_SERVER
     $(echo -e "$DNS_LOG_CONFIG")
