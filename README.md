@@ -8,7 +8,7 @@ It enables you to securely accept DNS queries (e.g., Android Private DNS) and fo
 
 ## Features
 - 🔒 **DNS-over-TLS (DoT)**
-- 🌍 **DNS-over-HTTPS (DoH)**: Supported on ports 443, 784, 2443.
+- 🌍 **DNS-over-HTTPS (DoH)**: Supported on port 443 (or custom).
 - 🚇 **Cloudflare Tunnel Support**: Expose your DoT/DoH server safely.
 - 🚀 **High Performance**: Alpine + CoreDNS.
 - 🪵 **Flexible Logging**: Configurable log levels.
@@ -24,8 +24,6 @@ services:
     ports:
       - "853:853"   # DoT
       - "443:443"   # DoH
-      - "784:784"   # DoH (Alternative)
-      - "2443:2443" # DoH (Alternative)
     environment:
       - UPSTREAM_DNS=1.1.1.1
       - CLOUDFLARE_TUNNEL_TOKEN=eyJh... # Optional
@@ -88,34 +86,38 @@ To use ShieldDNS effectively, it helps to understand the two main protocols:
     *   **Android Private DNS** checks for a valid chain (Let's Encrypt or similar).
     *   **Cloudflare Tunnel**: You can usage a Cloudflare Origin Certificate (lasts 15 years) on your server, and let Cloudflare Edge handle the valid public cert.
 
-### 2. Complex Architecture (Cloudflare Tunnel + AdGuard Home)
-This is the recommended setup for Home Assistant users:
+### 2. Best Practice: The "Hybrid" Architecture
+If you want **"Native" Android support** AND **Cloudflare Tunnel**, you need two DNS records.
 
-1.  **Mobile Client** (Android/iOS) sends encrypted query to `dns.example.com`.
-2.  **Cloudflare Edge** receives request (Port 443).
-3.  **Cloudflare Tunnel** routes request to **ShieldDNS** (running in HA).
-4.  **ShieldDNS** terminates TLS and forwards plain query to **AdGuard Home**.
-5.  **AdGuard Home** filters ads/trackers and resolves the IP.
-6.  Response travels back the same path.
+#### Record A: `doh.example.com` (For iOS, Browsers, Apps)
+*   **Type**: CNAME (Proxied via Cloudflare Tunnel).
+*   **Target**: Your Tunnel ID.
+*   **Tunnel Config**: Service `HTTPS://192.168.1.x:3443` (No TLS Verify).
+*   **iOS Profile**: Use `https://doh.example.com/dns-query`.
+
+#### Record B: `dot.example.com` (For Android Native)
+*   **Type**: A/CNAME (DNS Only / Grey Cloud).
+*   **Target**: Your Home IP (DDNS).
+*   **Router**: Port Forwarding **WAN:853** -> **LAN:8853** (HA IP).
+*   **Android Setting**: Enter `dot.example.com`.
+*   **⚠️ Restriction**: You explicitly stated "No Port Forwarding". If you do not open Port 853, **Method 1 (Native Private DNS) is IMPOSSIBLE**. You *must* use Method 2 (App).
+
+This gives you the best of both worlds: Tunnel security where possible, and raw TCP access where required.
 
 ### 3. Client Configuration
 
 #### 📱 Android (Samsung / Pixel / etc.)
 
-**Option A: Cloudflare Tunnel (Recommended)**
-*Since Tunnel only supports DoH, you cannot use "Private DNS" setting.*
-1.  Install **[Intra](https://play.google.com/store/apps/details?id=app.intra)** (by Jigsaw/Google) or **Nebulo**.
-2.  Open Intra > Settings > **DNS over HTTPS Server**.
-3.  Select **Custom Server URL**.
-4.  Enter: `https://dns.example.com/dns-query`
-5.  Enable Intra.
+**Method 1: Native "Private DNS" (Cannot work with Tunnel-Only)**
+*Requires Port Forwarding (WAN 853). If you refuse to open ports, SKIP THIS.*
+1.  Ensure you have Port Forwarding (853->8853) and a Grey Cloud DNS record.
+2.  Go to **Settings > Network > Private DNS**.
+3.  Enter: `dot.example.com`.
 
-**Option B: Port Forwarding (Native Setting)**
-*Requires opening Port 853 on your router to Home Assistant.*
-1.  Go to **Settings > Network & Internet > Private DNS**.
-2.  Select **Private DNS provider hostname**.
-3.  Enter your domain: `dns.example.com` (just the domain, no https/port).
-4.  *Note:* Fails immediately if Port 853 is unreachable.
+**Method 2: App (Works with Tunnel-Only)**
+*This is your ONLY option if you refuse to open ports.*
+1.  Install **Intra**.
+2.  URL: `https://doh.example.com/dns-query`.
 
 #### 🍎 iOS (iPhone / iPad)
 
