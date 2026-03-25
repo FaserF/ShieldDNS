@@ -12,11 +12,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
       - name: Build Docker Image
-        run: docker build -t shielddns:test .
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: shielddns:test
 
       - name: Generate Self-Signed Certs for Testing
         run: |
