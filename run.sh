@@ -162,10 +162,10 @@ https://.:${ACTUAL_COREDNS_PORT} {
 EOF
 fi
 
-/usr/bin/coredns -conf $COREFILE_PATH &
-DNS_PID=$!
+# CoreDNS is managed by the Go backend (shielddns-admin)
+# so it handles log parsing and restarts automatically.
 
-wait -n $ADMIN_PID $DNS_PID $NGINX_PID
+wait -n $ADMIN_PID $NGINX_PID
 echo "⏹️  Shutting down services..."
 # Kill all background jobs gracefully
 kill -TERM $(jobs -p) 2>/dev/null || true
