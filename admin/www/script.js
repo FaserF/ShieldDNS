@@ -433,20 +433,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.toggleList = async (index) => {
-    // Implementation needed
-};
-window.removeList = async (index) => {
-    // Implementation needed
+    currentConfig.lists[index].enabled = !currentConfig.lists[index].enabled;
+    await saveConfig();
+    renderConfig();
 };
 
-window.copyText = (id) => {
+window.removeList = async (index) => {
+    if (confirm('Are you sure you want to remove this list?')) {
+        currentConfig.lists.splice(index, 1);
+        await saveConfig();
+        renderConfig();
+    }
+};
+
+window.copyText = async (id) => {
     const input = document.getElementById(id);
-    input.select();
-    document.execCommand('copy');
-    const btn = input.nextElementSibling;
-    const originalText = btn.textContent;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = originalText, 2000);
+    try {
+        await navigator.clipboard.writeText(input.value);
+        const btn = input.nextElementSibling;
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = originalText, 2000);
+    } catch (err) {
+        console.error('Failed to copy text: ', err);
+    }
 };
 
 // Auto-fill copy inputs based on current location

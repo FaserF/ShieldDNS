@@ -143,5 +143,8 @@ fi
 DNS_PID=$!
 
 wait -n $ADMIN_PID $DNS_PID $NGINX_PID
-kill $(jobs -p)
-exit 1
+echo "⏹️  Shutting down services..."
+# Kill all background jobs gracefully
+kill -TERM $(jobs -p) 2>/dev/null || true
+echo "ℹ️  ShieldDNS has stopped."
+exit 0

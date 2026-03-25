@@ -173,14 +173,21 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct{ Password string }
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
 
 	if len(req.Password) < 12 {
 		http.Error(w, "Password too short", http.StatusBadRequest)
 		return
 	}
 
-	hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Error secure hashing", http.StatusInternalServerError)
+		return
+	}
 	config.PasswordHash = string(hash)
 	saveConfigNoLock()
 	w.WriteHeader(http.StatusOK)
@@ -188,7 +195,10 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req struct{ Password string }
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
 
 	configLock.RLock()
 	err := bcrypt.CompareHashAndPassword([]byte(config.PasswordHash), []byte(req.Password))
@@ -249,7 +259,10 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		Current  string `json:"current"`
 		New      string `json:"new"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
 
 	configLock.Lock()
 	defer configLock.Unlock()
@@ -264,7 +277,11 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash, _ := bcrypt.GenerateFromPassword([]byte(req.New), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.New), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Error secure hashing", http.StatusInternalServerError)
+		return
+	}
 	config.PasswordHash = string(hash)
 	saveConfigNoLock()
 	
