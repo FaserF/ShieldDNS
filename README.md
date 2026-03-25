@@ -8,8 +8,8 @@ It features a premium **Admin Dashboard** for real-time monitoring and a powerfu
 
 ## 🚀 Key Features
 
-- 🔒 **Full Dual Support**: Natively supports both **DNS-over-TLS (DoT)** (port 853) and **DNS-over-HTTPS (DoH)** (port 443) with high-efficiency processing.
-- 📊 **Admin Dashboard**: Premium web UI for real-time statistics and configuration.
+- 🔒 **Unified Secure Access**: Support for **DNS-over-TLS (DoT)** (port 853) and **DNS-over-HTTPS (DoH)** (port 443).
+- 📊 **Unified Dashboard**: Access the **Admin Dashboard** and **DoH** on the same standard HTTPS port (443).
 - 🛡️ **DNS Filtering**: Integrated engine for blocklists with automatic updates and deduplication.
 - ⚡ **High Performance**: Built on CoreDNS and Go for maximum efficiency.
 - 🔐 **Secure Access**: Mandatory password protection (bcrypt) for the Admin UI.
@@ -25,8 +25,7 @@ services:
     image: ghcr.io/faserf/shielddns:latest
     ports:
       - "853:853/tcp"    # DoT
-      - "443:443/tcp"    # DoH
-      - "8080:8080/tcp"  # Admin Dashboard
+      - "443:443/tcp"    # DoH & Admin Dashboard
     environment:
       - UPSTREAM_DNS=1.1.1.1, 8.8.8.8
       - LOG_LEVEL=info # debug, info, error
@@ -39,7 +38,7 @@ services:
 
 ## 🖥️ Admin Dashboard
 
-Access the dashboard at `http://YOUR_SERVER_IP:8080`.
+Access the dashboard at `https://YOUR_SERVER_IP/`.
 
 ### 🛡️ Setup Wizard
 On your first visit, a multi-step setup wizard will guide you through:

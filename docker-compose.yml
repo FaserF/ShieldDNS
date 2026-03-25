@@ -3,7 +3,10 @@ services:
     build: .
     image: shielddns:test
     ports:
-      - "853:853"
+      - "53:53/udp"
+      - "53:53/tcp"
+      - "853:853/tcp"
+      - "443:443/tcp"
     environment:
       - UPSTREAM_DNS=1.1.1.1
       - CERT_FILE=/certs/server.crt
