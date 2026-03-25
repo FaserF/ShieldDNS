@@ -13,10 +13,7 @@ RUN GOOS=linux GOARCH=$TARGETARCH go build -o shielddns-admin main.go
 FROM alpine:latest
 
 # Install dependencies
-# jq: needed for parsing HA Addon options
-# bind-tools: gives us 'dig'/'kdig'
-# ca-certificates: needed for TLS
-RUN apk add --no-cache jq ca-certificates bash curl nginx
+RUN apk add --no-cache jq ca-certificates bash curl nginx dos2unix
 
 # Create web root and required directories
 RUN mkdir -p /var/www/html /run/nginx
@@ -36,7 +33,7 @@ EXPOSE 53/udp 53/tcp 443/tcp 853/tcp
 
 # Copy the entrypoint script
 COPY run.sh /run.sh
-RUN chmod +x /run.sh
+RUN dos2unix /run.sh && chmod +x /run.sh
 
-# The entrypoint will generate the Corefile based on env vars
-ENTRYPOINT ["/run.sh"]
+# The entrypoint will explicitly call bash to avoid shebang issues
+ENTRYPOINT ["/bin/bash", "/run.sh"]

@@ -4,18 +4,18 @@
     "config:recommended",
     ":separateMajorReleases",
     ":pinAllExceptPeerDependencies",
-    "docker:pin-digest"
+    "docker:pin-digest",
+    "helpers:pinGitHubActionDigests"
   ],
   "packageRules": [
     {
       "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": "!/^0/",
       "automerge": true
     },
     {
       "matchManagers": ["gomod"],
-      "matchPackageNames": ["go"],
-      "enabled": true
+      "postUpdateOptions": ["gomodTidy"]
     }
-  ],
-  "postUpdateOptions": ["gomodTidy"]
+  ]
 }
