@@ -1,15 +1,16 @@
 services:
   shielddns:
     build: .
-    image: shielddns:test
+    image: ghcr.io/faserf/shielddns:latest
+    restart: unless-stopped
     ports:
       - "53:53/udp"
       - "53:53/tcp"
       - "853:853/tcp"
       - "443:443/tcp"
     environment:
-      - UPSTREAM_DNS=1.1.1.1
-      - CERT_FILE=/certs/server.crt
-      - KEY_FILE=/certs/server.key
+      - UPSTREAM_DNS=1.1.1.1 8.8.8.8
+      - CERT_FILE=/certs/fullchain.pem
+      - KEY_FILE=/certs/privkey.pem
     volumes:
-      - ./certs:/certs
+      - ./certs:/certs:ro
