@@ -113,7 +113,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const initializeApp = () => {
         fetchStats();
         fetchConfig();
+        fetchPresets();
         setInterval(fetchStats, 10000);
+    };
+
+    const fetchPresets = async () => {
+        try {
+            const resp = await fetch('/api/presets');
+            const presets = await resp.json();
+            renderPresets(presets);
+        } catch (e) {
+            console.error('Failed to fetch presets', e);
+        }
+    };
+
+    const renderPresets = (presets) => {
+        const container = document.getElementById('preset-items');
+        container.innerHTML = '';
+        presets.forEach(preset => {
+            const card = document.createElement('div');
+            card.className = 'preset-card';
+            card.innerHTML = `
+                <div class="preset-info">
+                    <h3>${preset.name}</h3>
+                </div>
+                <button class="btn secondary" onclick="addPreset('${preset.name}', '${preset.url}')">Add</button>
+            `;
+            container.appendChild(card);
+        });
+    };
+
+    window.addPreset = (name, url) => {
+        if (currentConfig.lists.some(l => l.url === url)) {
+            alert('This list is already added.');
+            return;
+        }
+        currentConfig.lists.push({ name, url, enabled: true });
+        saveConfig();
+        renderConfig();
     };
 
     // Navigation logic

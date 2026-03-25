@@ -57,14 +57,25 @@
                 </div>
             </section>
 
-            <!-- Filtering Lists View -->
             <section id="lists" class="view hidden">
                 <header>
                     <h1>Filtering Lists</h1>
-                    <button id="add-list-btn" class="btn primary">Add New List</button>
+                    <button id="add-list-btn" class="btn primary">Add Custom List</button>
                 </header>
-                <div class="list-container" id="list-items">
-                    <!-- Lists will be injected here -->
+                
+                <div class="list-section">
+                    <h2>Your Active Lists</h2>
+                    <div class="list-container" id="list-items">
+                        <!-- Lists will be injected here -->
+                    </div>
+                </div>
+
+                <div class="list-section">
+                    <h2>Suggested Presets</h2>
+                    <p class="help">One-click activation for popular blocklists</p>
+                    <div class="presets-grid" id="preset-items">
+                        <!-- Presets will be injected here -->
+                    </div>
                 </div>
             </section>
 

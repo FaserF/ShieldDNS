@@ -67,6 +67,7 @@ func main() {
 	http.HandleFunc("/api/setup", handleSetup)
 	http.HandleFunc("/api/login", handleLogin)
 	http.HandleFunc("/api/logout", handleLogout)
+	http.HandleFunc("/api/presets", handlePresets)
 
 	// Protected API
 	http.Handle("/api/stats", authMiddleware(http.HandlerFunc(handleStats)))
@@ -196,6 +197,18 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 		MaxAge: -1,
 	})
 	w.WriteHeader(http.StatusOK)
+}
+
+func handlePresets(w http.ResponseWriter, r *http.Request) {
+	presets := []List{
+		{Name: "OISD Basic", URL: "https://big.oisd.nl", Enabled: true},
+		{Name: "Hagezi Multi Light", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt", Enabled: true},
+		{Name: "Steven Black Basic", URL: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", Enabled: true},
+		{Name: "AdGuard Tracking Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_3.txt", Enabled: true},
+		{Name: "uBlock Origin List", URL: "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt", Enabled: true},
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(presets)
 }
 
 func handleChangePassword(w http.ResponseWriter, r *http.Request) {
