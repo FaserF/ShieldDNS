@@ -357,3 +357,20 @@ window.toggleList = async (index) => {
 window.removeList = async (index) => {
     // Implementation needed
 };
+
+window.copyText = (id) => {
+    const input = document.getElementById(id);
+    input.select();
+    document.execCommand('copy');
+    const btn = input.nextElementSibling;
+    const originalText = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = originalText, 2000);
+};
+
+// Auto-fill copy inputs based on current location
+document.addEventListener('DOMContentLoaded', () => {
+    const host = window.location.hostname;
+    document.getElementById('copy-dot').value = host;
+    document.getElementById('copy-doh').value = `https://${host}/dns-query`;
+});

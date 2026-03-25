@@ -349,6 +349,93 @@ h1 {
     color: var(--danger);
 }
 
+.protection-status-card {
+    background: linear-gradient(135deg, rgba(92, 107, 192, 0.2) 0%, rgba(92, 107, 192, 0.05) 100%);
+    padding: 32px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+}
+
+.status-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.status-icon-wrapper {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--success);
+    color: white;
+}
+
+.status-icon-wrapper svg {
+    width: 32px;
+    height: 32px;
+}
+
+.status-text h2 {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+}
+
+.status-text p {
+    color: var(--text-secondary);
+}
+
+.quick-copy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.copy-box label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.copy-input {
+    display: flex;
+    gap: 8px;
+}
+
+.copy-input input {
+    flex-grow: 1;
+    background-color: rgba(0,0,0,0.2);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.copy-btn {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 0 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.copy-btn:hover {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+
 .list-section {
     margin-bottom: 48px;
 }

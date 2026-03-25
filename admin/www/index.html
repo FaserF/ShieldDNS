@@ -31,8 +31,38 @@
             <section id="dashboard" class="view">
                 <header>
                     <h1>Dashboard</h1>
-                    <button id="refresh-btn" class="btn secondary">Manual Update</button>
+                    <div class="header-actions">
+                        <button id="refresh-btn" class="btn secondary">Manual Update</button>
+                    </div>
                 </header>
+
+                <div class="protection-status-card">
+                    <div class="status-header">
+                        <div class="status-icon-wrapper protected" id="status-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div class="status-text">
+                            <h2 id="status-title">ShieldDNS is Active</h2>
+                            <p id="status-desc">Your requests are being filtered and secured.</p>
+                        </div>
+                    </div>
+                    <div class="quick-copy-grid">
+                        <div class="copy-box">
+                            <label>DoT Hostname (Android)</label>
+                            <div class="copy-input">
+                                <input type="text" id="copy-dot" readonly value="dns.example.com">
+                                <button class="copy-btn" onclick="copyText('copy-dot')">Copy</button>
+                            </div>
+                        </div>
+                        <div class="copy-box">
+                            <label>DoH URL (Windows/iOS/Browser)</label>
+                            <div class="copy-input">
+                                <input type="text" id="copy-doh" readonly value="https://dns.example.com/dns-query">
+                                <button class="copy-btn" onclick="copyText('copy-doh')">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="stats-grid">
                     <div class="stat-card">
