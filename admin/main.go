@@ -61,7 +61,7 @@ var (
 	queryLock      sync.RWMutex
 	history        [24]HourStats
 	historyLock    sync.RWMutex
-	Version        = "v0.0.0-dev"
+	Version        = "v1.0.0"
 )
 
 const (
