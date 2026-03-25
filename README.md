@@ -24,6 +24,8 @@ services:
   shielddns:
     image: ghcr.io/faserf/shielddns:latest
     ports:
+      - "53:53/udp"      # DNS (UDP)
+      - "53:53/tcp"      # DNS (TCP)
       - "853:853/tcp"    # DoT
       - "443:443/tcp"    # DoH & Admin Dashboard
     environment:
@@ -34,7 +36,60 @@ services:
     volumes:
       - ./certs:/certs
       - ./data:/etc/shielddns # Persistent config and stats
+
+## 🛠️ Troubleshooting
+
+### Port 53 already in use
+On many Linux systems (like Ubuntu), `systemd-resolved` uses port 53 by default. To use ShieldDNS, you must disable the stub listener on your host:
+
+1. Edit `/etc/systemd/resolved.conf` and set `DNSStubListener=no`.
+2. Run `sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf`.
+3. Restart the service: `sudo systemctl restart systemd-resolved`.
+
+### Oracle Cloud VM (OCI) - Ubuntu 24.04
+Oracle Cloud VMs have multiple layers of firewalls. For 2026, the recommended approach is as follows:
+
+#### 1. OCI Console (Network Security)
+The fastest way to navigate the OCI Console is using the **Search Bar** at the top. Search for **"Network Security Groups"** or **"Security Lists"**.
+
+**Option A: Network Security Group (Recommended)**
+1. Search for **Network Security Groups** and select your VCN's group.
+2. Add **Security Rules**:
+   - **Ingress**, Protocol: **UDP**, Port: **53** (DNS)
+   - **Ingress**, Protocol: **TCP**, Port: **53, 443, 853**
+
+**Option B: Security Lists**
+1. Navigate to **Networking > Virtual Cloud Networks > [Your VCN] > Security Lists**.
+2. Add **Ingress Rules** (Stateless: No) for the ports mentioned above.
+
+#### 2. Host Firewall (iptables)
+OCI's Ubuntu images block all traffic by default. You **must** run these commands on the VM:
+```bash
+# Allow DNS (UDP/TCP), DoH/Admin (443), and DoT (853)
+sudo iptables -I INPUT -p udp --dport 53 -j ACCEPT
+sudo iptables -I INPUT -p tcp -m multiport --dports 53,443,853 -j ACCEPT
+
+# Save the rules so they survive a reboot
+sudo netfilter-persistent save
 ```
+
+## 🛡️ Default Blocklists
+
+ShieldDNS comes pre-configured with several industry-standard blocklists to provide immediate protection. You can enable, disable, or add custom lists via the Admin Dashboard.
+
+### Out-of-the-box Protection (Enabled by Default)
+- **AdGuard DNS Filter**: Comprehensive protection against ads and tracking.
+- **AdAway Default**: Mobile-focused ad and malware blocking.
+- **Peter Lowe's List**: A long-standing, curated list of ad and tracking servers.
+
+### Available Presets (One-click Activation)
+The Admin UI provides an extensive **Catalog of 20+ premium presets**, including:
+- **Hagezi**: TIF (Threat Intelligence), Multi (Light to Ultimate tiers), Gambling, and Fake Stores.
+- **OISD**: Basic and Full lists.
+- **AdGuard & uBlock**: Specialized Tracking, Social Media, Annoyances, and uBlock Origin filters.
+- **Steven Black**: Unified + Porn/Gambling/FakeNews variants.
+- **1Hosts**: Lite and Pro tiers.
+- **Specialized**: Phishing Database, Game Console Adblock, and Hacked Site lists.
 
 ## 🖥️ Admin Dashboard
 

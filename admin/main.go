@@ -244,11 +244,35 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 
 func handlePresets(w http.ResponseWriter, r *http.Request) {
 	presets := []List{
+		// --- Hagezi ---
+		{Name: "Hagezi Multi (Light)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt", Enabled: true},
+		{Name: "Hagezi Multi (Normal)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/multi.txt", Enabled: true},
+		{Name: "Hagezi Multi (Pro)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.txt", Enabled: true},
+		{Name: "Hagezi Multi (Pro++)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.plus.txt", Enabled: true},
+		{Name: "Hagezi Multi (Ultimate)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/ultimate.txt", Enabled: true},
+		{Name: "Hagezi TIF (Threat Intelligence)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/tif.txt", Enabled: true},
+		{Name: "Hagezi Gambling", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/gambling.txt", Enabled: true},
+		{Name: "Hagezi Fake (Fake Stores/Malware)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/fake.txt", Enabled: true},
+		// --- OISD ---
 		{Name: "OISD Basic", URL: "https://big.oisd.nl", Enabled: true},
-		{Name: "Hagezi Multi Light", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt", Enabled: true},
-		{Name: "Steven Black Basic", URL: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", Enabled: true},
-		{Name: "AdGuard Tracking Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_3.txt", Enabled: true},
-		{Name: "uBlock Origin List", URL: "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt", Enabled: true},
+		{Name: "OISD Full", URL: "https://small.oisd.nl", Enabled: true},
+		// --- AdGuard ---
+		{Name: "AdGuard DNS Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt", Enabled: true},
+		{Name: "AdGuard Tracking Protection", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_3.txt", Enabled: true},
+		{Name: "AdGuard Social Media Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_4.txt", Enabled: true},
+		{Name: "AdGuard Annoyances Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt", Enabled: true},
+		// --- Steven Black ---
+		{Name: "Steven Black Unified", URL: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", Enabled: true},
+		{Name: "Steven Black (Porn/Gambling/FakeNews)", URL: "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn/hosts", Enabled: true},
+		// --- 1Hosts ---
+		{Name: "1Hosts (Lite)", URL: "https://raw.githubusercontent.com/badmojr/1Hosts/master/Lite/hosts.txt", Enabled: true},
+		{Name: "1Hosts (Pro)", URL: "https://raw.githubusercontent.com/badmojr/1Hosts/master/Pro/hosts.txt", Enabled: true},
+		{Name: "uBlock Origin Filter List", URL: "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt", Enabled: true},
+		// --- Specialized ---
+		{Name: "Phishing.Database (Phishing Domains)", URL: "https://raw.githubusercontent.com/mitchellkrogza/Phishing.Database/master/phishing-domains-active.txt", Enabled: true},
+		{Name: "Dandelion Sprout's Game Console List", URL: "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/GameConsoleAdblockList.txt", Enabled: true},
+		{Name: "Lightswitch05 (Ads & Tracking Extended)", URL: "https://raw.githubusercontent.com/lightswitch05/hosts/master/ads-and-tracking-extended.txt", Enabled: true},
+		{Name: "The Big List of Hacked Sites", URL: "https://raw.githubusercontent.com/mitchellkrogza/The-Big-List-of-Hacked-Malware-Web-Sites/master/hacked-domains.txt", Enabled: true},
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(presets)
@@ -383,12 +407,23 @@ func updateBlocklist() {
 		}
 		resp, err := http.Get(list.URL)
 		if err != nil {
-			log.Printf("Error fetching %s: %v", list.Name, err)
+			log.Printf("⚠️  WARNING: Could not fetch %s (%s): %v. Skipping...", list.Name, list.URL, err)
 			continue
 		}
-		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("⚠️  WARNING: %s returned status %d. Skipping...", list.Name, resp.StatusCode)
+			resp.Body.Close()
+			continue
+		}
 
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close() // Close immediately to avoid leaks
+		if err != nil {
+			log.Printf("⚠️  WARNING: Error reading body of %s: %v. Skipping...", list.Name, err)
+			continue
+		}
+
 		lines := strings.Split(string(body), "\n")
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
