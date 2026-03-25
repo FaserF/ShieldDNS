@@ -6,6 +6,7 @@
     <title>ShieldDNS Admin</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="dark">
     <div class="app-container">
@@ -46,6 +47,13 @@
                         <label>Blocking Ratio</label>
                         <div class="value" id="stat-ratio">- %</div>
                     </div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h2>Traffic Overview (Last 24h)</h2>
+                    </div>
+                    <canvas id="traffic-chart"></canvas>
                 </div>
 
                 <div class="query-log-container">

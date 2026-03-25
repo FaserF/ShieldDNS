@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginView = document.getElementById('login-view');
 
     let currentConfig = { upstreams: [], lists: [] };
+    let trafficChart = null;
 
     // --- Authentication Logic ---
 
@@ -115,8 +116,75 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchConfig();
         fetchPresets();
         fetchQueries();
+        fetchHistory();
         setInterval(fetchStats, 10000);
         setInterval(fetchQueries, 5000);
+        setInterval(fetchHistory, 60000); // Chart once a minute
+    };
+
+    const fetchHistory = async () => {
+        try {
+            const resp = await fetch('/api/history');
+            if (resp.status === 401) return;
+            const data = await resp.json();
+            renderChart(data);
+        } catch (e) {
+            console.error('Failed to fetch history', e);
+        }
+    };
+
+    const renderChart = (data) => {
+        const ctx = document.getElementById('traffic-chart').getContext('2d');
+        const labels = Array.from({ length: 24 }, (_, i) => {
+            const h = (new Date().getHours() - 23 + i + 24) % 24;
+            return `${h}:00`;
+        });
+
+        const totals = data.map(d => d.total);
+        const blocked = data.map(d => d.blocked);
+
+        if (trafficChart) {
+            trafficChart.data.datasets[0].data = totals;
+            trafficChart.data.datasets[1].data = blocked;
+            trafficChart.update();
+            return;
+        }
+
+        trafficChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Total Queries',
+                        data: totals,
+                        borderColor: '#5c6bc0',
+                        backgroundColor: 'rgba(92, 107, 192, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Blocked',
+                        data: blocked,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                }
+            }
+        });
     };
 
     const fetchQueries = async () => {

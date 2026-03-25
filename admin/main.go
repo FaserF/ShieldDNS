@@ -36,14 +36,30 @@ type Stats struct {
 	BlockedQueries int64 `json:"blocked_queries"`
 }
 
+type Query struct {
+	Time   time.Time `json:"time"`
+	Domain string    `json:"domain"`
+	Type   string    `json:"type"`
+	Status string    `json:"status"` // "Allowed" or "Blocked"
+}
+
+type HourStats struct {
+	Total   int64 `json:"total"`
+	Blocked int64 `json:"blocked"`
+}
+
 var (
-	config       Config
-	configLock   sync.RWMutex
-	stats        Stats
-	statsLock    sync.RWMutex
-	dnsCmd       *exec.Cmd
-	sessionToken string
-	sessionLock  sync.RWMutex
+	config         Config
+	configLock     sync.RWMutex
+	stats          Stats
+	statsLock      sync.RWMutex
+	dnsCmd         *exec.Cmd
+	sessionToken   string
+	sessionLock    sync.RWMutex
+	recentQueries  []Query
+	queryLock      sync.RWMutex
+	history        [24]HourStats
+	historyLock    sync.RWMutex
 )
 
 const (
@@ -58,6 +74,18 @@ func main() {
 
 	// Start background updater
 	go startBackgroundUpdater()
+
+	// Start history cleaner
+	go func() {
+		for {
+			now := time.Now()
+			next := now.Truncate(time.Hour).Add(time.Hour)
+			time.Sleep(time.Until(next))
+			historyLock.Lock()
+			history[time.Now().Hour()] = HourStats{}
+			historyLock.Unlock()
+		}
+	}()
 
 	// Start CoreDNS management
 	go startCoreDNS()
@@ -74,6 +102,7 @@ func main() {
 	http.Handle("/api/config", authMiddleware(http.HandlerFunc(handleConfig)))
 	http.Handle("/api/refresh", authMiddleware(http.HandlerFunc(handleRefresh)))
 	http.Handle("/api/queries", authMiddleware(http.HandlerFunc(handleQueries)))
+	http.Handle("/api/history", authMiddleware(http.HandlerFunc(handleHistory)))
 	http.Handle("/api/change-password", authMiddleware(http.HandlerFunc(handleChangePassword)))
 
 	// Static Files
@@ -434,8 +463,22 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(recentQueries)
 }
 
+func handleHistory(w http.ResponseWriter, r *http.Request) {
+	historyLock.RLock()
+	defer historyLock.RUnlock()
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Shift history so current hour is last
+	hour := time.Now().Hour()
+	var result [24]HourStats
+	for i := 0; i < 24; i++ {
+		result[i] = history[(hour+1+i)%24]
+	}
+	json.NewEncoder(w).Encode(result)
+}
+
 func parseLogLine(line string) {
-	// Example: [INFO] [::1]:53 - 1 "A IN google.com. udp 45 false 512" NOERROR qr,rd,ra 68 0.000188613s
+	// ... (no changes to start)
 	if !strings.Contains(line, " \"") {
 		return
 	}
@@ -444,7 +487,7 @@ func parseLogLine(line string) {
 	if len(parts) < 2 {
 		return
 	}
-	queryPart := parts[1] // "A IN google.com. udp 45 false 512"
+	queryPart := parts[1]
 	queryFields := strings.Fields(queryPart)
 	if len(queryFields) < 3 {
 		return
@@ -460,6 +503,15 @@ func parseLogLine(line string) {
 		stats.BlockedQueries++
 	}
 	statsLock.Unlock()
+
+	// Update History
+	hour := time.Now().Hour()
+	historyLock.Lock()
+	history[hour].Total++
+	if isBlocked {
+		history[hour].Blocked++
+	}
+	historyLock.Unlock()
 
 	status := "Allowed"
 	if isBlocked {
