@@ -13,7 +13,7 @@ RUN GOOS=linux GOARCH=$TARGETARCH go build -o shielddns-admin main.go
 FROM alpine:latest
 
 # Install dependencies
-RUN apk add --no-cache jq ca-certificates bash curl nginx dos2unix
+RUN apk add --no-cache jq ca-certificates bash curl nginx dos2unix openssl
 
 # Create web root and required directories
 RUN mkdir -p /var/www/html /run/nginx

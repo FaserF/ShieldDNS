@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 # shellcheck disable=SC1091
 # shellcheck shell=bash
 
@@ -42,6 +42,29 @@ else
     DOH_PORT=${DOH_PORT:-443}
     FALLBACK_DNS_ENABLED=${FALLBACK_DNS_ENABLED:-"false"}
     FALLBACK_DNS_SERVER=${FALLBACK_DNS_SERVER:-"1.1.1.1"}
+fi
+
+# ------------------------------------------------------------------------------
+# 1.5. SSL Fallback Check
+# ------------------------------------------------------------------------------
+if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
+    echo "⚠️  WARNING: SSL Certificates not found at ${CERT_FILE} or ${KEY_FILE}!"
+    echo "⚙️  Generating self-signed fallback certificate..."
+    
+    mkdir -p /etc/shielddns/ssl
+    FALLBACK_CERT="/etc/shielddns/ssl/selfsigned.crt"
+    FALLBACK_KEY="/etc/shielddns/ssl/selfsigned.key"
+    
+    if [ ! -f "$FALLBACK_CERT" ]; then
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout "$FALLBACK_KEY" -out "$FALLBACK_CERT" \
+            -subj "/C=DE/ST=ShieldDNS/L=ShieldDNS/O=ShieldDNS/OU=ShieldDNS/CN=shielddns.local" \
+            2>/dev/null
+    fi
+    
+    CERT_FILE="$FALLBACK_CERT"
+    KEY_FILE="$FALLBACK_KEY"
+    echo "✅  ShieldDNS will continue with self-signed certificates (Insecure)."
 fi
 
 # ------------------------------------------------------------------------------
@@ -103,7 +126,7 @@ server {
 }
 EOF
 
-nginx &
+nginx -g 'daemon off;' &
 NGINX_PID=$!
 
 # ------------------------------------------------------------------------------
