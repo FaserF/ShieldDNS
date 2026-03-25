@@ -114,7 +114,36 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchStats();
         fetchConfig();
         fetchPresets();
+        fetchQueries();
         setInterval(fetchStats, 10000);
+        setInterval(fetchQueries, 5000);
+    };
+
+    const fetchQueries = async () => {
+        try {
+            const resp = await fetch('/api/queries');
+            if (resp.status === 401) return;
+            const queries = await resp.json();
+            renderQueries(queries);
+        } catch (e) {
+            console.error('Failed to fetch queries', e);
+        }
+    };
+
+    const renderQueries = (queries) => {
+        const container = document.getElementById('query-log-items');
+        container.innerHTML = '';
+        queries.forEach(q => {
+            const row = document.createElement('tr');
+            const time = new Date(q.time).toLocaleTimeString();
+            row.innerHTML = `
+                <td>${time}</td>
+                <td>${q.domain}</td>
+                <td>${q.type}</td>
+                <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
+            `;
+            container.appendChild(row);
+        });
     };
 
     const fetchPresets = async () => {

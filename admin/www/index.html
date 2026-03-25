@@ -48,12 +48,23 @@
                     </div>
                 </div>
 
-                <div class="chart-container">
-                    <!-- Placeholder for a real chart script if added later -->
+                <div class="query-log-container">
                     <div class="chart-header">
-                        <h2>Traffic Overview</h2>
+                        <h2>Live Query Log</h2>
                     </div>
-                    <div class="mock-chart"></div>
+                    <table class="query-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Domain</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="query-log-items">
+                            <!-- Queries will be injected here -->
+                        </tbody>
+                    </table>
                 </div>
             </section>
 

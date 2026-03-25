@@ -73,6 +73,7 @@ func main() {
 	http.Handle("/api/stats", authMiddleware(http.HandlerFunc(handleStats)))
 	http.Handle("/api/config", authMiddleware(http.HandlerFunc(handleConfig)))
 	http.Handle("/api/refresh", authMiddleware(http.HandlerFunc(handleRefresh)))
+	http.Handle("/api/queries", authMiddleware(http.HandlerFunc(handleQueries)))
 	http.Handle("/api/change-password", authMiddleware(http.HandlerFunc(handleChangePassword)))
 
 	// Static Files
@@ -426,16 +427,54 @@ func startCoreDNS() {
 	}
 }
 
+func handleQueries(w http.ResponseWriter, r *http.Request) {
+	queryLock.RLock()
+	defer queryLock.RUnlock()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(recentQueries)
+}
+
 func parseLogLine(line string) {
+	// Example: [INFO] [::1]:53 - 1 "A IN google.com. udp 45 false 512" NOERROR qr,rd,ra 68 0.000188613s
 	if !strings.Contains(line, " \"") {
 		return
 	}
 
-	statsLock.Lock()
-	defer statsLock.Unlock()
-	stats.TotalQueries++
+	parts := strings.Split(line, "\"")
+	if len(parts) < 2 {
+		return
+	}
+	queryPart := parts[1] // "A IN google.com. udp 45 false 512"
+	queryFields := strings.Fields(queryPart)
+	if len(queryFields) < 3 {
+		return
+	}
 
-	if strings.Contains(line, "qr,aa") {
+	qType := queryFields[0]
+	qDomain := strings.TrimSuffix(queryFields[2], ".")
+	isBlocked := strings.Contains(line, "qr,aa")
+
+	statsLock.Lock()
+	stats.TotalQueries++
+	if isBlocked {
 		stats.BlockedQueries++
 	}
+	statsLock.Unlock()
+
+	status := "Allowed"
+	if isBlocked {
+		status = "Blocked"
+	}
+
+	queryLock.Lock()
+	recentQueries = append([]Query{{
+		Time:   time.Now(),
+		Domain: qDomain,
+		Type:   qType,
+		Status: status,
+	}}, recentQueries...)
+	if len(recentQueries) > 100 {
+		recentQueries = recentQueries[:100]
+	}
+	queryLock.Unlock()
 }
