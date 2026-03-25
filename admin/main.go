@@ -103,6 +103,7 @@ func main() {
 	http.Handle("/api/refresh", authMiddleware(http.HandlerFunc(handleRefresh)))
 	http.Handle("/api/queries", authMiddleware(http.HandlerFunc(handleQueries)))
 	http.Handle("/api/history", authMiddleware(http.HandlerFunc(handleHistory)))
+	http.Handle("/api/search", authMiddleware(http.HandlerFunc(handleSearch)))
 	http.Handle("/api/change-password", authMiddleware(http.HandlerFunc(handleChangePassword)))
 
 	// Static Files
@@ -475,6 +476,33 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 		result[i] = history[(hour+1+i)%24]
 	}
 	json.NewEncoder(w).Encode(result)
+}
+
+func handleSearch(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		http.Error(w, "Query required", http.StatusBadRequest)
+		return
+	}
+
+	searchStr := fmt.Sprintf(" %s", query)
+	file, err := os.Open(BlocklistPath)
+	if err != nil {
+		http.Error(w, "Blocklist not found", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	found := false
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), searchStr) {
+			found = true
+			break
+		}
+	}
+
+	json.NewEncoder(w).Encode(map[string]bool{"blocked": found})
 }
 
 func parseLogLine(line string) {

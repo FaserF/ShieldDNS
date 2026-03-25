@@ -473,6 +473,39 @@ h1 {
     margin-bottom: 4px;
 }
 
+.search-section {
+    margin-bottom: 32px;
+    padding: 24px;
+}
+
+.search-box {
+    display: flex;
+    gap: 12px;
+}
+
+.search-box input {
+    flex-grow: 1;
+    background-color: var(--sidebar-bg);
+}
+
+#search-result {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 600;
+}
+
+#search-result.blocked {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+}
+
+#search-result.allowed {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+}
+
 .wizard-steps {
     display: flex;
     justify-content: center;

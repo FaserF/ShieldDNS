@@ -404,6 +404,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    document.getElementById('search-btn')?.addEventListener('click', async () => {
+        const domain = document.getElementById('domain-search').value.trim();
+        if (!domain) return;
+
+        const resp = await fetch(`/api/search?q=${domain}`);
+        const data = await resp.json();
+        const result = document.getElementById('search-result');
+        result.classList.remove('hidden', 'blocked', 'allowed');
+        
+        if (data.blocked) {
+            result.textContent = `❌ ${domain} is CURRENTLY BLOCKED`;
+            result.classList.add('blocked');
+        } else {
+            result.textContent = `✅ ${domain} is NOT BLOCKED`;
+            result.classList.add('allowed');
+        }
+    });
+
     // Initial check
     checkAuthStatus();
 });
