@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShieldDNS Admin</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="dark">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <img src="/logo.png" alt="ShieldDNS">
+                <span>ShieldDNS</span>
+            </div>
+            <nav>
+                <a href="#" class="nav-item active" data-view="dashboard">Dashboard</a>
+                <a href="#" class="nav-item" data-view="lists">Filtering Lists</a>
+                <a href="#" class="nav-item" data-view="settings">Settings</a>
+            </nav>
+            <div class="status-indicator">
+                <div class="pulse"></div>
+                <span>CoreDNS Online</span>
+            </div>
+        </aside>
+
+        <main class="content">
+            <!-- Dashboard View -->
+            <section id="dashboard" class="view">
+                <header>
+                    <h1>Dashboard</h1>
+                    <button id="refresh-btn" class="btn secondary">Manual Update</button>
+                </header>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <label>Total Queries (24h)</label>
+                        <div class="value" id="stat-total">-</div>
+                    </div>
+                    <div class="stat-card blocked">
+                        <label>Blocked Queries</label>
+                        <div class="value" id="stat-blocked">-</div>
+                    </div>
+                    <div class="stat-card percentage">
+                        <label>Blocking Ratio</label>
+                        <div class="value" id="stat-ratio">- %</div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <!-- Placeholder for a real chart script if added later -->
+                    <div class="chart-header">
+                        <h2>Traffic Overview</h2>
+                    </div>
+                    <div class="mock-chart"></div>
+                </div>
+            </section>
+
+            <!-- Filtering Lists View -->
+            <section id="lists" class="view hidden">
+                <header>
+                    <h1>Filtering Lists</h1>
+                    <button id="add-list-btn" class="btn primary">Add New List</button>
+                </header>
+                <div class="list-container" id="list-items">
+                    <!-- Lists will be injected here -->
+                </div>
+            </section>
+
+            <!-- Settings View -->
+            <section id="settings" class="view hidden">
+                <header>
+                    <h1>Settings</h1>
+                </header>
+                <form id="settings-form">
+                    <div class="form-group">
+                        <label>Upstream DNS Servers</label>
+                        <p class="help">Comma separated IP addresses</p>
+                        <input type="text" id="upstreams-input" placeholder="1.1.1.1, 8.8.8.8">
+                    </div>
+                    <button type="submit" class="btn primary">Save Config</button>
+                </form>
+
+                <hr class="separator">
+
+                <div class="settings-section">
+                    <h2>Security</h2>
+                    <form id="password-form">
+                        <div class="form-group">
+                            <label>Current Password</label>
+                            <input type="password" id="current-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label>New Password (min 12 chars)</label>
+                            <input type="password" id="new-password" required minlength="12">
+                        </div>
+                        <button type="submit" class="btn secondary">Update Password</button>
+                    </form>
+                </div>
+
+                <div class="settings-section">
+                    <button id="logout-btn" class="btn danger">Logout</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Auth Overlay -->
+    <div id="auth-overlay" class="modal hidden">
+        <div class="modal-content auth-box">
+            <div id="setup-view" class="hidden">
+                <h2>Welcome to ShieldDNS</h2>
+                <p>Please set your administrative password to begin. (Min 12 characters)</p>
+                <div class="form-group">
+                    <input type="password" id="setup-password" placeholder="New Password" minlength="12">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="setup-confirm" placeholder="Confirm Password">
+                </div>
+                <button class="btn primary full-width" id="setup-confirm-btn">Create Admin Account</button>
+            </div>
+
+            <div id="login-view" class="hidden">
+                <h2>ShieldDNS Login</h2>
+                <p>Enter your password to access the dashboard.</p>
+                <div class="form-group">
+                    <input type="password" id="login-password" placeholder="Password">
+                </div>
+                <button class="btn primary full-width" id="login-confirm-btn">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding lists -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Add Blocklist</h2>
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="list-name" placeholder="AdGuard Base">
+            </div>
+            <div class="form-group">
+                <label>URL</label>
+                <input type="url" id="list-url" placeholder="https://...">
+            </div>
+            <div class="modal-actions">
+                <button class="btn secondary" id="modal-cancel">Cancel</button>
+                <button class="btn primary" id="modal-confirm">Add List</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

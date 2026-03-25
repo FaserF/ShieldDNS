@@ -2,17 +2,20 @@
 
 # ShieldDNS 🛡️
 
-**ShieldDNS** is a lightweight, efficient, and privacy-focused DNS-over-TLS (DoT) proxy.
+**ShieldDNS** is a high-performance, privacy-focused DNS solution supporting both **DNS-over-TLS (DoT)** and **DNS-over-HTTPS (DoH)**. 
 
-It enables you to securely accept DNS queries (e.g., Android Private DNS) and forward them to your local DNS server (AdGuard Home, Pi-hole) or public resolvers.
+It features a premium **Admin Dashboard** for real-time monitoring and a powerful **Filtering Engine** compatible with AdGuard, Pi-hole, and uBlock origin lists.
 
-## Features
-- 🔒 **DNS-over-TLS (DoT)**
-- 🌍 **DNS-over-HTTPS (DoH)**: Supported on port 443 (or custom).
-- 🚀 **High Performance**: Alpine + CoreDNS.
-- 🪵 **Flexible Logging**: Configurable log levels.
+## 🚀 Key Features
 
-## Usage
+- 🔒 **Dual Protocol Support**: Native support for **DoT** (port 853) and **DoH** (port 443).
+- 📊 **Admin Dashboard**: Premium web UI for real-time statistics and configuration.
+- 🛡️ **DNS Filtering**: Integrated engine for blocklists with automatic updates and deduplication.
+- ⚡ **High Performance**: Built on CoreDNS and Go for maximum efficiency.
+- 🔐 **Secure Access**: Mandatory password protection (bcrypt) for the Admin UI.
+- 📱 **Multi-Platform**: Perfect for Android Private DNS, iOS Profiles, and Windows 11.
+
+## 🛠️ Usage
 
 ### Docker Compose
 
@@ -21,79 +24,50 @@ services:
   shielddns:
     image: ghcr.io/faserf/shielddns:latest
     ports:
-      - "853:853"   # DoT
-      - "443:443"   # DoH
+      - "853:853/tcp"    # DoT
+      - "443:443/tcp"    # DoH
+      - "8080:8080/tcp"  # Admin Dashboard
     environment:
-      - UPSTREAM_DNS=1.1.1.1
-      - ENABLE_INFO_PAGE=true # Optional: Enable Info Page on DoH Port
+      - UPSTREAM_DNS=1.1.1.1, 8.8.8.8
       - LOG_LEVEL=info # debug, info, error
       - CERT_FILE=/certs/fullchain.pem
       - KEY_FILE=/certs/privkey.pem
     volumes:
       - ./certs:/certs
+      - ./data:/etc/shielddns # Persistent config and stats
 ```
 
-## Optional: Info Page
-You can enable a lightweight "Fancy" Info Page to display a professional landing page for your DNS endpoint.
-- **Why?** To inform visitors (or yourself) that this is a private DNS endpoint and not a public website.
-- **Enable**: Set `ENABLE_INFO_PAGE=true`.
-- **Port**: Default is `8080` (mapped in Docker).
+## 🖥️ Admin Dashboard
+
+Access the dashboard at `http://YOUR_SERVER_IP:8080`.
+- **Initial Setup**: On first access, you will be prompted to set a 12-character administrative password.
+- **Filtering**: Manage your blocklists (AdGuard, Pi-hole, etc.) directly from the UI.
+- **Stats**: View total queries, blocked requests, and blocking ratio in real-time.
+
+## 📱 Client Configuration
+
+### DoT (DNS-over-TLS) - Port 853
+- **Android**: Go to **Settings > Network > Private DNS** and enter `dns.example.com`.
+- **iOS/macOS**: Use the provided `.mobileconfig` template.
+
+### DoH (DNS-over-HTTPS) - Port 443
+- **Windows 11**: **Settings > Network > DNS settings > Edit**. Set DNS over HTTPS to "On (Manual)" and enter `https://dns.example.com/dns-query`.
+- **Browsers**: Enter `https://dns.example.com/dns-query` in your browser's "Secure DNS" settings.
 
 ## 🛡️ Security Best Practices
 
-Since you are exposing a DNS server to the public, you should secure it to prevent abuse (DNS Amplification, Scanning, DDoS).
-
-### 1. External Proxy / WAF (Recommended)
-You can use external solutions like **Cloudflare Tunnel** or a **Reverse Proxy** to add a layer of security. If using Cloudflare:
-- **WAF / Custom Rules**:
-    - **Block Countries**: Block all countries except your own.
-    - **Block Bots**: Enable "Bot Fight Mode" or block known bot User-Agents.
-- **Rate Limiting**: Set a Rate Limiting rule for your hostname (e.g. max 50 requests / 10 seconds per IP) to prevent flooding.
-
-### 2. General Firewalls
-If running with Direct Exposure:
-- **Whitelist IPs**: Only allow your own mobile IP ranges or specific networks if possible.
-- **Fail2Ban**: Monitor logs and ban abusive IPs (requires mounting logs to host).
-- **Limit Rates**: Use `iptables` or UFW to limit connection rates on port 853/443.
-
-### 3. Client Configuration
-- **Android**: Use strict Private DNS hostname. Android verifies the certificate chain.
-- **iOS**: Use a `.mobileconfig` that enforces HTTPS and specific SNI.
+Since you are exposing a DNS server to the public, you should secure it:
+1.  **Use a WAF**: Place a Reverse Proxy or Cloudflare Tunnel in front of your DoH endpoint.
+2.  **Firewall**: Whitelist your mobile IP ranges for port 853 if possible.
+3.  **Password**: Use a strong, unique password for the Admin UI (min 12 chars).
 
 ## 💡 Concepts & Protocols
 
-To use ShieldDNS effectively, it helps to understand the protocols:
+| Protocol | Port | Port (TCP) | Description | Support |
+| :--- | :--- | :--- | :--- | :--- |
+| **DoT** | `853` | Dedicated secure DNS port. | **Native** (Android Private DNS). |
+| **DoH** | `443` | Standard HTTPS web port. | **Native** (Windows 11, iOS, Browsers). |
 
-| Protocol | Port | Description | Android Support |
-| :--- | :--- | :--- | :--- |
-| **DoT (DNS-over-TLS)** | `853` (TCP) | Uses a dedicated secure port. | **Native Support**. Used by "Private DNS" setting. |
-| **DoH (DNS-over-HTTPS)** | `443` (TCP) | Uses standard HTTPS web port. | **Native Support** (newer) or via App/Profile. |
-
-## Setup Guide
-
-### 1. Requirements
-1.  A **Public Domain** (e.g., `dns.example.com`).
-2.  A **Valid SSL Certificate** for that domain.
-    *   **Android Private DNS** checks for a valid chain (Let's Encrypt or similar).
-
-### 2. Client Configuration
-
-#### 📱 Android (Samsung / Pixel / etc.)
-1.  Go to **Settings > Network > Private DNS**.
-2.  Enter: `dns.example.com`.
-
-#### 🍎 iOS (iPhone / iPad)
-iOS supports native encrypted DNS via **Configuration Profiles**.
-1.  **Download Template**: Get the [mobileconfig-template.mobileconfig](./mobileconfig-template.mobileconfig) file from this repository.
-2.  **Edit**: Open it with a text editor and replace `REPLACE_ME_DOMAIN` with your domain (e.g. `dns.example.com`).
-3.  **Install**: Email/AirDrop file to device -> **Settings > Profile Downloaded** -> Install.
-
-#### 💻 Windows 11
-1.  **Settings > Network > Ethernet/Wi-Fi > DNS settings > Edit**.
-2.  Set IPv4 DNS to `127.0.0.1` (dummy) or actual server IP.
-3.  Set **DNS over HTTPS** to **On (Manual)**.
-4.  Template: `https://dns.example.com/dns-query`.
-
-## Home Assistant Addon
-This project is also available as a Home Assistant Addon.
-[View on GitHub](https://github.com/FaserF/hassio-addons/tree/master/ShieldDNS)
+## 🏠 Home Assistant Addon
+ShieldDNS is available as an official Home Assistant Addon, featuring full **Ingress** support for the Admin Dashboard.
+[View Addon Repo](https://github.com/FaserF/hassio-addons/tree/master/ShieldDNS)

@@ -1,6 +1,12 @@
 # Stage 1: Get CoreDNS binary
 FROM coredns/coredns:1.14.2 AS binary
 
+# Stage 2: Build Admin UI Backend
+FROM golang:1.24-alpine AS admin-build
+WORKDIR /app
+COPY admin/ .
+RUN go build -o shielddns-admin main.go
+
 # Stage 3: Runtime Image
 FROM alpine:latest
 
@@ -14,14 +20,17 @@ RUN apk add --no-cache jq ca-certificates bash curl nginx
 RUN mkdir -p /var/www/html /run/nginx
 
 # Copy Web Assets
-COPY www/index.html /var/www/html/index.html
-COPY logo.png /var/www/html/logo.png
+COPY admin/www /var/www/admin
+COPY logo.png /var/www/admin/logo.png
 
 # Copy CoreDNS binary
 COPY --from=binary /coredns /usr/bin/coredns
 
-# Expose DoT port
-EXPOSE 853
+# Copy Admin binary
+COPY --from=admin-build /app/shielddns-admin /usr/bin/shielddns-admin
+
+# Expose ports
+EXPOSE 53/udp 53/tcp 8080/tcp
 
 # Copy the entrypoint script
 COPY run.sh /run.sh

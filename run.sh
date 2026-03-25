@@ -177,28 +177,43 @@ https://.:$ACTUAL_COREDNS_PORT {
 EOF
 fi
 
-# Start CoreDNS
-echo "🚀 Starting CoreDNS..."
-# Exec CoreDNS.
-# Check if we have background processes to monitor (Nginx)
-if [ -n "$NGINX_PID" ]; then
+# ------------------------------------------------------------------------------
+# ShieldDNS Admin & CoreDNS Execution
+# ------------------------------------------------------------------------------
 
-    # Start CoreDNS in background so we can wait on all PIDs
-    /usr/bin/coredns -conf $COREFILE_PATH &
-    DNS_PID=$!
+# Ensure config directories exist
+mkdir -p /etc/shielddns /var/www/admin
 
-    # Wait for ANY process to exit
-    # Construct list of PIDs
-    PIDS="$DNS_PID $NGINX_PID"
+echo "🚀 Starting ShieldDNS Services..."
 
-    wait -n $PIDS
+# Start Admin Backend (Sidecar)
+# The admin app generates /etc/Corefile based on its own config
+/usr/bin/shielddns-admin &
+ADMIN_PID=$!
 
-    # If we are here, one of them exited.
-    echo "❌ One of the processes exited. Shutting down..."
-    # Kill all
-    kill $DNS_PID $NGINX_PID 2>/dev/null
-    exit 1
-else
-    # No background services, just exec CoreDNS directly
-    exec /usr/bin/coredns -conf $COREFILE_PATH
+# Initial Corefile if it doesn't exist
+if [ ! -f "$COREFILE_PATH" ]; then
+    echo ".:53 {
+    bind 0.0.0.0
+    forward . $ACTIVE_DNS_SERVER
+    hosts /etc/shielddns/blocklist.hosts {
+        reload 5s
+        fallthrough
+    }
+    log
+    errors
+}" > $COREFILE_PATH
 fi
+
+# Start CoreDNS in background to pipe logs to stats processor (if we had one)
+# For now, we just start it and let it log to stdout
+/usr/bin/coredns -conf $COREFILE_PATH &
+DNS_PID=$!
+
+# Wait for ANY process to exit
+PIDS="$DNS_PID $ADMIN_PID"
+wait -n $PIDS
+
+echo "❌ One of the processes exited. Shutting down..."
+kill $PIDS 2>/dev/null
+exit 1
