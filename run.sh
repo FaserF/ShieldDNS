@@ -115,35 +115,62 @@ if [ "$LOG_LEVEL" == "debug" ]; then
 fi
 
 
-# Start Optional Web Server
-ENABLE_INFO_PAGE=${ENABLE_INFO_PAGE:-"false"}
-WEB_PORT=${WEB_PORT:-8080}
+# ------------------------------------------------------------------------------
+# Multiplexed Port 443 Configuration (DoH + Admin UI)
+# ------------------------------------------------------------------------------
+INTERNAL_DOH_PORT="5553"
+ADMIN_BACKEND_PORT="8080"
 
-if [ "$ENABLE_INFO_PAGE" == "true" ]; then
-    echo "🌍 Starting Web Server (Info Page) on port $WEB_PORT..."
+bashio::log.info "🌍 Unifying DoH and Admin UI on Port ${DOH_PORT} (multiplexed via Nginx)..."
 
-    # Configure Nginx (Minimal)
-    # Ensure PID dir exists
-    mkdir -p /run/nginx
+# Setup Nginx
+mkdir -p /run/nginx /etc/nginx/http.d
 
-    cat <<EOF > /etc/nginx/http.d/default.conf
+# Nginx Config: Terminates TLS, Multiplexes DNS and Admin UI
+cat <<EOF >/etc/nginx/http.d/default.conf
 server {
-    listen $WEB_PORT;
-    root /var/www/html;
-    index index.html;
+    listen ${DOH_PORT} ssl;
+    http2 on;
     server_name _;
 
-    # Logs to stdout/stderr
+    ssl_certificate ${CERT_FILE};
+    ssl_certificate_key ${KEY_FILE};
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Logs
     error_log /dev/stderr info;
     access_log /dev/stdout;
+
+    # 1. Proxy DoH to CoreDNS (Internal Loopback HTTPS)
+    location /dns-query {
+        proxy_pass https://127.0.0.1:${INTERNAL_DOH_PORT};
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_ssl_verify off;
+    }
+
+    # 2. Proxy everything else to Admin Backend (API & Dashboard)
+    location / {
+        proxy_pass http://127.0.0.1:${ADMIN_BACKEND_PORT};
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
 }
 EOF
 
-    # Start Nginx in background
-    nginx &
-    NGINX_PID=$!
-    echo "   Web Server started with PID $NGINX_PID"
-fi
+# Start Nginx in background
+nginx &
+NGINX_PID=$!
+bashio::log.info "   Nginx multiplexer started (PID ${NGINX_PID})"
+
+# CoreDNS port must match the internal proxy target
+ACTUAL_COREDNS_PORT="${INTERNAL_DOH_PORT}"
 
 # Generate Corefile
 echo "📝 Generating Corefile..."
@@ -185,6 +212,10 @@ fi
 mkdir -p /etc/shielddns /var/www/admin
 
 echo "🚀 Starting ShieldDNS Services..."
+
+# Export cert paths for the admin backend
+export CERT_FILE
+export KEY_FILE
 
 # Start Admin Backend (Sidecar)
 # The admin app generates /etc/Corefile based on its own config

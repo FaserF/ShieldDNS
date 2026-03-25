@@ -408,6 +408,12 @@ func updateCorefile() {
 	upstreams := strings.Join(config.Upstreams, " ")
 	configLock.RUnlock()
 
+	// Get cert paths from environment (provided by run.sh)
+	certFile := os.Getenv("CERT_FILE")
+	keyFile := os.Getenv("KEY_FILE")
+	if certFile == "" { certFile = "/ssl/fullchain.pem" }
+	if keyFile == "" { keyFile = "/ssl/privkey.pem" }
+
 	corefile := fmt.Sprintf(`.:53 {
     bind 0.0.0.0
     forward . %s
@@ -418,7 +424,14 @@ func updateCorefile() {
     log
     errors
 }
-`, upstreams, BlocklistPath)
+
+https://.:5553 {
+    tls %s %s
+    forward . %s
+    log
+    errors
+}
+`, upstreams, BlocklistPath, certFile, keyFile, upstreams)
 
 	os.WriteFile(CorefilePath, []byte(corefile), 0644)
 }

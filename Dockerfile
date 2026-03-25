@@ -30,7 +30,7 @@ COPY --from=binary /coredns /usr/bin/coredns
 COPY --from=admin-build /app/shielddns-admin /usr/bin/shielddns-admin
 
 # Expose ports
-EXPOSE 53/udp 53/tcp 8080/tcp
+EXPOSE 53/udp 53/tcp 443/tcp 853/tcp
 
 # Copy the entrypoint script
 COPY run.sh /run.sh
