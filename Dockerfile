@@ -1,8 +1,5 @@
 # Stage 1: Get CoreDNS binary
-FROM coredns/coredns:latest AS binary
-
-# Stage 2: Get Cloudflare Tunnel binary
-FROM cloudflare/cloudflared:latest AS tunnel
+FROM coredns/coredns:1.14.2 AS binary
 
 # Stage 3: Runtime Image
 FROM alpine:latest
@@ -11,8 +8,7 @@ FROM alpine:latest
 # jq: needed for parsing HA Addon options
 # bind-tools: gives us 'dig'/'kdig'
 # ca-certificates: needed for TLS
-# libc6-compat: needed for cloudflared on Alpine
-RUN apk add --no-cache jq ca-certificates bash curl libc6-compat nginx
+RUN apk add --no-cache jq ca-certificates bash curl nginx
 
 # Create web root and required directories
 RUN mkdir -p /var/www/html /run/nginx
@@ -23,9 +19,6 @@ COPY logo.png /var/www/html/logo.png
 
 # Copy CoreDNS binary
 COPY --from=binary /coredns /usr/bin/coredns
-
-# Copy Cloudflared binary
-COPY --from=tunnel /usr/local/bin/cloudflared /usr/bin/cloudflared
 
 # Expose DoT port
 EXPOSE 853

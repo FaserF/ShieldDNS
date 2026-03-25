@@ -23,7 +23,6 @@ if [ -f "$OPTIONS_PATH" ]; then
     UPSTREAM_DNS=$(read_option "upstream_dns")
     CERT_FILE=$(read_option "certfile")
     KEY_FILE=$(read_option "keyfile")
-    TUNNEL_TOKEN=$(read_option "cloudflare_tunnel_token")
     LOG_LEVEL=$(read_option "log_level")
 
     # Fallback if specific keys are missing in json but file exists (unlikely if schema is good)
@@ -43,7 +42,6 @@ else
     UPSTREAM_DNS=${UPSTREAM_DNS:-$DEFAULT_UPSTREAM}
     CERT_FILE=${CERT_FILE:-$DEFAULT_CERT}
     KEY_FILE=${KEY_FILE:-$DEFAULT_KEY}
-    TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     LOG_LEVEL=${LOG_LEVEL:-"error"}
 
     FALLBACK_DNS_ENABLED=${FALLBACK_DNS_ENABLED:-"false"}
@@ -86,11 +84,6 @@ echo "🔧 Configuration:"
 echo "   Upstream: $ACTIVE_DNS_SERVER ($DNS_MODE)"
 echo "   Cert:     $CERT_FILE"
 echo "   Key:      $KEY_FILE"
-if [ -n "$TUNNEL_TOKEN" ]; then
-    echo "   Tunnel:   Enabled (Token provided)"
-else
-    echo "   Tunnel:   Disabled"
-fi
 echo "   Log Lvl:  $LOG_LEVEL"
 
 
@@ -120,21 +113,6 @@ fi
 if [ "$LOG_LEVEL" == "debug" ]; then
     DNS_LOG_CONFIG="$DNS_LOG_CONFIG\n    debug"
 fi
-
-
-# Start Cloudflare Tunnel if Token is present
-if [ -n "$TUNNEL_TOKEN" ]; then
-    echo "🚇 Starting Cloudflare Tunnel..."
-    # Determine tunnel log level
-    TUNNEL_LOG="info"
-    if [ "$LOG_LEVEL" == "debug" ]; then TUNNEL_LOG="debug"; fi
-    if [ "$LOG_LEVEL" == "error" ]; then TUNNEL_LOG="error"; fi
-
-    cloudflared tunnel run --token "$TUNNEL_TOKEN" --loglevel "$TUNNEL_LOG" &
-    TUNNEL_PID=$!
-    echo "   Tunnel started with PID $TUNNEL_PID"
-fi
-
 
 
 # Start Optional Web Server
@@ -202,12 +180,8 @@ fi
 # Start CoreDNS
 echo "🚀 Starting CoreDNS..."
 # Exec CoreDNS.
-# NOTE: If we started cloudflared in background, exec replaces the shell, so CoreDNS becomes PID 1 (or child of).
-# However, if cloudflared crashes, the container might stay alive but tunnel down.
-# Ideally we should monitor both. But for simplicity in this script, we exec CoreDNS.
-# Check if tunnel is backgrounded
-# Check if we have background processes to monitor (Tunnel or Nginx)
-if [ -n "$TUNNEL_PID" ] || [ -n "$NGINX_PID" ]; then
+# Check if we have background processes to monitor (Nginx)
+if [ -n "$NGINX_PID" ]; then
 
     # Start CoreDNS in background so we can wait on all PIDs
     /usr/bin/coredns -conf $COREFILE_PATH &
@@ -215,14 +189,14 @@ if [ -n "$TUNNEL_PID" ] || [ -n "$NGINX_PID" ]; then
 
     # Wait for ANY process to exit
     # Construct list of PIDs
-    PIDS="$DNS_PID $TUNNEL_PID $NGINX_PID"
+    PIDS="$DNS_PID $NGINX_PID"
 
     wait -n $PIDS
 
     # If we are here, one of them exited.
     echo "❌ One of the processes exited. Shutting down..."
     # Kill all
-    kill $DNS_PID $TUNNEL_PID $NGINX_PID 2>/dev/null
+    kill $DNS_PID $NGINX_PID 2>/dev/null
     exit 1
 else
     # No background services, just exec CoreDNS directly
