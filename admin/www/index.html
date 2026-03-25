@@ -170,15 +170,47 @@
     <div id="auth-overlay" class="modal hidden">
         <div class="modal-content auth-box">
             <div id="setup-view" class="hidden">
-                <h2>Welcome to ShieldDNS</h2>
-                <p>Please set your administrative password to begin. (Min 12 characters)</p>
-                <div class="form-group">
-                    <input type="password" id="setup-password" placeholder="New Password" minlength="12">
+                <div class="wizard-steps">
+                    <div class="w-step active" id="w-step-1">1</div>
+                    <div class="w-step" id="w-step-2">2</div>
+                    <div class="w-step" id="w-step-3">3</div>
                 </div>
-                <div class="form-group">
-                    <input type="password" id="setup-confirm" placeholder="Confirm Password">
+
+                <div id="setup-pane-1" class="setup-pane">
+                    <h2>Step 1: Admin Password</h2>
+                    <p>Set a strong password to protect your dashboard. (Min 12 characters)</p>
+                    <div class="form-group">
+                        <input type="password" id="setup-password" placeholder="New Password" minlength="12">
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="setup-confirm" placeholder="Confirm Password">
+                    </div>
+                    <button class="btn primary full-width" onclick="nextSetupStep(2)">Next Step</button>
                 </div>
-                <button class="btn primary full-width" id="setup-confirm-btn">Create Admin Account</button>
+
+                <div id="setup-pane-2" class="setup-pane hidden">
+                    <h2>Step 2: Upstream DNS</h2>
+                    <p>Choose which DNS servers ShieldDNS should forward to.</p>
+                    <div class="form-group">
+                        <input type="text" id="setup-upstreams" value="1.1.1.1, 8.8.8.8">
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn secondary" onclick="nextSetupStep(1)">Back</button>
+                        <button class="btn primary" onclick="nextSetupStep(3)">Next Step</button>
+                    </div>
+                </div>
+
+                <div id="setup-pane-3" class="setup-pane hidden">
+                    <h2>Step 3: Blocklists</h2>
+                    <p>Select some default blocklists to get started.</p>
+                    <div id="setup-presets" class="presets-list-minimal">
+                        <!-- Presets will be injected here with checkboxes -->
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn secondary" onclick="nextSetupStep(2)">Back</button>
+                        <button class="btn primary" id="setup-finish-btn">Finish Setup</button>
+                    </div>
+                </div>
             </div>
 
             <div id="login-view" class="hidden">

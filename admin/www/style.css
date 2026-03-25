@@ -472,3 +472,53 @@ h1 {
     font-size: 1rem;
     margin-bottom: 4px;
 }
+
+.wizard-steps {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.w-step {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.w-step.active {
+    background-color: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.setup-pane h2 {
+    margin-bottom: 12px;
+}
+
+.setup-pane p {
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+}
+
+.presets-list-minimal {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 24px;
+    text-align: left;
+}
+
+.preset-selection-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}

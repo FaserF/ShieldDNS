@@ -40,30 +40,87 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    document.getElementById('setup-confirm-btn').addEventListener('click', async () => {
+    window.nextSetupStep = (step) => {
+        document.querySelectorAll('.setup-pane').forEach(p => p.classList.add('hidden'));
+        document.querySelectorAll('.w-step').forEach(s => s.classList.remove('active'));
+        
+        document.getElementById(`setup-pane-${step}`).classList.remove('hidden');
+        document.getElementById(`w-step-${step}`).classList.add('active');
+
+        if (step === 3) {
+            renderSetupPresets();
+        }
+    };
+
+    const renderSetupPresets = async () => {
+        const resp = await fetch('/api/presets');
+        const presets = await resp.json();
+        const container = document.getElementById('setup-presets');
+        container.innerHTML = '';
+        presets.forEach((p, i) => {
+            const item = document.createElement('div');
+            item.className = 'preset-selection-item';
+            item.innerHTML = `
+                <input type="checkbox" id="pre-${i}" value="${p.url}" checked>
+                <label for="pre-${i}">${p.name}</label>
+            `;
+            container.appendChild(item);
+        });
+    };
+
+    document.getElementById('setup-finish-btn')?.addEventListener('click', async () => {
         const password = document.getElementById('setup-password').value;
         const confirm = document.getElementById('setup-confirm').value;
+        const upstreams = document.getElementById('setup-upstreams').value.split(',').map(s => s.trim());
+        
+        const selectedPresets = [];
+        document.querySelectorAll('#setup-presets input:checked').forEach(input => {
+            const label = input.nextElementSibling.textContent;
+            selectedPresets.push({ name: label, url: input.value, enabled: true });
+        });
 
         if (password.length < 12) {
-            alert('Password must be at least 12 characters.');
-            return;
-        }
-        if (password !== confirm) {
-            alert('Passwords do not match.');
+            alert('Password too short!');
+            nextSetupStep(1);
             return;
         }
 
-        const resp = await fetch('/api/setup', {
+        if (password !== confirm) {
+            alert('Passwords do not match!');
+            nextSetupStep(1);
+            return;
+        }
+
+        // 1. Create Account
+        const setupResp = await fetch('/api/setup', {
             method: 'POST',
             body: JSON.stringify({ password })
         });
 
-        if (resp.ok) {
-            alert('Setup successful! Please login.');
-            checkAuthStatus();
-        } else {
-            alert('Setup failed.');
+        if (!setupResp.ok) {
+            alert('Setup failed at account creation.');
+            return;
         }
+
+        // 2. Login to get session for config
+        const loginResp = await fetch('/api/login', {
+            method: 'POST',
+            body: JSON.stringify({ password })
+        });
+
+        if (!loginResp.ok) {
+            alert('Login failed during setup.');
+            return;
+        }
+
+        // 3. Save Config (Upstreams + Selected Lists)
+        await fetch('/api/config', {
+            method: 'POST',
+            body: JSON.stringify({ upstreams, lists: selectedPresets })
+        });
+
+        alert('Setup complete! Welcome to ShieldDNS.');
+        location.reload();
     });
 
     document.getElementById('login-confirm-btn').addEventListener('click', async () => {
