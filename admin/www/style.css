@@ -94,6 +94,14 @@ nav {
     100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
+.version-info {
+    margin-top: 16px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    text-align: center;
+}
+
 .content {
     flex-grow: 1;
     padding: 48px;

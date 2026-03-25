@@ -331,6 +331,12 @@ document.addEventListener('DOMContentLoaded', () => {
             statsContainer.blocked.textContent = data.blocked_queries.toLocaleString();
             const ratio = data.total_queries > 0 ? (data.blocked_queries / data.total_queries * 100).toFixed(1) : 0;
             statsContainer.ratio.textContent = `${ratio} %`;
+            
+            // Update version
+            const versionEl = document.getElementById('app-version');
+            if (versionEl && data.version) {
+                versionEl.textContent = data.version;
+            }
         } catch (e) {
             console.error('Failed to fetch stats', e);
         }

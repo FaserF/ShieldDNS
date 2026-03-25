@@ -32,8 +32,9 @@ type List struct {
 }
 
 type Stats struct {
-	TotalQueries   int64 `json:"total_queries"`
-	BlockedQueries int64 `json:"blocked_queries"`
+	TotalQueries   int64  `json:"total_queries"`
+	BlockedQueries int64  `json:"blocked_queries"`
+	Version        string `json:"version"`
 }
 
 type Query struct {
@@ -60,6 +61,7 @@ var (
 	queryLock      sync.RWMutex
 	history        [24]HourStats
 	historyLock    sync.RWMutex
+	Version        = "v0.0.0-dev"
 )
 
 const (
@@ -304,9 +306,12 @@ func saveConfigNoLock() {
 
 func handleStats(w http.ResponseWriter, r *http.Request) {
 	statsLock.RLock()
-	defer statsLock.RUnlock()
+	s := stats
+	statsLock.RUnlock()
+
+	s.Version = Version
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	json.NewEncoder(w).Encode(s)
 }
 
 func handleConfig(w http.ResponseWriter, r *http.Request) {
