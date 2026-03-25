@@ -40,7 +40,8 @@ jobs:
         id: versioning
         run: |
           python .github/scripts/bump_version.py ${{ github.event.inputs.bump_type }}
-          VERSION=$(cat VERSION.txt)
+          # Extract version from main.go (Format: Version = "vX.Y.Z")
+          VERSION=$(grep -oP 'Version\s*=\s*"v\K[^"]+' admin/main.go)
           echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 

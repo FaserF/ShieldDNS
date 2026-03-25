@@ -76,9 +76,4 @@ if __name__ == "__main__":
     new_v = bump_version(latest_tag, bump_type)
 
     update_source_code(new_v)
-    
-    # Still write VERSION.txt for the CI to easily consume the version string
-    with open("VERSION.txt", "w") as f:
-        f.write(new_v)
-    
     print(new_v)
