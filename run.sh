@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bash
+﻿#!/usr/bin/with-contenv bash
 # shellcheck disable=SC1091
 # shellcheck shell=bash
 

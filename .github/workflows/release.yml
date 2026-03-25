@@ -12,6 +12,11 @@ on:
           - patch
           - minor
           - major
+      recreate_release:
+        description: 'Recreate existing release (no version bump)'
+        required: false
+        default: false
+        type: boolean
 
 env:
   REGISTRY: ghcr.io
@@ -36,12 +41,20 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: 🏷️ Determine Version
+      - name: 🛠️ Ensure LF Line Endings & Correct Version
         id: versioning
         run: |
-          python .github/scripts/bump_version.py ${{ github.event.inputs.bump_type }}
-          # Extract version from main.go (Format: Version = "vX.Y.Z")
-          VERSION=$(grep -oP 'Version\s*=\s*"v\K[^"]+' admin/main.go)
+          # 1. Force Unix line endings on all relevant files
+          find . -type f \( -name "*.sh" -o -name "Dockerfile" -o -name "*.go" -o -name "*.json" -o -name "*.yml" \) -print0 | xargs -0 sed -i 's/\r$//'
+
+          # 2. Handle Versioning
+          if [ "${{ github.event.inputs.recreate_release }}" = "true" ]; then
+            echo "Recreating existing release. Skipping version bump."
+            VERSION=$(grep -oP 'Version\s*=\s*"v\K[^"]+' admin/main.go)
+          else
+            python .github/scripts/bump_version.py ${{ github.event.inputs.bump_type }}
+            VERSION=$(grep -oP 'Version\s*=\s*"v\K[^"]+' admin/main.go)
+          fi
           echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -56,13 +69,30 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add admin/main.go
-          if ! git diff --staged --quiet; then
-            git commit -m "chore: bump version to v${{ env.NEW_VERSION }} [skip ci]"
+          
+          # Only commit if we actually bumped the version
+          if [ "${{ github.event.inputs.recreate_release }}" != "true" ]; then
+            git add admin/main.go
+            if ! git diff --staged --quiet; then
+              git commit -m "chore: bump version to v${{ env.NEW_VERSION }} [skip ci]"
+            fi
+            git pull --rebase origin main
           fi
-          git pull --rebase origin main
-          git tag v${{ env.NEW_VERSION }}
-          git push origin main --tags
+          
+          # Handle Tag Recreation
+          if git rev-parse "v${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
+            if [ "${{ github.event.inputs.recreate_release }}" = "true" ]; then
+              echo "Force-pushing existing tag v${{ env.NEW_VERSION }}"
+              git tag -f v${{ env.NEW_VERSION }}
+              git push origin v${{ env.NEW_VERSION }} -f
+            else
+              echo "Error: Tag v${{ env.NEW_VERSION }} already exists but re-release was not selected."
+              exit 1
+            fi
+          else
+            git tag v${{ env.NEW_VERSION }}
+            git push origin main --tags
+          fi
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
