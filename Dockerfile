@@ -2,11 +2,12 @@
 FROM coredns/coredns:1.14.2 AS binary
 
 # Stage 2: Build Admin UI Backend
-FROM golang:1.24-alpine AS admin-build
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS admin-build
+ARG TARGETARCH
 WORKDIR /app
 COPY admin/ .
 RUN go mod download && go mod tidy
-RUN go build -o shielddns-admin main.go
+RUN GOOS=linux GOARCH=$TARGETARCH go build -o shielddns-admin main.go
 
 # Stage 3: Runtime Image
 FROM alpine:latest
