@@ -1,0 +1,61 @@
+import re
+import subprocess
+import sys
+
+
+def get_latest_tag():
+    try:
+        result = subprocess.run(
+            ["git", "tag", "--list", "--sort=-v:refname"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        tags = result.stdout.strip().split("\n")
+        # Filter for version-like tags
+        version_tags = [t for t in tags if re.match(r'^v?\d+\.\d+\.\d+', t)]
+        return version_tags[0] if version_tags else None
+    except Exception:
+        return None
+
+
+def parse_version(v_str):
+    if not v_str:
+        return 0, 0, 0
+    v_str = v_str.lstrip("v")
+    core = v_str.split("-")[0]
+    parts = list(map(int, core.split(".")))
+    while len(parts) < 3:
+        parts.append(0)
+    return parts[0], parts[1], parts[2]
+
+
+def bump_version(current, bump_type):
+    if not current:
+        return "1.0.0"
+
+    major, minor, patch = parse_version(current)
+
+    if bump_type == "major":
+        new = (major + 1, 0, 0)
+    elif bump_type == "minor":
+        new = (major, minor + 1, 0)
+    else:  # patch
+        new = (major, minor, patch + 1)
+
+    return f"{new[0]}.{new[1]}.{new[2]}"
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        sys.exit(1)
+
+    bump_type = sys.argv[1].lower()
+    latest_tag = get_latest_tag()
+    new_v = bump_version(latest_tag, bump_type)
+
+    # Write to file for GitHub Actions
+    with open("VERSION.txt", "w") as f:
+        f.write(new_v)
+    
+    print(new_v)
