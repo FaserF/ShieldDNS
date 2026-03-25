@@ -1,7 +1,7 @@
 import re
 import subprocess
 import sys
-
+import os
 
 def get_latest_tag():
     try:
@@ -46,6 +46,27 @@ def bump_version(current, bump_type):
     return f"{new[0]}.{new[1]}.{new[2]}"
 
 
+def update_source_code(new_version):
+    file_path = "admin/main.go"
+    if not os.path.exists(file_path):
+        print(f"Error: {file_path} not found")
+        return
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Match Version = "vX.Y.Z-dev" or similar
+    new_content = re.sub(
+        r'Version\s*=\s*"[^"]+"',
+        f'Version        = "v{new_version}"',
+        content,
+        count=1
+    )
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         sys.exit(1)
@@ -54,7 +75,9 @@ if __name__ == "__main__":
     latest_tag = get_latest_tag()
     new_v = bump_version(latest_tag, bump_type)
 
-    # Write to file for GitHub Actions
+    update_source_code(new_v)
+    
+    # Still write VERSION.txt for the CI to easily consume the version string
     with open("VERSION.txt", "w") as f:
         f.write(new_v)
     

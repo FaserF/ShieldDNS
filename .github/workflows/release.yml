@@ -55,6 +55,11 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          git add admin/main.go
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: bump version to v${{ env.NEW_VERSION }} [skip ci]"
+          fi
+          git pull --rebase origin main
           git tag v${{ env.NEW_VERSION }}
           git push origin main --tags
 
