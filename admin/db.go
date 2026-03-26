@@ -40,36 +40,24 @@ func initDB() {
 	}
 }
 
-func startRetentionWorker() {
-	ticker := time.NewTicker(12 * time.Hour)
-	for range ticker.C {
+func startDBWorker() {
+	ticker := time.NewTicker(24 * time.Hour)
+	cleanup := func() {
 		configLock.RLock()
 		days := config.RetentionDays
+		configLock.RUnlock()
+
 		if days <= 0 {
 			days = 30
 		}
-		configLock.RUnlock()
 
 		if db != nil {
 			_, err := db.Exec("DELETE FROM queries WHERE timestamp < datetime('now', ?)", fmt.Sprintf("-%d days", days))
 			if err != nil {
-				log.Printf("Error cleaning up old queries: %v", err)
+				log.Printf("Error purging old queries: %v", err)
 			} else {
-				log.Printf("Cleaned up queries older than %d days", days)
+				log.Printf("Database maintenance: Queries older than %d days purged.", days)
 			}
-		}
-	}
-}
-
-func startDBWorker() {
-	// Periodic cleanup of old queries (30 days default if retention disabled somehow)
-	ticker := time.NewTicker(24 * time.Hour)
-	cleanup := func() {
-		_, err := db.Exec("DELETE FROM queries WHERE timestamp < datetime('now', '-30 days')")
-		if err != nil {
-			log.Printf("Error purging old queries: %v", err)
-		} else {
-			log.Println("Database maintenance: Old queries purged.")
 		}
 	}
 

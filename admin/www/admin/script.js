@@ -11,9 +11,6 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     let apiKeysListContainer, apiKeyModal, apiKeyForm, apiKeyResult, apiKeyValue, protectionStatusLabel, toggleProtectionBtn;
     let adminDomainInput, blockIpInput;
 
-/**
- * Custom alternative to window.alert()
- */
 async function showAlert(message, title = 'Notification') {
     return new Promise((resolve) => {
         const modal = document.getElementById('alert-modal');
@@ -41,9 +38,6 @@ async function showAlert(message, title = 'Notification') {
     });
 }
 
-/**
- * Custom alternative to window.confirm()
- */
 async function showConfirm(message, title = 'Confirmation') {
     return new Promise((resolve) => {
         const modal = document.getElementById('confirm-modal');
@@ -230,7 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const navItems = document.querySelectorAll('.nav-item');
 
-    // --- Enter Key Support ---
     document.getElementById('login-password')?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') document.getElementById('login-confirm-btn').click();
     });
@@ -241,7 +234,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') nextSetupStep(2);
     });
 
-    // --- Authentication Logic ---
 
     const checkAuthStatus = async () => {
         try {
@@ -421,7 +413,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Main Application Logic ---
 
     const initializeApp = () => {
         // Initialize dynamic hostname in dashboard
@@ -548,7 +539,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 row.innerHTML = `
                     <td>${time}</td>
-                    <td title="${q.client_ip}">${q.domain}</td>
+                    <td>${q.domain}</td>
+                    <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')">${q.client_ip}</span></td>
                     <td>${q.type}</td>
                     <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
                     <td>${actionBtn}</td>
@@ -570,7 +562,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         row.innerHTML = `
             <td>${time}</td>
-            <td title="${q.client_ip}">${q.domain}</td>
+            <td>${q.domain}</td>
+            <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')">${q.client_ip}</span></td>
             <td>${q.type}</td>
             <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
             <td>${actionBtn}</td>

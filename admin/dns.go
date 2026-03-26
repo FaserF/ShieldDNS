@@ -274,28 +274,18 @@ func startCoreDNS() {
 }
 
 func parseLogLine(line string) {
-	// Our custom Corefile format is:
-	// log . "{remote} {type} {name} {rcode} {rflags} {duration}"
-	// This makes parsing robust. We parse backwards to ignore any [INFO] prefixes.
-	// Example: ... 127.0.0.1:46111 A google.com. NOERROR qr,rd,ra 0.00123s
 	fields := strings.Fields(line)
 	
-	// VALIDATION:
-	// 1. Must have at least 6 fields
+	// Validation
 	if len(fields) < 6 {
 		return
 	}
 
-	// 2. The last field must be a duration ending with 's' (e.g., 0.00123s)
 	durationStr := fields[len(fields)-1]
 	if !strings.HasSuffix(durationStr, "s") || len(durationStr) < 2 {
 		return
 	}
 
-	// 3. The second-to-last field should be flags (e.g., qr,rd,ra) or rsize (e.g., 163)
-	// In our structured format, it's always the rflags containing "qr".
-	// In the default format, the flags are at len-3, and len-2 is the response size.
-	// We ONLY want to parse our structured format.
 	rflags      := fields[len(fields)-2]
 	if !strings.Contains(rflags, "qr") {
 		return
@@ -306,7 +296,6 @@ func parseLogLine(line string) {
 	qType       := fields[len(fields)-5]
 	remote      := fields[len(fields)-6]
 
-	// 4. Basic check for query type (should not contain equals sign or other weird chars)
 	if strings.Contains(qType, "=") || len(qType) > 10 || qType == "-" {
 		return
 	}

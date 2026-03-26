@@ -21,6 +21,7 @@ It features a premium **Admin Dashboard** with persistent SQLite-backed analytic
 - 🌙 **Dark & Light Mode**: Full theme support, persisted locally per user.
 - 🔄 **Config Backup & Restore**: One-click backup download and in-browser JSON configuration restore.
 - ⚡ **1-Click Allow / Block**: Directly allow or block any domain from the live Query Log table.
+- 🔍 **Client IP Diagnostics**: Clickable Client IPs in logs with detailed GeoIP, Reverse DNS, and history preview.
 - 🧹 **Optimized Default Lists**: Ships with a single, curated default (HaGeZi Multi Normal) for maximum protection with minimal RAM usage on any hardware — including Raspberry Pi.
 
 ## ❤️ Support This Project
@@ -152,9 +153,9 @@ ShieldDNS now stores your query history in a persistent SQLite database:
 - **Top Blocked Domains**: identify the most aggressive trackers on your network.
 - **Top Clients**: See which devices are generating the most traffic.
 - **Hourly Trends**: 24-hour traffic visualization shows you exactly when your network is most active.
-- **Cache Hit Ratio**: Real-time diagnostic tracker showing the percentage of queries served from the local cache.
-- **Query-Type Breakdown**: Professional visualization of DNS record types (A, AAAA, MX, etc.).
 - **Live Logs**: Zero-latency query streaming via Server-Sent Events (SSE).
+- **Client IP Diagnostics**: Interactive query logs where clicking an IP reveals GeoIP location, Reverse DNS hostname, and a client-specific query history preview.
+- **Cache Hit Ratio**: Real-time diagnostic tracker showing the percentage of queries served from the local cache.
 
 ### 🏳️ Custom Rules
 Immediately take control of your network without managing external lists:
@@ -164,6 +165,7 @@ Immediately take control of your network without managing external lists:
 
 ### ⚡ Optimization & Health
 - **Intelligent Caching**: Large 10k entry cache reduces upstream lookups.
+- **IP Info Caching**: In-memory caching for GeoIP and Reverse DNS lookups (cached for 24h) to ensure zero-latency UI interaction.
 - **Prefetching**: ShieldDNS proactively refreshes popular records before they expire.
 - **Upstream Probing**: Background health checks every 30 seconds ensure you only use healthy upstreams.
 - **Smart Selection**: Optionally reorder upstreams dynamically to always use the lowest-latency provider.

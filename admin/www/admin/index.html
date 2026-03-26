@@ -122,6 +122,7 @@
                             <tr>
                                 <th>Time</th>
                                 <th>Domain</th>
+                                <th>Client IP</th>
                                 <th>Type</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -214,6 +215,7 @@
                             <tr>
                                 <th>Time</th>
                                 <th>Domain</th>
+                                <th>Client IP</th>
                                 <th>Type</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -745,14 +747,52 @@
         </div>
     </div>
 
-    <!-- Custom Confirm Modal -->
-    <div id="confirm-modal" class="modal hidden" style="z-index: 10001;">
-        <div class="modal-content" style="max-width: 400px; text-align: center;">
-            <h2 id="confirm-title" style="margin-bottom: 12px;">Confirmation</h2>
-            <p id="confirm-message" style="margin-bottom: 24px; color: var(--text-secondary);"></p>
-            <div class="modal-actions" style="display: flex; gap: 12px;">
-                <button class="btn secondary full-width" id="confirm-cancel">Cancel</button>
-                <button class="btn primary full-width" id="confirm-yes">Confirm</button>
+    <!-- IP Detail Modal -->
+    <div id="ip-info-modal" class="modal hidden">
+        <div class="modal-content" style="width: 600px; max-width: 90vw;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                <div>
+                    <h2 id="ip-info-title">Client Details</h2>
+                    <p id="ip-info-subtitle" class="help"></p>
+                </div>
+                <button class="btn btn-sm secondary" id="ip-info-close-btn">&times;</button>
+            </div>
+            
+            <div class="analytics-grid" style="grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                <div class="stat-card card">
+                    <label>Network Type</label>
+                    <div class="value" id="ip-info-type" style="font-size: 1.2rem;">-</div>
+                </div>
+                <div class="stat-card card">
+                    <label>Reverse DNS</label>
+                    <div class="value" id="ip-info-hostname" style="font-size: 1.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</div>
+                </div>
+                <div class="stat-card card" id="ip-info-geo-card">
+                    <label>Location</label>
+                    <div class="value" id="ip-info-location" style="font-size: 1.1rem;">-</div>
+                </div>
+                <div class="stat-card card" id="ip-info-isp-card">
+                    <label>Provider / ISP</label>
+                    <div class="value" id="ip-info-isp" style="font-size: 1.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</div>
+                </div>
+            </div>
+
+            <div class="query-log-container card" style="padding: 16px;">
+                <h3 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--text-secondary);">Last 20 Queries from this Client</h3>
+                <div class="overflow-x">
+                    <table class="query-table" style="font-size: 0.8rem;">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Domain</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ip-info-history">
+                            <!-- Dynamic -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

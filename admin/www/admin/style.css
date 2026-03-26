@@ -191,6 +191,19 @@ h1 {
     font-size: 0.75rem;
     border-radius: 6px;
 }
+
+.ip-link {
+    color: var(--accent);
+    text-decoration: underline dotted;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.ip-link:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
 .separator {
     border: 0;
     border-top: 1px solid var(--border);
@@ -790,6 +803,30 @@ input:checked + .slider:before {
     border: 1px solid var(--border);
     margin-bottom: 24px;
     transition: all 0.2s;
+}
+
+.diag-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.diag-item:last-child {
+    border-bottom: none;
+}
+
+.overflow-x {
+    overflow-x: auto;
+}
+
+#ip-info-history td {
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+#ip-info-history tr:last-child td {
+    border-bottom: none;
 }
 
 .checkbox-group:hover {

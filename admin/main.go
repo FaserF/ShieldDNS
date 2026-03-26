@@ -27,7 +27,6 @@ func main() {
 	go startHealthChecker()
 	go startDBWorker()
 	go startLogWorker()
-	go startRetentionWorker()
 
 	// Ensure Corefile is generated with correct settings before starting CoreDNS
 	updateCorefile()
@@ -49,6 +48,7 @@ func main() {
 	http.Handle("/api/system-logs", authMiddleware(http.HandlerFunc(handleSystemLogs)))
 	http.Handle("/api/events", authMiddleware(http.HandlerFunc(handleEvents)))
 	http.Handle("/api/diagnostics", authMiddleware(http.HandlerFunc(handleDiagnostics)))
+	http.Handle("/api/ip-info", authMiddleware(http.HandlerFunc(handleIPInfo)))
 	http.Handle("/api/presets", authMiddleware(http.HandlerFunc(handlePresets)))
 	http.Handle("/api/presets/allow", authMiddleware(http.HandlerFunc(handlePresetAllowlists)))
 

@@ -107,6 +107,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 🗑️ Delete existing Docker image version (if any)
+        if: github.event.inputs.recreate_release == 'true'
+        run: |
+          PACKAGE_NAME="${{ env.IMAGE_NAME }}"
+          VERSION_TAG="v${{ env.NEW_VERSION }}"
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          # Try to find version ID for the tag. Since we don't know if it's org or user, we try one first.
+          # Based on common ShieldDNS usage, it's likely a user.
+          echo "Checking for existing version $VERSION_TAG of $PACKAGE_NAME..."
+          
+          # Try Org first, then User if not found/error
+          VERSION_ID=$(gh api "orgs/${OWNER_LC}/packages/container/${PACKAGE_NAME//\//%2F}/versions" --paginate -q ".[] | select(.metadata.container.tags[] == \"$VERSION_TAG\") | .id" 2>/dev/null || \
+                      gh api "users/${OWNER_LC}/packages/container/${PACKAGE_NAME//\//%2F}/versions" --paginate -q ".[] | select(.metadata.container.tags[] == \"$VERSION_TAG\") | .id" 2>/dev/null || echo "")
+          
+          if [ -n "$VERSION_ID" ]; then
+            echo "Deleting existing version $VERSION_TAG (ID: $VERSION_ID)"
+            # Try Org delete then User delete
+            gh api -X DELETE "orgs/${OWNER_LC}/packages/container/${PACKAGE_NAME//\//%2F}/versions/$VERSION_ID" 2>/dev/null || \
+            gh api -X DELETE "users/${OWNER_LC}/packages/container/${PACKAGE_NAME//\//%2F}/versions/$VERSION_ID" 2>/dev/null || echo "Failed to delete via API, push will overwrite."
+          else
+            echo "No existing version found for $VERSION_TAG"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:

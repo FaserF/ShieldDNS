@@ -202,3 +202,51 @@ func TestHandleRestoreMethodNotAllowed(t *testing.T) {
 		t.Errorf("expected 405, got %v", rr.Code)
 	}
 }
+
+func TestHandleIPInfo(t *testing.T) {
+	// Test Local IP
+	req := httptest.NewRequest("GET", "/api/ip-info?ip=127.0.0.1", nil)
+	rr := httptest.NewRecorder()
+	handleIPInfo(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %v", rr.Code)
+	}
+
+	var info IPInfo
+	json.NewDecoder(rr.Body).Decode(&info)
+	if !info.IsPrivate {
+		t.Error("127.0.0.1 should be private")
+	}
+	if info.IP != "127.0.0.1" {
+		t.Errorf("expected IP 127.0.0.1, got %s", info.IP)
+	}
+
+	// Test caching (second call)
+	rr2 := httptest.NewRecorder()
+	handleIPInfo(rr2, req)
+	if rr2.Code != http.StatusOK {
+		t.Errorf("expected 200 on cached call, got %v", rr2.Code)
+	}
+}
+
+func TestHandleQueriesWithFiltering(t *testing.T) {
+	// We need to mock DB or at least check if it handles parameters.
+	// Since handleQueries uses a global 'db', we can't easily mock it without refactoring.
+	// However, we can check if it accepts the parameters without crashing.
+	
+	req := httptest.NewRequest("GET", "/api/queries?client_ip=1.2.3.4&limit=10", nil)
+	rr := httptest.NewRecorder()
+	
+	// This might fail if DB is not initialized, so we skip or handle if it's nil
+	if db == nil {
+		t.Skip("DB not initialized, skipping integration-style test")
+		return
+	}
+
+	handleQueries(rr, req)
+	// We expect 200 if query is valid SQL (even if empty results)
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200 for filtered queries, got %v", rr.Code)
+	}
+}

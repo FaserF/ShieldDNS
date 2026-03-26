@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,7 +23,20 @@ var (
 	systemLogBuffer []string
 	systemLogLock   sync.RWMutex
 	systemLogClients = make(map[chan string]struct{})
+
+	// Cache for IP info to avoid redundant DNS and GeoIP lookups
+	ipInfoCache sync.Map
 )
+
+type IPInfo struct {
+	IP        string    `json:"ip"`
+	IsPrivate bool      `json:"is_private"`
+	Hostname  string    `json:"hostname"`
+	Country   string    `json:"country"`
+	City      string    `json:"city"`
+	ISP       string    `json:"isp"`
+	ExpiresAt time.Time `json:"-"`
+}
 
 func hashToken(token string) string {
 	h := sha256.New()
@@ -321,7 +335,6 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
-	// Simple health check for monitoring
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "healthy", "version": Version})
 }
@@ -490,7 +503,6 @@ func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	configLock.RUnlock()
 
 	healthLock.RLock()
-	// Logic to identify the "preferred" (primary) upstream, same as in dns.go
 	var preferredServer string
 	if preferEncrypted && len(healthyDoT) > 0 {
 		preferredServer = "tls://" + healthyDoT[0]
@@ -577,9 +589,71 @@ func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 			"valid":       !time.Now().After(cert.NotAfter),
 			"self_signed": cert.Issuer.String() == cert.Subject.String(),
 		},
-		"selection_mode":   selectionMode,
-		"upstream_health":  upstreamHealth,
+		"selection_mode":  selectionMode,
+		"upstream_health": upstreamHealth,
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(info)
+}
+
+func handleIPInfo(w http.ResponseWriter, r *http.Request) {
+	ip := r.URL.Query().Get("ip")
+	if ip == "" {
+		http.Error(w, "IP required", http.StatusBadRequest)
+		return
+	}
+
+	if val, ok := ipInfoCache.Load(ip); ok {
+		info := val.(IPInfo)
+		if time.Now().Before(info.ExpiresAt) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(info)
+			return
+		}
+	}
+
+	isPrivate := false
+	if strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "172.") || ip == "127.0.0.1" || ip == "::1" || strings.HasPrefix(ip, "fd") {
+		isPrivate = true
+	}
+
+	info := IPInfo{
+		IP:        ip,
+		IsPrivate: isPrivate,
+	}
+
+	// Reverse DNS
+	names, _ := net.LookupAddr(ip)
+	if len(names) > 0 {
+		info.Hostname = strings.TrimSuffix(names[0], ".")
+	}
+
+	// GeoIP for public IPs
+	if !isPrivate {
+		resp, err := http.Get("http://ip-api.com/json/" + ip)
+		if err == nil {
+			var geo struct {
+				Country string `json:"country"`
+				City    string `json:"city"`
+				Org     string `json:"org"`
+			}
+			json.NewDecoder(resp.Body).Decode(&geo)
+			resp.Body.Close()
+			info.Country = geo.Country
+			info.City = geo.City
+			info.ISP = geo.Org
+		}
+	}
+
+	// Set expiration
+	if isPrivate {
+		info.ExpiresAt = time.Now().Add(1 * time.Hour)
+	} else {
+		info.ExpiresAt = time.Now().Add(24 * time.Hour)
+	}
+
+	ipInfoCache.Store(ip, info)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(info)
@@ -717,20 +791,14 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Read configured upstreams for ServerAddresses fallback
 	configLock.RLock()
-	upstreams := config.Upstreams
 	configLock.RUnlock()
 
 	// Build ServerAddresses XML array from configured upstream IPs
-	serverAddrsXML := ""
-	for _, ip := range upstreams {
-		ip = strings.TrimSpace(ip)
-		if ip != "" {
-			serverAddrsXML += fmt.Sprintf("\t\t\t\t<string>%s</string>\n", ip)
-		}
+	serverIP := config.BlockPageIP
+	if serverIP == "" {
+		serverIP = "127.0.0.1"
 	}
-	if serverAddrsXML == "" {
-		serverAddrsXML = "\t\t\t\t<string>1.1.1.1</string>\n\t\t\t\t<string>8.8.8.8</string>\n"
-	}
+	serverAddrsXML := fmt.Sprintf("\t\t\t\t<string>%s</string>\n", serverIP)
 
 	// Generate unique UUIDs per download to avoid profile conflicts
 	payloadUUID := fmt.Sprintf("%08X-%04X-%04X-%04X-%012X",
@@ -883,6 +951,15 @@ func handlePresetAllowlists(w http.ResponseWriter, r *http.Request) {
 func handleQueries(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("search")
 	statusFilter := r.URL.Query().Get("status")
+	clientIP := r.URL.Query().Get("client_ip")
+	limitStr := r.URL.Query().Get("limit")
+
+	limit := 100
+	if limitStr != "" {
+		if l, err := fmt.Sscanf(limitStr, "%d", &limit); err == nil && l > 0 {
+			// limit already set
+		}
+	}
 
 	query := "SELECT timestamp, domain, type, status, client_ip FROM queries WHERE 1=1"
 	var args []interface{}
@@ -895,8 +972,12 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 		query += " AND status = ?"
 		args = append(args, statusFilter)
 	}
+	if clientIP != "" {
+		query += " AND client_ip = ?"
+		args = append(args, clientIP)
+	}
 
-	query += " ORDER BY timestamp DESC LIMIT 100"
+	query += fmt.Sprintf(" ORDER BY timestamp DESC LIMIT %d", limit)
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
