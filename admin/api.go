@@ -485,44 +485,86 @@ func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	configLock.RLock()
 	allUpstreams := config.Upstreams
 	allDoT := config.UpstreamDoT
+	preferEncrypted := config.PreferEncrypted
+	smartSelection := config.UseFastestUpstream
 	configLock.RUnlock()
 
+	healthLock.RLock()
+	// Logic to identify the "preferred" (primary) upstream, same as in dns.go
+	var preferredServer string
+	if preferEncrypted && len(healthyDoT) > 0 {
+		preferredServer = "tls://" + healthyDoT[0]
+	} else if len(healthyUpstreams) > 0 {
+		preferredServer = healthyUpstreams[0]
+	}
+	healthLock.RUnlock()
+
 	type UpstreamHealth struct {
-		Server    string  `json:"server"`
-		Status    string  `json:"status"`
-		LatencyMs float64 `json:"latency_ms"`
+		Server      string  `json:"server"`
+		Status      string  `json:"status"`
+		LatencyMs   float64 `json:"latency_ms"`
+		IsPreferred bool    `json:"is_preferred"`
 	}
 
 	var upstreamHealth []UpstreamHealth
 	for _, u := range allUpstreams {
-		key := u
-		if strings.Contains(u, ":") {
-			key = u
-		}
 		status := "down"
-		if hUp[key] {
-			status = "up"
+		healthLock.RLock()
+		for _, hu := range healthyUpstreams {
+			if hu == u {
+				status = "up"
+				break
+			}
 		}
+		healthLock.RUnlock()
+
 		latMs := 0.0
-		if d, ok := latsRaw[key]; ok {
+		latencyLock.RLock()
+		if d, ok := latencyMap[u]; ok {
 			latMs = float64(d.Microseconds()) / 1000.0
 		}
-		upstreamHealth = append(upstreamHealth, UpstreamHealth{Server: u, Status: status, LatencyMs: latMs})
+		latencyLock.RUnlock()
+
+		upstreamHealth = append(upstreamHealth, UpstreamHealth{
+			Server:      u,
+			Status:      status,
+			LatencyMs:   latMs,
+			IsPreferred: u == preferredServer,
+		})
 	}
 	for _, u := range allDoT {
-		key := u
+		fullUrl := "tls://" + u
 		status := "down"
-		if hDoT[key] {
-			status = "up"
+		healthLock.RLock()
+		for _, hu := range healthyDoT {
+			if hu == u {
+				status = "up"
+				break
+			}
 		}
+		healthLock.RUnlock()
+
 		latMs := 0.0
-		if d, ok := latsRaw[key]; ok {
+		latencyLock.RLock()
+		if d, ok := latencyMap[u]; ok {
 			latMs = float64(d.Microseconds()) / 1000.0
 		}
-		upstreamHealth = append(upstreamHealth, UpstreamHealth{Server: "tls://" + u, Status: status, LatencyMs: latMs})
+		latencyLock.RUnlock()
+
+		upstreamHealth = append(upstreamHealth, UpstreamHealth{
+			Server:      fullUrl,
+			Status:      status,
+			LatencyMs:   latMs,
+			IsPreferred: fullUrl == preferredServer,
+		})
 	}
 	if upstreamHealth == nil {
 		upstreamHealth = []UpstreamHealth{}
+	}
+
+	selectionMode := "Manual"
+	if smartSelection {
+		selectionMode = "Smart Selection (Latency based)"
 	}
 
 	info := map[string]interface{}{
@@ -535,7 +577,7 @@ func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 			"valid":       !time.Now().After(cert.NotAfter),
 			"self_signed": cert.Issuer.String() == cert.Subject.String(),
 		},
-		"latencies":        lats,
+		"selection_mode":   selectionMode,
 		"upstream_health":  upstreamHealth,
 	}
 

@@ -124,3 +124,23 @@ func TestParseLogLine_SSEBroadcast(t *testing.T) {
 		t.Error("timed out waiting for SSE broadcast")
 	}
 }
+
+func TestParseLogLine_InvalidLogs(t *testing.T) {
+	bufferLock.Lock()
+	logBuffer = nil
+	bufferLock.Unlock()
+
+	// 1. Startup message (GOMAXPROCS) - Should be ignored
+	parseLogLine(`maxprocs: Honoring GOMAXPROCS="4" as set in environment`)
+
+	// 2. Default CoreDNS log format - Should be ignored (since it doesn't match our 6/7 field structure)
+	parseLogLine(`[INFO] 94.31.75.54:48532 - 6 "A IN 0.pool.ntp.org. tcp 128 true 65535" NOERROR qr,rd,ra 163 0.003577019s`)
+
+	bufferLock.Lock()
+	length := len(logBuffer)
+	bufferLock.Unlock()
+
+	if length != 0 {
+		t.Errorf("expected 0 queries for invalid/non-matching logs, got %d", length)
+	}
+}

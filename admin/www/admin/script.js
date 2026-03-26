@@ -135,32 +135,6 @@ document.addEventListener('DOMContentLoaded', () => {
     getEl('cancel-api-key-btn')?.addEventListener('click', () => apiKeyModal.classList.add('hidden'));
     getEl('close-api-key-modal-btn')?.addEventListener('click', () => apiKeyModal.classList.add('hidden'));
 
-    getEl('save-api-key-btn')?.addEventListener('click', async () => {
-        const name = getEl('api-key-name').value;
-        if (!name) { await showAlert('Please enter a name'); return; }
-        
-        const perms = [];
-        if (getEl('perm-stats').checked) perms.push('read:stats');
-        if (getEl('perm-logs').checked) perms.push('read:logs');
-        if (getEl('perm-system').checked) perms.push('read:system');
-        if (getEl('perm-filtering').checked) perms.push('write:filtering');
-
-        try {
-            const resp = await fetch('/api/tokens/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, permissions: perms })
-            });
-            const data = await resp.json();
-            apiKeyValue.textContent = data.token;
-            apiKeyForm.classList.add('hidden');
-            apiKeyResult.classList.remove('hidden');
-            fetchAPIKeys();
-        } catch (e) {
-            await showAlert('Failed to create API key');
-        }
-    });
-
     getEl('copy-api-key-btn')?.addEventListener('click', () => {
         navigator.clipboard.writeText(apiKeyValue.textContent);
         getEl('copy-api-key-btn').textContent = 'Copied!';
@@ -855,6 +829,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resp.status === 401) return;
             const data = await resp.json();
 
+            const selectionMethod = document.getElementById('upstream-selection-method');
+            if (selectionMethod) {
+                selectionMethod.textContent = `(${data.selection_mode || 'Manual'})`;
+            }
+
             const certInfo = document.getElementById('cert-info-content');
             if (certInfo) {
                 if (!data.certificate || !data.certificate.valid) {
@@ -863,8 +842,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const cert = data.certificate;
                     const daysLeft = Math.floor((new Date(cert.not_after) - new Date()) / (1000 * 60 * 60 * 24));
                     certInfo.innerHTML = `
-                        <div class="diag-item"><span>Issuer</span><span class="badge secondary">${cert.issuer}</span></div>
-                        <div class="diag-item"><span>Valid Until</span><span class="badge ${daysLeft < 30 ? 'danger' : 'official'}">${new Date(cert.not_after).toLocaleDateString()} (${daysLeft} days)</span></div>
+                        <div class="diag-item"><span>Status</span><span class="badge ${cert.valid ? 'official' : 'danger'}">${cert.valid ? 'Valid' : 'Expired'}</span></div>
+                        <div class="diag-item"><span>Subject</span><span>${cert.subject || '-'}</span></div>
+                        <div class="diag-item"><span>Issuer</span><span>${cert.issuer || '-'}</span></div>
+                        <div class="diag-item"><span>Expires</span><span>${new Date(cert.not_after).toLocaleString()} (${daysLeft} days left)</span></div>
+                        <div class="diag-item"><span>SANs</span><div style="text-align:right">${(cert.dns_names || []).join('<br>') || '-'}</div></div>
                     `;
                 }
             }
@@ -876,11 +858,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     latencyList.innerHTML = data.upstream_health.map(h => {
                         const isUp = h.status === 'up';
-                        const latencyStr = isUp ? `${h.latency_ms} ms` : '-';
+                        const latencyStr = isUp ? `${h.latency_ms.toFixed(1)} ms` : '-';
+                        const preferredBadge = h.is_preferred ? '<span class="badge" style="background: var(--accent); color: white; margin-left:8px;">Primary</span>' : '';
                         return `
                             <tr>
-                                <td>${h.server}</td>
-                                <td><span class="badge ${isUp ? 'official' : 'danger'}">${h.status.toUpperCase()}</span></td>
+                                <td>${h.server}${preferredBadge}</td>
+                                <td><span class="badge ${isUp ? 'official' : 'danger'}">${isUp ? 'Healthy' : 'Down'}</span></td>
                                 <td style="text-align:right">${latencyStr}</td>
                             </tr>
                         `;
@@ -1375,44 +1358,7 @@ window.clearSystemLogs = () => {
     systemLogTerminal.textContent = '';
 };
 
-const fetchDiagnostics = async () => {
-    try {
-        const resp = await fetch('/api/diagnostics');
-        const data = await resp.json();
-        
-        const cert = data.certificate || {};
-        certInfoContent.innerHTML = `
-            <div class="diag-item"><span>Status</span><span class="badge ${cert.valid ? 'official' : 'danger'}">${cert.valid ? 'Valid' : 'Expired'}</span></div>
-            <div class="diag-item"><span>Subject</span><span>${cert.subject || '-'}</span></div>
-            <div class="diag-item"><span>Issuer</span><span>${cert.issuer || '-'}</span></div>
-            <div class="diag-item"><span>Expires</span><span>${cert.not_after ? new Date(cert.not_after).toLocaleString() : '-'}</span></div>
-            <div class="diag-item"><span>Not Before</span><span>${cert.not_before ? new Date(cert.not_before).toLocaleString() : '-'}</span></div>
-            <div class="diag-item"><span>SANs</span><div style="text-align:right">${(cert.dns_names || []).join('<br>') || '-'}</div></div>
-        `;
 
-        const latencyTable = document.getElementById('upstream-latency-list');
-        if (latencyTable) {
-            const upstreams = data.upstream_health || [];
-            if (upstreams.length === 0) {
-                latencyTable.innerHTML = '<tr><td colspan="3" class="help">No upstreams configured.</td></tr>';
-            } else {
-                latencyTable.innerHTML = upstreams.map(h => {
-                    const isUp = h.status === 'up';
-                    const latStr = isUp ? `${h.latency_ms.toFixed(1)} ms` : '-';
-                    return `
-                        <tr>
-                            <td>${h.server}</td>
-                            <td><span class="badge ${isUp ? 'official' : 'danger'}">${isUp ? 'Healthy' : 'Down'}</span></td>
-                            <td class="text-right">${latStr}</td>
-                        </tr>
-                    `;
-                }).join('');
-            }
-        }
-    } catch (e) {
-        certInfoContent.innerHTML = '<p class="danger-text">Failed to load diagnostics information.</p>';
-    }
-};
 
 
 window.toggleList = async (index, type) => {

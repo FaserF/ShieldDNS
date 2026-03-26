@@ -166,7 +166,7 @@ mkdir -p /etc/shielddns /var/www/admin
 # Dynamically set GOMAXPROCS to match the available CPU count.
 # This prevents CoreDNS's automaxprocs from printing the
 # "CPU quota undefined" warning when no cgroup CPU limit is set.
-export GOMAXPROCS=$(nproc)
+export GOMAXPROCS=$(nproc 2>/dev/null || echo 1)
 
 # Export for Go backend
 export CERT_FILE

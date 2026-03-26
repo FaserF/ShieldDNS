@@ -189,6 +189,44 @@
         .btn-admin:hover {
             opacity: 1;
         }
+
+        /* Improved Copy Button Styles */
+        .copy-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 6px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+
+        .copy-btn.success {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        .copy-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
     </style>
 </head>
 
@@ -213,7 +251,10 @@
                 <label>Android (Private DNS)</label>
                 <div class="hostname-box" style="padding-right: 8px;">
                     <span id="hostname-text">{{.Host}}</span>
-                    <button id="copy-hostname-btn" class="btn secondary" style="padding: 4px 12px; font-size: 0.8rem; margin: 0; min-width: 70px; cursor: pointer;">Copy</button>
+                    <button class="copy-btn" data-copy="{{.Host}}" title="Copy to clipboard">
+                        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                        <span>Copy</span>
+                    </button>
                 </div>
                 <p style="font-size:0.8rem; color: var(--text-secondary); margin-top: 8px">
                     <strong>1.</strong> Settings &rarr; <strong>2.</strong> Network &rarr; <strong>3.</strong> Private DNS &rarr; <strong>4.</strong> Hostname
@@ -251,7 +292,13 @@
                         <strong>2.</strong> Next to "DNS server assignment", click <strong>Edit</strong> and change to <strong>Manual</strong>.<br>
                         <strong>3.</strong> Enable <strong>IPv4</strong>. Set "Preferred DNS" to the IP address of this server.<br>
                         <strong>4.</strong> Set "DNS over HTTPS" to <strong>On (manual template)</strong>.<br>
-                        <strong>5.</strong> Under DoH template, enter: <br><code style="background:#000; padding:2px 4px; border-radius:4px; color:var(--accent); font-family:monospace; margin-top:4px; display:inline-block;" id="win-doh-template">https://{{.Host}}/dns-query</code><br>
+                        <strong>5.</strong> Under DoH template, enter: <br>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                            <code style="background:#000; padding:6px 10px; border-radius:6px; color:var(--accent); font-family:monospace; flex-grow: 1; border: 1px solid var(--border);" id="win-doh-template">https://{{.Host}}/dns-query</code>
+                            <button class="copy-btn" data-copy="https://{{.Host}}/dns-query" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                            </button>
+                        </div><br>
                         <strong>6.</strong> Click <strong>Save</strong>.
                     </p>
                 </div>
@@ -285,23 +332,24 @@
     </div>
 
     <script>
-        const hostname = "{{.Host}}";
-        const copyBtn = document.getElementById('copy-hostname-btn');
-        if (copyBtn) {
-            copyBtn.addEventListener('click', function() {
-                navigator.clipboard.writeText(hostname).then(() => {
-                    const originalText = this.textContent;
-                    this.textContent = 'Copied!';
-                    this.style.backgroundColor = '#10b981';
-                    this.style.color = '#fff';
-                    this.style.border = 'none';
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const text = this.dataset.copy;
+                navigator.clipboard.writeText(text).then(() => {
+                    const span = this.querySelector('span');
+                    const originalText = span ? span.textContent : '';
+                    const originalIcon = this.innerHTML;
+                    
+                    this.classList.add('success');
+                    if (span) span.textContent = 'Copied!';
+                    
                     setTimeout(() => {
-                        this.textContent = originalText;
-                        this.style = '';
+                        this.classList.remove('success');
+                        if (span) span.textContent = originalText;
                     }, 2000);
                 });
             });
-        }
+        });
     </script>
 </body>
 

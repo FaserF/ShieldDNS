@@ -29,6 +29,9 @@ func main() {
 	go startLogWorker()
 	go startRetentionWorker()
 
+	// Ensure Corefile is generated with correct settings before starting CoreDNS
+	updateCorefile()
+
 	// Start CoreDNS management
 	go startCoreDNS()
 

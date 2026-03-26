@@ -50,19 +50,14 @@ jobs:
 
       - name: Start Container
         run: |
-          docker run -d --name shielddns \
-            -p 853:853 \
-            -v $(pwd)/ssl:/ssl \
-            -e UPSTREAM_DNS=8.8.8.8 \
-            -e CERT_FILE=/ssl/fullchain.pem \
-            -e KEY_FILE=/ssl/privkey.pem \
-            shielddns:test
+          docker run -d --name shielddns -p 853:853 -v ${{ github.workspace }}/ssl:/ssl -e UPSTREAM_DNS=8.8.8.8 -e CERT_FILE=/ssl/fullchain.pem -e KEY_FILE=/ssl/privkey.pem shielddns:test
+          sleep 5
 
-          sleep 5 # Give it a moment to start
-
-      - name: Check Container Logs
+      - name: Check Container Status & Logs
         if: always()
-        run: docker logs shielddns
+        run: |
+          docker ps -a
+          docker logs shielddns || true
 
       - name: Verify DNS Resolution (DoT)
         run: |

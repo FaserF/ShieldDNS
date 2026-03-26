@@ -23,28 +23,26 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		if token != "" {
-			configLock.RLock()
-			keys := config.APIKeys
-			configLock.RUnlock()
-
-			// Safety Guard: If no tokens exist, reject all API attempts
-			if len(keys) == 0 {
-				http.Error(w, "Unauthorized: No API keys configured", http.StatusUnauthorized)
-				return
-			}
-
 			hashed := hashToken(token)
-			var matchedKey *APIKey
-			for _, k := range keys {
+			
+			var matchedKey APIKey
+			found := false
+
+			configLock.Lock()
+			for i, k := range config.APIKeys {
 				if k.TokenHash == hashed {
-					matchedKey = &k
+					config.APIKeys[i].LastUsed = time.Now()
+					saveConfigNoLock()
+					matchedKey = config.APIKeys[i]
+					found = true
 					break
 				}
 			}
+			configLock.Unlock()
 
-			if matchedKey != nil {
+			if found {
 				required := getRequiredPermission(r)
-				if hasPermission(matchedKey, required) {
+				if hasPermission(&matchedKey, required) {
 					next.ServeHTTP(w, r)
 					return
 				}
