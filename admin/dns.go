@@ -11,13 +11,14 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
 func startHealthChecker() {
 	checkAll() // Initial check
-	ticker := time.NewTicker(30 * time.Second)
-	for range ticker.C {
+	for {
+		time.Sleep(60 * time.Second)
 		checkAll()
 	}
 }
@@ -30,27 +31,40 @@ func checkAll() {
 	configLock.RUnlock()
 
 	var newHealthyUpstreams []string
+	var newHealthyDoT []string
+
+	// Sequential Check for Upstreams with delay for absolute reliability
 	for _, u := range upstreams {
+		host, port := splitAddr(u, "53")
+		ip := resolveHost(host)
+		resolvedAddr := net.JoinHostPort(ip, port)
+
 		start := time.Now()
-		if checkDNS(u) {
+		if checkDNS(resolvedAddr) {
 			lat := time.Since(start)
 			latencyLock.Lock()
 			latencyMap[u] = lat
 			latencyLock.Unlock()
 			newHealthyUpstreams = append(newHealthyUpstreams, u)
 		}
+		time.Sleep(500 * time.Millisecond)
 	}
 
-	var newHealthyDoT []string
+	// Sequential Check for DoT
 	for _, u := range dots {
+		host, port := splitAddr(u, "853")
+		ip := resolveHost(host)
+		resolvedAddr := net.JoinHostPort(ip, port)
+
 		start := time.Now()
-		if checkDoT(u) {
+		if checkDoT(resolvedAddr, host) {
 			lat := time.Since(start)
 			latencyLock.Lock()
 			latencyMap[u] = lat
 			latencyLock.Unlock()
 			newHealthyDoT = append(newHealthyDoT, u)
 		}
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	healthLock.Lock()
@@ -63,8 +77,33 @@ func checkAll() {
 	}
 }
 
+func splitAddr(addr, defaultPort string) (host, port string) {
+	host = addr
+	port = defaultPort
+	if strings.Contains(addr, ":") {
+		if h, p, err := net.SplitHostPort(addr); err == nil {
+			host = h
+			port = p
+		}
+	}
+	return host, port
+}
+
 func checkDNS(addr string) bool {
 	if !strings.Contains(addr, ":") { addr += ":53" }
+	
+	for i := 0; i < 3; i++ { // 3 attempts
+		if checkDNSOnce(addr) {
+			return true
+		}
+		if i < 2 {
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+	return false
+}
+
+func checkDNSOnce(addr string) bool {
 	conn, err := net.DialTimeout("udp", addr, 2*time.Second)
 	if err != nil { return false }
 	defer conn.Close()
@@ -94,11 +133,24 @@ func checkDNS(addr string) bool {
 	return true
 }
 
-func checkDoT(addr string) bool {
-	host := addr
-	if !strings.Contains(host, ":") { host += ":853" }
-	conf := &tls.Config{InsecureSkipVerify: true}
-	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 2 * time.Second}, "tcp", host, conf)
+func checkDoT(addr, serverName string) bool {
+	for i := 0; i < 3; i++ { // 3 attempts
+		if checkDoTOnce(addr, serverName) {
+			return true
+		}
+		if i < 2 {
+			time.Sleep(300 * time.Millisecond)
+		}
+	}
+	return false
+}
+
+func checkDoTOnce(addr, serverName string) bool {
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         serverName,
+	}
+	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 3 * time.Second}, "tcp", addr, conf)
 	if err != nil { return false }
 	conn.Close()
 	return true
@@ -110,6 +162,46 @@ func equal(a, b []string) bool {
 		if a[i] != b[i] { return false }
 	}
 	return true
+}
+
+var (
+	resolveCache     = make(map[string]string)
+	resolveCacheLock sync.Mutex
+)
+
+func resolveHost(host string) string {
+	if net.ParseIP(host) != nil {
+		return host
+	}
+
+	resolveCacheLock.Lock()
+	if ip, ok := resolveCache[host]; ok {
+		resolveCacheLock.Unlock()
+		return ip
+	}
+	resolveCacheLock.Unlock()
+
+	ips, err := net.LookupIP(host)
+	if err != nil || len(ips) == 0 {
+		return host
+	}
+
+	// Prefer IPv4 for better compatibility in many networks/containers
+	var ip string
+	for _, i := range ips {
+		if i.To4() != nil {
+			ip = i.String()
+			break
+		}
+	}
+	if ip == "" {
+		ip = ips[0].String()
+	}
+
+	resolveCacheLock.Lock()
+	resolveCache[host] = ip
+	resolveCacheLock.Unlock()
+	return ip
 }
 
 func updateCorefile() {
@@ -137,14 +229,40 @@ func updateCorefile() {
 	}
 
 	var upstreams []string
+	var dotServerName string
 	if preferEncrypted {
 		for _, u := range hDoT {
-			if !strings.Contains(u, ":") { u += ":853" }
-			upstreams = append(upstreams, "tls://"+u)
+			host := u
+			port := "853"
+			if strings.Contains(u, ":") {
+				h, p, err := net.SplitHostPort(u)
+				if err == nil {
+					host = h
+					port = p
+				}
+			}
+			
+			ip := resolveHost(host)
+			if dotServerName == "" && ip != host {
+				dotServerName = host // Use first hostname found as server name
+			}
+			upstreams = append(upstreams, fmt.Sprintf("tls://%s:%s", ip, port))
 		}
 	}
 	// Fallback to normal DNS
-	upstreams = append(upstreams, hDNS...)
+	for _, u := range hDNS {
+		host := u
+		port := "53"
+		if strings.Contains(u, ":") {
+			h, p, err := net.SplitHostPort(u)
+			if err == nil {
+				host = h
+				port = p
+			}
+		}
+		ip := resolveHost(host)
+		upstreams = append(upstreams, fmt.Sprintf("%s:%s", ip, port))
+	}
 
 	// If everything is down, use defaults as last resort to avoid total failure
 	if len(upstreams) == 0 {
@@ -173,6 +291,11 @@ func updateCorefile() {
     }`, BlocklistPath)
     }
 
+    tlsBlock := ""
+    if dotServerName != "" {
+        tlsBlock = fmt.Sprintf("    tls_servername %s", dotServerName)
+    }
+
     corefile := fmt.Sprintf(`.:53 {
     bind 0.0.0.0
     dnssec
@@ -185,11 +308,12 @@ func updateCorefile() {
     }
     forward . %s {
         health_check 10s
+        %s
     }%s
     log . "{remote} {type} {name} {rcode} {rflags} {duration}"
     errors
 }
-`, upstreamStr, hostsBlock)
+`, upstreamStr, tlsBlock, hostsBlock)
 
     // Repeat for TLS and HTTPS blocks
     corefile += fmt.Sprintf(`
@@ -205,6 +329,7 @@ tls://.:853 {
     }
     forward . %s {
         health_check 10s
+        %s
     }%s
     log . "{remote} {type} {name} {rcode} {rflags} {duration}"
     errors
@@ -222,11 +347,12 @@ https://.:5553 {
     }
     forward . %s {
         health_check 10s
+        %s
     }%s
     log . "{remote} {type} {name} {rcode} {rflags} {duration}"
     errors
 }
-`, certFile, keyFile, upstreamStr, hostsBlock, certFile, keyFile, upstreamStr, hostsBlock)
+`, certFile, keyFile, upstreamStr, tlsBlock, hostsBlock, certFile, keyFile, upstreamStr, tlsBlock, hostsBlock)
 
 	os.WriteFile(CorefilePath, []byte(corefile), 0644)
 }

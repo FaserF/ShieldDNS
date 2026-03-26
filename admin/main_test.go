@@ -199,8 +199,16 @@ func TestUpdateCorefile(t *testing.T) {
 	healthyDoT = []string{"dns.google"}
 	updateCorefile()
 	content, _ = os.ReadFile(CorefilePath)
-	if !strings.Contains(string(content), "forward . tls://dns.google:853 1.1.1.1") {
-		t.Errorf("corefile missing tls forward: %s", string(content))
+	sContent := string(content)
+	if !strings.Contains(sContent, "tls_servername dns.google") {
+		t.Errorf("corefile missing tls_servername dns.google: %s", sContent)
+	}
+	// It should contain a resolved IP (8.8.8.8, 8.8.4.4 or IPv6 variants) instead of the hostname in the forward line
+	if strings.Contains(sContent, "forward . tls://dns.google:853") {
+		t.Errorf("corefile should contain resolved IP, not hostname in forward line: %s", sContent)
+	}
+	if !strings.Contains(sContent, "forward . tls://") {
+		t.Errorf("corefile missing tls forward: %s", sContent)
 	}
 }
 

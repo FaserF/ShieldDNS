@@ -98,6 +98,9 @@ func loadConfig() {
 	if len(config.Upstreams) == 0 {
 		config.Upstreams = []string{"86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"}
 	}
+	if len(config.UpstreamDoT) == 0 {
+		config.UpstreamDoT = []string{"unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"}
+	}
 	// Limit to max 5
 	if len(config.Upstreams) > 5 { config.Upstreams = config.Upstreams[:5] }
 	if len(config.UpstreamDoT) > 5 { config.UpstreamDoT = config.UpstreamDoT[:5] }

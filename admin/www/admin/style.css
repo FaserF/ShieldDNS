@@ -808,8 +808,27 @@ input:checked + .slider:before {
 .diag-item {
     display: flex;
     justify-content: space-between;
-    padding: 8px 0;
+    align-items: center;
+    padding: 10px 0;
     border-bottom: 1px solid var(--border);
+    gap: 16px;
+    min-width: 0;
+}
+
+.diag-item > span:first-child {
+    flex-shrink: 0;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+}
+
+.diag-item > span:last-child {
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    font-size: 0.95rem;
+    color: var(--text);
 }
 
 .diag-item:last-child {

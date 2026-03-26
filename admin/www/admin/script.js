@@ -836,10 +836,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const daysLeft = Math.floor((new Date(cert.not_after) - new Date()) / (1000 * 60 * 60 * 24));
                     certInfo.innerHTML = `
                         <div class="diag-item"><span>Status</span><span class="badge ${cert.valid ? 'official' : 'danger'}">${cert.valid ? 'Valid' : 'Expired'}</span></div>
-                        <div class="diag-item"><span>Subject</span><span>${cert.subject || '-'}</span></div>
-                        <div class="diag-item"><span>Issuer</span><span>${cert.issuer || '-'}</span></div>
+                        <div class="diag-item"><span>Subject</span><span title="${cert.subject || ''}">${cert.subject || '-'}</span></div>
+                        <div class="diag-item"><span>Issuer</span><span title="${cert.issuer || ''}">${cert.issuer || '-'}</span></div>
                         <div class="diag-item"><span>Expires</span><span>${new Date(cert.not_after).toLocaleString()} (${daysLeft} days left)</span></div>
-                        <div class="diag-item"><span>SANs</span><div style="text-align:right">${(cert.dns_names || []).join('<br>') || '-'}</div></div>
+                        <div class="diag-item"><span>SANs</span><span style="white-space: normal; word-break: break-all;">${(cert.dns_names || []).join(', ') || '-'}</span></div>
                     `;
                 }
             }
