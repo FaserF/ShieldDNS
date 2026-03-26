@@ -824,3 +824,95 @@ input:checked + .slider:before {
 .diag-item:last-child {
     border-bottom: none;
 }
+
+/* Status Toggle */
+.status-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.status-toggle-wrapper {
+    margin-left: auto;
+}
+
+.protection-status-card.disabled {
+    border-color: var(--danger);
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.1), rgba(0, 0, 0, 0));
+}
+
+.disabled #status-icon {
+    color: var(--danger);
+}
+
+.protected #status-icon {
+    color: var(--success);
+}
+
+/* API Key Token Display */
+.token-display {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 15px 0;
+}
+
+.token-display code {
+    font-family: 'Inter', monospace;
+    font-size: 14px;
+    color: var(--primary);
+    word-break: break-all;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.overflow-x {
+    overflow-x: auto;
+}
+
+/* Modal Checkbox Fixes */
+.modal .checkbox-group {
+    background: rgba(255, 255, 255, 0.02);
+    padding: 15px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    border-radius: 12px;
+}
+
+.switch-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    width: 100%;
+}
+
+.switch-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+    .status-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    .status-toggle-wrapper {
+        margin-left: 0;
+        width: 100%;
+    }
+    #toggle-protection-btn {
+        width: 100%;
+    }
+}

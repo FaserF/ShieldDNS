@@ -136,7 +136,21 @@ func updateCorefile() {
 	if certFile == "" { certFile = "/ssl/fullchain.pem" }
 	if keyFile == "" { keyFile = "/ssl/privkey.pem" }
 
-	corefile := fmt.Sprintf(`.:53 {
+    // Get filtering status
+    configLock.RLock()
+    filteringEnabled := config.FilteringEnabled
+    configLock.RUnlock()
+
+    hostsBlock := ""
+    if filteringEnabled {
+        hostsBlock = fmt.Sprintf(`
+    hosts %s {
+        reload 5s
+        fallthrough
+    }`, BlocklistPath)
+    }
+
+    corefile := fmt.Sprintf(`.:53 {
     bind 0.0.0.0
     dnssec
     health :8082
@@ -148,15 +162,14 @@ func updateCorefile() {
     }
     forward . %s {
         health_check 10s
-    }
-    hosts %s {
-        reload 5s
-        fallthrough
-    }
+    }%s
     log
     errors
 }
+`, upstreamStr, hostsBlock)
 
+    // Repeat for TLS and HTTPS blocks
+    corefile += fmt.Sprintf(`
 tls://.:853 {
     tls %s %s {
         protocols tls1.2 tls1.3
@@ -172,7 +185,7 @@ tls://.:853 {
     }
     forward . %s {
         health_check 10s
-    }
+    }%s
     log
     errors
 }
@@ -192,11 +205,11 @@ https://.:5553 {
     }
     forward . %s {
         health_check 10s
-    }
+    }%s
     log
     errors
 }
-`, upstreamStr, BlocklistPath, certFile, keyFile, upstreamStr, certFile, keyFile, upstreamStr)
+`, certFile, keyFile, upstreamStr, hostsBlock, certFile, keyFile, upstreamStr, hostsBlock)
 
 	os.WriteFile(CorefilePath, []byte(corefile), 0644)
 }

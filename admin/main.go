@@ -54,6 +54,22 @@ func main() {
 	http.Handle("/api/export", authMiddleware(http.HandlerFunc(handleExport)))
 	http.Handle("/api/backup", authMiddleware(http.HandlerFunc(handleBackup)))
 	http.Handle("/api/change-password", authMiddleware(http.HandlerFunc(handleChangePassword)))
+	
+	// API Tokens
+	http.Handle("/api/tokens", authMiddleware(http.HandlerFunc(handleGetTokens)))
+	http.Handle("/api/tokens/create", authMiddleware(http.HandlerFunc(handleCreateToken)))
+	http.Handle("/api/tokens/update", authMiddleware(http.HandlerFunc(handleUpdateToken)))
+	http.Handle("/api/tokens/delete", authMiddleware(http.HandlerFunc(handleDeleteToken)))
+	
+	// Global Controls
+	http.Handle("/api/filtering/toggle", authMiddleware(http.HandlerFunc(handleToggleFiltering)))
+	
+	// Health
+	http.HandleFunc("/api/health/live", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	http.Handle("/api/health", authMiddleware(http.HandlerFunc(handleHealth)))
 
 	// Get cert/key paths
 	certFile := os.Getenv("CERT_FILE")

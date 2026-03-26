@@ -1,5 +1,5 @@
-# ShieldDNS Official Whitelist
-# Format: AdBlock/AdGuard-style whitelist rules
+# ShieldDNS Official Allowlist
+# Format: AdBlock/AdGuard-style allowlist rules
 @@||google.com^
 @@||gstatic.com^
 @@||googleusercontent.com^

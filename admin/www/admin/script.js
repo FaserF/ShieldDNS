@@ -8,6 +8,7 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     let systemLogTerminal, certInfoContent, statsContainer, topBlockedContainer, topClientsContainer;
     let queryLogItems, fullQueryLogItems;
     let systemLogEventSource = null;
+    let apiKeysListContainer, apiKeyModal, apiKeyForm, apiKeyResult, apiKeyValue, protectionStatusLabel, toggleProtectionBtn;
 
 document.addEventListener('DOMContentLoaded', () => {
     const getEl = (id) => document.getElementById(id);
@@ -37,6 +38,142 @@ document.addEventListener('DOMContentLoaded', () => {
         ratio: getEl('stat-ratio'),
         cache: getEl('stat-cache')
     };
+
+    apiKeysListContainer = getEl('api-keys-list');
+    apiKeyModal = getEl('api-key-modal');
+    apiKeyForm = getEl('api-key-form');
+    apiKeyResult = getEl('api-key-result');
+    apiKeyValue = getEl('api-key-value');
+    protectionStatusLabel = getEl('protection-status-label');
+    toggleProtectionBtn = getEl('toggle-protection-btn');
+
+    getEl('create-api-key-btn')?.addEventListener('click', () => {
+        apiKeyForm.classList.remove('hidden');
+        apiKeyResult.classList.add('hidden');
+        apiKeyModal.classList.remove('hidden');
+    });
+
+    getEl('cancel-api-key-btn')?.addEventListener('click', () => apiKeyModal.classList.add('hidden'));
+    getEl('close-api-key-modal-btn')?.addEventListener('click', () => apiKeyModal.classList.add('hidden'));
+
+    getEl('save-api-key-btn')?.addEventListener('click', async () => {
+        const name = getEl('api-key-name').value;
+        if (!name) return alert('Please enter a name');
+        
+        const perms = [];
+        if (getEl('perm-stats').checked) perms.push('read:stats');
+        if (getEl('perm-logs').checked) perms.push('read:logs');
+        if (getEl('perm-system').checked) perms.push('read:system');
+        if (getEl('perm-filtering').checked) perms.push('write:filtering');
+
+        try {
+            const resp = await fetch('/api/tokens/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, permissions: perms })
+            });
+            const data = await resp.json();
+            apiKeyValue.textContent = data.token;
+            apiKeyForm.classList.add('hidden');
+            apiKeyResult.classList.remove('hidden');
+            fetchAPIKeys();
+        } catch (e) {
+            alert('Failed to create API key');
+        }
+    });
+
+    getEl('copy-api-key-btn')?.addEventListener('click', () => {
+        navigator.clipboard.writeText(apiKeyValue.textContent);
+        getEl('copy-api-key-btn').textContent = 'Copied!';
+        setTimeout(() => getEl('copy-api-key-btn').textContent = 'Copy', 2000);
+    });
+
+    toggleProtectionBtn?.addEventListener('click', async () => {
+        const newStatus = !currentConfig.filtering_enabled;
+        try {
+            await fetch('/api/filtering/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: newStatus })
+            });
+            currentConfig.filtering_enabled = newStatus;
+            renderProtectionStatus();
+        } catch (e) {
+            alert('Failed to toggle protection');
+        }
+    });
+
+    let editingTokenId = null;
+
+    window.editAPIKey = (id) => {
+        const token = allTokens.find(t => t.id === id);
+        if (!token) return;
+
+        editingTokenId = id;
+        document.getElementById('api-key-modal-title').textContent = 'Edit API Key';
+        document.getElementById('api-key-name').value = token.name;
+        document.getElementById('perm-stats').checked = token.permissions.includes('read:stats');
+        document.getElementById('perm-logs').checked = token.permissions.includes('read:logs');
+        document.getElementById('perm-system').checked = token.permissions.includes('read:system');
+        document.getElementById('perm-filtering').checked = token.permissions.includes('write:filtering');
+        
+        getEl('save-api-key-btn').textContent = 'Update Key';
+        apiKeyForm.classList.remove('hidden');
+        apiKeyResult.classList.add('hidden');
+        apiKeyModal.classList.remove('hidden');
+    };
+
+    getEl('create-api-key-btn')?.addEventListener('click', () => {
+        editingTokenId = null;
+        document.getElementById('api-key-modal-title').textContent = 'Generate API Key';
+        document.getElementById('api-key-name').value = '';
+        document.getElementById('perm-stats').checked = true;
+        document.getElementById('perm-logs').checked = false;
+        document.getElementById('perm-system').checked = false;
+        document.getElementById('perm-filtering').checked = false;
+        getEl('save-api-key-btn').textContent = 'Generate';
+        apiKeyForm.classList.remove('hidden');
+        apiKeyResult.classList.add('hidden');
+        apiKeyModal.classList.remove('hidden');
+    });
+
+    getEl('save-api-key-btn')?.addEventListener('click', async () => {
+        const name = getEl('api-key-name').value;
+        if (!name) return alert('Please enter a name');
+        
+        const perms = [];
+        if (getEl('perm-stats').checked) perms.push('read:stats');
+        if (getEl('perm-logs').checked) perms.push('read:logs');
+        if (getEl('perm-system').checked) perms.push('read:system');
+        if (getEl('perm-filtering').checked) perms.push('write:filtering');
+
+        try {
+            const endpoint = editingTokenId ? '/api/tokens/update' : '/api/tokens/create';
+            const body = { name, permissions: perms };
+            if (editingTokenId) body.id = editingTokenId;
+
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            
+            if (editingTokenId) {
+                apiKeyModal.classList.add('hidden');
+                fetchAPIKeys();
+            } else {
+                const data = await resp.json();
+                apiKeyValue.textContent = data.token;
+                apiKeyForm.classList.add('hidden');
+                apiKeyResult.classList.remove('hidden');
+                fetchAPIKeys();
+            }
+        } catch (e) {
+            alert('Failed to save API key');
+        }
+    });
+
+    let allTokens = [];
 
     const navItems = document.querySelectorAll('.nav-item');
 
@@ -223,6 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchPresets();
         fetchQueries();
         fetchHistory();
+        fetchAPIKeys();
         startSSE();
         setInterval(fetchStats, 10000);
         setInterval(fetchHistory, 60000); // Chart once a minute
@@ -547,10 +685,75 @@ document.addEventListener('DOMContentLoaded', () => {
             // Fallback for old configs
             if (currentConfig.upstream_dot === undefined) currentConfig.upstream_dot = [];
             if (currentConfig.prefer_encrypted === undefined) currentConfig.prefer_encrypted = false;
+            if (currentConfig.filtering_enabled === undefined) currentConfig.filtering_enabled = true;
             
             renderConfig();
+            renderProtectionStatus();
         } catch (e) {
             console.error('Failed to fetch config', e);
+        }
+    };
+
+    const renderProtectionStatus = () => {
+        const enabled = currentConfig.filtering_enabled;
+        const card = document.querySelector('.protection-status-card');
+        const icon = document.getElementById('status-icon');
+        const title = document.getElementById('status-title');
+        const desc = document.getElementById('status-desc');
+
+        if (enabled) {
+            card.classList.remove('disabled');
+            card.classList.add('protected');
+            title.textContent = 'ShieldDNS is Active';
+            desc.textContent = 'Your requests are being filtered and secured.';
+            toggleProtectionBtn.textContent = 'Disable Protection';
+            toggleProtectionBtn.className = 'btn btn-primary';
+        } else {
+            card.classList.remove('protected');
+            card.classList.add('disabled');
+            title.textContent = 'Protection is Disabled';
+            desc.textContent = 'Blocklists are currently inactive. Traffic is unfiltered.';
+            toggleProtectionBtn.textContent = 'Enable Protection';
+            toggleProtectionBtn.className = 'btn secondary';
+        }
+    };
+
+    const fetchAPIKeys = async () => {
+        try {
+            const resp = await fetch('/api/tokens');
+            const tokens = await resp.json();
+            renderAPIKeys(tokens);
+        } catch (e) {
+            console.error('Failed to fetch API keys', e);
+        }
+    };
+
+    const renderAPIKeys = (tokens) => {
+        allTokens = tokens;
+        apiKeysListContainer.innerHTML = '';
+        tokens.forEach(k => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${k.name}</td>
+                <td>${(k.permissions || []).map(p => `<span class="badge secondary">${p}</span>`).join(' ')}</td>
+                <td>${new Date(k.created_at).toLocaleDateString()}</td>
+                <td>${!k.last_used || k.last_used === '0001-01-01T00:00:00Z' ? 'Never' : new Date(k.last_used).toLocaleString()}</td>
+                <td>
+                    <button class="btn btn-sm secondary" onclick="editAPIKey('${k.id}')">Edit</button>
+                    <button class="btn btn-sm danger" onclick="deleteAPIKey('${k.id}')">Delete</button>
+                </td>
+            `;
+            apiKeysListContainer.appendChild(tr);
+        });
+    };
+
+    window.deleteAPIKey = async (id) => {
+        if (!confirm('Are you sure you want to delete this API key?')) return;
+        try {
+            await fetch(`/api/tokens/delete?id=${id}`, { method: 'DELETE' });
+            fetchAPIKeys();
+        } catch (e) {
+            alert('Failed to delete key');
         }
     };
 
@@ -810,8 +1013,8 @@ window.toggleList = async (index, type) => {
 
 window.removeList = async (index, type) => {
     if (confirm('Are you sure you want to remove this list?')) {
-        if (type === 'white') {
-            currentConfig.whitelists.splice(index, 1);
+        if (type === 'allow') {
+            currentConfig.allowlists.splice(index, 1);
         } else {
             currentConfig.lists.splice(index, 1);
         }

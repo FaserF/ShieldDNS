@@ -2,7 +2,8 @@ package main
 
 import (
 	"archive/zip"
-	"bufio"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -22,6 +23,188 @@ var (
 	systemLogLock   sync.RWMutex
 	systemLogClients = make(map[chan string]struct{})
 )
+
+func hashToken(token string) string {
+	h := sha256.New()
+	h.Write([]byte(token))
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func generateToken() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)
+}
+
+func hasPermission(key *APIKey, perm string) bool {
+	for _, p := range key.Permissions {
+		if p == "read:all" || p == perm {
+			return true
+		}
+	}
+	return false
+}
+
+func getRequiredPermission(r *http.Request) string {
+	path := r.URL.Path
+	switch {
+	case strings.HasPrefix(path, "/api/stats"), strings.HasPrefix(path, "/api/history"), strings.HasPrefix(path, "/api/health"):
+		return "read:stats"
+	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-blocked"), strings.HasPrefix(path, "/api/top-clients"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"):
+		return "read:logs"
+	case strings.HasPrefix(path, "/api/system-logs"), strings.HasPrefix(path, "/api/diagnostics"), strings.HasPrefix(path, "/api/backup"):
+		return "read:system"
+	case strings.HasPrefix(path, "/api/filtering/toggle"):
+		return "write:filtering"
+	case strings.HasPrefix(path, "/api/config"):
+		if r.Method == http.MethodPost {
+			return "write:config" // Not exposed via tokens usually, but for RBAC safety
+		}
+		return "read:stats"
+	default:
+		return "read:stats"
+	}
+}
+
+func handleGetTokens(w http.ResponseWriter, r *http.Request) {
+	configLock.RLock()
+	defer configLock.RUnlock()
+	
+	// Strip hashes before sending to UI
+	type TokenInfo struct {
+		ID          string    `json:"id"`
+		Name        string    `json:"name"`
+		Permissions []string  `json:"permissions"`
+		CreatedAt   time.Time `json:"created_at"`
+		LastUsed    time.Time `json:"last_used"`
+	}
+	
+	tokens := make([]TokenInfo, len(config.APIKeys))
+	for i, k := range config.APIKeys {
+		tokens[i] = TokenInfo{
+			ID:          k.ID,
+			Name:        k.Name,
+			Permissions: k.Permissions,
+			CreatedAt:   k.CreatedAt,
+			LastUsed:    k.LastUsed,
+		}
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tokens)
+}
+
+func handleCreateToken(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name        string   `json:"name"`
+		Permissions []string `json:"permissions"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	rawToken := generateToken()
+	newToken := APIKey{
+		ID:          fmt.Sprintf("%d", time.Now().UnixNano()),
+		Name:        req.Name,
+		TokenHash:   hashToken(rawToken),
+		Permissions: req.Permissions,
+		CreatedAt:   time.Now(),
+	}
+
+	configLock.Lock()
+	config.APIKeys = append(config.APIKeys, newToken)
+	saveConfigNoLock()
+	configLock.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"token": rawToken,
+		"id":    newToken.ID,
+	})
+}
+
+func handleDeleteToken(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "ID required", http.StatusBadRequest)
+		return
+	}
+
+	configLock.Lock()
+	defer configLock.Unlock()
+	
+	newKeys := make([]APIKey, 0)
+	for _, k := range config.APIKeys {
+		if k.ID != id {
+			newKeys = append(newKeys, k)
+		}
+	}
+	config.APIKeys = newKeys
+	saveConfigNoLock()
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleUpdateToken(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID          string   `json:"id"`
+		Name        string   `json:"name"`
+		Permissions []string `json:"permissions"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	configLock.Lock()
+	defer configLock.Unlock()
+	
+	for i := range config.APIKeys {
+		if config.APIKeys[i].ID == req.ID {
+			config.APIKeys[i].Name = req.Name
+			config.APIKeys[i].Permissions = req.Permissions
+			saveConfigNoLock()
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+	}
+	http.Error(w, "Token not found", http.StatusNotFound)
+}
+
+func handleToggleFiltering(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	configLock.Lock()
+	config.FilteringEnabled = req.Enabled
+	saveConfigNoLock()
+	configLock.Unlock()
+
+	updateCorefile()
+	
+	status := "Disabled"
+	if req.Enabled { status = "Enabled" }
+	AddSystemLog("Global protection " + status)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	// Simple health check for monitoring
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "healthy", "version": Version})
+}
 
 func AddSystemLog(line string) {
 	line = fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), line)

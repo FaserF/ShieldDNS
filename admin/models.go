@@ -18,6 +18,17 @@ type Config struct {
 	CustomAllowed       []string `json:"custom_allowed"`
 	SetupDone           bool     `json:"setup_done"`
 	AdminPasswordHashed string   `json:"admin_password_hashed"`
+	APIKeys             []APIKey `json:"api_keys"`
+	FilteringEnabled    bool     `json:"filtering_enabled"`
+}
+
+type APIKey struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	TokenHash   string    `json:"token_hash"`
+	Permissions []string  `json:"permissions"`
+	CreatedAt   time.Time `json:"created_at"`
+	LastUsed    time.Time `json:"last_used"`
 }
 
 type List struct {

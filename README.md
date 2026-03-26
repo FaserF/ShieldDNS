@@ -94,6 +94,24 @@ sudo iptables -I INPUT -p tcp -m multiport --dports 53,443,853 -j ACCEPT
 sudo netfilter-persistent save
 ```
 
+## 🔐 API Key Management & RBAC
+
+ShieldDNS includes a secure, granular API key system for remote monitoring and automation (e.g., Home Assistant integration).
+
+### Authentication
+Authenticate by sending your API key in the `X-API-Key` header or as a `Bearer` token in the `Authorization` header.
+
+### Permissions (RBAC)
+ShieldDNS uses a Role-Based Access Control model. Tokens can be restricted to:
+- `read:stats`: Dashboard metrics and analytics history.
+- `read:logs`: Sensitive data including Query Logs and Client IPs.
+- `read:system`: System terminal logs, SSL diagnostics, and backups.
+- `write:filtering`: Toggle the global protection/filtering engine.
+- `read:all`: Grant all read-only permissions above.
+
+> [!IMPORTANT]
+> **Security Guard Policy**: If no API keys are defined in the Settings, all token-based authentication attempts are rejected by default.
+
 ## 🖥️ Admin Dashboard
 
 Access the dashboard at `https://YOUR_SERVER_IP/`.
@@ -117,7 +135,7 @@ ShieldDNS now stores your query history in a persistent SQLite database:
 ### 🏳️ Custom Rules
 Immediately take control of your network without managing external lists:
 - **Custom Blocklist**: Instantly block any domain (e.g., `tiktok.com`).
-- **Custom Whitelist**: Ensure critical domains (e.g., `myvpn.com`) are never blocked.
+- **Custom Allowlist**: Ensure critical domains (e.g., `myvpn.com`) are never blocked.
 
 ### ⚡ Optimization & Health
 - **Intelligent Caching**: Large 10k entry cache reduces upstream lookups.
