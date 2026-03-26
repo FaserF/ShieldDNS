@@ -9,7 +9,19 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	"sync"
 )
+
+var (
+	apiLastWrite sync.Map // tokenHash -> time.Time
+	apiRateLimit sync.Map // tokenHash -> *apiKeyQuota
+)
+
+type apiKeyQuota struct {
+	Count int
+	Reset time.Time
+	uMu   sync.Mutex
+}
 
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,24 +37,59 @@ func authMiddleware(next http.Handler) http.Handler {
 		if token != "" {
 			hashed := hashToken(token)
 			
+			// 1a. Rate Limiting
+			quotaVal, _ := apiRateLimit.LoadOrStore(hashed, &apiKeyQuota{Reset: time.Now().Add(1 * time.Minute)})
+			quota := quotaVal.(*apiKeyQuota)
+			
+			quota.uMu.Lock()
+			if time.Now().After(quota.Reset) {
+				quota.Count = 0
+				quota.Reset = time.Now().Add(1 * time.Minute)
+			}
+			quota.Count++
+			currentCount := quota.Count
+			quota.uMu.Unlock()
+
+			if currentCount > 100 {
+				http.Error(w, "API Rate limit exceeded", http.StatusTooManyRequests)
+				return
+			}
+
+			// 1b. Validate & Update LastUsed (Throttled)
 			var matchedKey APIKey
 			found := false
 
-			configLock.Lock()
-			for i, k := range config.APIKeys {
+			configLock.RLock()
+			for _, k := range config.APIKeys {
 				if k.TokenHash == hashed {
-					config.APIKeys[i].LastUsed = time.Now()
-					saveConfigNoLock()
-					matchedKey = config.APIKeys[i]
+					matchedKey = k
 					found = true
 					break
 				}
 			}
-			configLock.Unlock()
+			configLock.RUnlock()
 
 			if found {
 				required := getRequiredPermission(r)
 				if hasPermission(&matchedKey, required) {
+					// Throttled LastUsed update
+					now := time.Now()
+					lastWriteVal, _ := apiLastWrite.LoadOrStore(hashed, time.Time{})
+					lastWrite := lastWriteVal.(time.Time)
+
+					if now.Sub(lastWrite) > 1*time.Hour {
+						configLock.Lock()
+						for i, k := range config.APIKeys {
+							if k.TokenHash == hashed {
+								config.APIKeys[i].LastUsed = now
+								saveConfigNoLock()
+								apiLastWrite.Store(hashed, now)
+								break
+							}
+						}
+						configLock.Unlock()
+					}
+
 					next.ServeHTTP(w, r)
 					return
 				}
