@@ -3,11 +3,14 @@ package main
 import (
 	"bufio"
 	"crypto/rand"
+	"crypto/tls"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -17,12 +20,18 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	_ "modernc.org/sqlite"
 )
 
 type Config struct {
-	Upstreams    []string `json:"upstreams"`
-	Lists        []List   `json:"lists"`
-	PasswordHash string   `json:"password_hash"`
+	Upstreams        []string `json:"upstreams"`
+	UpstreamDoT      []string `json:"upstream_dot"`
+	PreferEncrypted  bool     `json:"prefer_encrypted"`
+	Lists            []List   `json:"lists"`
+	Whitelists       []List   `json:"whitelists"`
+	CustomBlocked    []string `json:"custom_blocked"`
+	CustomAllowed    []string `json:"custom_allowed"`
+	PasswordHash     string   `json:"password_hash"`
 }
 
 type List struct {
@@ -62,32 +71,36 @@ var (
 	history        [24]HourStats
 	historyLock    sync.RWMutex
 	Version        = "v1.0.0"
+
+	// Health monitoring
+	healthyUpstreams []string
+	healthyDoT       []string
+	healthLock       sync.RWMutex
 )
 
 const (
 	ConfigPath    = "/etc/shielddns/config.json"
 	BlocklistPath = "/etc/shielddns/blocklist.hosts"
+	WhitelistPath = "/etc/shielddns/whitelist.hosts"
 	CorefilePath  = "/etc/Corefile"
+	DBPath        = "/etc/shielddns/queries.db"
 	CookieName    = "shielddns_session"
 )
+
+var db *sql.DB
 
 func main() {
 	loadConfig()
 
+	// Initialize SQLite
+	initDB()
+
 	// Start background updater
 	go startBackgroundUpdater()
 
-	// Start history cleaner
-	go func() {
-		for {
-			now := time.Now()
-			next := now.Truncate(time.Hour).Add(time.Hour)
-			time.Sleep(time.Until(next))
-			historyLock.Lock()
-			history[time.Now().Hour()] = HourStats{}
-			historyLock.Unlock()
-		}
-	}()
+	// Start health checker
+	go startHealthChecker()
+	go startDBWorker()
 
 	// Start CoreDNS management
 	go startCoreDNS()
@@ -106,6 +119,9 @@ func main() {
 	http.Handle("/api/queries", authMiddleware(http.HandlerFunc(handleQueries)))
 	http.Handle("/api/history", authMiddleware(http.HandlerFunc(handleHistory)))
 	http.Handle("/api/search", authMiddleware(http.HandlerFunc(handleSearch)))
+	http.Handle("/api/top-blocked", authMiddleware(http.HandlerFunc(handleTopBlocked)))
+	http.Handle("/api/top-clients", authMiddleware(http.HandlerFunc(handleTopClients)))
+	http.Handle("/api/export", authMiddleware(http.HandlerFunc(handleExport)))
 	http.Handle("/api/change-password", authMiddleware(http.HandlerFunc(handleChangePassword)))
 
 	// Static Files
@@ -121,6 +137,50 @@ func main() {
 
 	log.Printf("ShieldDNS Admin starting on :%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+func initDB() {
+	var err error
+	os.MkdirAll(filepath.Dir(DBPath), 0755)
+	db, err = sql.Open("sqlite", DBPath)
+	if err != nil {
+		log.Fatalf("Fatal: Could not open database: %v", err)
+	}
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS queries (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			timestamp DATETIME,
+			domain TEXT,
+			type TEXT,
+			status TEXT,
+			client_ip TEXT
+		);
+		CREATE INDEX IF NOT EXISTS idx_timestamp ON queries(timestamp);
+		CREATE INDEX IF NOT EXISTS idx_status ON queries(status);
+		CREATE INDEX IF NOT EXISTS idx_client ON queries(client_ip);
+	`)
+	if err != nil {
+		log.Fatalf("Fatal: Could not initialize database schema: %v", err)
+	}
+}
+
+func startDBWorker() {
+	// Periodic cleanup of old queries (30 days)
+	ticker := time.NewTicker(24 * time.Hour)
+	cleanup := func() {
+		_, err := db.Exec("DELETE FROM queries WHERE timestamp < datetime('now', '-30 days')")
+		if err != nil {
+			log.Printf("Error purging old queries: %v", err)
+		} else {
+			log.Println("Database maintenance: Old queries purged.")
+		}
+	}
+
+	go cleanup() // Initial cleanup
+	for range ticker.C {
+		cleanup()
+	}
 }
 
 func authMiddleware(next http.Handler) http.Handler {
@@ -273,6 +333,7 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 		{Name: "Dandelion Sprout's Game Console List", URL: "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/GameConsoleAdblockList.txt", Enabled: true},
 		{Name: "Lightswitch05 (Ads & Tracking Extended)", URL: "https://raw.githubusercontent.com/lightswitch05/hosts/master/ads-and-tracking-extended.txt", Enabled: true},
 		{Name: "The Big List of Hacked Sites", URL: "https://raw.githubusercontent.com/mitchellkrogza/The-Big-List-of-Hacked-Malware-Web-Sites/master/hacked-domains.txt", Enabled: true},
+		{Name: "KADhost (German Blocklist)", URL: "https://raw.githubusercontent.com/KADhost/KADhost/master/KADhost.txt", Enabled: true},
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(presets)
@@ -308,7 +369,7 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	config.PasswordHash = string(hash)
 	saveConfigNoLock()
-	
+
 	// Clear all sessions on pwd change
 	sessionLock.Lock()
 	sessionToken = ""
@@ -325,18 +386,33 @@ func loadConfig() {
 	if err != nil {
 		log.Printf("Creating default config")
 		config = Config{
-			Upstreams: []string{"1.1.1.1", "8.8.8.8"},
+			Upstreams:       []string{"86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"},
+			UpstreamDoT:     []string{"unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"},
+			PreferEncrypted: true,
 			Lists: []List{
+				{Name: "ShieldDNS Official Blocklist", URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/blocklists/default.txt", Enabled: true},
+				{Name: "HaGeZi Multi Pro", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt", Enabled: true},
 				{Name: "AdGuard DNS Filter", URL: "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt", Enabled: true},
-				{Name: "AdAway Default", URL: "https://adaway.org/hosts.txt", Enabled: true},
-				{Name: "Peter Lowe's List", URL: "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext", Enabled: true},
-				{Name: "OISD Basic", URL: "https://big.oisd.nl", Enabled: false},
+				{Name: "Steven Black Unified", URL: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", Enabled: false},
+				{Name: "AdAway Default", URL: "https://adaway.org/hosts.txt", Enabled: false},
+				{Name: "OISD Pro", URL: "https://big.oisd.nl", Enabled: false},
+			},
+			Whitelists: []List{
+				{Name: "ShieldDNS Official Whitelist", URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/whitelists/default.txt", Enabled: true},
 			},
 		}
 		saveConfigNoLock()
 		return
 	}
 	json.Unmarshal(file, &config)
+
+	// Ensure defaults if fields are empty
+	if len(config.Upstreams) == 0 {
+		config.Upstreams = []string{"86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"}
+	}
+	// Limit to max 5
+	if len(config.Upstreams) > 5 { config.Upstreams = config.Upstreams[:5] }
+	if len(config.UpstreamDoT) > 5 { config.UpstreamDoT = config.UpstreamDoT[:5] }
 }
 
 func saveConfigNoLock() {
@@ -397,73 +473,219 @@ func startBackgroundUpdater() {
 func updateBlocklist() {
 	log.Println("Updating blocklists...")
 	configLock.RLock()
-	lists := config.Lists
+	blocklists := config.Lists
+	whitelists := config.Whitelists
+	customBlocked := config.CustomBlocked
+	customAllowed := config.CustomAllowed
 	configLock.RUnlock()
 
-	uniqueDomains := make(map[string]struct{})
-	for _, list := range lists {
-		if !list.Enabled {
-			continue
-		}
+	blockDomains := make(map[string]struct{})
+	whiteDomains := make(map[string]struct{})
+
+	for _, list := range blocklists {
+		if !list.Enabled { continue }
+		processList(list, blockDomains, whiteDomains)
+	}
+
+	for _, list := range whitelists {
+		if !list.Enabled { continue }
+		processList(list, blockDomains, whiteDomains) // Whitelists can also have block rules technically, but usually they just have white
+	}
+
+	// Add Custom Rules
+	for _, d := range customBlocked {
+		blockDomains[d] = struct{}{}
+	}
+	for _, d := range customAllowed {
+		whiteDomains[d] = struct{}{}
+	}
+
+	// Remove whitelisted domains from blocklist
+	for d := range whiteDomains {
+		delete(blockDomains, d)
+	}
+
+	// Write Blocklist
+	var combined strings.Builder
+	for domain := range blockDomains {
+		combined.WriteString(fmt.Sprintf("0.0.0.0 %s\n", domain))
+	}
+	os.MkdirAll(filepath.Dir(BlocklistPath), 0755)
+	os.WriteFile(BlocklistPath, []byte(combined.String()), 0644)
+	log.Printf("Blocklist updated with %d domains", len(blockDomains))
+
+	// Write Whitelist for CoreDNS explicitly (optional but good for tracking)
+	var whiteBuilder strings.Builder
+	for domain := range whiteDomains {
+		whiteBuilder.WriteString(fmt.Sprintf("127.0.0.1 %s\n", domain)) // Or just track it
+	}
+	os.WriteFile(WhitelistPath, []byte(whiteBuilder.String()), 0644)
+}
+
+func processList(list List, blockMap map[string]struct{}, whiteMap map[string]struct{}) {
+	var body []byte
+	var err error
+
+	if strings.HasPrefix(list.URL, "file://") {
+		path := strings.TrimPrefix(list.URL, "file://")
+		body, err = os.ReadFile(path)
+	} else {
 		resp, err := http.Get(list.URL)
 		if err != nil {
 			log.Printf("⚠️  WARNING: Could not fetch %s (%s): %v. Skipping...", list.Name, list.URL, err)
-			continue
+			return
 		}
-		
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			log.Printf("⚠️  WARNING: %s returned status %d. Skipping...", list.Name, resp.StatusCode)
-			resp.Body.Close()
+			return
+		}
+		body, err = io.ReadAll(resp.Body)
+	}
+
+	if err != nil {
+		log.Printf("⚠️  WARNING: Error reading %s: %v. Skipping...", list.Name, err)
+		return
+	}
+
+	lines := strings.Split(string(body), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "!") {
 			continue
 		}
 
-		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close() // Close immediately to avoid leaks
-		if err != nil {
-			log.Printf("⚠️  WARNING: Error reading body of %s: %v. Skipping...", list.Name, err)
-			continue
+		isWhitelist := false
+		if strings.HasPrefix(line, "@@") {
+			isWhitelist = true
+			line = line[2:]
 		}
 
-		lines := strings.Split(string(body), "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "!") {
-				continue
+		domain := ""
+		// AdGuard / AdBlock: ||domain^
+		if strings.HasPrefix(line, "||") {
+			domain = strings.Split(strings.TrimPrefix(line, "||"), "^")[0]
+		} else if strings.HasPrefix(line, "0.0.0.0 ") || strings.HasPrefix(line, "127.0.0.1 ") || strings.HasPrefix(line, "::1 ") {
+			// Hosts: 0.0.0.0 domain
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				domain = parts[1]
 			}
-
-			domain := ""
-			if strings.HasPrefix(line, "||") && strings.Contains(line, "^") {
-				parts := strings.Split(line[2:], "^")
-				domain = parts[0]
-			} else if strings.HasPrefix(line, "0.0.0.0 ") || strings.HasPrefix(line, "127.0.0.1 ") {
-				parts := strings.Fields(line)
-				if len(parts) >= 2 {
-					domain = parts[1]
-				}
-			} else if !strings.Contains(line, "/") && !strings.Contains(line, " ") && strings.Contains(line, ".") {
-				domain = line
+		} else if strings.HasPrefix(line, "address=/") {
+			// Dnsmasq: address=/domain/0.0.0.0
+			parts := strings.Split(line, "/")
+			if len(parts) >= 3 {
+				domain = parts[1]
 			}
+		} else if !strings.Contains(line, "/") && !strings.Contains(line, " ") && strings.Contains(line, ".") {
+			// Raw domain
+			domain = line
+		}
 
-			if domain != "" {
-				uniqueDomains[domain] = struct{}{}
+		if domain != "" {
+			domain = strings.Trim(domain, ".") // Some lists have trailing dots
+			if isWhitelist {
+				whiteMap[domain] = struct{}{}
+			} else {
+				blockMap[domain] = struct{}{}
 			}
 		}
 	}
+}
 
-	var combined strings.Builder
-	for domain := range uniqueDomains {
-		combined.WriteString(fmt.Sprintf("0.0.0.0 %s\n", domain))
+func startHealthChecker() {
+	checkAll() // Initial check
+	ticker := time.NewTicker(30 * time.Second)
+	for range ticker.C {
+		checkAll()
+	}
+}
+
+func checkAll() {
+	configLock.RLock()
+	upstreams := config.Upstreams
+	dots := config.UpstreamDoT
+	configLock.RUnlock()
+
+	var newHealthyUpstreams []string
+	for _, u := range upstreams {
+		if checkDNS(u) {
+			newHealthyUpstreams = append(newHealthyUpstreams, u)
+		}
 	}
 
-	os.MkdirAll(filepath.Dir(BlocklistPath), 0755)
-	os.WriteFile(BlocklistPath, []byte(combined.String()), 0644)
-	log.Printf("Blocklist updated with %d domains", len(uniqueDomains))
+	var newHealthyDoT []string
+	for _, u := range dots {
+		if checkDoT(u) {
+			newHealthyDoT = append(newHealthyDoT, u)
+		}
+	}
+
+	healthLock.Lock()
+	changed := !equal(healthyUpstreams, newHealthyUpstreams) ||
+		!equal(healthyDoT, newHealthyDoT)
+	healthyUpstreams = newHealthyUpstreams
+	healthyDoT = newHealthyDoT
+	healthLock.Unlock()
+
+	if changed {
+		log.Printf("Health status changed. DNS: %v, DoT: %v", len(healthyUpstreams), len(healthyDoT))
+		updateCorefile()
+	}
+}
+
+func checkDNS(addr string) bool {
+	if !strings.Contains(addr, ":") { addr += ":53" }
+	conn, err := net.DialTimeout("udp", addr, 2*time.Second)
+	if err != nil { return false }
+	conn.Close()
+	return true
+}
+
+func checkDoT(addr string) bool {
+	host := addr
+	if !strings.Contains(host, ":") { host += ":853" }
+	conf := &tls.Config{InsecureSkipVerify: true}
+	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 2 * time.Second}, "tcp", host, conf)
+	if err != nil { return false }
+	conn.Close()
+	return true
+}
+
+func equal(a, b []string) bool {
+	if len(a) != len(b) { return false }
+	for i := range a {
+		if a[i] != b[i] { return false }
+	}
+	return true
 }
 
 func updateCorefile() {
 	configLock.RLock()
-	upstreams := strings.Join(config.Upstreams, " ")
+	preferEncrypted := config.PreferEncrypted
 	configLock.RUnlock()
+
+	healthLock.RLock()
+	hDNS := healthyUpstreams
+	hDoT := healthyDoT
+	healthLock.RUnlock()
+
+	var upstreams []string
+	if preferEncrypted {
+		for _, u := range hDoT {
+			if !strings.Contains(u, ":") { u += ":853" }
+			upstreams = append(upstreams, "tls://"+u)
+		}
+	}
+	// Fallback to normal DNS
+	upstreams = append(upstreams, hDNS...)
+
+	// If everything is down, use defaults as last resort to avoid total failure
+	if len(upstreams) == 0 {
+		upstreams = []string{"8.8.8.8", "1.1.1.1"}
+	}
+
+	upstreamStr := strings.Join(upstreams, " ")
 
 	// Get cert paths from environment (provided by run.sh)
 	certFile := os.Getenv("CERT_FILE")
@@ -473,7 +695,15 @@ func updateCorefile() {
 
 	corefile := fmt.Sprintf(`.:53 {
     bind 0.0.0.0
-    forward . %s
+    dnssec
+    cache 3600 {
+        success 10000
+        denial 2500
+        prefetch 10 10m 10%%
+    }
+    forward . %s {
+        health_check 10s
+    }
     hosts %s {
         reload 5s
         fallthrough
@@ -483,12 +713,22 @@ func updateCorefile() {
 }
 
 https://.:5553 {
-    tls %s %s
-    forward . %s
+    tls %s %s {
+        protocols tls1.2 tls1.3
+    }
+    dnssec
+    cache 3600 {
+        success 10000
+        denial 2500
+        prefetch 10 10m 10%%
+    }
+    forward . %s {
+        health_check 10s
+    }
     log
     errors
 }
-`, upstreams, BlocklistPath, certFile, keyFile, upstreams)
+`, upstreamStr, BlocklistPath, certFile, keyFile, upstreamStr)
 
 	os.WriteFile(CorefilePath, []byte(corefile), 0644)
 }
@@ -497,7 +737,7 @@ func startCoreDNS() {
 	for {
 		log.Println("Starting CoreDNS...")
 		dnsCmd = exec.Command("/usr/bin/coredns", "-conf", CorefilePath)
-		
+
 		stdout, err := dnsCmd.StdoutPipe()
 		if err != nil {
 			log.Printf("Error creating stdout pipe: %v", err)
@@ -528,24 +768,100 @@ func startCoreDNS() {
 }
 
 func handleQueries(w http.ResponseWriter, r *http.Request) {
-	queryLock.RLock()
-	defer queryLock.RUnlock()
+	rows, err := db.Query("SELECT timestamp, domain, type, status FROM queries ORDER BY timestamp DESC LIMIT 100")
+	if err != nil {
+		http.Error(w, "Error querying database", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var queries []Query
+	for rows.Next() {
+		var q Query
+		var ts string
+		rows.Scan(&ts, &q.Domain, &q.Type, &q.Status)
+		q.Time, _ = time.Parse(time.RFC3339, ts)
+		queries = append(queries, q)
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(recentQueries)
+	json.NewEncoder(w).Encode(queries)
+}
+
+func handleExport(w http.ResponseWriter, r *http.Request) {
+	format := r.URL.Query().Get("format")
+	rows, err := db.Query("SELECT timestamp, domain, type, status, client_ip FROM queries ORDER BY timestamp DESC")
+	if err != nil {
+		http.Error(w, "Error querying database", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	if format == "csv" {
+		w.Header().Set("Content-Type", "text/csv")
+		w.Header().Set("Content-Disposition", "attachment;filename=shielddns_export.csv")
+		fmt.Fprintln(w, "Timestamp,Domain,Type,Status,ClientIP")
+		for rows.Next() {
+			var ts, domain, qtype, status, ip string
+			rows.Scan(&ts, &domain, &qtype, &status, &ip)
+			fmt.Fprintf(w, "%s,%s,%s,%s,%s\n", ts, domain, qtype, status, ip)
+		}
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Disposition", "attachment;filename=shielddns_export.json")
+		var queries []map[string]string
+		for rows.Next() {
+			var ts, domain, qtype, status, ip string
+			rows.Scan(&ts, &domain, &qtype, &status, &ip)
+			queries = append(queries, map[string]string{
+				"timestamp": ts,
+				"domain":    domain,
+				"type":      qtype,
+				"status":    status,
+				"client_ip": ip,
+			})
+		}
+		json.NewEncoder(w).Encode(queries)
+	}
 }
 
 func handleHistory(w http.ResponseWriter, r *http.Request) {
-	historyLock.RLock()
-	defer historyLock.RUnlock()
-	w.Header().Set("Content-Type", "application/json")
-	
-	// Shift history so current hour is last
-	hour := time.Now().Hour()
-	var result [24]HourStats
-	for i := 0; i < 24; i++ {
-		result[i] = history[(hour+1+i)%24]
+	// Get last 24 hours of stats grouped by hour
+	rows, err := db.Query(`
+		SELECT 
+			strftime('%H', timestamp) as hr,
+			COUNT(*) as total,
+			SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END) as blocked
+		FROM queries
+		WHERE timestamp > datetime('now', '-24 hours')
+		GROUP BY hr
+		ORDER BY timestamp ASC
+	`)
+	if err != nil {
+		http.Error(w, "Error querying history", http.StatusInternalServerError)
+		return
 	}
-	json.NewEncoder(w).Encode(result)
+	defer rows.Close()
+
+	var result [24]HourStats
+	// Fill results conservatively, mapping hour strings to indices
+	for rows.Next() {
+		var hr int
+		var total, blocked int64
+		rows.Scan(&hr, &total, &blocked)
+		if hr >= 0 && hr < 24 {
+			result[hr] = HourStats{Total: total, Blocked: blocked}
+		}
+	}
+
+	// Rotate result so current hour is last
+	currentHr := time.Now().Hour()
+	var rotated [24]HourStats
+	for i := 0; i < 24; i++ {
+		rotated[i] = result[(currentHr+1+i)%24]
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rotated)
 }
 
 func handleSearch(w http.ResponseWriter, r *http.Request) {
@@ -575,10 +891,68 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"blocked": found})
 }
 
+func handleTopBlocked(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query(`
+		SELECT domain, COUNT(*) as count 
+		FROM queries 
+		WHERE status = 'Blocked' 
+		GROUP BY domain 
+		ORDER BY count DESC 
+		LIMIT 10
+	`)
+	if err != nil {
+		http.Error(w, "Error querying database", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var result []map[string]interface{}
+	for rows.Next() {
+		var domain string
+		var count int
+		rows.Scan(&domain, &count)
+		result = append(result, map[string]interface{}{"domain": domain, "count": count})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func handleTopClients(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query(`
+		SELECT client_ip, COUNT(*) as count 
+		FROM queries 
+		GROUP BY client_ip 
+		ORDER BY count DESC 
+		LIMIT 10
+	`)
+	if err != nil {
+		http.Error(w, "Error querying database", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var result []map[string]interface{}
+	for rows.Next() {
+		var client_ip string
+		var count int
+		rows.Scan(&client_ip, &count)
+		if client_ip == "" { client_ip = "Unknown" }
+		result = append(result, map[string]interface{}{"client_ip": client_ip, "count": count})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
 func parseLogLine(line string) {
-	// ... (no changes to start)
 	if !strings.Contains(line, " \"") {
 		return
+	}
+
+	// Extract Client IP (CoreDNS log format: [INFO] 127.0.0.1:45678 - ...)
+	fields := strings.Fields(line)
+	clientIP := ""
+	if len(fields) > 1 {
+		clientIP = strings.Split(fields[1], ":")[0]
 	}
 
 	parts := strings.Split(line, "\"")
@@ -595,6 +969,7 @@ func parseLogLine(line string) {
 	qDomain := strings.TrimSuffix(queryFields[2], ".")
 	isBlocked := strings.Contains(line, "qr,aa")
 
+	// Update memory stats for real-time dashboard
 	statsLock.Lock()
 	stats.TotalQueries++
 	if isBlocked {
@@ -602,29 +977,17 @@ func parseLogLine(line string) {
 	}
 	statsLock.Unlock()
 
-	// Update History
-	hour := time.Now().Hour()
-	historyLock.Lock()
-	history[hour].Total++
-	if isBlocked {
-		history[hour].Blocked++
-	}
-	historyLock.Unlock()
-
 	status := "Allowed"
 	if isBlocked {
 		status = "Blocked"
 	}
 
-	queryLock.Lock()
-	recentQueries = append([]Query{{
-		Time:   time.Now(),
-		Domain: qDomain,
-		Type:   qType,
-		Status: status,
-	}}, recentQueries...)
-	if len(recentQueries) > 100 {
-		recentQueries = recentQueries[:100]
+	// Insert into SQLite for persistence and analytics
+	if db != nil {
+		_, err := db.Exec("INSERT INTO queries (timestamp, domain, type, status, client_ip) VALUES (?, ?, ?, ?, ?)",
+			time.Now().Format(time.RFC3339), qDomain, qType, status, clientIP)
+		if err != nil {
+			log.Printf("Error logging to database: %v", err)
+		}
 	}
-	queryLock.Unlock()
 }

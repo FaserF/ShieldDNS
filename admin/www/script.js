@@ -7,13 +7,21 @@ document.addEventListener('DOMContentLoaded', () => {
         ratio: document.getElementById('stat-ratio')
     };
     const upstreamsInput = document.getElementById('upstreams-input');
-    const listItemsContainer = document.getElementById('list-items');
+    const dotUpstreamsInput = document.getElementById('dot-upstreams-input');
+    const preferEncryptedCheck = document.getElementById('prefer-encrypted-check');
+    const queryLogItems = document.getElementById('query-log-items');
+    const fullQueryLogItems = document.getElementById('full-query-log-items');
+    const topBlockedContainer = document.getElementById('top-blocked-list');
+    const topClientsContainer = document.getElementById('top-clients-list');
+    const customBlockedList = document.getElementById('custom-blocked-list');
+    const customAllowedList = document.getElementById('custom-allowed-list');
+    const whitelistItemsContainer = document.getElementById('whitelist-items');
 
     const authOverlay = document.getElementById('auth-overlay');
     const setupView = document.getElementById('setup-view');
     const loginView = document.getElementById('login-view');
 
-    let currentConfig = { upstreams: [], lists: [] };
+    let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, lists: [], whitelists: [], custom_blocked: [], custom_allowed: [] };
     let trafficChart = null;
 
     // --- Authentication Logic ---
@@ -71,7 +79,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('setup-finish-btn')?.addEventListener('click', async () => {
         const password = document.getElementById('setup-password').value;
         const confirm = document.getElementById('setup-confirm').value;
-        const upstreams = document.getElementById('setup-upstreams').value.split(',').map(s => s.trim());
+        const upstreams = document.getElementById('setup-upstreams').value.split(',').map(s => s.trim()).filter(s => s);
+        const dotUpstreams = document.getElementById('setup-dot-upstreams').value.split(',').map(s => s.trim()).filter(s => s);
+        const preferEncrypted = document.getElementById('setup-prefer-encrypted').checked;
         
         const selectedPresets = [];
         document.querySelectorAll('#setup-presets input:checked').forEach(input => {
@@ -116,7 +126,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // 3. Save Config (Upstreams + Selected Lists)
         await fetch('/api/config', {
             method: 'POST',
-            body: JSON.stringify({ upstreams, lists: selectedPresets })
+            body: JSON.stringify({ 
+                upstreams, 
+                upstream_dot: dotUpstreams, 
+                prefer_encrypted: preferEncrypted, 
+                lists: selectedPresets,
+                whitelists: [
+                    { name: "ShieldDNS Official Whitelist", url: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/whitelists/default.txt", enabled: true }
+                ]
+            })
         });
 
         alert('Setup complete! Welcome to ShieldDNS.');
@@ -307,6 +325,35 @@ document.addEventListener('DOMContentLoaded', () => {
         renderConfig();
     };
 
+    const fetchAnalytics = async () => {
+        try {
+            const [blockedResp, clientsResp] = await Promise.all([
+                fetch('/api/top-blocked'),
+                fetch('/api/top-clients')
+            ]);
+            if (blockedResp.ok) {
+                const blocked = await blockedResp.json();
+                topBlockedContainer.innerHTML = (blocked || []).map(b => `
+                    <tr>
+                        <td>${b.domain}</td>
+                        <td class="text-right">${b.count}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="2">No data available</td></tr>';
+            }
+            if (clientsResp.ok) {
+                const clients = await clientsResp.json();
+                topClientsContainer.innerHTML = (clients || []).map(c => `
+                    <tr>
+                        <td>${c.client_ip}</td>
+                        <td class="text-right">${c.count}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="2">No data available</td></tr>';
+            }
+        } catch (e) {
+            console.error('Failed to fetch analytics', e);
+        }
+    };
+
     // Navigation logic
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
@@ -319,6 +366,13 @@ document.addEventListener('DOMContentLoaded', () => {
             views.forEach(v => {
                 v.classList.toggle('hidden', v.id !== viewId);
             });
+
+            if (viewId === 'analytics') {
+                fetchAnalytics();
+            }
+            if (viewId === 'queries') {
+                fetchQueries();
+            }
         });
     });
 
@@ -347,6 +401,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const resp = await fetch('/api/config');
             if (resp.status === 401) return;
             currentConfig = await resp.json();
+            // Fallback for old configs
+            if (currentConfig.upstream_dot === undefined) currentConfig.upstream_dot = [];
+            if (currentConfig.prefer_encrypted === undefined) currentConfig.prefer_encrypted = false;
+            
             renderConfig();
         } catch (e) {
             console.error('Failed to fetch config', e);
@@ -355,27 +413,84 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderConfig = () => {
         upstreamsInput.value = currentConfig.upstreams.join(', ');
+        dotUpstreamsInput.value = (currentConfig.upstream_dot || []).join(', ');
+        preferEncryptedCheck.checked = currentConfig.prefer_encrypted;
         listItemsContainer.innerHTML = '';
         currentConfig.lists.forEach((list, index) => {
-            const item = document.createElement('div');
-            item.className = 'list-item';
-            item.innerHTML = `
-                <div class="list-info">
-                    <h3>${list.name}</h3>
-                    <p>${list.url}</p>
-                </div>
-                <div class="list-actions">
-                    <button class="btn secondary" onclick="toggleList(${index})">${list.enabled ? 'Disable' : 'Enable'}</button>
-                    <button class="btn danger" onclick="removeList(${index})">Remove</button>
-                </div>
-            `;
+            const item = createListItem(list, index, 'block');
             listItemsContainer.appendChild(item);
         });
+
+        currentConfig.whitelists = currentConfig.whitelists || [];
+        whitelistItemsContainer.innerHTML = '';
+        currentConfig.whitelists.forEach((list, index) => {
+            const item = createListItem(list, index, 'white');
+            whitelistItemsContainer.appendChild(item);
+        });
+
+        // Render Custom Rules
+        const renderCustomList = (container, rules, type) => {
+            if (!container) return;
+            container.innerHTML = (rules || []).map(r => `
+                <div class="preset-selection-item">
+                    <span>${r}</span>
+                    <button class="btn danger-text" onclick="removeCustomRule('${type}', '${r}')"><i class="fas fa-trash"></i></button>
+                </div>
+            `).join('') || '<p class="help">No custom rules added yet.</p>';
+        };
+        renderCustomList(customBlockedList, currentConfig.custom_blocked, 'blocked');
+        renderCustomList(customAllowedList, currentConfig.custom_allowed, 'allowed');
+    };
+
+    window.addCustomRule = (type) => {
+        const input = document.getElementById(type === 'blocked' ? 'custom-block-input' : 'custom-allow-input');
+        const domain = input.value.trim();
+        if (!domain) return;
+        
+        const field = type === 'blocked' ? 'custom_blocked' : 'custom_allowed';
+        if (!currentConfig[field]) currentConfig[field] = [];
+        if (currentConfig[field].includes(domain)) {
+            alert('This domain is already in the list.');
+            return;
+        }
+        
+        currentConfig[field].push(domain);
+        input.value = '';
+        saveConfig();
+        renderConfig();
+    };
+
+    window.removeCustomRule = (type, domain) => {
+        const field = type === 'blocked' ? 'custom_blocked' : 'custom_allowed';
+        currentConfig[field] = currentConfig[field].filter(d => d !== domain);
+        saveConfig();
+        renderConfig();
+    };
+
+    const createListItem = (list, index, type) => {
+        const item = document.createElement('div');
+        item.className = 'list-item';
+        const isOfficial = list.url.startsWith('file:///');
+        item.innerHTML = `
+            <div class="list-info">
+                <h3>${list.name} ${isOfficial ? '<span class="badge official">Official</span>' : ''}</h3>
+                <p>${list.url}</p>
+            </div>
+            <div class="list-actions">
+                <button class="btn secondary" onclick="toggleList(${index}, '${type}')">${list.enabled ? 'Disable' : 'Enable'}</button>
+                ${isOfficial ? '' : `<button class="btn danger" onclick="removeList(${index}, '${type}')">Remove</button>`}
+            </div>
+        `;
+        return item;
     };
 
     const saveConfig = async () => {
         const upstreams = upstreamsInput.value.split(',').map(s => s.trim()).filter(s => s);
+        const dots = dotUpstreamsInput.value.split(',').map(s => s.trim()).filter(s => s);
+        
         currentConfig.upstreams = upstreams;
+        currentConfig.upstream_dot = dots;
+        currentConfig.prefer_encrypted = preferEncryptedCheck.checked;
 
         await fetch('/api/config', {
             method: 'POST',
@@ -396,14 +511,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Modal logic for adding lists
     const modal = document.getElementById('modal');
-    document.getElementById('add-list-btn')?.addEventListener('click', () => modal.classList.remove('hidden'));
+    document.getElementById('add-list-btn')?.addEventListener('click', () => {
+        document.getElementById('modal-title').textContent = 'Add Blocklist';
+        document.getElementById('list-type').value = 'block';
+        modal.classList.remove('hidden');
+    });
+    document.getElementById('add-whitelist-btn')?.addEventListener('click', () => {
+        document.getElementById('modal-title').textContent = 'Add Whitelist';
+        document.getElementById('list-type').value = 'white';
+        modal.classList.remove('hidden');
+    });
     document.getElementById('modal-cancel')?.addEventListener('click', () => modal.classList.add('hidden'));
     
     document.getElementById('modal-confirm')?.addEventListener('click', () => {
         const name = document.getElementById('list-name').value;
         const url = document.getElementById('list-url').value;
+        const type = document.getElementById('list-type').value;
         if (name && url) {
-            currentConfig.lists.push({ name, url, enabled: true });
+            if (type === 'white') {
+                currentConfig.whitelists.push({ name, url, enabled: true });
+            } else {
+                currentConfig.lists.push({ name, url, enabled: true });
+            }
             saveConfig();
             modal.classList.add('hidden');
             renderConfig();
@@ -432,15 +561,23 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuthStatus();
 });
 
-window.toggleList = async (index) => {
-    currentConfig.lists[index].enabled = !currentConfig.lists[index].enabled;
+window.toggleList = async (index, type) => {
+    if (type === 'white') {
+        currentConfig.whitelists[index].enabled = !currentConfig.whitelists[index].enabled;
+    } else {
+        currentConfig.lists[index].enabled = !currentConfig.lists[index].enabled;
+    }
     await saveConfig();
     renderConfig();
 };
 
-window.removeList = async (index) => {
+window.removeList = async (index, type) => {
     if (confirm('Are you sure you want to remove this list?')) {
-        currentConfig.lists.splice(index, 1);
+        if (type === 'white') {
+            currentConfig.whitelists.splice(index, 1);
+        } else {
+            currentConfig.lists.splice(index, 1);
+        }
         await saveConfig();
         renderConfig();
     }
@@ -459,9 +596,6 @@ window.copyText = async (id) => {
     }
 };
 
-// Auto-fill copy inputs based on current location
-document.addEventListener('DOMContentLoaded', () => {
-    const host = window.location.hostname;
-    document.getElementById('copy-dot').value = host;
-    document.getElementById('copy-doh').value = `https://${host}/dns-query`;
-});
+window.exportLogs = (format) => {
+    window.location.href = `/api/export?format=${format}`;
+};

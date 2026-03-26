@@ -16,7 +16,8 @@ FROM alpine:latest
 RUN apk add --no-cache jq ca-certificates bash curl nginx dos2unix openssl
 
 # Create web root and required directories
-RUN mkdir -p /var/www/html /run/nginx
+RUN mkdir -p /var/www/html /run/nginx /ssl
+RUN ln -s /ssl /certs
 
 # Copy Web Assets
 COPY admin/www /var/www/admin

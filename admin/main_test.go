@@ -96,3 +96,69 @@ func TestParseLogLine(t *testing.T) {
 	}
 	statsLock.RUnlock()
 }
+func TestEqual(t *testing.T) {
+	tests := []struct {
+		a, b []string
+		want bool
+	}{
+		{[]string{"a", "b"}, []string{"a", "b"}, true},
+		{[]string{"a", "b"}, []string{"a", "c"}, false},
+		{[]string{"a"}, []string{"a", "b"}, false},
+		{[]string{}, []string{}, true},
+	}
+	for _, tt := range tests {
+		if got := equal(tt.a, tt.b); got != tt.want {
+			t.Errorf("equal(%v, %v) = %v, want %v", tt.a, tt.b, got, tt.want)
+		}
+	}
+}
+
+func TestUpdateCorefile(t *testing.T) {
+	// Setup
+	originalConfig := config
+	originalHealthy := healthyUpstreams
+	defer func() {
+		config = originalConfig
+		healthyUpstreams = originalHealthy
+	}()
+
+	config = Config{
+		Upstreams:       []string{"1.1.1.1"},
+		PreferEncrypted: false,
+	}
+	healthyUpstreams = []string{"1.1.1.1"}
+	healthyDoT = []string{}
+	healthyDoH = []string{}
+
+	// Test normal DNS
+	updateCorefile()
+	content, err := os.ReadFile(CorefilePath)
+	if err != nil {
+		t.Fatalf("failed to read corefile: %v", err)
+	}
+	if !strings.Contains(string(content), "forward . 1.1.1.1") {
+		t.Errorf("corefile missing forward 1.1.1.1: %s", string(content))
+	}
+
+	// Test PreferEncrypted
+	config.PreferEncrypted = true
+	config.UpstreamDoT = []string{"dns.google"}
+	healthyDoT = []string{"dns.google"}
+	updateCorefile()
+	content, _ = os.ReadFile(CorefilePath)
+	if !strings.Contains(string(content), "forward . tls://dns.google:853 1.1.1.1") {
+		t.Errorf("corefile missing tls forward: %s", string(content))
+	}
+}
+
+func TestConfigDefaults(t *testing.T) {
+	// Test loadConfig creating defaults
+	os.Remove(ConfigPath)
+	loadConfig()
+	if len(config.Upstreams) != 5 {
+		t.Errorf("expected 5 default upstreams, got %d", len(config.Upstreams))
+	}
+	if !config.PreferEncrypted {
+		t.Errorf("expected PreferEncrypted to be true by default")
+	}
+}

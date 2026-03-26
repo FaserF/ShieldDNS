@@ -4,13 +4,13 @@
     "config:recommended",
     ":separateMajorReleases",
     ":pinAllExceptPeerDependencies",
-    "docker:pin-digest",
+    "docker:pinDigests",
     "helpers:pinGitHubActionDigests"
   ],
   "packageRules": [
     {
       "matchUpdateTypes": ["minor", "patch"],
-      "matchCurrentVersion": "!/^0/",
+      "matchCurrentVersion": "!/^0\\./",
       "automerge": true
     },
     {

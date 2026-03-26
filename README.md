@@ -2,18 +2,19 @@
 
 # ShieldDNS 🛡️
 
-**ShieldDNS** is a high-performance, privacy-focused DNS solution supporting both **DNS-over-TLS (DoT)** and **DNS-over-HTTPS (DoH)**. 
+**ShieldDNS** is a high-performance, hardened, privacy-focused DNS solution supporting **DNS-over-TLS (DoT)** and standard DNS.
 
-It features a premium **Admin Dashboard** for real-time monitoring and a powerful **Filtering Engine** compatible with AdGuard, Pi-hole, and uBlock origin lists.
+It features a premium **Admin Dashboard** with persistent SQLite-backed analytics, custom rule management, and a powerful **Filtering Engine** compatible with AdGuard, Pi-hole, and uBlock origin lists.
 
 ## 🚀 Key Features
 
-- 🔒 **Unified Secure Access**: Support for **DNS-over-TLS (DoT)** (port 853) and **DNS-over-HTTPS (DoH)** (port 443).
-- 📊 **Unified Dashboard**: Access the **Admin Dashboard** and **DoH** on the same standard HTTPS port (443).
+- 🔒 **Secure DNS**: Native support for **DNS-over-TLS (DoT)** (port 853) for encrypted, private lookups.
+- 📊 **Persistent Analytics**: SQLite-backed query history and advanced analytics (Top Blocked Domains, Top Clients).
+- 🏳️ **Custom Rules**: Instantly allow or block individual domains via the Admin UI.
 - 🛡️ **DNS Filtering**: Integrated engine for blocklists with automatic updates and deduplication.
-- ⚡ **High Performance**: Built on CoreDNS and Go for maximum efficiency.
-- 🔐 **Secure Access**: Mandatory password protection (bcrypt) for the Admin UI.
-- 📱 **Multi-Platform**: Perfect for Android Private DNS, iOS Profiles, and Windows 11.
+- ⚡ **Optimized Performance**: Intelligent caching and prefetching enabled by default for ultra-low latency.
+- 🔐 **Secure Admin**: Mandatory password protection (bcrypt) for the Admin UI on port 443.
+- 📱 **Modern Protocols**: Perfect for Android Private DNS and standard system-wide filtering.
 
 ## 🛠️ Usage
 
@@ -27,15 +28,18 @@ services:
       - "53:53/udp"      # DNS (UDP)
       - "53:53/tcp"      # DNS (TCP)
       - "853:853/tcp"    # DoT
-      - "443:443/tcp"    # DoH & Admin Dashboard
+      - "443:443/tcp"    # Admin Dashboard (HTTPS)
     environment:
-      - UPSTREAM_DNS=1.1.1.1, 8.8.8.8
+      - UPSTREAM_DNS=86.54.11.100, 1.1.1.1, 9.9.9.9, 8.8.8.8, 1.0.0.1 # Max 5
+      - UPSTREAM_DOT=unfiltered.joindns4.eu, dns.quad9.net, one.one.one.one # Max 5
+      - PREFER_ENCRYPTED=true # Set to true to prefer DoT over standard DNS
       - LOG_LEVEL=info # debug, info, error
-      - CERT_FILE=/certs/fullchain.pem
-      - KEY_FILE=/certs/privkey.pem
+      - CERT_FILE=/ssl/fullchain.pem
+      - KEY_FILE=/ssl/privkey.pem
     volumes:
-      - ./certs:/certs
-      - ./data:/etc/shielddns # Persistent config and stats
+      - ./ssl:/ssl
+      - ./data:/etc/shielddns # Persistent config, database, and lists
+```
 
 ## 🛠️ Troubleshooting
 
@@ -49,47 +53,13 @@ On many Linux systems (like Ubuntu), `systemd-resolved` uses port 53 by default.
 ### Oracle Cloud VM (OCI) - Ubuntu 24.04
 Oracle Cloud VMs have multiple layers of firewalls. For 2026, the recommended approach is as follows:
 
-#### 1. OCI Console (Network Security)
-The fastest way to navigate the OCI Console is using the **Search Bar** at the top. Search for **"Network Security Groups"** or **"Security Lists"**.
-
-**Option A: Network Security Group (Recommended)**
-1. Search for **Network Security Groups** and select your VCN's group.
-2. Add **Security Rules**:
-   - **Ingress**, Protocol: **UDP**, Port: **53** (DNS)
-   - **Ingress**, Protocol: **TCP**, Port: **53, 443, 853**
-
-**Option B: Security Lists**
-1. Navigate to **Networking > Virtual Cloud Networks > [Your VCN] > Security Lists**.
-2. Add **Ingress Rules** (Stateless: No) for the ports mentioned above.
-
-#### 2. Host Firewall (iptables)
-OCI's Ubuntu images block all traffic by default. You **must** run these commands on the VM:
+1. **OCI Console**: Use the search bar to find **Network Security Groups**. Add ingress rules for UDP 53 and TCP 53, 443, 853.
+2. **Host Firewall (iptables)**:
 ```bash
-# Allow DNS (UDP/TCP), DoH/Admin (443), and DoT (853)
 sudo iptables -I INPUT -p udp --dport 53 -j ACCEPT
 sudo iptables -I INPUT -p tcp -m multiport --dports 53,443,853 -j ACCEPT
-
-# Save the rules so they survive a reboot
 sudo netfilter-persistent save
 ```
-
-## 🛡️ Default Blocklists
-
-ShieldDNS comes pre-configured with several industry-standard blocklists to provide immediate protection. You can enable, disable, or add custom lists via the Admin Dashboard.
-
-### Out-of-the-box Protection (Enabled by Default)
-- **AdGuard DNS Filter**: Comprehensive protection against ads and tracking.
-- **AdAway Default**: Mobile-focused ad and malware blocking.
-- **Peter Lowe's List**: A long-standing, curated list of ad and tracking servers.
-
-### Available Presets (One-click Activation)
-The Admin UI provides an extensive **Catalog of 20+ premium presets**, including:
-- **Hagezi**: TIF (Threat Intelligence), Multi (Light to Ultimate tiers), Gambling, and Fake Stores.
-- **OISD**: Basic and Full lists.
-- **AdGuard & uBlock**: Specialized Tracking, Social Media, Annoyances, and uBlock Origin filters.
-- **Steven Black**: Unified + Porn/Gambling/FakeNews variants.
-- **1Hosts**: Lite and Pro tiers.
-- **Specialized**: Phishing Database, Game Console Adblock, and Hacked Site lists.
 
 ## 🖥️ Admin Dashboard
 
@@ -97,45 +67,38 @@ Access the dashboard at `https://YOUR_SERVER_IP/`.
 
 ### 🛡️ Setup Wizard
 On your first visit, a multi-step setup wizard will guide you through:
-1.  **Security**: Setting a strong 12-character administrative password (hashed with bcrypt).
-2.  **Upstream DNS**: Selecting your preferred upstream providers (e.g., Cloudflare, Google, Quad9).
+1.  **Security**: Setting a strong administrative password (hashed with bcrypt).
+2.  **Upstream DNS**: Selecting your preferred DoT and standard DNS providers.
 3.  **Protection**: Choosing from a curated catalog of industry-standard blocklists.
 
-### 📊 Real-Time Analytics
-- **Live Query Log**: Monitor every DNS request in real-time. See which domains are being allowed or blocked instantly.
-- **Traffic Trends**: A dynamic 24-hour chart visualizes your network's activity, showing query spikes and blocking efficiency.
-- **Search Tool**: Use the built-in search to deep-dive into your active blocklists and verify if specific domains are filtered.
+### 📊 Advanced Analytics
+ShieldDNS now stores your query history in a persistent SQLite database:
+- **Query History**: View the last 100 queries or search through historical data.
+- **Top Blocked Domains**: identify the most aggressive trackers on your network.
+- **Top Clients**: See which devices are generating the most traffic.
+- **Hourly Trends**: 24-hour traffic visualization shows you exactly when your network is most active.
 
-### 🛡️ Filtering Management
-ShieldDNS merges all enabled lists into a high-performance filtering database.
-- **Preset Catalog**: Easily enable popular lists like OISD, Hagezi (Multi/Pro), and Steven Black.
-- **Custom Lists**: Add any GitHub or raw URL list to your filtering engine.
-- **Status Hub**: The "Am I Protected?" indicator provides immediate feedback on your filtering status.
+### 🏳️ Custom Rules
+Immediately take control of your network without managing external lists:
+- **Custom Blocklist**: Instantly block any domain (e.g., `tiktok.com`).
+- **Custom Whitelist**: Ensure critical domains (e.g., `myvpn.com`) are never blocked.
+
+### ⚡ Optimization & Health
+- **Intelligent Caching**: Large 10k entry cache reduces upstream lookups.
+- **Prefetching**: ShieldDNS proactively refreshes popular records before they expire.
+- **Upstream Probing**: Background health checks every 30 seconds ensure you only use healthy upstreams.
 
 ## 📱 Client Configuration
 
 ### DoT (DNS-over-TLS) - Port 853
-- **Android**: Go to **Settings > Network > Private DNS** and enter `dns.example.com`.
-- **iOS/macOS**: Use the provided `.mobileconfig` template.
-
-### DoH (DNS-over-HTTPS) - Port 443
-- **Windows 11**: **Settings > Network > DNS settings > Edit**. Set DNS over HTTPS to "On (Manual)" and enter `https://dns.example.com/dns-query`.
-- **Browsers**: Enter `https://dns.example.com/dns-query` in your browser's "Secure DNS" settings.
+- **Android**: Go to **Settings > Network > Private DNS** and enter your domain (e.g., `dns.example.com`).
+- **iOS/macOS**: Use a `.mobileconfig` profile pointing to your DoT endpoint.
 
 ## 🛡️ Security Best Practices
-
-Since you are exposing a DNS server to the public, you should secure it:
-1.  **Use a WAF**: Place a Reverse Proxy or Cloudflare Tunnel in front of your DoH endpoint.
-2.  **Firewall**: Whitelist your mobile IP ranges for port 853 if possible.
-3.  **Password**: Use a strong, unique password for the Admin UI (min 12 chars).
-
-## 💡 Concepts & Protocols
-
-| Protocol | Port | Port (TCP) | Description | Support |
-| :--- | :--- | :--- | :--- | :--- |
-| **DoT** | `853` | Dedicated secure DNS port. | **Native** (Android Private DNS). |
-| **DoH** | `443` | Standard HTTPS web port. | **Native** (Windows 11, iOS, Browsers). |
+1.  **Password**: Use a strong, unique password for the Admin UI.
+2.  **Certificates**: Use valid Let's Encrypt certificates for both DoT and the Admin UI.
+3.  **Firewall**: Only expose ports 53, 443, and 853.
 
 ## 🏠 Home Assistant Addon
-ShieldDNS is available as an official Home Assistant Addon, featuring full **Ingress** support for the Admin Dashboard.
+ShieldDNS is available as an official Home Assistant Addon with Ingress support.
 [View Addon Repo](https://github.com/FaserF/hassio-addons/tree/master/ShieldDNS)

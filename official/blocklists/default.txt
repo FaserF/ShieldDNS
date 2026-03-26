@@ -1,0 +1,6 @@
+# ShieldDNS Official Blocklist
+# Format: AdBlock/AdGuard-style domain rules
+||doubleclick.net^
+||google-analytics.com^
+||analytics.google.com^
+||example-malware-site.com^

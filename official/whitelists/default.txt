@@ -1,0 +1,6 @@
+# ShieldDNS Official Whitelist
+# Format: AdBlock/AdGuard-style whitelist rules
+@@||google.com^
+@@||gstatic.com^
+@@||googleusercontent.com^
+@@||googleapis.com^

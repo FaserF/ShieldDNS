@@ -21,6 +21,8 @@ if [ -f "/data/options.json" ] && [ -n "$(command -v bashio::config)" ]; then
     bashio::log.info "ℹ️  Home Assistant Addon environment detected."
     
     UPSTREAM_DNS=$(bashio::config 'upstream_dns')
+    UPSTREAM_DOT=$(bashio::config 'upstream_dot')
+    PREFER_ENCRYPTED=$(bashio::config 'prefer_encrypted')
     CERT_FILE=$(bashio::config 'certfile')
     KEY_FILE=$(bashio::config 'keyfile')
     LOG_LEVEL=$(bashio::config 'log_level')
@@ -34,7 +36,9 @@ if [ -f "/data/options.json" ] && [ -n "$(command -v bashio::config)" ]; then
     if [[ "$KEY_FILE" != /* ]]; then KEY_FILE="/ssl/$KEY_FILE"; fi
 else
     echo "ℹ️  Standard Docker environment detected."
-    UPSTREAM_DNS=${UPSTREAM_DNS:-$DEFAULT_UPSTREAM}
+    UPSTREAM_DNS=${UPSTREAM_DNS:-"86.54.11.100 1.1.1.1 9.9.9.9 8.8.8.8 1.0.0.1"}
+    UPSTREAM_DOT=${UPSTREAM_DOT:-"unfiltered.joindns4.eu dns.quad9.net one.one.one.one dns.google"}
+    PREFER_ENCRYPTED=${PREFER_ENCRYPTED:-"true"}
     CERT_FILE=${CERT_FILE:-"/ssl/fullchain.pem"}
     KEY_FILE=${KEY_FILE:-"/ssl/privkey.pem"}
     LOG_LEVEL=${LOG_LEVEL:-"info"}

@@ -17,6 +17,9 @@
             </div>
             <nav>
                 <a href="#" class="nav-item active" data-view="dashboard">Dashboard</a>
+                <a href="#" class="nav-item" data-view="analytics">Analytics</a>
+                <a href="#" class="nav-item" data-view="queries">Query Log</a>
+                <a href="#" class="nav-item" data-view="custom-rules">Custom Rules</a>
                 <a href="#" class="nav-item" data-view="lists">Filtering Lists</a>
                 <a href="#" class="nav-item" data-view="settings">Settings</a>
             </nav>
@@ -55,13 +58,6 @@
                             <div class="copy-input">
                                 <input type="text" id="copy-dot" readonly value="dns.example.com">
                                 <button class="copy-btn" onclick="copyText('copy-dot')">Copy</button>
-                            </div>
-                        </div>
-                        <div class="copy-box">
-                            <label>DoH URL (Windows/iOS/Browser)</label>
-                            <div class="copy-input">
-                                <input type="text" id="copy-doh" readonly value="https://dns.example.com/dns-query">
-                                <button class="copy-btn" onclick="copyText('copy-doh')">Copy</button>
                             </div>
                         </div>
                     </div>
@@ -107,13 +103,108 @@
                         </tbody>
                     </table>
                 </div>
+                </div>
+            </section>
+
+            <!-- Analytics View -->
+            <section id="analytics" class="view hidden">
+                <header>
+                    <h1>Advanced Analytics</h1>
+                </header>
+                <div class="analytics-grid">
+                    <div class="stat-card card">
+                        <h3>Top Blocked Domains</h3>
+                        <div class="card-body">
+                            <table class="query-table">
+                                <thead>
+                                    <tr>
+                                        <th>Domain</th>
+                                        <th style="text-align:right">Hits</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="top-blocked-list">
+                                    <!-- Dynamic -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="stat-card card">
+                        <h3>Top Clients</h3>
+                        <div class="card-body">
+                            <table class="query-table">
+                                <thead>
+                                    <tr>
+                                        <th>Client IP</th>
+                                        <th style="text-align:right">Queries</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="top-clients-list">
+                                    <!-- Dynamic -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Query Log View -->
+            <section id="queries" class="view hidden">
+                <header>
+                    <h1>Query Log</h1>
+                    <div class="header-actions">
+                        <button class="btn secondary" onclick="exportLogs('csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
+                        <button class="btn secondary" onclick="exportLogs('json')"><i class="fas fa-file-code"></i> Export JSON</button>
+                    </div>
+                </header>
+                <div class="query-log-container card">
+                    <table class="query-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Domain</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="full-query-log-items">
+                            <!-- Dynamic -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Custom Rules View -->
+            <section id="custom-rules" class="view hidden">
+                <header>
+                    <h1>Custom Rules</h1>
+                    <p>Immediately allow or block individual domains.</p>
+                </header>
+                <div class="analytics-grid">
+                    <div class="stat-card card">
+                        <h3>Custom Blocklist</h3>
+                        <div class="form-group row" style="display:flex;gap:10px;margin-bottom:15px">
+                            <input type="text" id="custom-block-input" placeholder="e.g. tiktok.com" style="flex:1">
+                            <button class="btn secondary" onclick="addCustomRule('blocked')">Block</button>
+                        </div>
+                        <div id="custom-blocked-list" class="minimal-list"></div>
+                    </div>
+                    <div class="stat-card card">
+                        <h3>Custom Whitelist</h3>
+                        <div class="form-group row" style="display:flex;gap:10px;margin-bottom:15px">
+                            <input type="text" id="custom-allow-input" placeholder="e.g. myvpn.com" style="flex:1">
+                            <button class="btn secondary" onclick="addCustomRule('allowed')">Allow</button>
+                        </div>
+                        <div id="custom-allowed-list" class="minimal-list"></div>
+                    </div>
+                </div>
             </section>
 
             <section id="lists" class="view hidden">
                 <header>
                     <h1>Filtering Lists</h1>
                     <div class="header-actions">
-                        <button id="add-list-btn" class="btn primary">Add Custom List</button>
+                        <button id="add-whitelist-btn" class="btn secondary">Add Whitelist</button>
+                        <button id="add-list-btn" class="btn primary">Add Blocklist</button>
                     </div>
                 </header>
 
@@ -128,9 +219,17 @@
                 </div>
                 
                 <div class="list-section">
-                    <h2>Your Active Lists</h2>
+                    <h2>Your Active Blocklists</h2>
                     <div class="list-container" id="list-items">
                         <!-- Lists will be injected here -->
+                    </div>
+                </div>
+
+                <div class="list-section">
+                    <h2>Your Active Whitelists</h2>
+                    <p class="help">Domains in these lists will always be allowed, even if they appear in a blocklist.</p>
+                    <div class="list-container" id="whitelist-items">
+                        <!-- Whitelists will be injected here -->
                     </div>
                 </div>
 
@@ -150,9 +249,18 @@
                 </header>
                 <form id="settings-form">
                     <div class="form-group">
-                        <label>Upstream DNS Servers</label>
-                        <p class="help">Comma separated IP addresses</p>
+                        <label>Upstream DNS Servers (Standard)</label>
+                        <p class="help">Comma separated IP addresses (Max 5)</p>
                         <input type="text" id="upstreams-input" placeholder="1.1.1.1, 8.8.8.8">
+                    </div>
+                    <div class="form-group">
+                        <label>Upstream DoT Servers (DNS over TLS)</label>
+                        <p class="help">Comma separated hostnames (Max 5). Example: unfiltered.joindns4.eu</p>
+                        <input type="text" id="dot-upstreams-input" placeholder="unfiltered.joindns4.eu, one.one.one.one">
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="prefer-encrypted-check">
+                        <label for="prefer-encrypted-check">Prefer Encrypted Upstreams (DoT)</label>
                     </div>
                     <button type="submit" class="btn primary">Save Config</button>
                 </form>
@@ -204,10 +312,19 @@
                 </div>
 
                 <div id="setup-pane-2" class="setup-pane hidden">
-                    <h2>Step 2: Upstream DNS</h2>
-                    <p>Choose which DNS servers ShieldDNS should forward to.</p>
+                    <h2>Step 2: Upstream Configuration</h2>
+                    <p>Configure how ShieldDNS should resolve requests.</p>
                     <div class="form-group">
-                        <input type="text" id="setup-upstreams" value="1.1.1.1, 8.8.8.8">
+                        <label>DNS Servers (Standard)</label>
+                        <input type="text" id="setup-upstreams" value="86.54.11.100, 1.1.1.1, 8.8.8.8">
+                    </div>
+                    <div class="form-group">
+                        <label>DoT Servers (Encrypted)</label>
+                        <input type="text" id="setup-dot-upstreams" value="unfiltered.joindns4.eu">
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="setup-prefer-encrypted" checked>
+                        <label for="setup-prefer-encrypted">Prefer Encrypted Upstreams</label>
                     </div>
                     <div class="modal-actions">
                         <button class="btn secondary" onclick="nextSetupStep(1)">Back</button>
@@ -242,7 +359,7 @@
     <!-- Modal for adding lists -->
     <div id="modal" class="modal hidden">
         <div class="modal-content">
-            <h2>Add Blocklist</h2>
+            <h2 id="modal-title">Add Blocklist</h2>
             <div class="form-group">
                 <label>Name</label>
                 <input type="text" id="list-name" placeholder="AdGuard Base">
@@ -251,6 +368,7 @@
                 <label>URL</label>
                 <input type="url" id="list-url" placeholder="https://...">
             </div>
+            <input type="hidden" id="list-type" value="block">
             <div class="modal-actions">
                 <button class="btn secondary" id="modal-cancel">Cancel</button>
                 <button class="btn primary" id="modal-confirm">Add List</button>
