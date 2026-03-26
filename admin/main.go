@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"html/template"
 )
 
 const Version        = "v1.1.0"
@@ -129,13 +130,24 @@ func main() {
 			return
 		}
 
-		// Case 3: Standard root or static files
-		if r.URL.Path != "/" {
-			fs := http.FileServer(http.Dir(webRoot))
-			fs.ServeHTTP(w, r)
+		// Case 3: Root landing page (Server-Side Rendered to inject Host)
+		if r.URL.Path == "/" {
+			tmpl, err := template.ParseFiles(webRoot + "/index.html")
+			if err != nil {
+				http.Error(w, "Error loading landing page", http.StatusInternalServerError)
+				return
+			}
+			host := r.Host
+			if strings.Contains(host, ":") {
+				host = strings.Split(host, ":")[0]
+			}
+			tmpl.Execute(w, struct{ Host string }{Host: host})
 			return
 		}
-		http.ServeFile(w, r, webRoot+"/index.html")
+
+		// Case 4: Static assets
+		fs := http.FileServer(http.Dir(webRoot))
+		fs.ServeHTTP(w, r)
 	})
 
 	// Graceful shutdown

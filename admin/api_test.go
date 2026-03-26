@@ -103,7 +103,6 @@ func TestToggleFiltering(t *testing.T) {
 // are stripped from custom rules when saving the configuration.
 func TestCustomRuleSanitization(t *testing.T) {
 	config = Config{AdminPasswordHashed: "existing-hash"}
-	initPaths()
 
 	testCases := []struct {
 		input    string
@@ -145,7 +144,6 @@ func TestCustomRuleSanitization(t *testing.T) {
 // TestHandleRestore verifies that a valid config JSON can be restored via a multipart upload.
 func TestHandleRestore(t *testing.T) {
 	config = Config{AdminPasswordHashed: "existing-hash"}
-	initPaths()
 
 	restoredConfig := Config{
 		AdminPasswordHashed: "", // should be preserved from current config
@@ -178,8 +176,6 @@ func TestHandleRestore(t *testing.T) {
 
 // TestHandleRestoreInvalidJSON verifies that a malformed JSON payload is rejected.
 func TestHandleRestoreInvalidJSON(t *testing.T) {
-	initPaths()
-
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	part, _ := w.CreateFormFile("config", "config.json")

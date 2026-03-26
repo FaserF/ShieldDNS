@@ -23,6 +23,21 @@ It features a premium **Admin Dashboard** with persistent SQLite-backed analytic
 - ⚡ **1-Click Allow / Block**: Directly allow or block any domain from the live Query Log table.
 - 🧹 **Optimized Default Lists**: Ships with a single, curated default (HaGeZi Multi Normal) for maximum protection with minimal RAM usage on any hardware — including Raspberry Pi.
 
+## ❤️ Support This Project
+
+> I maintain this Project in my **free time alongside my regular job** — bug hunting, new features, and keeping up with OCI updates. Every donation helps me stay independent and dedicate more time to open-source work.
+>
+> **This project is and will always remain 100% free.**
+>
+> Donations are completely voluntary — but the more support I receive, the more time I can realistically invest into these projects. 💪
+
+<div align="center">
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor%20on-GitHub-%23EA4AAA?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/FaserF)&nbsp;&nbsp;
+[![PayPal](https://img.shields.io/badge/Donate%20via-PayPal-%2300457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/FaserF)
+
+</div>
+
 ## 🧐 ShieldDNS vs. AdGuard Home vs. Pi-hole
 
 ShieldDNS is a modern, lightweight alternative to established solutions like AdGuard Home or Pi-hole. It was built with a focus on performance (CoreDNS-based) and native support for encrypted DNS (DoT/DoH).
@@ -123,7 +138,7 @@ ShieldDNS uses a Role-Based Access Control model. Tokens can be restricted to:
 
 ## 🖥️ Admin Dashboard
 
-Access the dashboard at `https://YOUR_SERVER_IP/`.
+Access the dashboard at `https://your.domain/`.
 
 ### 🛡️ Setup Wizard
 On your first visit, a multi-step setup wizard will guide you through:
@@ -249,9 +264,9 @@ ShieldDNS stands on the shoulders of giants. We would like to express our profou
 
 ## 📄 License
 
-**ShieldDNS** is released under the **[ShieldDNS Personal & Internal Commercial License](LICENSE)**. 
+**ShieldDNS** is released under the **[ShieldDNS Personal & Internal Commercial License](LICENSE)**.
 
-✅ **Allowed (Free)**: 
+✅ **Allowed (Free)**:
 - Personal and home usage.
 - Internal business/company usage to protect your own networks or employees.
 

@@ -14,6 +14,9 @@ import (
 // TestMain sets up a shared in-memory SQLite database for the entire test suite.
 // This prevents nil-pointer panics in tests like TestHandleStats that query `db`.
 func TestMain(m *testing.M) {
+	// Initialize paths globally for all tests to prevent data races
+	initPaths()
+
 	// Use an in-memory SQLite DB for tests
 	DBPath = ":memory:"
 	initDB()

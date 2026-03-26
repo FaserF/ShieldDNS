@@ -67,7 +67,30 @@ func checkDNS(addr string) bool {
 	if !strings.Contains(addr, ":") { addr += ":53" }
 	conn, err := net.DialTimeout("udp", addr, 2*time.Second)
 	if err != nil { return false }
-	conn.Close()
+	defer conn.Close()
+
+	// Minimal DNS query for google.com IN A
+	query := []byte{
+		0x12, 0x34, // Transaction ID
+		0x01, 0x00, // Flags: Standard query
+		0x00, 0x01, // Questions: 1
+		0x00, 0x00, // Answer RRs: 0
+		0x00, 0x00, // Authority RRs: 0
+		0x00, 0x00, // Additional RRs: 0
+		0x06, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x03, 0x63, 0x6f, 0x6d, 0x00, // google.com
+		0x00, 0x01, // Type: A
+		0x00, 0x01, // Class: IN
+	}
+
+	conn.SetDeadline(time.Now().Add(2 * time.Second))
+	if _, err := conn.Write(query); err != nil {
+		return false
+	}
+
+	resp := make([]byte, 512)
+	if _, err := conn.Read(resp); err != nil {
+		return false
+	}
 	return true
 }
 
@@ -154,6 +177,7 @@ func updateCorefile() {
     bind 0.0.0.0
     dnssec
     health :8082
+    reload 5s
     cache 3600 {
         success 10000
         denial 2500
@@ -176,6 +200,7 @@ tls://.:853 {
     }
     dnssec
     health :8082
+    reload 5s
     cache 3600 {
         success 10000
         denial 2500
@@ -195,6 +220,7 @@ https://.:5553 {
     }
     dnssec
     health :8082
+    reload 5s
     cache 3600 {
         success 10000
         denial 2500

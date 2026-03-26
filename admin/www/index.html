@@ -212,7 +212,7 @@
             <div class="setup-item">
                 <label>Android (Private DNS)</label>
                 <div class="hostname-box" style="padding-right: 8px;">
-                    <span id="hostname-text">...</span>
+                    <span id="hostname-text">{{.Host}}</span>
                     <button id="copy-hostname-btn" class="btn secondary" style="padding: 4px 12px; font-size: 0.8rem; margin: 0; min-width: 70px; cursor: pointer;">Copy</button>
                 </div>
                 <p style="font-size:0.8rem; color: var(--text-secondary); margin-top: 8px">
@@ -251,7 +251,7 @@
                         <strong>2.</strong> Next to "DNS server assignment", click <strong>Edit</strong> and change to <strong>Manual</strong>.<br>
                         <strong>3.</strong> Enable <strong>IPv4</strong>. Set "Preferred DNS" to the IP address of this server.<br>
                         <strong>4.</strong> Set "DNS over HTTPS" to <strong>On (manual template)</strong>.<br>
-                        <strong>5.</strong> Under DoH template, enter: <br><code style="background:#000; padding:2px 4px; border-radius:4px; color:var(--accent); font-family:monospace; margin-top:4px; display:inline-block;" id="win-doh-template">https://.../dns-query</code><br>
+                        <strong>5.</strong> Under DoH template, enter: <br><code style="background:#000; padding:2px 4px; border-radius:4px; color:var(--accent); font-family:monospace; margin-top:4px; display:inline-block;" id="win-doh-template">https://{{.Host}}/dns-query</code><br>
                         <strong>6.</strong> Click <strong>Save</strong>.
                     </p>
                 </div>
@@ -285,14 +285,7 @@
     </div>
 
     <script>
-        const hostname = window.location.hostname;
-        document.getElementById('hostname-text').textContent = hostname;
-        
-        const winTemplate = document.getElementById('win-doh-template');
-        if (winTemplate) {
-            winTemplate.textContent = 'https://' + hostname + '/dns-query';
-        }
-
+        const hostname = "{{.Host}}";
         const copyBtn = document.getElementById('copy-hostname-btn');
         if (copyBtn) {
             copyBtn.addEventListener('click', function() {
