@@ -1,417 +1,254 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ShieldDNS Admin</title>
-    <link rel="stylesheet" href="style.css">
+    <title>ShieldDNS | Admin</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <style>
+        :root {
+            --bg-color: #0d0f14;
+            --card-bg: #1c222d;
+            --accent: #5c6bc0;
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+            background-color: var(--card-bg);
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.6s ease-out;
+            text-align: center;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            margin-bottom: 24px;
+        }
+
+        .logo img {
+            width: 80px;
+            height: 80px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .setup-section {
+            text-align: left;
+            margin-bottom: 32px;
+            padding: 24px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .setup-section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .setup-item {
+            margin-bottom: 20px;
+        }
+
+        .setup-item label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .hostname-box {
+            background: #000;
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.95rem;
+            border: 1px solid var(--border);
+            color: var(--accent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-download {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 8px;
+            transition: transform 0.2s;
+        }
+
+        .btn-download:hover {
+            transform: scale(1.03);
+            background-color: #7986cb;
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+            margin-bottom: 24px;
+        }
+
+        .github-link:hover {
+            color: white;
+        }
+
+        .github-link svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        .disclaimer {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            opacity: 0.5;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer {
+            margin-top: 20px;
+        }
+
+        .btn-admin {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            opacity: 0.3;
+            transition: opacity 0.2s;
+        }
+
+        .btn-admin:hover {
+            opacity: 1;
+        }
+    </style>
 </head>
-<body class="dark">
-    <div class="app-container">
-        <aside class="sidebar">
-            <div class="logo">
-                <img src="/logo.png" alt="ShieldDNS">
-                <span>ShieldDNS</span>
+
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="/logo.png?v=2" alt="ShieldDNS">
+        </div>
+        <h1>ShieldDNS</h1>
+        <p>Advanced DNS filtering for a safer, faster, and cleaner web experience.</p>
+
+        <div class="setup-section">
+            <h2>Mobile Setup</h2>
+            <div class="setup-item">
+                <label>Android (Private DNS)</label>
+                <div class="hostname-box">
+                    <span id="hostname-text">...</span>
+                </div>
+                <p style="font-size:0.75rem; color: var(--text-secondary); margin-top: 8px">
+                    Settings &rarr; Network &rarr; Private DNS &rarr; Hostname
+                </p>
             </div>
-            <nav>
-                <a href="#" class="nav-item active" data-view="dashboard">Dashboard</a>
-                <a href="#" class="nav-item" data-view="analytics">Analytics</a>
-                <a href="#" class="nav-item" data-view="queries">Query Log</a>
-                <a href="#" class="nav-item" data-view="custom-rules">Custom Rules</a>
-                <a href="#" class="nav-item" data-view="lists">Filtering Lists</a>
-                <a href="#" class="nav-item" data-view="settings">Settings</a>
-            </nav>
-            <div class="status-indicator">
-                <div class="pulse"></div>
-                <span>CoreDNS Online</span>
+            <div class="setup-item">
+                <label>iOS (iPhone/iPad)</label>
+                <a href="/api/mobileconfig" class="btn-download">Download Config Profile</a>
+                <p style="font-size:0.75rem; color: var(--text-secondary); margin-top: 8px">
+                    Download &rarr; Settings &rarr; Profile Downloaded &rarr; Install
+                </p>
             </div>
-            <div class="version-info">
-                ShieldDNS <span id="app-version">v0.0.0</span>
-            </div>
-        </aside>
+        </div>
 
-        <main class="content">
-            <!-- Dashboard View -->
-            <section id="dashboard" class="view">
-                <header>
-                    <h1>Dashboard</h1>
-                    <div class="header-actions">
-                        <button id="refresh-btn" class="btn secondary">Manual Update</button>
-                    </div>
-                </header>
+        <a href="https://github.com/FaserF/ShieldDNS" class="github-link" target="_blank">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+            </svg>
+            Explore on GitHub
+        </a>
 
-                <div class="protection-status-card">
-                    <div class="status-header">
-                        <div class="status-icon-wrapper protected" id="status-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                        </div>
-                        <div class="status-text">
-                            <h2 id="status-title">ShieldDNS is Active</h2>
-                            <p id="status-desc">Your requests are being filtered and secured.</p>
-                        </div>
-                    </div>
-                    <div class="quick-copy-grid">
-                        <div class="copy-box">
-                            <label>DoT Hostname (Android)</label>
-                            <div class="copy-input">
-                                <input type="text" id="copy-dot" readonly value="dns.example.com">
-                                <button class="copy-btn" onclick="copyText('copy-dot')">Copy</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <label>Total Queries (24h)</label>
-                        <div class="value" id="stat-total">-</div>
-                    </div>
-                    <div class="stat-card blocked">
-                        <label>Blocked Queries</label>
-                        <div class="value" id="stat-blocked">-</div>
-                    </div>
-                    <div class="stat-card percentage">
-                        <label>Blocking Ratio</label>
-                        <div class="value" id="stat-ratio">- %</div>
-                    </div>
-                    <div class="stat-card cache">
-                        <label>Cache Hit Ratio</label>
-                        <div class="value" id="stat-cache">- %</div>
-                    </div>
-                </div>
+        <div class="setup-section" style="background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2);">
+            <h2 style="color: #ef4444;">Private Use Notice</h2>
+            <p style="font-size: 0.9rem; margin-bottom: 0; color: #cbd5e1;">
+                This server is for private use only. If you do not know this domain or server, or if the owner has not
+                provided you with this information, please <strong>do not use</strong> this DNS server and ignore this
+                page.
+            </p>
+        </div>
 
-                <div class="chart-section card">
-                    <div class="chart-header">
-                        <h2>Traffic Overview (Last 24h)</h2>
-                    </div>
-                    <div class="chart-wrapper">
-                        <canvas id="traffic-chart"></canvas>
-                    </div>
-                </div>
+        <div class="disclaimer">
+            Developed for private environments and secure resolution. &copy; 2026 ShieldDNS.
+        </div>
 
-                <div class="query-log-container">
-                    <div class="chart-header">
-                        <h2>Live Query Log</h2>
-                    </div>
-                    <table class="query-table">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Domain</th>
-                                <th>Type</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="query-log-items">
-                            <!-- Queries will be injected here -->
-                        </tbody>
-                    </table>
-                </div>
-                </div>
-            </section>
-
-            <!-- Analytics View -->
-            <section id="analytics" class="view hidden">
-                <header>
-                    <h1>Advanced Analytics</h1>
-                </header>
-                <div class="analytics-grid">
-                    <div class="stat-card card">
-                        <h3>Top Blocked Domains</h3>
-                        <div class="card-body">
-                            <table class="query-table">
-                                <thead>
-                                    <tr>
-                                        <th>Domain</th>
-                                        <th style="text-align:right">Hits</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="top-blocked-list">
-                                    <!-- Dynamic -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="stat-card card">
-                        <h3>Top Clients</h3>
-                        <div class="card-body">
-                            <table class="query-table">
-                                <thead>
-                                    <tr>
-                                        <th>Client IP</th>
-                                        <th style="text-align:right">Queries</th>
-                                    </tr>
-                                </thead>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="stat-card card">
-                        <h3>Query Types</h3>
-                        <div class="chart-wrapper-small">
-                            <canvas id="type-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Query Log View -->
-            <section id="queries" class="view hidden">
-                <header>
-                    <h1>Query Log</h1>
-                    <div class="header-actions">
-                        <div class="search-box">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="query-search" placeholder="Search domain..." oninput="debounce(fetchQueries, 500)()">
-                        </div>
-                        <select id="query-filter-status" class="select-filter" onchange="fetchQueries()">
-                            <option value="">All Traffic</option>
-                            <option value="Blocked">Blocked Only</option>
-                            <option value="Allowed">Allowed Only</option>
-                        </select>
-                        <button class="btn secondary" onclick="exportLogs('csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
-                        <button class="btn secondary" onclick="exportLogs('json')"><i class="fas fa-file-code"></i> JSON</button>
-                    </div>
-                </header>
-                <div class="query-log-container card">
-                    <table class="query-table">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Domain</th>
-                                <th>Type</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="full-query-log-items">
-                            <!-- Dynamic -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Custom Rules View -->
-            <section id="custom-rules" class="view hidden">
-                <header>
-                    <h1>Custom Rules</h1>
-                    <p>Immediately allow or block individual domains.</p>
-                </header>
-                <div class="analytics-grid">
-                    <div class="stat-card card">
-                        <h3>Custom Blocklist</h3>
-                        <div class="form-group row" style="display:flex;gap:10px;margin-bottom:15px">
-                            <input type="text" id="custom-block-input" placeholder="e.g. tiktok.com" style="flex:1">
-                            <button class="btn secondary" onclick="addCustomRule('blocked')">Block</button>
-                        </div>
-                        <div id="custom-blocked-list" class="minimal-list"></div>
-                    </div>
-                    <div class="stat-card card">
-                        <h3>Custom Whitelist</h3>
-                        <div class="form-group row" style="display:flex;gap:10px;margin-bottom:15px">
-                            <input type="text" id="custom-allow-input" placeholder="e.g. myvpn.com" style="flex:1">
-                            <button class="btn secondary" onclick="addCustomRule('allowed')">Allow</button>
-                        </div>
-                        <div id="custom-allowed-list" class="minimal-list"></div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="lists" class="view hidden">
-                <header>
-                    <h1>Filtering Lists</h1>
-                    <div class="header-actions">
-                        <button id="add-whitelist-btn" class="btn secondary">Add Whitelist</button>
-                        <button id="add-list-btn" class="btn primary">Add Blocklist</button>
-                    </div>
-                </header>
-
-                <div class="search-section card">
-                    <div class="search-box">
-                        <input type="text" id="domain-search" placeholder="Search for a domain (e.g. google.com)">
-                        <button class="btn secondary" id="search-btn">Check Protection</button>
-                    </div>
-                    <div id="search-result" class="hidden">
-                        <!-- Result will be shown here -->
-                    </div>
-                </div>
-                
-                <div class="list-section">
-                    <h2>Your Active Blocklists</h2>
-                    <div class="list-container" id="list-items">
-                        <!-- Lists will be injected here -->
-                    </div>
-                </div>
-
-                <div class="list-section">
-                    <h2>Your Active Whitelists</h2>
-                    <p class="help">Domains in these lists will always be allowed, even if they appear in a blocklist.</p>
-                    <div class="list-container" id="whitelist-items">
-                        <!-- Whitelists will be injected here -->
-                    </div>
-                </div>
-
-                <div class="list-section">
-                    <h2>Suggested Presets</h2>
-                    <p class="help">One-click activation for popular blocklists</p>
-                    <div class="presets-grid" id="preset-items">
-                        <!-- Presets will be injected here -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- Settings View -->
-            <section id="settings" class="view hidden">
-                <header>
-                    <h1>Settings</h1>
-                </header>
-                <form id="settings-form">
-                    <div class="form-group">
-                        <label>Upstream DNS Servers (Standard)</label>
-                        <p class="help">Comma separated IP addresses (Max 5)</p>
-                        <input type="text" id="upstreams-input" placeholder="1.1.1.1, 8.8.8.8">
-                    </div>
-                    <div class="form-group">
-                        <label>Upstream DoT Servers (DNS over TLS)</label>
-                        <p class="help">Comma separated hostnames (Max 5). Example: unfiltered.joindns4.eu</p>
-                        <input type="text" id="dot-upstreams-input" placeholder="unfiltered.joindns4.eu, one.one.one.one">
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="prefer-encrypted-check">
-                        <label for="prefer-encrypted-check">Prefer Encrypted Upstreams (DoT)</label>
-                    </div>
-                    <button type="submit" class="btn primary">Save Config</button>
-                </form>
-
-                <hr class="separator">
-
-                <div class="settings-section">
-                    <h2>Security</h2>
-                    <form id="password-form">
-                        <div class="form-group">
-                            <label>Current Password</label>
-                            <input type="password" id="current-password" required>
-                        </div>
-                        <div class="form-group">
-                            <label>New Password (min 12 chars)</label>
-                            <input type="password" id="new-password" required minlength="12">
-                        </div>
-                        <button type="submit" class="btn secondary">Update Password</button>
-                    </form>
-                </div>
-
-                <div class="settings-section">
-                    <h2>Smart Networking & Maintenance</h2>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="smart-upstream-check">
-                        <label for="smart-upstream-check">Smart Upstream Selection (Dynamic Latency Sorting)</label>
-                    </div>
-                    <div class="form-group">
-                        <label>Data Retention (Days)</label>
-                        <input type="number" id="retention-input" min="1" max="365" value="30">
-                    </div>
-                    <div class="form-group">
-                        <label>System Backup</label>
-                        <p class="help">Download a .zip of your configuration and query history.</p>
-                        <button class="btn secondary" id="backup-btn">Download Backup</button>
-                    </div>
-                </div>
-
-                <div class="settings-section">
-                    <button id="logout-btn" class="btn danger">Logout</button>
-                </div>
-            </section>
-        </main>
-    </div>
-
-    <!-- Auth Overlay -->
-    <div id="auth-overlay" class="modal hidden">
-        <div class="modal-content auth-box">
-            <div id="setup-view" class="hidden">
-                <div class="wizard-steps">
-                    <div class="w-step active" id="w-step-1">1</div>
-                    <div class="w-step" id="w-step-2">2</div>
-                    <div class="w-step" id="w-step-3">3</div>
-                </div>
-
-                <div id="setup-pane-1" class="setup-pane">
-                    <h2>Step 1: Admin Password</h2>
-                    <p>Set a strong password to protect your dashboard. (Min 12 characters)</p>
-                    <div class="form-group">
-                        <input type="password" id="setup-password" placeholder="New Password" minlength="12">
-                    </div>
-                    <div class="form-group">
-                        <input type="password" id="setup-confirm" placeholder="Confirm Password">
-                    </div>
-                    <button class="btn primary full-width" onclick="nextSetupStep(2)">Next Step</button>
-                </div>
-
-                <div id="setup-pane-2" class="setup-pane hidden">
-                    <h2>Step 2: Upstream Configuration</h2>
-                    <p>Configure how ShieldDNS should resolve requests.</p>
-                    <div class="form-group">
-                        <label>DNS Servers (Standard)</label>
-                        <input type="text" id="setup-upstreams" value="86.54.11.100, 1.1.1.1, 8.8.8.8">
-                    </div>
-                    <div class="form-group">
-                        <label>DoT Servers (Encrypted)</label>
-                        <input type="text" id="setup-dot-upstreams" value="unfiltered.joindns4.eu">
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="setup-prefer-encrypted" checked>
-                        <label for="setup-prefer-encrypted">Prefer Encrypted Upstreams</label>
-                    </div>
-                    <div class="modal-actions">
-                        <button class="btn secondary" onclick="nextSetupStep(1)">Back</button>
-                        <button class="btn primary" onclick="nextSetupStep(3)">Next Step</button>
-                    </div>
-                </div>
-
-                <div id="setup-pane-3" class="setup-pane hidden">
-                    <h2>Step 3: Blocklists</h2>
-                    <p>Select some default blocklists to get started.</p>
-                    <div id="setup-presets" class="presets-list-minimal">
-                        <!-- Presets will be injected here with checkboxes -->
-                    </div>
-                    <div class="modal-actions">
-                        <button class="btn secondary" onclick="nextSetupStep(2)">Back</button>
-                        <button class="btn primary" id="setup-finish-btn">Finish Setup</button>
-                    </div>
-                </div>
-            </div>
-
-            <div id="login-view" class="hidden">
-                <h2>ShieldDNS Login</h2>
-                <p>Enter your password to access the dashboard.</p>
-                <div class="form-group">
-                    <input type="password" id="login-password" placeholder="Password">
-                </div>
-                <button class="btn primary full-width" id="login-confirm-btn">Login</button>
-            </div>
+        <div class="footer">
+            <a href="/admin" class="btn-admin">Admin Dashboard</a>
         </div>
     </div>
 
-    <!-- Modal for adding lists -->
-    <div id="modal" class="modal hidden">
-        <div class="modal-content">
-            <h2 id="modal-title">Add Blocklist</h2>
-            <div class="form-group">
-                <label>Name</label>
-                <input type="text" id="list-name" placeholder="AdGuard Base">
-            </div>
-            <div class="form-group">
-                <label>URL</label>
-                <input type="url" id="list-url" placeholder="https://...">
-            </div>
-            <input type="hidden" id="list-type" value="block">
-            <div class="modal-actions">
-                <button class="btn secondary" id="modal-cancel">Cancel</button>
-                <button class="btn primary" id="modal-confirm">Add List</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="script.js"></script>
+    <script>
+        document.getElementById('hostname-text').textContent = window.location.hostname;
+    </script>
 </body>
+
 </html>

@@ -48,6 +48,10 @@ else
     FALLBACK_DNS_SERVER=${FALLBACK_DNS_SERVER:-"1.1.1.1"}
 fi
 
+# Sanitize upstreams (replace commas with spaces)
+UPSTREAM_DNS=$(echo "${UPSTREAM_DNS}" | tr ',' ' ')
+UPSTREAM_DOT=$(echo "${UPSTREAM_DOT}" | tr ',' ' ')
+
 # ------------------------------------------------------------------------------
 # 1.5. SSL Fallback Check
 # ------------------------------------------------------------------------------
@@ -126,6 +130,14 @@ server {
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-Proto \$scheme;
+
+        # SSE optimization
+        proxy_set_header Connection '';
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 24h;
+        gzip off;
     }
 }
 EOF

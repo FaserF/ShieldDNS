@@ -532,6 +532,16 @@ h1 {
     color: var(--success);
 }
 
+.blocked-sources {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.blocked-sources .badge {
+    margin: 2px;
+}
+
 .wizard-steps {
     display: flex;
     justify-content: center;
@@ -701,12 +711,116 @@ h1 {
 }
 
 .settings-section .checkbox-group label {
-    margin-left: 12px;
     cursor: pointer;
+}
+
+/* Custom Toggle Switch */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #334155;
+    transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+input:checked + .slider {
+    background-color: var(--accent);
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+    transition: all 0.2s;
+}
+
+.checkbox-group:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--accent);
+}
+
+.checkbox-text {
+    flex-grow: 1;
+    padding-right: 20px;
+}
+
+.checkbox-text label {
+    display: block !important;
+    margin-bottom: 4px !important;
+    font-weight: 600 !important;
+}
+
+.checkbox-text .help {
+    margin-bottom: 0 !important;
+    opacity: 0.8;
 }
 
 .help {
     font-size: 0.8rem;
     color: var(--text-secondary);
     margin-bottom: 12px;
+}
+.log-terminal {
+    background: #000;
+    color: #0f0;
+    padding: 15px;
+    border-radius: 8px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.85rem;
+    height: 500px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+}
+
+.diag-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.diag-item:last-child {
+    border-bottom: none;
 }

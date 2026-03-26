@@ -1,4 +1,4 @@
-<img src="logo.png" align="right" width="128" height="128">
+<img src="www/logo.png" align="right" width="128" height="128">
 
 # ShieldDNS 🛡️
 
@@ -32,7 +32,7 @@ ShieldDNS is a modern, lightweight alternative to established solutions like AdG
 | **Performance** | Ultra-High (Go/WAL) | High | Moderate (dnsmasq) |
 | **Analytics** | SQLite (WAL/Batching) | Internal (Local) | FTL (C/Stats) |
 | **Hardening** | AEAD-only Ciphers  | Standard | Upstream Dependent |
-| **Home Assistant** | Official HA App Available | Official HA App Available | HA App Available |
+| **Home Assistant** | [HA App Available](https://github.com/FaserF/hassio-addons/tree/master/ShieldDNS) | HA App Available | HA App Available |
 
 ### 🛠️ Pros and Cons
 

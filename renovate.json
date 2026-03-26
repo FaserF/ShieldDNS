@@ -15,7 +15,11 @@
     },
     {
       "matchManagers": ["gomod"],
-      "postUpdateOptions": ["gomodTidy"]
+      "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+      "rangeStrategy": "replace"
     }
-  ]
+  ],
+  "gomod": {
+    "enabled": true
+  }
 }

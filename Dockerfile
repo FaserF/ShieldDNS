@@ -7,10 +7,10 @@ ARG TARGETARCH
 WORKDIR /app
 COPY admin/ .
 RUN go mod download && go mod tidy
-RUN GOOS=linux GOARCH=$TARGETARCH go build -o shielddns-admin main.go
+RUN GOOS=linux GOARCH=$TARGETARCH go build -o shielddns-admin .
 
 # Stage 3: Runtime Image
-FROM alpine:latest
+FROM alpine:3.23
 
 # Install dependencies
 RUN apk add --no-cache jq ca-certificates bash curl nginx dos2unix openssl
@@ -21,8 +21,8 @@ RUN ln -s /ssl /certs
 
 # Copy Web Assets
 COPY admin/www /var/www/admin
-COPY logo.png /var/www/admin/logo.png
-
+COPY www/logo.png /var/www/admin/logo.png
+COPY www/favicon.ico /var/www/admin/favicon.ico
 # Copy CoreDNS binary
 COPY --from=binary /coredns /usr/bin/coredns
 

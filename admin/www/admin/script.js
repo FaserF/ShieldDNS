@@ -1,30 +1,55 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const navItems = document.querySelectorAll('.nav-item');
-    const views = document.querySelectorAll('.view');
-    const statsContainer = {
-        total: document.getElementById('stat-total'),
-        blocked: document.getElementById('stat-blocked'),
-        ratio: document.getElementById('stat-ratio'),
-        cache: document.getElementById('stat-cache')
-    };
-    const upstreamsInput = document.getElementById('upstreams-input');
-    const dotUpstreamsInput = document.getElementById('dot-upstreams-input');
-    const preferEncryptedCheck = document.getElementById('prefer-encrypted-check');
-    const queryLogItems = document.getElementById('query-log-items');
-    const fullQueryLogItems = document.getElementById('full-query-log-items');
-    const topBlockedContainer = document.getElementById('top-blocked-list');
-    const topClientsContainer = document.getElementById('top-clients-list');
-    const customBlockedList = document.getElementById('custom-blocked-list');
-    const customAllowedList = document.getElementById('custom-allowed-list');
-    const whitelistItemsContainer = document.getElementById('whitelist-items');
-
-    const authOverlay = document.getElementById('auth-overlay');
-    const setupView = document.getElementById('setup-view');
-    const loginView = document.getElementById('login-view');
-
-    let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, lists: [], whitelists: [], custom_blocked: [], custom_allowed: [] };
+let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, lists: [], allowlists: [], custom_blocked: [], custom_allowed: [] };
     let trafficChart = null;
     let typeChart = null;
+    
+    // UI Elements
+    let authOverlay, setupView, loginView, listItemsContainer, allowlistItemsContainer, views;
+    let upstreamsInput, dotUpstreamsInput, preferEncryptedCheck, customBlockedList, customAllowedList;
+    let systemLogTerminal, certInfoContent, statsContainer, topBlockedContainer, topClientsContainer;
+    let queryLogItems, fullQueryLogItems;
+    let systemLogEventSource = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const getEl = (id) => document.getElementById(id);
+
+    // Initialize UI Elements
+    authOverlay = getEl('auth-overlay');
+    setupView = getEl('setup-view');
+    loginView = getEl('login-view');
+    listItemsContainer = getEl('list-items');
+    allowlistItemsContainer = getEl('allowlist-items');
+    views = document.querySelectorAll('.view');
+    upstreamsInput = getEl('upstreams-input');
+    dotUpstreamsInput = getEl('dot-upstreams-input');
+    preferEncryptedCheck = getEl('prefer-encrypted-check');
+    customBlockedList = getEl('custom-blocked-list');
+    customAllowedList = getEl('custom-allowed-list');
+    systemLogTerminal = getEl('system-log-terminal');
+    certInfoContent = getEl('cert-info-content');
+    topBlockedContainer = getEl('top-blocked-list');
+    topClientsContainer = getEl('top-clients-list');
+    queryLogItems = getEl('query-log-items');
+    fullQueryLogItems = getEl('full-query-log-items');
+
+    statsContainer = {
+        total: getEl('stat-total'),
+        blocked: getEl('stat-blocked'),
+        ratio: getEl('stat-ratio'),
+        cache: getEl('stat-cache')
+    };
+
+    const navItems = document.querySelectorAll('.nav-item');
+
+    // --- Enter Key Support ---
+    document.getElementById('login-password')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') document.getElementById('login-confirm-btn').click();
+    });
+    document.getElementById('setup-confirm')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') document.getElementById('setup-finish-btn').click();
+    });
+    document.getElementById('setup-password')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') nextSetupStep(2);
+    });
 
     // --- Authentication Logic ---
 
@@ -133,8 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 upstream_dot: dotUpstreams, 
                 prefer_encrypted: preferEncrypted, 
                 lists: selectedPresets,
-                whitelists: [
-                    { name: "ShieldDNS Official Whitelist", url: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/whitelists/default.txt", enabled: true }
+                allowlists: [
+                    { name: "ShieldDNS Official Allowlist", url: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/allowlists/default.txt", enabled: true }
                 ]
             })
         });
@@ -189,6 +214,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Main Application Logic ---
 
     const initializeApp = () => {
+        // Initialize dynamic hostname in dashboard
+        const dotInput = document.getElementById('copy-dot');
+        if (dotInput) dotInput.value = window.location.hostname;
+
         fetchStats();
         fetchConfig();
         fetchPresets();
@@ -312,8 +341,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         };
 
-        populate(dashContainer, queries.slice(0, 10));
-        populate(fullContainer, queries);
+        populate(dashContainer, (queries || []).slice(0, 10));
+        populate(fullContainer, queries || []);
     };
 
     const createQueryRow = (q) => {
@@ -425,21 +454,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetch('/api/top-blocked'),
                 fetch('/api/top-clients')
             ]);
-            if (blockedResp.ok) {
+            if (blockedResp.ok && topBlockedContainer) {
                 const blocked = await blockedResp.json();
                 topBlockedContainer.innerHTML = (blocked || []).map(b => `
                     <tr>
                         <td>${b.domain}</td>
-                        <td class="text-right">${b.count}</td>
+                        <td class="text-right">${b.count || 0}</td>
                     </tr>
                 `).join('') || '<tr><td colspan="2">No data available</td></tr>';
             }
-            if (clientsResp.ok) {
+            if (clientsResp.ok && topClientsContainer) {
                 const clients = await clientsResp.json();
                 topClientsContainer.innerHTML = (clients || []).map(c => `
                     <tr>
                         <td>${c.client_ip}</td>
-                        <td class="text-right">${c.count}</td>
+                        <td class="text-right">${c.count || 0}</td>
                     </tr>
                 `).join('') || '<tr><td colspan="2">No data available</td></tr>';
             }
@@ -452,35 +481,39 @@ document.addEventListener('DOMContentLoaded', () => {
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
-            const viewId = item.getAttribute('data-view');
-            
-            navItems.forEach(n => n.classList.remove('active'));
+            const targetView = item.dataset.view;
+            if (!targetView) return;
+
+            navItems.forEach(i => i.classList.remove('active'));
             item.classList.add('active');
+            
+            views.forEach(v => v.classList.add('hidden'));
+            const viewEl = document.getElementById(targetView);
+            if (viewEl) viewEl.classList.remove('hidden');
 
-            views.forEach(v => {
-                v.classList.toggle('hidden', v.id !== viewId);
-            });
-
-            if (viewId === 'analytics') {
-                fetchAnalytics();
-            }
-            if (viewId === 'queries') {
-                fetchQueries();
-            }
+            if (targetView === 'queries') fetchQueries();
+            if (targetView === 'analytics') fetchAnalytics();
+            if (targetView === 'about') fetchStats();
+            if (targetView === 'diagnostics') fetchDiagnostics();
+            if (targetView === 'system-logs') startSystemLogStream();
+            else stopSystemLogStream();
         });
     });
 
     const fetchStats = async () => {
         try {
             const resp = await fetch('/api/stats');
-            if (resp.status === 401) return; // Not authorized yet
+            if (resp.status === 401) return; 
             const data = await resp.json();
-            statsContainer.total.textContent = data.total_queries.toLocaleString();
-            statsContainer.blocked.textContent = data.blocked_queries.toLocaleString();
-            const ratio = data.total_queries > 0 ? (data.blocked_queries / data.total_queries * 100).toFixed(1) : 0;
-            statsContainer.ratio.textContent = `${ratio} %`;
-            const cacheRatio = data.total_queries > 0 ? (data.cache_hits / data.total_queries * 100).toFixed(1) : 0;
-            statsContainer.cache.textContent = `${cacheRatio} %`;
+            
+            if (statsContainer && statsContainer.total) {
+                statsContainer.total.textContent = data.total_queries.toLocaleString();
+                statsContainer.blocked.textContent = data.blocked_queries.toLocaleString();
+                const ratio = data.total_queries > 0 ? (data.blocked_queries / data.total_queries * 100).toFixed(1) : 0;
+                statsContainer.ratio.textContent = `${ratio} %`;
+                const cacheRatio = data.total_queries > 0 ? (data.cache_hits / data.total_queries * 100).toFixed(1) : 0;
+                statsContainer.cache.textContent = `${cacheRatio} %`;
+            }
             
             if (data.query_types) {
                 renderTypeChart(data.query_types);
@@ -491,6 +524,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (versionEl && data.version) {
                 versionEl.textContent = data.version;
             }
+
+            // About view updates
+            const shieldVer = document.getElementById('about-shielddns-ver');
+            if (shieldVer) shieldVer.textContent = data.version;
+            
+            const coreVer = document.getElementById('about-coredns-ver');
+            if (coreVer) coreVer.textContent = data.coredns_version || 'v1.14.2';
+            
+            const osVer = document.getElementById('about-os-ver');
+            if (osVer) osVer.textContent = 'Alpine ' + (data.alpine_version || '3.23');
         } catch (e) {
             console.error('Failed to fetch stats', e);
         }
@@ -528,11 +571,11 @@ document.addEventListener('DOMContentLoaded', () => {
             listItemsContainer.appendChild(item);
         });
 
-        currentConfig.whitelists = currentConfig.whitelists || [];
-        whitelistItemsContainer.innerHTML = '';
-        currentConfig.whitelists.forEach((list, index) => {
-            const item = createListItem(list, index, 'white');
-            whitelistItemsContainer.appendChild(item);
+        currentConfig.allowlists = currentConfig.allowlists || [];
+        allowlistItemsContainer.innerHTML = '';
+        currentConfig.allowlists.forEach((list, index) => {
+            const item = createListItem(list, index, 'allow');
+            allowlistItemsContainer.appendChild(item);
         });
 
         // Render Custom Rules
@@ -577,7 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const createListItem = (list, index, type) => {
         const item = document.createElement('div');
         item.className = 'list-item';
-        const isOfficial = list.url.startsWith('file:///');
+        const isOfficial = list.url.startsWith('file:///') || list.url.includes('FaserF/ShieldDNS');
         item.innerHTML = `
             <div class="list-info">
                 <h3>${list.name} ${isOfficial ? '<span class="badge official">Official</span>' : ''}</h3>
@@ -637,9 +680,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('list-type').value = 'block';
         modal.classList.remove('hidden');
     });
-    document.getElementById('add-whitelist-btn')?.addEventListener('click', () => {
-        document.getElementById('modal-title').textContent = 'Add Whitelist';
-        document.getElementById('list-type').value = 'white';
+    document.getElementById('add-allowlist-btn')?.addEventListener('click', () => {
+        document.getElementById('modal-title').textContent = 'Add Allowlist';
+        document.getElementById('list-type').value = 'allow';
         modal.classList.remove('hidden');
     });
     document.getElementById('modal-cancel')?.addEventListener('click', () => modal.classList.add('hidden'));
@@ -649,8 +692,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = document.getElementById('list-url').value;
         const type = document.getElementById('list-type').value;
         if (name && url) {
-            if (type === 'white') {
-                currentConfig.whitelists.push({ name, url, enabled: true });
+            if (type === 'allow') {
+                currentConfig.allowlists.push({ name, url, enabled: true });
             } else {
                 currentConfig.lists.push({ name, url, enabled: true });
             }
@@ -664,13 +707,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const domain = document.getElementById('domain-search').value.trim();
         if (!domain) return;
 
-        const resp = await fetch(`/api/search?q=${domain}`);
-        const data = await resp.json();
+            const resp = await fetch(`/api/search?q=${domain}`);
+            if (!resp.ok) {
+                const text = await resp.text();
+                console.warn('Search failed:', text);
+                const result = document.getElementById('search-result');
+                result.textContent = 'Protection status unavailable (blocklist still loading)';
+                result.className = 'help';
+                result.classList.remove('hidden');
+                return;
+            }
+            const data = await resp.json();
         const result = document.getElementById('search-result');
         result.classList.remove('hidden', 'blocked', 'allowed');
         
         if (data.blocked) {
-            result.textContent = `❌ ${domain} is CURRENTLY BLOCKED`;
+            let listInfo = '';
+            if (data.lists && data.lists.length > 0) {
+                listInfo = `<div class="blocked-sources">Blocked by: ${data.lists.map(l => `<span class="badge secondary">${l}</span>`).join(' ')}</div>`;
+            }
+            result.innerHTML = `<div>❌ ${domain} is CURRENTLY BLOCKED</div>${listInfo}`;
             result.classList.add('blocked');
         } else {
             result.textContent = `✅ ${domain} is NOT BLOCKED`;
@@ -680,11 +736,71 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial check
     checkAuthStatus();
+
+    // Attach to window for global access
+    window.saveConfig = saveConfig;
+    window.renderConfig = renderConfig;
+    window.fetchConfig = fetchConfig;
+    window.fetchQueries = fetchQueries;
 });
 
+const startSystemLogStream = () => {
+    if (systemLogEventSource) return;
+    systemLogTerminal.textContent = '';
+    systemLogEventSource = new EventSource('/api/system-logs');
+    systemLogEventSource.onmessage = (e) => {
+        const line = document.createElement('div');
+        line.textContent = e.data;
+        // Basic syntax coloring
+        if (e.data.includes('[CoreDNS]')) line.style.color = '#5c6bc0';
+        if (e.data.includes('[CoreDNS-ERR]')) line.style.color = '#ef4444';
+        
+        systemLogTerminal.appendChild(line);
+        systemLogTerminal.scrollTop = systemLogTerminal.scrollHeight;
+        
+        // Limit lines in DOM
+        if (systemLogTerminal.childNodes.length > 1000) {
+            systemLogTerminal.removeChild(systemLogTerminal.firstChild);
+        }
+    };
+    systemLogEventSource.onerror = () => {
+        stopSystemLogStream();
+        setTimeout(startSystemLogStream, 5000);
+    };
+};
+
+const stopSystemLogStream = () => {
+    if (systemLogEventSource) {
+        systemLogEventSource.close();
+        systemLogEventSource = null;
+    }
+};
+
+window.clearSystemLogs = () => {
+    systemLogTerminal.textContent = '';
+};
+
+const fetchDiagnostics = async () => {
+    try {
+        const resp = await fetch('/api/diagnostics');
+        const data = await resp.json();
+        
+        certInfoContent.innerHTML = `
+            <div class="diag-item"><span>Status</span><span class="badge ${data.is_expired ? 'danger' : 'official'}">${data.is_expired ? 'Expired' : 'Valid'}</span></div>
+            <div class="diag-item"><span>Subject</span><span>${data.subject}</span></div>
+            <div class="diag-item"><span>Issuer</span><span>${data.issuer}</span></div>
+            <div class="diag-item"><span>Expires</span><span>${new Date(data.expires).toLocaleString()}</span></div>
+            <div class="diag-item"><span>Not Before</span><span>${new Date(data.not_before).toLocaleString()}</span></div>
+            <div class="diag-item"><span>SANs</span><div style="text-align:right">${data.dns_names.join('<br>')}</div></div>
+        `;
+    } catch (e) {
+        certInfoContent.innerHTML = '<p class="danger-text">Failed to load certificate information.</p>';
+    }
+};
+
 window.toggleList = async (index, type) => {
-    if (type === 'white') {
-        currentConfig.whitelists[index].enabled = !currentConfig.whitelists[index].enabled;
+    if (type === 'allow') {
+        currentConfig.allowlists[index].enabled = !currentConfig.allowlists[index].enabled;
     } else {
         currentConfig.lists[index].enabled = !currentConfig.lists[index].enabled;
     }

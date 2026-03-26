@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHandleStats(t *testing.T) {
@@ -40,16 +41,68 @@ func TestHandleStats(t *testing.T) {
 }
 
 func TestHandleSearch(t *testing.T) {
-	// Setup mock blocklist
-	tmpFile := "test_blocklist.hosts"
-	os.WriteFile(tmpFile, []byte("0.0.0.0 blocked.com\n0.0.0.0 ads.target.net\n"), 0644)
-	defer os.Remove(tmpFile)
+	blockAttributionLock.Lock()
+	blockAttribution = map[string][]string{
+		"blocked.com": {"List A", "List B"},
+	}
+	blockAttributionLock.Unlock()
 
-	// Override BlocklistPath for test
+	req, _ := http.NewRequest("GET", "/api/search?q=blocked.com", nil)
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(handleSearch)
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("expected 200, got %v", status)
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+
+	if resp["blocked"] != true {
+		t.Errorf("expected blocked=true, got %v", resp["blocked"])
+	}
+
+	lists := resp["lists"].([]interface{})
+	if len(lists) != 2 || lists[0] != "List A" || lists[1] != "List B" {
+		t.Errorf("unexpected lists: %v", lists)
+	}
+
+	// Test not blocked
+	req, _ = http.NewRequest("GET", "/api/search?q=allowed.com", nil)
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp["blocked"] != false {
+		t.Errorf("expected blocked=false for allowed.com")
+	}
+}
+
+func TestBlockAttribution(t *testing.T) {
+	config.Lists = []List{
+		{Name: "List 1", URL: "https://example.com/1", Enabled: true},
+	}
+	config.CustomBlocked = []string{"custom.test"}
+
+	// Temporarily redirect BlocklistPath
 	originalPath := BlocklistPath
-	// Note: We'd need to modify main.go to allow injecting paths for true unit testing,
-	// but for now we simulate the environment.
-	// Since BlocklistPath is a const, we'd need to change it to a var in main.go.
+	BlocklistPath = "test_blocklist.hosts"
+	defer func() {
+		BlocklistPath = originalPath
+		os.Remove("test_blocklist.hosts")
+	}()
+
+	updateBlocklist()
+
+	blockAttributionLock.RLock()
+	defer blockAttributionLock.RUnlock()
+
+	if _, ok := blockAttribution["custom.test"]; !ok {
+		t.Errorf("custom.test not found in attribution")
+	}
+	if blockAttribution["custom.test"][0] != "Custom Blocklist" {
+		t.Errorf("expected Custom Blocklist attribution, got %v", blockAttribution["custom.test"])
+	}
 }
 
 func TestAuthMiddleware(t *testing.T) {
@@ -128,7 +181,6 @@ func TestUpdateCorefile(t *testing.T) {
 	}
 	healthyUpstreams = []string{"1.1.1.1"}
 	healthyDoT = []string{}
-	healthyDoH = []string{}
 
 	// Test normal DNS
 	updateCorefile()

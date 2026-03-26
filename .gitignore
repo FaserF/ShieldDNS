@@ -1,0 +1,51 @@
+# Local data and secrets
+ssl/
+certs/
+data/
+*.pem
+*.key
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+config.json
+blocklist.hosts
+whitelist.hosts
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Build Artifacts
+admin/shielddns-admin
+shielddns-admin
+bin/
+obj/
+*.exe
+*.o
+*.a
+test_build
+*.exe
+
+# Go test coverage
+cover.out
+coverage.html
+c.out
+
+# Temporary/Crash files
+*.log
+*.tmp
+*.bak
+*test*.txt
+*out*.txt
+*log*.txt
+*build*.txt
+*err*.txt
+*status*.txt
+dump.rdb

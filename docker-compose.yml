@@ -15,7 +15,7 @@ services:
       - CERT_FILE=/ssl/fullchain.pem
       - KEY_FILE=/ssl/privkey.pem
     volumes:
-      - ./ssl:/ssl:ro
+      #- ./ssl:/ssl:ro
       - ./data:/etc/shielddns
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
