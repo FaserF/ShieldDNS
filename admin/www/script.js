@@ -4,7 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const statsContainer = {
         total: document.getElementById('stat-total'),
         blocked: document.getElementById('stat-blocked'),
-        ratio: document.getElementById('stat-ratio')
+        ratio: document.getElementById('stat-ratio'),
+        cache: document.getElementById('stat-cache')
     };
     const upstreamsInput = document.getElementById('upstreams-input');
     const dotUpstreamsInput = document.getElementById('dot-upstreams-input');
@@ -23,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, lists: [], whitelists: [], custom_blocked: [], custom_allowed: [] };
     let trafficChart = null;
+    let typeChart = null;
 
     // --- Authentication Logic ---
 
@@ -192,8 +194,8 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchPresets();
         fetchQueries();
         fetchHistory();
+        startSSE();
         setInterval(fetchStats, 10000);
-        setInterval(fetchQueries, 5000);
         setInterval(fetchHistory, 60000); // Chart once a minute
     };
 
@@ -262,9 +264,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    window.debounce = (func, wait) => {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    };
+
     const fetchQueries = async () => {
+        const searchInput = document.getElementById('query-search');
+        const filterStatus = document.getElementById('query-filter-status');
+        const search = searchInput ? searchInput.value : '';
+        const status = filterStatus ? filterStatus.value : '';
+
         try {
-            const resp = await fetch('/api/queries');
+            const resp = await fetch(`/api/queries?search=${encodeURIComponent(search)}&status=${status}`);
             if (resp.status === 401) return;
             const queries = await resp.json();
             renderQueries(queries);
@@ -274,18 +293,93 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderQueries = (queries) => {
-        const container = document.getElementById('query-log-items');
-        container.innerHTML = '';
-        queries.forEach(q => {
-            const row = document.createElement('tr');
-            const time = new Date(q.time).toLocaleTimeString();
-            row.innerHTML = `
-                <td>${time}</td>
-                <td>${q.domain}</td>
-                <td>${q.type}</td>
-                <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
-            `;
-            container.appendChild(row);
+        const dashContainer = document.getElementById('query-log-items');
+        const fullContainer = document.getElementById('full-query-log-items');
+
+        const populate = (container, data) => {
+            if (!container) return;
+            container.innerHTML = '';
+            data.forEach(q => {
+                const row = document.createElement('tr');
+                const time = new Date(q.time).toLocaleTimeString();
+                row.innerHTML = `
+                    <td>${time}</td>
+                    <td title="${q.client_ip}">${q.domain}</td>
+                    <td>${q.type}</td>
+                    <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
+                `;
+                container.appendChild(row);
+            });
+        };
+
+        populate(dashContainer, queries.slice(0, 10));
+        populate(fullContainer, queries);
+    };
+
+    const createQueryRow = (q) => {
+        const row = document.createElement('tr');
+        const time = new Date(q.time || Date.now()).toLocaleTimeString();
+        row.innerHTML = `
+            <td>${time}</td>
+            <td title="${q.client_ip}">${q.domain}</td>
+            <td>${q.type}</td>
+            <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
+        `;
+        return row;
+    };
+
+    const startSSE = () => {
+        const source = new EventSource('/api/events');
+        source.onmessage = (event) => {
+            const query = JSON.parse(event.data);
+            if (query.type === 'ping') return;
+            
+            const row = createQueryRow(query);
+            queryLogItems.prepend(row);
+            if (queryLogItems.children.length > 15) {
+                queryLogItems.lastElementChild.remove();
+            }
+        };
+        source.onerror = () => {
+            source.close();
+            setTimeout(startSSE, 5000);
+        };
+    };
+
+    const renderTypeChart = (queryTypes) => {
+        const ctx = document.getElementById('type-chart')?.getContext('2d');
+        if (!ctx) return;
+
+        const labels = Object.keys(queryTypes);
+        const data = Object.values(queryTypes);
+
+        if (typeChart) {
+            typeChart.data.labels = labels;
+            typeChart.data.datasets[0].data = data;
+            typeChart.update();
+            return;
+        }
+
+        typeChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: ['#5c6bc0', '#ef4444', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#94a3b8', boxWidth: 10, font: { size: 10 } }
+                    }
+                }
+            }
         });
     };
 
@@ -385,7 +479,13 @@ document.addEventListener('DOMContentLoaded', () => {
             statsContainer.blocked.textContent = data.blocked_queries.toLocaleString();
             const ratio = data.total_queries > 0 ? (data.blocked_queries / data.total_queries * 100).toFixed(1) : 0;
             statsContainer.ratio.textContent = `${ratio} %`;
+            const cacheRatio = data.total_queries > 0 ? (data.cache_hits / data.total_queries * 100).toFixed(1) : 0;
+            statsContainer.cache.textContent = `${cacheRatio} %`;
             
+            if (data.query_types) {
+                renderTypeChart(data.query_types);
+            }
+
             // Update version
             const versionEl = document.getElementById('app-version');
             if (versionEl && data.version) {
@@ -415,6 +515,13 @@ document.addEventListener('DOMContentLoaded', () => {
         upstreamsInput.value = currentConfig.upstreams.join(', ');
         dotUpstreamsInput.value = (currentConfig.upstream_dot || []).join(', ');
         preferEncryptedCheck.checked = currentConfig.prefer_encrypted;
+        
+        const smartCheck = document.getElementById('smart-upstream-check');
+        if (smartCheck) smartCheck.checked = currentConfig.use_fastest_upstream || false;
+        
+        const retentionInput = document.getElementById('retention-input');
+        if (retentionInput) retentionInput.value = currentConfig.retention_days || 30;
+
         listItemsContainer.innerHTML = '';
         currentConfig.lists.forEach((list, index) => {
             const item = createListItem(list, index, 'block');
@@ -507,6 +614,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('refresh-btn')?.addEventListener('click', async () => {
         await fetch('/api/refresh', { method: 'POST' });
         alert('Update started in background...');
+    });
+
+    document.getElementById('backup-btn')?.addEventListener('click', () => {
+        window.location.href = '/api/backup';
+    });
+
+    document.getElementById('smart-upstream-check')?.addEventListener('change', (e) => {
+        currentConfig.use_fastest_upstream = e.target.checked;
+        saveConfig();
+    });
+
+    document.getElementById('retention-input')?.addEventListener('change', (e) => {
+        currentConfig.retention_days = parseInt(e.target.value);
+        saveConfig();
     });
 
     // Modal logic for adding lists

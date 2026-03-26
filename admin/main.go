@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
 	"crypto/rand"
 	"crypto/tls"
@@ -15,8 +16,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -24,14 +27,17 @@ import (
 )
 
 type Config struct {
-	Upstreams        []string `json:"upstreams"`
-	UpstreamDoT      []string `json:"upstream_dot"`
-	PreferEncrypted  bool     `json:"prefer_encrypted"`
-	Lists            []List   `json:"lists"`
-	Whitelists       []List   `json:"whitelists"`
-	CustomBlocked    []string `json:"custom_blocked"`
-	CustomAllowed    []string `json:"custom_allowed"`
-	PasswordHash     string   `json:"password_hash"`
+	Upstreams           []string `json:"upstreams"`
+	UpstreamDoT         []string `json:"upstream_dot"`
+	PreferEncrypted     bool     `json:"prefer_encrypted"`
+	UseFastestUpstream  bool     `json:"use_fastest_upstream"`
+	RetentionDays       int      `json:"retention_days"`
+	Lists               []List   `json:"lists"`
+	Whitelists          []List   `json:"whitelists"`
+	CustomBlocked       []string `json:"custom_blocked"`
+	CustomAllowed       []string `json:"custom_allowed"`
+	SetupDone           bool     `json:"setup_done"`
+	AdminPasswordHashed string   `json:"admin_password_hashed"`
 }
 
 type List struct {
@@ -41,16 +47,19 @@ type List struct {
 }
 
 type Stats struct {
-	TotalQueries   int64  `json:"total_queries"`
-	BlockedQueries int64  `json:"blocked_queries"`
-	Version        string `json:"version"`
+	TotalQueries   int64            `json:"total_queries"`
+	BlockedQueries int64            `json:"blocked_queries"`
+	CacheHits      int64            `json:"cache_hits"`
+	QueryTypes     map[string]int64 `json:"query_types"`
+	Version        string           `json:"version"`
 }
 
 type Query struct {
-	Time   time.Time `json:"time"`
-	Domain string    `json:"domain"`
-	Type   string    `json:"type"`
-	Status string    `json:"status"` // "Allowed" or "Blocked"
+	Time     time.Time `json:"time"`
+	Domain   string    `json:"domain"`
+	Type     string    `json:"type"`
+	Status   string    `json:"status"` // "Allowed" or "Blocked"
+	ClientIP string    `json:"client_ip"`
 }
 
 type HourStats struct {
@@ -76,20 +85,54 @@ var (
 	healthyUpstreams []string
 	healthyDoT       []string
 	healthLock       sync.RWMutex
+
+	// Log Buffering
+	logBuffer  []Query
+	bufferLock sync.Mutex
+
+	// Login Throttling
+	loginFailures = make(map[string]int)
+	failureLock   sync.Mutex
+
+	// SSE Logging
+	sseClients = make(map[chan Query]struct{})
+	sseLock    sync.Mutex
+
+	// Latency Tracking
+	latencyMap  = make(map[string]time.Duration)
+	latencyLock sync.RWMutex
 )
 
-const (
+var (
+	DataDir       = "/etc/shielddns"
 	ConfigPath    = "/etc/shielddns/config.json"
 	BlocklistPath = "/etc/shielddns/blocklist.hosts"
 	WhitelistPath = "/etc/shielddns/whitelist.hosts"
 	CorefilePath  = "/etc/Corefile"
 	DBPath        = "/etc/shielddns/queries.db"
-	CookieName    = "shielddns_session"
 )
+
+const CookieName = "shielddns_session"
+
+func initPaths() {
+	if dd := os.Getenv("DATA_DIR"); dd != "" {
+		DataDir = dd
+	}
+	ConfigPath = filepath.Join(DataDir, "config.json")
+	BlocklistPath = filepath.Join(DataDir, "blocklist.hosts")
+	WhitelistPath = filepath.Join(DataDir, "whitelist.hosts")
+	DBPath = filepath.Join(DataDir, "queries.db")
+
+	if cp := os.Getenv("COREFILE_PATH"); cp != "" {
+		CorefilePath = cp
+	}
+}
 
 var db *sql.DB
 
 func main() {
+	stats.QueryTypes = make(map[string]int64)
+	initPaths()
 	loadConfig()
 
 	// Initialize SQLite
@@ -101,6 +144,8 @@ func main() {
 	// Start health checker
 	go startHealthChecker()
 	go startDBWorker()
+	go startLogWorker()
+	go startRetentionWorker()
 
 	// Start CoreDNS management
 	go startCoreDNS()
@@ -113,6 +158,7 @@ func main() {
 	http.HandleFunc("/api/presets", handlePresets)
 
 	// Protected API
+	http.Handle("/api/events", authMiddleware(http.HandlerFunc(handleEvents)))
 	http.Handle("/api/stats", authMiddleware(http.HandlerFunc(handleStats)))
 	http.Handle("/api/config", authMiddleware(http.HandlerFunc(handleConfig)))
 	http.Handle("/api/refresh", authMiddleware(http.HandlerFunc(handleRefresh)))
@@ -122,21 +168,138 @@ func main() {
 	http.Handle("/api/top-blocked", authMiddleware(http.HandlerFunc(handleTopBlocked)))
 	http.Handle("/api/top-clients", authMiddleware(http.HandlerFunc(handleTopClients)))
 	http.Handle("/api/export", authMiddleware(http.HandlerFunc(handleExport)))
+	http.Handle("/api/backup", authMiddleware(http.HandlerFunc(handleBackup)))
 	http.Handle("/api/change-password", authMiddleware(http.HandlerFunc(handleChangePassword)))
 
-	// Static Files
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Serve index for all but check auth status in JS
-		http.FileServer(http.Dir("/var/www/admin")).ServeHTTP(w, r)
-	})
+	// Get cert/key paths
+	certFile := os.Getenv("CERT_FILE")
+	if certFile == "" { certFile = "/ssl/fullchain.pem" }
+	keyFile := os.Getenv("KEY_FILE")
+	if keyFile == "" { keyFile = "/ssl/privkey.pem" }
 
-	port := os.Getenv("ADMIN_PORT")
-	if port == "" {
-		port = "8080"
+	// Graceful shutdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		log.Println("ShieldDNS Admin starting on :443 (HTTPS)")
+		if err := http.ListenAndServeTLS(":443", certFile, keyFile, nil); err != nil {
+			log.Printf("Admin UI server stopped: %v", err)
+		}
+	}()
+
+	<-stop
+	log.Println("Shutting down ShieldDNS...")
+
+	// Final log flush
+	bufferLock.Lock()
+	if len(logBuffer) > 0 {
+		flushLogs(logBuffer)
+	}
+	bufferLock.Unlock()
+
+	if db != nil {
+		db.Close()
+	}
+	log.Println("Goodbye!")
+}
+
+func handleEvents(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	ch := make(chan Query, 10)
+	sseLock.Lock()
+	sseClients[ch] = struct{}{}
+	sseLock.Unlock()
+
+	defer func() {
+		sseLock.Lock()
+		delete(sseClients, ch)
+		sseLock.Unlock()
+	}()
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
 	}
 
-	log.Printf("ShieldDNS Admin starting on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	fmt.Fprintf(w, "data: {\"type\":\"ping\"}\n\n")
+	flusher.Flush()
+
+	for {
+		select {
+		case q := <-ch:
+			data, _ := json.Marshal(q)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		case <-r.Context().Done():
+			return
+		}
+	}
+}
+
+func handleBackup(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename=shielddns-backup.zip")
+
+	zw := zip.NewWriter(w)
+	defer zw.Close()
+
+	files := []string{ConfigPath, DBPath, BlocklistPath, WhitelistPath}
+	for _, f := range files {
+		file, err := os.Open(f)
+		if err != nil {
+			continue
+		}
+		
+		info, err := file.Stat()
+		if err != nil {
+			file.Close()
+			continue
+		}
+
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			file.Close()
+			continue
+		}
+		header.Name = filepath.Base(f)
+		header.Method = zip.Deflate
+
+		writer, err := zw.CreateHeader(header)
+		if err != nil {
+			file.Close()
+			continue
+		}
+
+		io.Copy(writer, file)
+		file.Close()
+	}
+}
+
+func startRetentionWorker() {
+	ticker := time.NewTicker(12 * time.Hour)
+	for range ticker.C {
+		configLock.RLock()
+		days := config.RetentionDays
+		if days <= 0 {
+			days = 30
+		}
+		configLock.RUnlock()
+
+		if db != nil {
+			_, err := db.Exec("DELETE FROM queries WHERE timestamp < datetime('now', ?)", fmt.Sprintf("-%d days", days))
+			if err != nil {
+				log.Printf("Error cleaning up old queries: %v", err)
+			} else {
+				log.Printf("Cleaned up queries older than %d days", days)
+			}
+		}
+	}
 }
 
 func initDB() {
@@ -148,6 +311,7 @@ func initDB() {
 	}
 
 	_, err = db.Exec(`
+		PRAGMA journal_mode=WAL;
 		CREATE TABLE IF NOT EXISTS queries (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			timestamp DATETIME,
@@ -183,10 +347,57 @@ func startDBWorker() {
 	}
 }
 
+func startLogWorker() {
+	// Periodically flush buffered queries to SQLite
+	ticker := time.NewTicker(5 * time.Second)
+	for range ticker.C {
+		bufferLock.Lock()
+		if len(logBuffer) == 0 {
+			bufferLock.Unlock()
+			continue
+		}
+		toFlush := logBuffer
+		logBuffer = nil
+		bufferLock.Unlock()
+
+		if db == nil {
+			continue
+		}
+		flushLogs(toFlush)
+	}
+}
+
+func flushLogs(toFlush []Query) {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("Error starting log transaction: %v", err)
+		return
+	}
+
+	stmt, err := tx.Prepare("INSERT INTO queries (timestamp, domain, type, status, client_ip) VALUES (?, ?, ?, ?, ?)")
+	if err != nil {
+		log.Printf("Error preparing log statement: %v", err)
+		tx.Rollback()
+		return
+	}
+	defer stmt.Close()
+
+	for _, q := range toFlush {
+		_, err = stmt.Exec(q.Time.Format(time.RFC3339), q.Domain, q.Type, q.Status, q.ClientIP)
+		if err != nil {
+			log.Printf("Error executing log statement: %v", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing log transaction: %v", err)
+	}
+}
+
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		configLock.RLock()
-		hasPwd := config.PasswordHash != ""
+		hasPwd := config.AdminPasswordHashed != "" // Changed from PasswordHash to AdminPasswordHashed
 		configLock.RUnlock()
 
 		if !hasPwd {
@@ -209,7 +420,7 @@ func authMiddleware(next http.Handler) http.Handler {
 
 func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 	configLock.RLock()
-	hasPwd := config.PasswordHash != ""
+	hasPwd := config.AdminPasswordHashed != "" // Changed from PasswordHash to AdminPasswordHashed
 	configLock.RUnlock()
 
 	cookie, err := r.Cookie(CookieName)
@@ -227,7 +438,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 	configLock.Lock()
 	defer configLock.Unlock()
 
-	if config.PasswordHash != "" {
+	if config.AdminPasswordHashed != "" { // Changed from PasswordHash to AdminPasswordHashed
 		http.Error(w, "Already setup", http.StatusConflict)
 		return
 	}
@@ -248,7 +459,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error secure hashing", http.StatusInternalServerError)
 		return
 	}
-	config.PasswordHash = string(hash)
+	config.AdminPasswordHashed = string(hash) // Changed from PasswordHash to AdminPasswordHashed
 	saveConfigNoLock()
 	w.WriteHeader(http.StatusOK)
 }
@@ -260,11 +471,30 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ip := strings.Split(r.RemoteAddr, ":")[0]
+	failureLock.Lock()
+	if loginFailures[ip] >= 5 {
+		failureLock.Unlock()
+		http.Error(w, "Too many login attempts. Please wait.", http.StatusTooManyRequests)
+		return
+	}
+	failureLock.Unlock()
+
 	configLock.RLock()
-	err := bcrypt.CompareHashAndPassword([]byte(config.PasswordHash), []byte(req.Password))
+	err := bcrypt.CompareHashAndPassword([]byte(config.AdminPasswordHashed), []byte(req.Password)) // Changed from PasswordHash to AdminPasswordHashed
 	configLock.RUnlock()
 
 	if err != nil {
+		failureLock.Lock()
+		loginFailures[ip]++
+		go func(ip string) {
+			time.Sleep(1 * time.Minute)
+			failureLock.Lock()
+			loginFailures[ip]--
+			failureLock.Unlock()
+		}(ip)
+		failureLock.Unlock()
+
 		http.Error(w, "Invalid password", http.StatusUnauthorized)
 		return
 	}
@@ -352,7 +582,7 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	configLock.Lock()
 	defer configLock.Unlock()
 
-	if err := bcrypt.CompareHashAndPassword([]byte(config.PasswordHash), []byte(req.Current)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(config.AdminPasswordHashed), []byte(req.Current)); err != nil { // Changed from PasswordHash to AdminPasswordHashed
 		http.Error(w, "Current password incorrect", http.StatusUnauthorized)
 		return
 	}
@@ -367,7 +597,7 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error secure hashing", http.StatusInternalServerError)
 		return
 	}
-	config.PasswordHash = string(hash)
+	config.AdminPasswordHashed = string(hash) // Changed from PasswordHash to AdminPasswordHashed
 	saveConfigNoLock()
 
 	// Clear all sessions on pwd change
@@ -440,8 +670,8 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		configLock.Lock()
 		// Preserve password hash if not provided in POST (usual case)
-		if newConfig.PasswordHash == "" {
-			newConfig.PasswordHash = config.PasswordHash
+		if newConfig.AdminPasswordHashed == "" { // Changed from PasswordHash to AdminPasswordHashed
+			newConfig.AdminPasswordHashed = config.AdminPasswordHashed // Changed from PasswordHash to AdminPasswordHashed
 		}
 		config = newConfig
 		saveConfigNoLock()
@@ -605,31 +835,39 @@ func checkAll() {
 	configLock.RLock()
 	upstreams := config.Upstreams
 	dots := config.UpstreamDoT
+	smart := config.UseFastestUpstream
 	configLock.RUnlock()
 
 	var newHealthyUpstreams []string
 	for _, u := range upstreams {
+		start := time.Now()
 		if checkDNS(u) {
+			lat := time.Since(start)
+			latencyLock.Lock()
+			latencyMap[u] = lat
+			latencyLock.Unlock()
 			newHealthyUpstreams = append(newHealthyUpstreams, u)
 		}
 	}
 
 	var newHealthyDoT []string
 	for _, u := range dots {
+		start := time.Now()
 		if checkDoT(u) {
+			lat := time.Since(start)
+			latencyLock.Lock()
+			latencyMap[u] = lat
+			latencyLock.Unlock()
 			newHealthyDoT = append(newHealthyDoT, u)
 		}
 	}
 
 	healthLock.Lock()
-	changed := !equal(healthyUpstreams, newHealthyUpstreams) ||
-		!equal(healthyDoT, newHealthyDoT)
 	healthyUpstreams = newHealthyUpstreams
 	healthyDoT = newHealthyDoT
 	healthLock.Unlock()
 
-	if changed {
-		log.Printf("Health status changed. DNS: %v, DoT: %v", len(healthyUpstreams), len(healthyDoT))
+	if smart {
 		updateCorefile()
 	}
 }
@@ -663,12 +901,26 @@ func equal(a, b []string) bool {
 func updateCorefile() {
 	configLock.RLock()
 	preferEncrypted := config.PreferEncrypted
+	smart := config.UseFastestUpstream
 	configLock.RUnlock()
 
 	healthLock.RLock()
-	hDNS := healthyUpstreams
-	hDoT := healthyDoT
+	hDNS := make([]string, len(healthyUpstreams))
+	copy(hDNS, healthyUpstreams)
+	hDoT := make([]string, len(healthyDoT))
+	copy(hDoT, healthyDoT)
 	healthLock.RUnlock()
+
+	if smart {
+		latencyLock.RLock()
+		sort.Slice(hDNS, func(i, j int) bool {
+			return latencyMap[hDNS[i]] < latencyMap[hDNS[j]]
+		})
+		sort.Slice(hDoT, func(i, j int) bool {
+			return latencyMap[hDoT[i]] < latencyMap[hDoT[j]]
+		})
+		latencyLock.RUnlock()
+	}
 
 	var upstreams []string
 	if preferEncrypted {
@@ -696,6 +948,8 @@ func updateCorefile() {
 	corefile := fmt.Sprintf(`.:53 {
     bind 0.0.0.0
     dnssec
+    health :8082
+    serve_stale
     cache 3600 {
         success 10000
         denial 2500
@@ -712,11 +966,14 @@ func updateCorefile() {
     errors
 }
 
-https://.:5553 {
+tls://.:853 {
     tls %s %s {
         protocols tls1.2 tls1.3
+        ciphers ECDHE-ECDSA-AES128-GCM-SHA256 ECDHE-RSA-AES128-GCM-SHA256 ECDHE-ECDSA-AES256-GCM-SHA384 ECDHE-RSA-AES256-GCM-SHA384 ECDHE-ECDSA-CHACHA20-POLY1305 ECDHE-RSA-CHACHA20-POLY1305
     }
     dnssec
+    health :8082
+    serve_stale
     cache 3600 {
         success 10000
         denial 2500
@@ -728,7 +985,27 @@ https://.:5553 {
     log
     errors
 }
-`, upstreamStr, BlocklistPath, certFile, keyFile, upstreamStr)
+
+https://.:5553 {
+    tls %s %s {
+        protocols tls1.2 tls1.3
+        ciphers ECDHE-ECDSA-AES128-GCM-SHA256 ECDHE-RSA-AES128-GCM-SHA256 ECDHE-ECDSA-AES256-GCM-SHA384 ECDHE-RSA-AES256-GCM-SHA384 ECDHE-ECDSA-CHACHA20-POLY1305 ECDHE-RSA-CHACHA20-POLY1305
+    }
+    dnssec
+    health :8082
+    serve_stale
+    cache 3600 {
+        success 10000
+        denial 2500
+        prefetch 10 10m 10%%
+    }
+    forward . %s {
+        health_check 10s
+    }
+    log
+    errors
+}
+`, upstreamStr, BlocklistPath, certFile, keyFile, upstreamStr, certFile, keyFile, upstreamStr)
 
 	os.WriteFile(CorefilePath, []byte(corefile), 0644)
 }
@@ -768,8 +1045,26 @@ func startCoreDNS() {
 }
 
 func handleQueries(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT timestamp, domain, type, status FROM queries ORDER BY timestamp DESC LIMIT 100")
+	search := r.URL.Query().Get("search")
+	statusFilter := r.URL.Query().Get("status")
+
+	query := "SELECT timestamp, domain, type, status, client_ip FROM queries WHERE 1=1"
+	var args []interface{}
+
+	if search != "" {
+		query += " AND domain LIKE ?"
+		args = append(args, "%"+search+"%")
+	}
+	if statusFilter != "" {
+		query += " AND status = ?"
+		args = append(args, statusFilter)
+	}
+
+	query += " ORDER BY timestamp DESC LIMIT 100"
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
+		log.Printf("Error querying queries: %v", err)
 		http.Error(w, "Error querying database", http.StatusInternalServerError)
 		return
 	}
@@ -779,7 +1074,7 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var q Query
 		var ts string
-		rows.Scan(&ts, &q.Domain, &q.Type, &q.Status)
+		rows.Scan(&ts, &q.Domain, &q.Type, &q.Status, &q.ClientIP)
 		q.Time, _ = time.Parse(time.RFC3339, ts)
 		queries = append(queries, q)
 	}
@@ -948,11 +1243,16 @@ func parseLogLine(line string) {
 		return
 	}
 
-	// Extract Client IP (CoreDNS log format: [INFO] 127.0.0.1:45678 - ...)
+	// Extract Client IP (IPv4/IPv6 safe)
 	fields := strings.Fields(line)
 	clientIP := ""
 	if len(fields) > 1 {
-		clientIP = strings.Split(fields[1], ":")[0]
+		host, _, err := net.SplitHostPort(fields[1])
+		if err == nil {
+			clientIP = host
+		} else {
+			clientIP = fields[1] // Fallback if no port
+		}
 	}
 
 	parts := strings.Split(line, "\"")
@@ -968,6 +1268,7 @@ func parseLogLine(line string) {
 	qType := queryFields[0]
 	qDomain := strings.TrimSuffix(queryFields[2], ".")
 	isBlocked := strings.Contains(line, "qr,aa")
+	isCacheHit := strings.Contains(line, "qr,aa") && !isBlocked // Simple heuristic for CoreDNS with cache plugin
 
 	// Update memory stats for real-time dashboard
 	statsLock.Lock()
@@ -975,6 +1276,10 @@ func parseLogLine(line string) {
 	if isBlocked {
 		stats.BlockedQueries++
 	}
+	if isCacheHit {
+		stats.CacheHits++
+	}
+	stats.QueryTypes[qType]++
 	statsLock.Unlock()
 
 	status := "Allowed"
@@ -982,12 +1287,28 @@ func parseLogLine(line string) {
 		status = "Blocked"
 	}
 
-	// Insert into SQLite for persistence and analytics
-	if db != nil {
-		_, err := db.Exec("INSERT INTO queries (timestamp, domain, type, status, client_ip) VALUES (?, ?, ?, ?, ?)",
-			time.Now().Format(time.RFC3339), qDomain, qType, status, clientIP)
-		if err != nil {
-			log.Printf("Error logging to database: %v", err)
-		}
+	// Buffer for batch SQLite insert
+	q := Query{
+		Time:     time.Now(),
+		Domain:   qDomain,
+		Type:     qType,
+		Status:   status,
+		ClientIP: clientIP,
 	}
+
+	// Broadcast to SSE clients
+	go func(query Query) {
+		sseLock.Lock()
+		defer sseLock.Unlock()
+		for ch := range sseClients {
+			select {
+			case ch <- query:
+			default:
+			}
+		}
+	}(q)
+
+	bufferLock.Lock()
+	logBuffer = append(logBuffer, q)
+	bufferLock.Unlock()
 }

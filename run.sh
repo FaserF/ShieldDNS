@@ -157,6 +157,12 @@ if [ ! -f "$COREFILE_PATH" ]; then
     log
     errors
 }
+tls://.:853 {
+    tls ${CERT_FILE} ${KEY_FILE}
+    forward . ${UPSTREAM_DNS}
+    log
+    errors
+}
 https://.:${ACTUAL_COREDNS_PORT} {
     tls ${CERT_FILE} ${KEY_FILE}
     forward . ${UPSTREAM_DNS}

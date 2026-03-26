@@ -27,17 +27,17 @@ jobs:
 
       - name: Generate Self-Signed Certs for Testing
         run: |
-          mkdir certs
-          openssl req -x509 -newkey rsa:4096 -keyout certs/privkey.pem -out certs/fullchain.pem -days 365 -nodes -subj "/CN=localhost"
+          mkdir ssl
+          openssl req -x509 -newkey rsa:4096 -keyout ssl/privkey.pem -out ssl/fullchain.pem -days 365 -nodes -subj "/CN=localhost"
 
       - name: Start Container
         run: |
           docker run -d --name shielddns \
             -p 853:853 \
-            -v $(pwd)/certs:/certs \
+            -v $(pwd)/ssl:/ssl \
             -e UPSTREAM_DNS=8.8.8.8 \
-            -e CERT_FILE=/certs/fullchain.pem \
-            -e KEY_FILE=/certs/privkey.pem \
+            -e CERT_FILE=/ssl/fullchain.pem \
+            -e KEY_FILE=/ssl/privkey.pem \
             shielddns:test
 
           sleep 5 # Give it a moment to start
@@ -53,10 +53,10 @@ jobs:
 
           # Query localhost on port 853 using DoT
           # We disable cert verification (+tls-ca) because we used a self-signed cert
-          kdig -d @127.0.0.1 -p 853 +tls-hostname=localhost +tls-ca=certs/fullchain.pem google.com
+          kdig -d @127.0.0.1 -p 853 +tls-hostname=localhost +tls-ca=ssl/fullchain.pem google.com
 
           # Explicit success check
-          if kdig -d @127.0.0.1 -p 853 +tls-hostname=localhost +tls-ca=certs/fullchain.pem google.com | grep -q "NOERROR"; then
+          if kdig -d @127.0.0.1 -p 853 +tls-hostname=localhost +tls-ca=ssl/fullchain.pem google.com | grep -q "NOERROR"; then
             echo "✅ DNS Resolution Successful"
           else
             echo "❌ DNS Resolution Failed"

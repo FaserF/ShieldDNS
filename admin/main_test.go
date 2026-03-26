@@ -54,7 +54,7 @@ func TestHandleSearch(t *testing.T) {
 
 func TestAuthMiddleware(t *testing.T) {
 	configLock.Lock()
-	config.PasswordHash = "$2a$10$vI8pI.N6uQXq1/v4u.pI9u4/v4u.pI9u4/v4u.pI9u4/v4u.pI9" // dummy hash
+	config.AdminPasswordHashed = "$2a$10$vI8pI.N6uQXq1/v4u.pI9u4/v4u.pI9u4/v4u.pI9u4/v4u.pI9" // dummy hash
 	configLock.Unlock()
 
 	rr := httptest.NewRecorder()
@@ -160,5 +160,72 @@ func TestConfigDefaults(t *testing.T) {
 	}
 	if !config.PreferEncrypted {
 		t.Errorf("expected PreferEncrypted to be true by default")
+	}
+}
+
+func TestQueryTypeTracking(t *testing.T) {
+	statsLock.Lock()
+	stats.QueryTypes = make(map[string]int64)
+	statsLock.Unlock()
+
+	parseLogLine("[INFO] [::1]:53 - 1 \"A IN google.com. udp 45 false 512\" NOERROR qr,rd,ra 68 0.0001s")
+	parseLogLine("[INFO] [::1]:53 - 2 \"AAAA IN google.com. udp 45 false 512\" NOERROR qr,rd,ra 68 0.0001s")
+
+	statsLock.RLock()
+	if stats.QueryTypes["A"] != 1 || stats.QueryTypes["AAAA"] != 1 {
+		t.Errorf("unexpected query types: %+v", stats.QueryTypes)
+	}
+	statsLock.RUnlock()
+}
+
+func TestSmartSorting(t *testing.T) {
+	// Setup
+	originalConfig := config
+	defer func() { config = originalConfig }()
+
+	config = Config{
+		Upstreams:          []string{"1.1.1.1", "8.8.8.8"},
+		UseFastestUpstream: true,
+	}
+	healthyUpstreams = []string{"1.1.1.1", "8.8.8.8"}
+	
+	latencyLock.Lock()
+	latencyMap["1.1.1.1"] = 50 * time.Millisecond
+	latencyMap["8.8.8.8"] = 10 * time.Millisecond
+	latencyLock.Unlock()
+
+	updateCorefile()
+	
+	content, _ := os.ReadFile(CorefilePath)
+	// 8.8.8.8 should come before 1.1.1.1 because it has lower latency
+	idx8 := strings.Index(string(content), "8.8.8.8")
+	idx1 := strings.Index(string(content), "1.1.1.1")
+	
+	if idx8 == -1 || idx1 == -1 || idx8 > idx1 {
+		t.Errorf("expected 8.8.8.8 to come before 1.1.1.1 in smart mode. Content: %s", string(content))
+	}
+}
+
+func TestSSEBroadcasting(t *testing.T) {
+	ch := make(chan Query, 1)
+	sseLock.Lock()
+	sseClients[ch] = struct{}{}
+	sseLock.Unlock()
+
+	defer func() {
+		sseLock.Lock()
+		delete(sseClients, ch)
+		sseLock.Unlock()
+	}()
+
+	parseLogLine("[INFO] [::1]:53 - 1 \"A IN broadcast.test. udp 45 false 512\" NOERROR qr,rd 68 0.0001s")
+
+	select {
+	case q := <-ch:
+		if q.Domain != "broadcast.test" {
+			t.Errorf("expected broadcast.test, got %s", q.Domain)
+		}
+	case <-time.After(1 * time.Second):
+		t.Error("timed out waiting for SSE broadcast")
 	}
 }

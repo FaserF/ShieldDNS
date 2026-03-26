@@ -76,13 +76,19 @@
                         <label>Blocking Ratio</label>
                         <div class="value" id="stat-ratio">- %</div>
                     </div>
+                    <div class="stat-card cache">
+                        <label>Cache Hit Ratio</label>
+                        <div class="value" id="stat-cache">- %</div>
+                    </div>
                 </div>
 
-                <div class="chart-container">
+                <div class="chart-section card">
                     <div class="chart-header">
                         <h2>Traffic Overview (Last 24h)</h2>
                     </div>
-                    <canvas id="traffic-chart"></canvas>
+                    <div class="chart-wrapper">
+                        <canvas id="traffic-chart"></canvas>
+                    </div>
                 </div>
 
                 <div class="query-log-container">
@@ -138,10 +144,14 @@
                                         <th style="text-align:right">Queries</th>
                                     </tr>
                                 </thead>
-                                <tbody id="top-clients-list">
-                                    <!-- Dynamic -->
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                    <div class="stat-card card">
+                        <h3>Query Types</h3>
+                        <div class="chart-wrapper-small">
+                            <canvas id="type-chart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -152,8 +162,17 @@
                 <header>
                     <h1>Query Log</h1>
                     <div class="header-actions">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="query-search" placeholder="Search domain..." oninput="debounce(fetchQueries, 500)()">
+                        </div>
+                        <select id="query-filter-status" class="select-filter" onchange="fetchQueries()">
+                            <option value="">All Traffic</option>
+                            <option value="Blocked">Blocked Only</option>
+                            <option value="Allowed">Allowed Only</option>
+                        </select>
                         <button class="btn secondary" onclick="exportLogs('csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
-                        <button class="btn secondary" onclick="exportLogs('json')"><i class="fas fa-file-code"></i> Export JSON</button>
+                        <button class="btn secondary" onclick="exportLogs('json')"><i class="fas fa-file-code"></i> JSON</button>
                     </div>
                 </header>
                 <div class="query-log-container card">
@@ -280,6 +299,23 @@
                         </div>
                         <button type="submit" class="btn secondary">Update Password</button>
                     </form>
+                </div>
+
+                <div class="settings-section">
+                    <h2>Smart Networking & Maintenance</h2>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="smart-upstream-check">
+                        <label for="smart-upstream-check">Smart Upstream Selection (Dynamic Latency Sorting)</label>
+                    </div>
+                    <div class="form-group">
+                        <label>Data Retention (Days)</label>
+                        <input type="number" id="retention-input" min="1" max="365" value="30">
+                    </div>
+                    <div class="form-group">
+                        <label>System Backup</label>
+                        <p class="help">Download a .zip of your configuration and query history.</p>
+                        <button class="btn secondary" id="backup-btn">Download Backup</button>
+                    </div>
                 </div>
 
                 <div class="settings-section">
