@@ -17,8 +17,8 @@ func TestParseLogLine_Structured(t *testing.T) {
 	logBuffer = nil
 	bufferLock.Unlock()
 
-	// Test allowed query in new format
-	parseLogLine(`[INFO] plugin/log: 127.0.0.1:46111 A google.com. NOERROR qr,rd,ra 0.00123s`)
+	// Test allowed query in default CoreDNS format
+	parseLogLine(`[INFO] plugin/log: 127.0.0.1:46111 - 10 "A IN google.com. udp 512 false 512" NOERROR qr,rd,ra 512 0.00123s`)
 
 	bufferLock.Lock()
 	length := len(logBuffer)
@@ -59,7 +59,7 @@ func TestParseLogLine_Blocked(t *testing.T) {
 	statsLock.Unlock()
 
 	// qr,aa flags = blocked (local hosts file match)
-	parseLogLine(`10.0.0.5:1234 AAAA tiktok.com. NOERROR qr,aa 0.05s`)
+	parseLogLine(`10.0.0.5:1234 - 11 "AAAA IN tiktok.com. udp 512 false 512" NOERROR qr,aa 512 0.05s`)
 
 	bufferLock.Lock()
 	length := len(logBuffer)
@@ -113,7 +113,7 @@ func TestParseLogLine_SSEBroadcast(t *testing.T) {
 		sseLock.Unlock()
 	}()
 
-	parseLogLine(`192.168.1.10:4321 A example.com. NOERROR qr,rd 0.001s`)
+	parseLogLine(`192.168.1.10:4321 - 12 "A IN example.com. udp 512 false 512" NOERROR qr,rd 512 0.001s`)
 
 	select {
 	case q := <-ch:
@@ -130,11 +130,8 @@ func TestParseLogLine_InvalidLogs(t *testing.T) {
 	logBuffer = nil
 	bufferLock.Unlock()
 
-	// 1. Startup message (GOMAXPROCS) - Should be ignored
+	// 1. Startup message - Should be ignored (too short)
 	parseLogLine(`maxprocs: Honoring GOMAXPROCS="4" as set in environment`)
-
-	// 2. Default CoreDNS log format - Should be ignored (since it doesn't match our 6/7 field structure)
-	parseLogLine(`[INFO] 94.31.75.54:48532 - 6 "A IN 0.pool.ntp.org. tcp 128 true 65535" NOERROR qr,rd,ra 163 0.003577019s`)
 
 	bufferLock.Lock()
 	length := len(logBuffer)

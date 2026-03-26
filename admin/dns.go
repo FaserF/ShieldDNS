@@ -310,7 +310,7 @@ func updateCorefile() {
         health_check 10s
         %s
     }%s
-    log . "{remote} {type} {name} {rcode} {rflags} {duration}"
+    log . 
     errors
 }
 `, upstreamStr, tlsBlock, hostsBlock)
@@ -331,7 +331,7 @@ tls://.:853 {
         health_check 10s
         %s
     }%s
-    log . "{remote} {type} {name} {rcode} {rflags} {duration}"
+    log . 
     errors
 }
 
@@ -349,7 +349,7 @@ https://.:5553 {
         health_check 10s
         %s
     }%s
-    log . "{remote} {type} {name} {rcode} {rflags} {duration}"
+    log . 
     errors
 }
 `, certFile, keyFile, upstreamStr, tlsBlock, hostsBlock, certFile, keyFile, upstreamStr, tlsBlock, hostsBlock)
@@ -396,34 +396,38 @@ func startCoreDNS() {
 func parseLogLine(line string) {
 	fields := strings.Fields(line)
 	
-	// Validation
-	if len(fields) < 6 {
-		log.Printf("DEBUG: parseLogLine: too few fields (%d): %s", len(fields), line)
+	// Default CoreDNS log format fields (approx):
+	// remote - id "type class name proto size do bufsize" rcode rflags size duration
+	// But it can also have prefixes like [INFO] or timestamps.
+	// Indexing from the end is most robust:
+	// len-1: duration (e.g., 0.001s)
+	// len-2: response size (e.g., 512)
+	// len-3: rflags (e.g., qr,rd,ra or qr,aa)
+	// len-4: rcode (e.g., NOERROR)
+	// len-9: domain name (e.g., google.com.)
+	// len-11: query type (e.g., "A)
+	// len-13: remote IP:port
+
+	if len(fields) < 13 {
+		// Log lines that don't match the query log format (e.g., startup info)
 		return
 	}
 
 	durationStr := fields[len(fields)-1]
-	rflags      := fields[len(fields)-2]
+	rflags      := fields[len(fields)-3]
 	
 	if !strings.HasSuffix(durationStr, "s") {
-		// Possibly a different log format or non-query log
 		return
 	}
 
 	if !strings.Contains(rflags, "qr") {
-		log.Printf("DEBUG: parseLogLine: not a response (no qr): %s", line)
 		return
 	}
 
-	// rcode    := fields[len(fields)-3]
-	qDomain     := strings.TrimSuffix(fields[len(fields)-4], ".")
-	qType       := fields[len(fields)-5]
-	remote      := fields[len(fields)-6]
-
-	if strings.Contains(qType, "=") || len(qType) > 10 || qType == "-" {
-		log.Printf("DEBUG: parseLogLine: invalid qType (%s): %s", qType, line)
-		return
-	}
+	rawType     := fields[len(fields)-11]
+	qType       := strings.TrimPrefix(rawType, "\"")
+	qDomain     := strings.TrimSuffix(fields[len(fields)-9], ".")
+	remote      := fields[len(fields)-14]
 
 	// Extract Client IP
 	clientIP := remote
