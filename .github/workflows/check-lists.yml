@@ -1,0 +1,32 @@
+name: Validate Filter Lists
+
+on:
+  push:
+    paths:
+      - 'admin/presets_list.go'
+      - '.github/workflows/check-lists.yml'
+  pull_request:
+    paths:
+      - 'admin/presets_list.go'
+  schedule:
+    # Run once a week to detect dead URLs automatically
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  validate-urls:
+    name: Check URL Availability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+
+      - name: Run List Validation Test
+        run: |
+          cd admin
+          go test -v presets_test.go presets_list.go models.go

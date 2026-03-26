@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ShieldDNS | Admin</title>
+    <title>ShieldDNS</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <style>
@@ -195,29 +195,67 @@
 <body>
     <div class="container">
         <div class="logo">
-            <img src="/logo.png?v=2" alt="ShieldDNS">
+            <a href="https://github.com/FaserF/ShieldDNS" target="_blank" style="display:inline-block;">
+                <img src="/logo.png?v=2" alt="ShieldDNS">
+            </a>
         </div>
-        <h1>ShieldDNS</h1>
+        <h1><a href="https://github.com/FaserF/ShieldDNS" target="_blank" style="text-decoration:none; color:inherit;">ShieldDNS</a></h1>
         <p>Advanced DNS filtering for a safer, faster, and cleaner web experience.</p>
 
         <div class="setup-section">
-            <h2>Mobile Setup</h2>
+            <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                Mobile Setup
+                <a href="https://github.com/FaserF/ShieldDNS/blob/main/docs/mobile_setup_help.md" target="_blank" style="font-size: 0.75rem; color: var(--text-secondary); text-decoration: none; font-weight: 400; opacity: 0.7;">
+                    View Detailed Help &rarr;
+                </a>
+            </h2>
             <div class="setup-item">
                 <label>Android (Private DNS)</label>
-                <div class="hostname-box">
+                <div class="hostname-box" style="padding-right: 8px;">
                     <span id="hostname-text">...</span>
+                    <button id="copy-hostname-btn" class="btn secondary" style="padding: 4px 12px; font-size: 0.8rem; margin: 0; min-width: 70px; cursor: pointer;">Copy</button>
                 </div>
-                <p style="font-size:0.75rem; color: var(--text-secondary); margin-top: 8px">
-                    Settings &rarr; Network &rarr; Private DNS &rarr; Hostname
+                <p style="font-size:0.8rem; color: var(--text-secondary); margin-top: 8px">
+                    <strong>1.</strong> Settings &rarr; <strong>2.</strong> Network &rarr; <strong>3.</strong> Private DNS &rarr; <strong>4.</strong> Hostname
                 </p>
             </div>
             <div class="setup-item">
                 <label>iOS (iPhone/iPad)</label>
                 <a href="/api/mobileconfig" class="btn-download">Download Config Profile</a>
-                <p style="font-size:0.75rem; color: var(--text-secondary); margin-top: 8px">
-                    Download &rarr; Settings &rarr; Profile Downloaded &rarr; Install
+                <p style="font-size:0.8rem; color: var(--text-secondary); margin-top: 8px">
+                    <strong>1.</strong> Download &rarr; <strong>2.</strong> Settings &rarr; <strong>3.</strong> Profile Downloaded &rarr; <strong>4.</strong> Install
+                </p>
+                <p style="font-size:0.7rem; color: #ef4444; margin-top: 6px; opacity: 0.8;">
+                    * You can safely ignore the "Not Signed" warning.
                 </p>
             </div>
+
+            <details style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px;">
+                <summary style="cursor: pointer; color: var(--text-primary); font-weight: 600; outline: none; display: inline-flex; align-items: center; gap: 8px;">
+                    <svg style="width:16px; height:16px; fill:currentColor;" viewBox="0 0 24 24"><path d="M19 3H5c-1.103 0-2 .897-2 2v14c0 1.103.897 2 2 2h14c1.103 0 2-.897 2-2V5c0-1.103-.897-2-2-2zM5 19V5h14l.001 14H5z"/><path d="M7 7h10v2H7zm0 4h10v2H7zm0 4h7v2H7z"/></svg>
+                    Desktop Setup (macOS &amp; Windows)
+                </summary>
+                
+                <div style="margin-top: 16px; font-size: 0.85rem; color: var(--text-secondary); background: rgba(0,0,0,0.15); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
+                    <h3 style="color: var(--text-primary); margin-bottom: 8px; font-size: 0.95rem;">macOS 14 (Sonoma) and later</h3>
+                    <p style="margin-bottom: 16px; line-height: 1.5;">
+                        <strong>1.</strong> Click the <strong>Download Config Profile</strong> button above.<br>
+                        <strong>2.</strong> Open <strong>System Settings &rarr; Privacy &amp; Security &rarr; Profiles</strong>.<br>
+                        <strong>3.</strong> Double-click the downloaded ShieldDNS profile and click <strong>Install</strong>.<br>
+                        <em>Note: The "Not Signed" warning is normal for auto-generated profiles.</em>
+                    </p>
+
+                    <h3 style="color: var(--text-primary); margin-bottom: 8px; font-size: 0.95rem;">Windows 11 (Native DoH)</h3>
+                    <p style="margin-bottom: 0; line-height: 1.5;">
+                        <strong>1.</strong> Go to <strong>Settings &rarr; Network &amp; internet &rarr; Wi-Fi</strong> (or Ethernet) &rarr; Hardware properties.<br>
+                        <strong>2.</strong> Next to "DNS server assignment", click <strong>Edit</strong> and change to <strong>Manual</strong>.<br>
+                        <strong>3.</strong> Enable <strong>IPv4</strong>. Set "Preferred DNS" to the IP address of this server.<br>
+                        <strong>4.</strong> Set "DNS over HTTPS" to <strong>On (manual template)</strong>.<br>
+                        <strong>5.</strong> Under DoH template, enter: <br><code style="background:#000; padding:2px 4px; border-radius:4px; color:var(--accent); font-family:monospace; margin-top:4px; display:inline-block;" id="win-doh-template">https://.../dns-query</code><br>
+                        <strong>6.</strong> Click <strong>Save</strong>.
+                    </p>
+                </div>
+            </details>
         </div>
 
         <a href="https://github.com/FaserF/ShieldDNS" class="github-link" target="_blank">
@@ -247,7 +285,30 @@
     </div>
 
     <script>
-        document.getElementById('hostname-text').textContent = window.location.hostname;
+        const hostname = window.location.hostname;
+        document.getElementById('hostname-text').textContent = hostname;
+        
+        const winTemplate = document.getElementById('win-doh-template');
+        if (winTemplate) {
+            winTemplate.textContent = 'https://' + hostname + '/dns-query';
+        }
+
+        const copyBtn = document.getElementById('copy-hostname-btn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(hostname).then(() => {
+                    const originalText = this.textContent;
+                    this.textContent = 'Copied!';
+                    this.style.backgroundColor = '#10b981';
+                    this.style.color = '#fff';
+                    this.style.border = 'none';
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                        this.style = '';
+                    }, 2000);
+                });
+            });
+        }
     </script>
 </body>
 

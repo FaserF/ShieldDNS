@@ -154,7 +154,6 @@ func updateCorefile() {
     bind 0.0.0.0
     dnssec
     health :8082
-    serve_stale
     cache 3600 {
         success 10000
         denial 2500
@@ -163,7 +162,7 @@ func updateCorefile() {
     forward . %s {
         health_check 10s
     }%s
-    log
+    log . "{remote} {type} {name} {rcode} {rflags} {duration}"
     errors
 }
 `, upstreamStr, hostsBlock)
@@ -177,7 +176,6 @@ tls://.:853 {
     }
     dnssec
     health :8082
-    serve_stale
     cache 3600 {
         success 10000
         denial 2500
@@ -186,7 +184,7 @@ tls://.:853 {
     forward . %s {
         health_check 10s
     }%s
-    log
+    log . "{remote} {type} {name} {rcode} {rflags} {duration}"
     errors
 }
 
@@ -197,7 +195,6 @@ https://.:5553 {
     }
     dnssec
     health :8082
-    serve_stale
     cache 3600 {
         success 10000
         denial 2500
@@ -206,7 +203,7 @@ https://.:5553 {
     forward . %s {
         health_check 10s
     }%s
-    log
+    log . "{remote} {type} {name} {rcode} {rflags} {duration}"
     errors
 }
 `, certFile, keyFile, upstreamStr, hostsBlock, certFile, keyFile, upstreamStr, hostsBlock)
@@ -251,36 +248,38 @@ func startCoreDNS() {
 }
 
 func parseLogLine(line string) {
-	if !strings.Contains(line, " \"") {
+	// Our custom Corefile format is:
+	// log . "{remote} {type} {name} {rcode} {rflags} {duration}"
+	// This makes parsing robust. We parse backwards to ignore any [INFO] prefixes.
+	// Example: ... 127.0.0.1:46111 A google.com. NOERROR qr,rd,ra 0.00123s
+	fields := strings.Fields(line)
+	if len(fields) < 6 {
 		return
 	}
 
-	// Extract Client IP (IPv4/IPv6 safe)
-	fields := strings.Fields(line)
-	clientIP := ""
-	if len(fields) > 1 {
-		host, _, err := net.SplitHostPort(fields[1])
-		if err == nil {
-			clientIP = host
-		} else {
-			clientIP = fields[1] // Fallback if no port
+	durationStr := fields[len(fields)-1]
+	rflags      := fields[len(fields)-2]
+	// rcode    := fields[len(fields)-3]
+	qDomain     := strings.TrimSuffix(fields[len(fields)-4], ".")
+	qType       := fields[len(fields)-5]
+	remote      := fields[len(fields)-6]
+
+	// Extract Client IP
+	clientIP := remote
+	if host, _, err := net.SplitHostPort(remote); err == nil {
+		clientIP = host
+	}
+
+	isBlocked := strings.Contains(rflags, "qr,aa") // typical for local hosts block
+	isCacheHit := strings.Contains(rflags, "qr,aa") && !isBlocked // Fallback heuristic
+
+	// Extract Duration
+	duration := 0.0
+	if strings.HasSuffix(durationStr, "s") {
+		if d, err := time.ParseDuration(durationStr); err == nil {
+			duration = float64(d.Microseconds()) / 1000.0 // in ms
 		}
 	}
-
-	parts := strings.Split(line, "\"")
-	if len(parts) < 2 {
-		return
-	}
-	queryPart := parts[1]
-	queryFields := strings.Fields(queryPart)
-	if len(queryFields) < 3 {
-		return
-	}
-
-	qType := queryFields[0]
-	qDomain := strings.TrimSuffix(queryFields[2], ".")
-	isBlocked := strings.Contains(line, "qr,aa")
-	isCacheHit := strings.Contains(line, "qr,aa") && !isBlocked // Simple heuristic for CoreDNS with cache plugin
 
 	// Update memory stats for real-time dashboard
 	statsLock.Lock()
@@ -291,6 +290,16 @@ func parseLogLine(line string) {
 	if isCacheHit {
 		stats.CacheHits++
 	}
+	
+	// Moving average for latency (last 100 queries for responsiveness)
+	if duration > 0 {
+		if stats.AverageLatency == 0 {
+			stats.AverageLatency = duration
+		} else {
+			stats.AverageLatency = (stats.AverageLatency*99 + duration) / 100
+		}
+	}
+
 	if stats.QueryTypes == nil {
 		stats.QueryTypes = make(map[string]int64)
 	}
@@ -309,6 +318,7 @@ func parseLogLine(line string) {
 		Type:     qType,
 		Status:   status,
 		ClientIP: clientIP,
+		Duration: duration,
 	}
 
 	// Broadcast to SSE clients

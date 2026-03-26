@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+// TestMain sets up a shared in-memory SQLite database for the entire test suite.
+// This prevents nil-pointer panics in tests like TestHandleStats that query `db`.
+func TestMain(m *testing.M) {
+	// Use an in-memory SQLite DB for tests
+	DBPath = ":memory:"
+	initDB()
+	os.Exit(m.Run())
+}
+
 func TestHandleStats(t *testing.T) {
 	statsLock.Lock()
 	stats.TotalQueries = 100
@@ -106,14 +115,14 @@ func TestBlockAttribution(t *testing.T) {
 	}
 }
 
-func TestParseLogLine(t *testing.T) {
+func TestParseLogLine_LegacyFormat(t *testing.T) {
 	statsLock.Lock()
 	stats.TotalQueries = 0
 	stats.BlockedQueries = 0
 	statsLock.Unlock()
 
-	// Test allowed query
-	parseLogLine("[INFO] [::1]:53 - 1 \"A IN google.com. udp 45 false 512\" NOERROR qr,rd,ra 68 0.0001s")
+	// Test allowed query - new structured format
+	parseLogLine("[::1]:53 A google.com. NOERROR qr,rd,ra 0.0001s")
 	
 	statsLock.RLock()
 	if stats.TotalQueries != 1 || stats.BlockedQueries != 0 {
@@ -122,7 +131,7 @@ func TestParseLogLine(t *testing.T) {
 	statsLock.RUnlock()
 
 	// Test blocked query (aa flag)
-	parseLogLine("[INFO] [::1]:53 - 2 \"A IN doubleclick.net. udp 45 false 512\" NOERROR qr,aa,rd 68 0.0001s")
+	parseLogLine("[::1]:53 A doubleclick.net. NOERROR qr,aa,rd 0.0001s")
 	
 	statsLock.RLock()
 	if stats.TotalQueries != 2 || stats.BlockedQueries != 1 {
@@ -217,13 +226,13 @@ func TestConfigDefaults(t *testing.T) {
 	}
 }
 
-func TestQueryTypeTracking(t *testing.T) {
+func TestQueryTypeTracking_LegacyFormat(t *testing.T) {
 	statsLock.Lock()
 	stats.QueryTypes = make(map[string]int64)
 	statsLock.Unlock()
 
-	parseLogLine("[INFO] [::1]:53 - 1 \"A IN google.com. udp 45 false 512\" NOERROR qr,rd,ra 68 0.0001s")
-	parseLogLine("[INFO] [::1]:53 - 2 \"AAAA IN google.com. udp 45 false 512\" NOERROR qr,rd,ra 68 0.0001s")
+	parseLogLine("[::1]:53 A google.com. NOERROR qr,rd,ra 0.0001s")
+	parseLogLine("[::1]:53 AAAA google.com. NOERROR qr,rd,ra 0.0001s")
 
 	statsLock.RLock()
 	if stats.QueryTypes["A"] != 1 || stats.QueryTypes["AAAA"] != 1 {
@@ -270,7 +279,46 @@ func TestSmartSorting(t *testing.T) {
 	}
 }
 
-func TestSSEBroadcasting(t *testing.T) {
+func TestUpstreamSanitization(t *testing.T) {
+	// Setup
+	originalDir := DataDir
+	originalConfigPath := ConfigPath
+	
+	tmpDir, _ := os.MkdirTemp("", "shielddns-test-sanitize")
+	DataDir = tmpDir
+	ConfigPath = filepath.Join(tmpDir, "config.json")
+	
+	defer func() {
+		DataDir = originalDir
+		ConfigPath = originalConfigPath
+		os.RemoveAll(tmpDir)
+	}()
+
+	// Create a config with "dirty" upstreams
+	dirtyConfig := Config{
+		Upstreams:   []string{"1.1.1.1, ", " 8.8.8.8,"},
+		UpstreamDoT: []string{"dns.google, ", " one.one.one.one "},
+	}
+	data, _ := json.Marshal(dirtyConfig)
+	os.WriteFile(ConfigPath, data, 0644)
+
+	loadConfig()
+
+	if config.Upstreams[0] != "1.1.1.1" {
+		t.Errorf("expected 1.1.1.1, got %q", config.Upstreams[0])
+	}
+	if config.Upstreams[1] != "8.8.8.8" {
+		t.Errorf("expected 8.8.8.8, got %q", config.Upstreams[1])
+	}
+	if config.UpstreamDoT[0] != "dns.google" {
+		t.Errorf("expected dns.google, got %q", config.UpstreamDoT[0])
+	}
+	if config.UpstreamDoT[1] != "one.one.one.one" {
+		t.Errorf("expected one.one.one.one, got %q", config.UpstreamDoT[1])
+	}
+}
+
+func TestSSEBroadcasting_LegacyFormat(t *testing.T) {
 	ch := make(chan Query, 1)
 	sseLock.Lock()
 	sseClients[ch] = struct{}{}
@@ -282,7 +330,7 @@ func TestSSEBroadcasting(t *testing.T) {
 		sseLock.Unlock()
 	}()
 
-	parseLogLine("[INFO] [::1]:53 - 1 \"A IN broadcast.test. udp 45 false 512\" NOERROR qr,rd 68 0.0001s")
+	parseLogLine("[::1]:53 A broadcast.test. NOERROR qr,rd 0.0001s")
 
 	select {
 	case q := <-ch:

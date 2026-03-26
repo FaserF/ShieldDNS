@@ -8,16 +8,20 @@ It features a premium **Admin Dashboard** with persistent SQLite-backed analytic
 
 ## 🚀 Key Features
 
-- 🔒 **Secure DNS**: Native support for **DNS-over-TLS (DoT)** (port 853) for encrypted, private lookups.
+- 🔒 **Secure DNS**: Native support for **DNS-over-TLS (DoT)** (port 853) and **DNS-over-HTTPS (DoH)** (port 443) — zero extra setup needed.
 - 📊 **Persistent Analytics**: SQLite-backed query history and advanced analytics (Top Blocked Domains, Top Clients).
-- 🏳️ **Custom Rules**: Instantly allow or block individual domains via the Admin UI.
+- 🏳️ **Custom Rules**: Instantly allow or block individual domains via the Admin UI. Input is auto-sanitized — paste a full URL if you like!
 - 🛡️ **DNS Filtering**: Integrated engine for blocklists with automatic updates and deduplication.
 - 🔌 **Protection Kill-Switch**: Instantly disable all filtering via the dashboard or API.
 - ⚡ **Optimized Performance**: Intelligent caching and prefetching enabled by default for ultra-low latency.
 - 🔐 **Secure Admin**: Mandatory password protection (bcrypt) for the Admin UI on port 443.
-- 📱 **Modern Protocols**: Perfect for Android Private DNS and standard system-wide filtering.
+- 📱 **Modern Protocols**: Perfect for Android Private DNS and standard system-wide filtering (iOS `.mobileconfig`).
 - ⚡ **Live Monitoring**: Real-time query log updates via Server-Sent Events (SSE).
 - 🧠 **Smart DNS**: Automatic upstream selection based on live latency (RTT) measurements.
+- 🌙 **Dark & Light Mode**: Full theme support, persisted locally per user.
+- 🔄 **Config Backup & Restore**: One-click backup download and in-browser JSON configuration restore.
+- ⚡ **1-Click Allow / Block**: Directly allow or block any domain from the live Query Log table.
+- 🧹 **Optimized Default Lists**: Ships with a single, curated default (HaGeZi Multi Normal) for maximum protection with minimal RAM usage on any hardware — including Raspberry Pi.
 
 ## 🧐 ShieldDNS vs. AdGuard Home vs. Pi-hole
 
@@ -139,8 +143,9 @@ ShieldDNS now stores your query history in a persistent SQLite database:
 
 ### 🏳️ Custom Rules
 Immediately take control of your network without managing external lists:
-- **Custom Blocklist**: Instantly block any domain (e.g., `tiktok.com`).
-- **Custom Allowlist**: Ensure critical domains (e.g., `myvpn.com`) are never blocked.
+- **Custom Blocklist**: Instantly block any domain (e.g., `tiktok.com`). Paste a full URL — it's auto-sanitized to a clean domain.
+- **Custom Allowlist**: Ensure critical domains are never blocked.
+- **1-Click Allow/Block**: Act on any domain directly from the live Query Log without copy-pasting.
 
 ### ⚡ Optimization & Health
 - **Intelligent Caching**: Large 10k entry cache reduces upstream lookups.
@@ -149,6 +154,12 @@ Immediately take control of your network without managing external lists:
 - **Smart Selection**: Optionally reorder upstreams dynamically to always use the lowest-latency provider.
 - **Data Retention**: Configurable history purging (e.g., 7, 30, 90 days) for privacy and disk management.
 - **System Backups**: One-click `.zip` backup of configuration and query history.
+- **Config Restore**: Upload a `config.json` directly from the Settings page to instantly restore a previous configuration.
+- **Dark & Light Mode**: Toggle the UI theme — preference is saved locally.
+- **Optimized Default Lists**: Ships with a single curated default (HaGeZi Multi Normal). Avoids enabling multiple overlapping lists (e.g., OISD + HaGeZi + AdGuard) by default, which would triple RAM usage with near-zero added coverage.
+- **Streaming Blocklist Downloader**: Lists are processed line-by-line via streaming (not loaded fully into RAM) — critical for low-memory hardware like Raspberry Pi 3/4.
+- **Structured Log Parsing**: Uses CoreDNS structured log format for robust, format-change-resistant query parsing.
+
 
 ## 📱 Client Configuration
 
@@ -168,6 +179,84 @@ ShieldDNS is built for extreme reliability in production environments:
 2.  **Certificates**: Use valid Let's Encrypt certificates for both DoT and the Admin UI.
 3.  **Firewall**: Only expose ports 53, 443, and 853.
 
-## 🏠 Home Assistant Addon
-ShieldDNS is available as an official Home Assistant Addon with Ingress support.
-[View Addon Repo](https://github.com/FaserF/hassio-addons/tree/master/ShieldDNS)
+## 📋 Blocklist Recommendations
+
+The preset catalog is organized by category. For most home users, the following configuration offers the best balance of protection vs. compatibility:
+
+| Scenario | Recommended Lists |
+| :--- | :--- |
+| **Minimal (fast, few false positives)** | HaGeZi Multi (Light) |
+| **Balanced (recommended default ✅)** | HaGeZi Multi (Normal) |
+| **Max Protection** | HaGeZi Multi (Pro) + HaGeZi TIF |
+| **+ Malware/Phishing** | + HaGeZi TIF (Threat Intelligence) |
+| **+ Adult Content Blocking** | + OISD NSFW |
+| **+ Regional (German)** | + KADhost (German Blocklist) |
+
+> [!WARNING]
+> **Avoid enabling multiple large lists in the same category at once** (e.g., HaGeZi Normal + OISD Full + AdGuard Main). These lists overlap heavily — using all three triples your RAM consumption without adding meaningful coverage.
+
+> [!TIP]
+> **UI Feedback**: When lists are downloading, real-time progress entries appear in the **System Logs** tab. On first setup with many large lists, the dashboard may take 1–2 minutes to populate blocklist data — this is normal.
+
+## 🧪 Testing Your Setup
+
+To verify that your devices are correctly using ShieldDNS and that filtering is active, you can visit the following built-in test URL in your browser:
+
+👉 **[https://shielddns-maleware.test](https://shielddns-maleware.test)**
+
+This test domain is permanently blocked at the system level regardless of which blocklists you have enabled. If ShieldDNS is working correctly, you will see the official ShieldDNS "Website Blocked" page.
+
+## 💻 Development & Testing
+
+ShieldDNS uses Go's standard `testing` package with a fully in-memory test environment (no Docker required).
+
+```bash
+# Run all tests
+cd admin
+go test ./... -v
+
+# Run a specific test
+go test ./... -run TestProcessList_StreamingMemoryEfficiency -v
+```
+
+### Test Coverage
+
+| Area | Test File | What's Covered |
+| :--- | :--- | :--- |
+| Blocklist streaming parser | `config_test.go` | AdBlock/hosts/dnsmasq/allowlist formats, streaming line-by-line download |
+| CoreDNS log parser | `dns_test.go` | Structured log format, blocked detection, SSE broadcast, latency parsing |
+| API handlers | `main_test.go`, `api_test.go` | Stats, search, history, auth, token management |
+| Upstream health & smart sorting | `main_test.go` | Latency-based upstream ordering, Corefile generation |
+| Presets integrity | `presets_test.go` | Default preset list availability |
+
+## 🏠 Home Assistant Integration
+
+
+ShieldDNS has full first-class Home Assistant support:
+
+- **Official HA Addon** (run ShieldDNS directly inside Home Assistant with Ingress support):
+  👉 [hassio-addons / ShieldDNS](https://github.com/FaserF/hassio-addons/tree/master/ShieldDNS)
+
+- **Official HA Integration** (expose ShieldDNS stats and controls as sensors/services in Home Assistant):
+  👉 [ha-shielddns](https://github.com/FaserF/ha-shielddns)
+
+## 🙏 Acknowledgements
+
+ShieldDNS stands on the shoulders of giants. We would like to express our profound gratitude to the following projects:
+
+- **[CoreDNS](https://coredns.io/)**: The incredibly fast, flexible, and robust CNCF-hosted DNS server that powers the core naming resolution engine of ShieldDNS.
+- **[AdGuard Home](https://github.com/AdguardTeam/AdGuardHome)** & **[Pi-hole](https://pi-hole.net/)**: The trailblazers in network-wide ad-blocking. Their pioneering ideas, standard-setting filter list syntax, and community-driven approach deeply inspired the development and feature-set of ShieldDNS.
+
+## 📄 License
+
+**ShieldDNS** is released under the **[ShieldDNS Personal & Internal Commercial License](LICENSE)**. 
+
+✅ **Allowed (Free)**: 
+- Personal and home usage.
+- Internal business/company usage to protect your own networks or employees.
+
+❌ **Prohibited (Without Permission)**:
+- Commercial hosted services (e.g., offering ShieldDNS as a paid cloud service or SaaS).
+- Reselling the software or packaging it into a commercial product for profit.
+
+For the full legal text, please review the [LICENSE](LICENSE) file.

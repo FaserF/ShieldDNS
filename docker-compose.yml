@@ -1,7 +1,7 @@
 services:
   shielddns:
     build: .
-    image: ghcr.io/faserf/shielddns:latest
+    image: shielddns:local
     restart: unless-stopped
     ports:
       - "53:53/udp"

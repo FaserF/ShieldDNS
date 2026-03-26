@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ShieldDNS Admin</title>
+    <title>ShieldDNS</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
+
 <body class="dark">
     <div class="app-container">
         <aside class="sidebar">
-            <div class="logo">
+            <a href="/" class="logo"
+                style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; margin-bottom: 32px;">
                 <img src="/logo.png?v=2" alt="ShieldDNS">
-                <span>ShieldDNS</span>
-            </div>
+                <span style="font-weight: 700; font-size: 1.25rem;">ShieldDNS</span>
+            </a>
             <nav>
                 <a href="#" class="nav-item active" data-view="dashboard">Dashboard</a>
                 <a href="#" class="nav-item" data-view="analytics">Analytics</a>
@@ -26,13 +29,15 @@
                 <a href="#" class="nav-item" data-view="lists">Filtering Lists</a>
                 <a href="#" class="nav-item" data-view="settings">Settings</a>
                 <a href="#" class="nav-item" data-view="about">About</a>
+                <a href="#" id="nav-logout-btn" class="nav-item" style="color: #ef4444; margin-top: auto;">Logout</a>
             </nav>
             <div class="status-indicator">
                 <div class="pulse"></div>
                 <span>CoreDNS Online</span>
             </div>
-            <div class="version-info">
-                ShieldDNS <span id="app-version">v0.0.0</span>
+            <div class="version-info" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>ShieldDNS <span id="app-version">v0.0.0</span></span>
+                <button id="theme-toggle" class="btn secondary" style="padding: 4px 8px; font-size: 0.8rem; height: auto;">🌓</button>
             </div>
         </aside>
 
@@ -49,7 +54,9 @@
                 <div class="protection-status-card">
                     <div class="status-header">
                         <div class="status-icon-wrapper protected" id="status-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                            </svg>
                         </div>
                         <div class="status-text">
                             <h2 id="status-title">ShieldDNS is Active</h2>
@@ -69,7 +76,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="stats-grid">
                     <div class="stat-card">
                         <label>Total Queries (24h)</label>
@@ -82,6 +89,14 @@
                     <div class="stat-card percentage">
                         <label>Blocking Ratio</label>
                         <div class="value" id="stat-ratio">- %</div>
+                    </div>
+                    <div class="stat-card latency">
+                        <label>Avg. Response Time</label>
+                        <div class="value" id="stat-latency">- ms</div>
+                    </div>
+                    <div class="stat-card clients">
+                        <label>Unique Clients (24h)</label>
+                        <div class="value" id="stat-clients">-</div>
                     </div>
                     <div class="stat-card cache">
                         <label>Cache Hit Ratio</label>
@@ -109,6 +124,7 @@
                                 <th>Domain</th>
                                 <th>Type</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="query-log-items">
@@ -160,6 +176,13 @@
                         <div class="chart-wrapper-small">
                             <canvas id="type-chart"></canvas>
                         </div>
+                        <div style="margin-top: 20px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; text-align: left; padding-top: 15px; border-top: 1px solid var(--border);">
+                            <div style="margin-bottom: 5px;"><strong>A (IPv4) / AAAA (IPv6):</strong> Standard website connections (IP addresses).</div>
+                            <div style="margin-bottom: 5px;"><strong>HTTPS:</strong> Secure, encrypted connection information.</div>
+                            <div style="margin-bottom: 5px;"><strong>TXT:</strong> Additional text info (e.g., used for email spam protection).</div>
+                            <div style="margin-bottom: 5px;"><strong>SRV / PTR / SOA:</strong> Technical network services (e.g., local network printers).</div>
+                            <div style="margin-bottom: 5px;"><strong>ANY:</strong> General requests for "all info" about a server.</div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -171,15 +194,18 @@
                     <div class="header-actions">
                         <div class="search-box">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="query-search" placeholder="Search domain..." oninput="debounce(fetchQueries, 500)()">
+                            <input type="text" id="query-search" placeholder="Search domain..."
+                                oninput="debounce(fetchQueries, 500)()">
                         </div>
                         <select id="query-filter-status" class="select-filter" onchange="fetchQueries()">
                             <option value="">All Traffic</option>
                             <option value="Blocked">Blocked Only</option>
                             <option value="Allowed">Allowed Only</option>
                         </select>
-                        <button class="btn secondary" onclick="exportLogs('csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
-                        <button class="btn secondary" onclick="exportLogs('json')"><i class="fas fa-file-code"></i> JSON</button>
+                        <button class="btn secondary" onclick="exportLogs('csv')"><i class="fas fa-file-csv"></i> Export
+                            CSV</button>
+                        <button class="btn secondary" onclick="exportLogs('json')"><i class="fas fa-file-code"></i>
+                            JSON</button>
                     </div>
                 </header>
                 <div class="query-log-container card">
@@ -190,6 +216,7 @@
                                 <th>Domain</th>
                                 <th>Type</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="full-query-log-items">
@@ -241,6 +268,25 @@
                             </div>
                         </div>
                     </div>
+                    <div class="stat-card card" style="grid-column: 1 / -1">
+                        <h3>Upstream Performance (Smart Selection)</h3>
+                        <div class="card-body" style="margin-top:15px">
+                            <table class="query-table">
+                                <thead>
+                                    <tr>
+                                        <th>Upstream Server</th>
+                                        <th>Status</th>
+                                        <th style="text-align:right">Response Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="upstream-latency-list">
+                                    <tr>
+                                        <td colspan="3" class="help">Loading performance data...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -275,6 +321,8 @@
                     <h1>Filtering Lists</h1>
                     <div class="header-actions">
                         <button id="add-allowlist-btn" class="btn secondary">Add Allowlist</button>
+                        <button id="reset-lists-btn" class="btn secondary" title="Reset all lists to factory defaults">Restore Defaults</button>
+                        <button id="check-updates-btn" class="btn secondary">Check for Updates</button>
                         <button id="add-list-btn" class="btn primary">Add Blocklist</button>
                     </div>
                 </header>
@@ -288,7 +336,7 @@
                         <!-- Result will be shown here -->
                     </div>
                 </div>
-                
+
                 <div class="list-section">
                     <h2>Your Active Blocklists</h2>
                     <div class="list-container" id="list-items">
@@ -298,17 +346,26 @@
 
                 <div class="list-section">
                     <h2>Your Active Allowlists</h2>
-                    <p class="help">Domains in these lists will always be allowed, even if they appear in a blocklist.</p>
+                    <p class="help">Domains in these lists will always be allowed, even if they appear in a blocklist.
+                    </p>
                     <div class="list-container" id="allowlist-items">
                         <!-- Allowlists will be injected here -->
                     </div>
                 </div>
 
                 <div class="list-section">
-                    <h2>Suggested Presets</h2>
+                    <h2>Suggested Blocklist Presets</h2>
                     <p class="help">One-click activation for popular blocklists</p>
                     <div class="presets-grid" id="preset-items">
                         <!-- Presets will be injected here -->
+                    </div>
+                </div>
+
+                <div class="list-section">
+                    <h2>Suggested Allowlist Presets</h2>
+                    <p class="help">One-click activation for popular allowlists (domains that should never be blocked)</p>
+                    <div class="presets-grid" id="preset-allow-items">
+                        <!-- Allowlist presets will be injected here -->
                     </div>
                 </div>
             </section>
@@ -327,7 +384,20 @@
                     <div class="form-group">
                         <label>Upstream DoT Servers (DNS over TLS)</label>
                         <p class="help">Comma separated hostnames (Max 5). Example: unfiltered.joindns4.eu</p>
-                        <input type="text" id="dot-upstreams-input" placeholder="unfiltered.joindns4.eu, one.one.one.one">
+                        <input type="text" id="dot-upstreams-input"
+                            placeholder="unfiltered.joindns4.eu, one.one.one.one">
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Domain (for Block Page)</label>
+                        <p class="help">The domain used for the Admin UI (e.g., dns.mydomain.de). Used for professional
+                            redirects.</p>
+                        <input type="text" id="admin-domain-input" placeholder="dns.mydomain.de">
+                    </div>
+                    <div class="form-group">
+                        <label>Block Page / ShieldDNS IP</label>
+                        <p class="help">The IP address of this ShieldDNS server. Blocked domains will point to this IP.
+                        </p>
+                        <input type="text" id="block-ip-input" placeholder="1.2.3.4 or 127.0.0.1">
                     </div>
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
@@ -361,7 +431,8 @@
 
                 <div class="settings-section">
                     <h2>API Keys</h2>
-                    <p class="help">Manage API keys for third-party monitoring and automation. Tokens are shown only once.</p>
+                    <p class="help">Manage API keys for third-party monitoring and automation. Tokens are shown only
+                        once.</p>
                     <div class="card overflow-x">
                         <table class="query-table">
                             <thead>
@@ -378,7 +449,8 @@
                             </tbody>
                         </table>
                     </div>
-                    <button id="create-api-key-btn" class="btn btn-primary" style="margin-top: 15px;">Generate New Key</button>
+                    <button id="create-api-key-btn" class="btn btn-primary" style="margin-top: 15px;">Generate New
+                        Key</button>
                 </div>
 
                 <div class="settings-section">
@@ -398,9 +470,14 @@
                         <input type="number" id="retention-input" min="1" max="365" value="30">
                     </div>
                     <div class="form-group">
-                        <label>System Backup</label>
-                        <p class="help">Download a .zip of your configuration and query history.</p>
-                        <button class="btn secondary" id="backup-btn">Download Backup</button>
+                        <label>System Backup & Restore</label>
+                        <p class="help">Download a full system backup (.zip) or restore your configuration (.json).</p>
+                        <div style="display:flex;gap:12px;align-items:center;">
+                            <button type="button" class="btn secondary" id="backup-btn">Download Full Backup</button>
+                            <input type="file" id="restore-file-input" accept=".json" style="display:none">
+                            <button type="button" class="btn secondary" id="restore-btn" onclick="document.getElementById('restore-file-input').click()">Restore Config (.json)</button>
+                            <button type="button" class="btn danger" id="reset-system-btn">Factory Reset</button>
+                        </div>
                     </div>
                 </div>
 
@@ -415,16 +492,18 @@
                     <h1>About ShieldDNS</h1>
                     <p>High-performance DNS appliance for the modern web.</p>
                 </header>
-                
+
                 <div class="analytics-grid">
                     <div class="stat-card card">
                         <h3>Environment</h3>
                         <div class="list-info" style="margin-top:15px">
-                            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+                            <div
+                                style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
                                 <span>ShieldDNS Version</span>
-                                <span id="about-shielddns-ver" class="badge official">v1.0.1</span>
+                                <span id="about-shielddns-ver" class="badge official">v1.1.1-dev</span>
                             </div>
-                            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+                            <div
+                                style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
                                 <span>CoreDNS Version</span>
                                 <span id="about-coredns-ver" class="badge">v1.14.2</span>
                             </div>
@@ -438,9 +517,12 @@
                     <div class="stat-card card">
                         <h3>Project Links</h3>
                         <div class="minimal-list" style="margin-top:15px">
-                            <a href="https://github.com/faserf/ShieldDNS" target="_blank" class="nav-item"><i class="fab fa-github"></i> Repository</a>
-                            <a href="https://github.com/faserf/ShieldDNS/releases" target="_blank" class="nav-item"><i class="fas fa-tag"></i> Releases</a>
-                            <a href="https://github.com/faserf/ShieldDNS/issues" target="_blank" class="nav-item"><i class="fas fa-bug"></i> Report Issue</a>
+                            <a href="https://github.com/faserf/ShieldDNS" target="_blank" class="external-link"><i
+                                    class="fab fa-github"></i> Repository</a>
+                            <a href="https://github.com/faserf/ShieldDNS/releases" target="_blank" class="external-link"><i
+                                    class="fas fa-tag"></i> Releases</a>
+                            <a href="https://github.com/faserf/ShieldDNS/issues" target="_blank" class="external-link"><i
+                                    class="fas fa-bug"></i> Report Issue</a>
                         </div>
                     </div>
                 </div>
@@ -532,6 +614,18 @@
                 <label>URL</label>
                 <input type="url" id="list-url" placeholder="https://...">
             </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="list-category">
+                    <option value="Official">Official</option>
+                    <option value="General Blocking">General Blocking</option>
+                    <option value="Privacy & Tracking">Privacy & Tracking</option>
+                    <option value="Security & Malware">Security & Malware</option>
+                    <option value="Regional & Languages">Regional & Languages</option>
+                    <option value="Specialized & Content">Specialized & Content</option>
+                    <option value="Misc & Extra" selected>Misc & Extra</option>
+                </select>
+            </div>
             <input type="hidden" id="list-type" value="block">
             <div class="modal-actions">
                 <button class="btn secondary" id="modal-cancel">Cancel</button>
@@ -552,45 +646,116 @@
                 </div>
                 <div class="form-group">
                     <label>Permissions</label>
-                    <div class="checkbox-group">
-                        <label class="switch-container">
-                            <input type="checkbox" id="perm-stats" checked>
-                            <span class="slider"></span>
-                            <span class="switch-label">read:stats (Dashboard/Metrics)</span>
-                        </label>
-                        <label class="switch-container">
-                            <input type="checkbox" id="perm-logs">
-                            <span class="slider"></span>
-                            <span class="switch-label">read:logs (Sensitive: Client IPs, Query Logs)</span>
-                        </label>
-                        <label class="switch-container">
-                            <input type="checkbox" id="perm-system">
-                            <span class="slider"></span>
-                            <span class="switch-label">read:system (Diagnostics, System Logs)</span>
-                        </label>
-                        <label class="switch-container">
-                            <input type="checkbox" id="perm-filtering">
-                            <span class="slider"></span>
-                            <span class="switch-label">write:filtering (Toggle Protection)</span>
-                        </label>
+                    <div class="checkbox-group" style="display:flex; flex-direction:column; gap:16px;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <label class="switch" style="flex-shrink:0;">
+                                <input type="checkbox" id="perm-stats" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:stats (Dashboard/Metrics)</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <label class="switch" style="flex-shrink:0;">
+                                <input type="checkbox" id="perm-logs">
+                                <span class="slider"></span>
+                            </label>
+                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:logs (Sensitive: Client IPs, Query Logs)</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <label class="switch" style="flex-shrink:0;">
+                                <input type="checkbox" id="perm-system">
+                                <span class="slider"></span>
+                            </label>
+                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:system (Diagnostics, System Logs)</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <label class="switch" style="flex-shrink:0;">
+                                <input type="checkbox" id="perm-filtering">
+                                <span class="slider"></span>
+                            </label>
+                            <span style="font-size:0.9rem; color:var(--text-secondary);">write:filtering (Toggle Protection)</span>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button id="cancel-api-key-btn" class="btn btn-secondary">Cancel</button>
-                    <button id="save-api-key-btn" class="btn btn-primary">Generate</button>
+                <div class="modal-actions">
+                    <button id="cancel-api-key-btn" class="btn secondary">Cancel</button>
+                    <button id="save-api-key-btn" class="btn primary">Generate</button>
                 </div>
             </div>
             <div id="api-key-result" class="hidden">
                 <p>New API Key generated successfully! <strong>Copy it now, you won't see it again.</strong></p>
                 <div class="token-display">
                     <code id="api-key-value"></code>
-                    <button id="copy-api-key-btn" class="btn btn-sm btn-secondary">Copy</button>
+                    <button id="copy-api-key-btn" class="btn btn-sm secondary">Copy</button>
                 </div>
-                <div class="modal-footer">
-                    <button id="close-api-key-modal-btn" class="btn btn-primary">Done</button>
+                <div class="modal-actions">
+                    <button id="close-api-key-modal-btn" class="btn primary">Done</button>
                 </div>
             </div>
         </div>
     </div>
+    <!-- Reset Confirmation Modal 1 -->
+    <div id="reset-modal-1" class="modal hidden">
+        <div class="modal-content">
+            <h2 class="danger-text">⚠️ High Risk Operation</h2>
+            <p style="margin: 15px 0; color: var(--text-primary);">You are about to reset ShieldDNS to its factory defaults. All configuration, queries, and statistics will be <strong>permanently deleted</strong>.</p>
+            <div class="alert warning" style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-bottom: 20px;">
+                <strong>IMPORTANT:</strong> Please perform a <a href="#" id="reset-trigger-backup" style="color:var(--accent)">System Backup</a> before continuing!
+            </div>
+            <div class="modal-actions">
+                <button class="btn secondary" id="reset-cancel-1">Cancel</button>
+                <button class="btn danger" id="reset-confirm-1">I have a backup, continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Confirmation Modal 2 -->
+    <div id="reset-modal-2" class="modal hidden">
+        <div class="modal-content">
+            <h2 class="danger-text">Final Confirmation</h2>
+            <p style="margin: 15px 0; color: var(--text-primary);">This action CANNOT be undone. The system will wipe all data and restart immediately.</p>
+            <p style="margin-bottom: 20px; color: var(--text-secondary);">Type <strong>RESET</strong> below to confirm:</p>
+            <div class="form-group">
+                <input type="text" id="reset-final-input" placeholder="RESET" autocomplete="off">
+            </div>
+            <div class="modal-actions">
+                <button class="btn secondary" id="reset-cancel-2">Abort</button>
+                <button class="btn danger" id="reset-confirm-2" disabled>Wipe Everything & Restart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restarting Overlay -->
+    <div id="restart-overlay" class="modal hidden" style="z-index: 9999;">
+        <div class="modal-content text-center" style="text-align: center;">
+            <div class="pulse" style="margin: 0 auto 20px auto; width: 40px; height: 40px;"></div>
+            <h2>System Resetting...</h2>
+            <p style="color: var(--text-secondary); margin-top: 10px;">ShieldDNS is wiping all data and restarting. You will be redirected shortly.</p>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="alert-modal" class="modal hidden" style="z-index: 10001;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <h2 id="alert-title" style="margin-bottom: 12px;">Notification</h2>
+            <p id="alert-message" style="margin-bottom: 24px; color: var(--text-secondary);"></p>
+            <div class="modal-actions" style="justify-content: center;">
+                <button class="btn primary full-width" id="alert-ok">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="confirm-modal" class="modal hidden" style="z-index: 10001;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <h2 id="confirm-title" style="margin-bottom: 12px;">Confirmation</h2>
+            <p id="confirm-message" style="margin-bottom: 24px; color: var(--text-secondary);"></p>
+            <div class="modal-actions" style="display: flex; gap: 12px;">
+                <button class="btn secondary full-width" id="confirm-cancel">Cancel</button>
+                <button class="btn primary full-width" id="confirm-yes">Confirm</button>
+            </div>
+        </div>
+    </div>
 </body>
+
 </html>

@@ -20,6 +20,8 @@ type Config struct {
 	AdminPasswordHashed string   `json:"admin_password_hashed"`
 	APIKeys             []APIKey `json:"api_keys"`
 	FilteringEnabled    bool     `json:"filtering_enabled"`
+	AdminDomain         string   `json:"admin_domain"`   // e.g. dns.fabiseitz.de
+	BlockPageIP         string   `json:"block_page_ip"` // IP of the ShieldDNS server
 }
 
 type APIKey struct {
@@ -32,15 +34,18 @@ type APIKey struct {
 }
 
 type List struct {
-	Name    string `json:"name"`
-	URL     string `json:"url"`
-	Enabled bool   `json:"enabled"`
+	Name     string `json:"name"`
+	URL      string `json:"url"`
+	Enabled  bool   `json:"enabled"`
+	Category string `json:"category,omitempty"`
 }
 
 type Stats struct {
 	TotalQueries   int64            `json:"total_queries"`
 	BlockedQueries int64            `json:"blocked_queries"`
 	CacheHits      int64            `json:"cache_hits"`
+	AverageLatency float64          `json:"average_latency"` // in milliseconds
+	UniqueClients  int              `json:"unique_clients"`
 	QueryTypes     map[string]int64 `json:"query_types"`
 	Version        string           `json:"version"`
 	CoreDNSVersion string           `json:"coredns_version"`
@@ -53,6 +58,7 @@ type Query struct {
 	Type     string    `json:"type"`
 	Status   string    `json:"status"` // "Allowed" or "Blocked"
 	ClientIP string    `json:"client_ip"`
+	Duration float64   `json:"duration"` // in milliseconds
 }
 
 type HourStats struct {

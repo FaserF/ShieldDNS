@@ -105,6 +105,19 @@ mkdir -p /run/nginx /etc/nginx/http.d
 
 cat <<EOF >/etc/nginx/http.d/default.conf
 server {
+    listen 80;
+    server_name _;
+    
+    location / {
+        proxy_pass http://127.0.0.1:${ADMIN_BACKEND_PORT};
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+
+server {
     listen ${DOH_PORT} ssl;
     http2 on;
     server_name _;
@@ -149,6 +162,11 @@ NGINX_PID=$!
 # 4. ShieldDNS Admin & CoreDNS Execution
 # ------------------------------------------------------------------------------
 mkdir -p /etc/shielddns /var/www/admin
+
+# Dynamically set GOMAXPROCS to match the available CPU count.
+# This prevents CoreDNS's automaxprocs from printing the
+# "CPU quota undefined" warning when no cgroup CPU limit is set.
+export GOMAXPROCS=$(nproc)
 
 # Export for Go backend
 export CERT_FILE

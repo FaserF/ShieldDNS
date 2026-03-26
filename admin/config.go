@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,23 +39,30 @@ func loadConfig() {
 			UpstreamDoT:     []string{"unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"},
 			PreferEncrypted: true,
 			FilteringEnabled: true,
-			Lists: []List{
-				{Name: "ShieldDNS Official Blocklist", URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/blocklists/default.txt", Enabled: true},
-				{Name: "HaGeZi Multi Pro", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt", Enabled: true},
-				{Name: "AdGuard DNS Filter", URL: "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt", Enabled: true},
-				{Name: "Steven Black Unified", URL: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", Enabled: false},
-				{Name: "AdAway Default", URL: "https://adaway.org/hosts.txt", Enabled: false},
-				{Name: "OISD Pro", URL: "https://big.oisd.nl", Enabled: false},
-			},
-			Allowlists: []List{
-				{Name: "ShieldDNS Official Allowlist", URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/allowlists/default.txt", Enabled: true},
-			},
+			AdminDomain:      "shielddns.local",
+			BlockPageIP:      "127.0.0.1",
+			Lists:            DefaultPresets,
+			Allowlists:       DefaultAllowlists,
 		}
 		saveConfigNoLock()
 		return
 	}
 	json.Unmarshal(file, &config)
 	
+	// Check environment variables for overrides
+	if envDNS := os.Getenv("UPSTREAM_DNS"); envDNS != "" {
+		parts := strings.Fields(strings.ReplaceAll(envDNS, ",", " "))
+		if len(parts) > 0 {
+			config.Upstreams = parts
+		}
+	}
+	if envDoT := os.Getenv("UPSTREAM_DOT"); envDoT != "" {
+		parts := strings.Fields(strings.ReplaceAll(envDoT, ",", " "))
+		if len(parts) > 0 {
+			config.UpstreamDoT = parts
+		}
+	}
+
 	// Prepend official lists if missing
 	hasOfficialBlock := false
 	for _, l := range config.Lists {
@@ -93,6 +101,21 @@ func loadConfig() {
 	// Limit to max 5
 	if len(config.Upstreams) > 5 { config.Upstreams = config.Upstreams[:5] }
 	if len(config.UpstreamDoT) > 5 { config.UpstreamDoT = config.UpstreamDoT[:5] }
+
+	// Sanitize upstreams
+	for i, u := range config.Upstreams {
+		config.Upstreams[i] = strings.Trim(u, " ,")
+	}
+	for i, u := range config.UpstreamDoT {
+		config.UpstreamDoT[i] = strings.Trim(u, " ,")
+	}
+
+	if config.AdminDomain == "" {
+		config.AdminDomain = "shielddns.local"
+	}
+	if config.BlockPageIP == "" {
+		config.BlockPageIP = "127.0.0.1"
+	}
 }
 
 func saveConfigNoLock() {
@@ -116,12 +139,16 @@ func updateBlocklist() {
 
 	for _, list := range blocklists {
 		if !list.Enabled { continue }
+		AddSystemLog("⏬ Downloading blocklist: " + list.Name)
 		processList(list, newBlockAttribution, allowDomains)
+		AddSystemLog("✅ Processed blocklist: " + list.Name)
 	}
 
 	for _, list := range allowlists {
 		if !list.Enabled { continue }
+		AddSystemLog("⏬ Downloading allowlist: " + list.Name)
 		processList(list, nil, allowDomains) // Allowlists only populate allowDomains
+		AddSystemLog("✅ Processed allowlist: " + list.Name)
 	}
 
 	// Add Custom Rules
@@ -137,6 +164,9 @@ func updateBlocklist() {
 		delete(newBlockAttribution, d)
 	}
 
+	// Always enforce blocking for the built-in test domain regardless of allowlists
+	newBlockAttribution["shielddns-maleware.test"] = []string{"ShieldDNS Built-in Test Domain"}
+
 	for d := range newBlockAttribution {
 		blockDomains[d] = struct{}{}
 	}
@@ -148,8 +178,11 @@ func updateBlocklist() {
 
 	// Write Blocklist
 	var combined strings.Builder
+	ip := config.BlockPageIP
+	if ip == "" { ip = "0.0.0.0" }
+	
 	for domain := range blockDomains {
-		combined.WriteString(fmt.Sprintf("0.0.0.0 %s\n", domain))
+		combined.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
 	}
 	os.MkdirAll(filepath.Dir(BlocklistPath), 0755)
 	os.WriteFile(BlocklistPath, []byte(combined.String()), 0644)
@@ -164,12 +197,17 @@ func updateBlocklist() {
 }
 
 func processList(list List, blockMap map[string][]string, allowMap map[string]struct{}) {
-	var body []byte
-	var err error
+	var reader io.Reader
 
 	if strings.HasPrefix(list.URL, "file://") {
 		path := strings.TrimPrefix(list.URL, "file://")
-		body, err = os.ReadFile(path)
+		file, err := os.Open(path)
+		if err != nil {
+			log.Printf("⚠️  WARNING: Could not open %s: %v. Skipping...", list.Name, err)
+			return
+		}
+		defer file.Close()
+		reader = file
 	} else {
 		resp, err := http.Get(list.URL)
 		if err != nil {
@@ -181,17 +219,17 @@ func processList(list List, blockMap map[string][]string, allowMap map[string]st
 			log.Printf("⚠️  WARNING: %s returned status %d. Skipping...", list.Name, resp.StatusCode)
 			return
 		}
-		body, err = io.ReadAll(resp.Body)
+		reader = resp.Body
 	}
 
-	if err != nil {
-		log.Printf("⚠️  WARNING: Error reading %s: %v. Skipping...", list.Name, err)
-		return
-	}
+	scanner := bufio.NewScanner(reader)
+	// Some list lines might be long, increase buffer size if needed
+	const maxCapacity = 1024 * 1024 // 1MB line buffer
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
 
-	lines := strings.Split(string(body), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "!") {
 			continue
 		}
@@ -241,6 +279,10 @@ func processList(list List, blockMap map[string][]string, allowMap map[string]st
 				}
 			}
 		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("⚠️  WARNING: Error reading lines for %s: %v", list.Name, err)
 	}
 }
 

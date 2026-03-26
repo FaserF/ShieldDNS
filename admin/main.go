@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -38,14 +39,16 @@ func main() {
 	http.HandleFunc("/api/setup", handleSetup)
 	http.HandleFunc("/api/login", handleLogin)
 	http.HandleFunc("/api/logout", handleLogout)
-	http.HandleFunc("/api/presets", handlePresets)
 	http.HandleFunc("/api/mobileconfig", handleMobileConfig)
+	// Dashboard Data
+	http.Handle("/api/stats", authMiddleware(http.HandlerFunc(handleStats)))
+	http.Handle("/api/system-logs", authMiddleware(http.HandlerFunc(handleSystemLogs)))
+	http.Handle("/api/events", authMiddleware(http.HandlerFunc(handleEvents)))
+	http.Handle("/api/diagnostics", authMiddleware(http.HandlerFunc(handleDiagnostics)))
+	http.Handle("/api/presets", authMiddleware(http.HandlerFunc(handlePresets)))
+	http.Handle("/api/presets/allow", authMiddleware(http.HandlerFunc(handlePresetAllowlists)))
 
 	// Protected API
-	http.Handle("/api/events", authMiddleware(http.HandlerFunc(handleEvents)))
-	http.Handle("/api/system-logs", authMiddleware(http.HandlerFunc(handleSystemLogs)))
-	http.Handle("/api/diagnostics", authMiddleware(http.HandlerFunc(handleDiagnostics)))
-	http.Handle("/api/stats", authMiddleware(http.HandlerFunc(handleStats)))
 	http.Handle("/api/config", authMiddleware(http.HandlerFunc(handleConfig)))
 	http.Handle("/api/refresh", authMiddleware(http.HandlerFunc(handleRefresh)))
 	http.Handle("/api/queries", authMiddleware(http.HandlerFunc(handleQueries)))
@@ -55,6 +58,7 @@ func main() {
 	http.Handle("/api/top-clients", authMiddleware(http.HandlerFunc(handleTopClients)))
 	http.Handle("/api/export", authMiddleware(http.HandlerFunc(handleExport)))
 	http.Handle("/api/backup", authMiddleware(http.HandlerFunc(handleBackup)))
+	http.Handle("/api/restore", authMiddleware(http.HandlerFunc(handleRestore)))
 	http.Handle("/api/change-password", authMiddleware(http.HandlerFunc(handleChangePassword)))
 	
 	// API Tokens
@@ -63,8 +67,16 @@ func main() {
 	http.Handle("/api/tokens/update", authMiddleware(http.HandlerFunc(handleUpdateToken)))
 	http.Handle("/api/tokens/delete", authMiddleware(http.HandlerFunc(handleDeleteToken)))
 	
-	// Global Controls
+	// Global Controls & Rules
 	http.Handle("/api/filtering/toggle", authMiddleware(http.HandlerFunc(handleToggleFiltering)))
+	http.Handle("/api/filtering/status", authMiddleware(http.HandlerFunc(handleFilteringStatus)))
+	http.Handle("/api/rules/add", authMiddleware(http.HandlerFunc(handleRuleAdd)))
+	http.Handle("/api/rules/remove", authMiddleware(http.HandlerFunc(handleRuleRemove)))
+	http.Handle("/api/reset", authMiddleware(http.HandlerFunc(handleReset)))
+	http.Handle("/api/config/reset-lists", authMiddleware(http.HandlerFunc(handleResetLists)))
+	
+	// Public API
+	http.HandleFunc("/api/block-info", handleBlockInfo)
 	
 	// Health
 	http.HandleFunc("/api/health/live", func(w http.ResponseWriter, r *http.Request) {
@@ -97,9 +109,28 @@ func main() {
 
 	// Catch-all for the public landing page (index.html in webRoot)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		configLock.RLock()
+		adminDomain := config.AdminDomain
+		configLock.RUnlock()
+
+		// Case 1: Special block page route (publicly accessible)
+		if r.URL.Path == "/blocked" {
+			http.ServeFile(w, r, webRoot+"/blocked.html")
+			return
+		}
+
+		// Case 2: Redirection for blocked domains
+		// If the requested Host doesn't match our AdminDomain and isn't a local address, redirect to block page
+		if adminDomain != "" && r.Host != adminDomain && !strings.HasPrefix(r.Host, "127.0.0.1") && !strings.HasPrefix(r.Host, "localhost") {
+			// We redirect to the official HTTPS block page on the admin domain
+			// This avoids SSL certificate errors for the landing page itself
+			target := "https://" + adminDomain + "/blocked?domain=" + r.Host
+			http.Redirect(w, r, target, http.StatusFound)
+			return
+		}
+
+		// Case 3: Standard root or static files
 		if r.URL.Path != "/" {
-			// Proxy to admin static files if it's an asset (css/js/ico) in the root
-			// or just serve the landing page for the root specifically
 			fs := http.FileServer(http.Dir(webRoot))
 			fs.ServeHTTP(w, r)
 			return

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Blocked | ShieldDNS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d0f14;
+            --card: #1c222d;
+            --text: #ffffff;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --accent: #5c6bc0;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: var(--card);
+            padding: 40px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+        .icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+        }
+        h1 { font-size: 1.5rem; margin-bottom: 12px; font-weight: 700; }
+        p { color: var(--text-muted); margin-bottom: 24px; line-height: 1.6; }
+        .details {
+            background: rgba(0,0,0,0.2);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: left;
+            margin-bottom: 32px;
+            font-size: 0.9rem;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .detail-item:last-child { border-bottom: none; }
+        .detail-item span:first-child { color: var(--text-muted); }
+        .btn {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 12px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .footer { margin-top: 32px; font-size: 0.75rem; color: var(--text-muted); opacity: 0.5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <h1>Website Blocked</h1>
+        <p>ShieldDNS has prevented access to this website because it was flagged by your security filters.</p>
+        
+        <div class="details">
+            <div class="detail-item">
+                <span>Domain</span>
+                <span id="domain-name">...</span>
+            </div>
+            <div class="detail-item">
+                <span>Reason</span>
+                <span id="block-reason">Content Filtering</span>
+            </div>
+            <div class="detail-item">
+                <span>Filter List</span>
+                <span id="filter-list">Loading...</span>
+            </div>
+            <div class="detail-item">
+                <span>Timestamp</span>
+                <span id="timestamp">...</span>
+            </div>
+        </div>
+
+        <a href="javascript:history.back()" class="btn">Return to Safety</a>
+
+        <div class="footer">
+            Protected by ShieldDNS • Secure Gateway
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const domain = params.get('domain') || window.location.hostname;
+        document.getElementById('domain-name').textContent = domain;
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+
+        fetch(`/api/block-info?domain=${domain}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.lists && data.lists.length > 0) {
+                    document.getElementById('filter-list').textContent = data.lists[0];
+                    if (data.lists[0].includes('Malware') || data.lists[0].includes('Threat')) {
+                        document.getElementById('block-reason').textContent = 'Security Threat';
+                    } else if (data.lists[0].includes('Porn') || data.lists[0].includes('NSFW')) {
+                        document.getElementById('block-reason').textContent = 'Adult Content';
+                    }
+                } else {
+                    document.getElementById('filter-list').textContent = 'Custom Blocklist / Policy';
+                }
+            })
+            .catch(() => {
+                document.getElementById('filter-list').textContent = 'Global Policy';
+            });
+    </script>
+</body>
+</html>

@@ -9,10 +9,90 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     let queryLogItems, fullQueryLogItems;
     let systemLogEventSource = null;
     let apiKeysListContainer, apiKeyModal, apiKeyForm, apiKeyResult, apiKeyValue, protectionStatusLabel, toggleProtectionBtn;
+    let adminDomainInput, blockIpInput;
+
+/**
+ * Custom alternative to window.alert()
+ */
+async function showAlert(message, title = 'Notification') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('alert-modal');
+        const titleEl = document.getElementById('alert-title');
+        const messageEl = document.getElementById('alert-message');
+        const okBtn = document.getElementById('alert-ok');
+
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        modal.classList.remove('hidden');
+
+        const cleanup = () => {
+            modal.classList.add('hidden');
+            okBtn.removeEventListener('click', handleOk);
+            window.removeEventListener('keydown', handleKey);
+            resolve();
+        };
+
+        const handleOk = () => cleanup();
+        const handleKey = (e) => { if (e.key === 'Enter' || e.key === 'Escape') cleanup(); };
+
+        okBtn.addEventListener('click', handleOk, { once: true });
+        window.addEventListener('keydown', handleKey);
+        okBtn.focus();
+    });
+}
+
+/**
+ * Custom alternative to window.confirm()
+ */
+async function showConfirm(message, title = 'Confirmation') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirm-modal');
+        const titleEl = document.getElementById('confirm-title');
+        const messageEl = document.getElementById('confirm-message');
+        const yesBtn = document.getElementById('confirm-yes');
+        const noBtn = document.getElementById('confirm-cancel');
+
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        modal.classList.remove('hidden');
+
+        const cleanup = (result) => {
+            modal.classList.add('hidden');
+            yesBtn.removeEventListener('click', handleYes);
+            noBtn.removeEventListener('click', handleNo);
+            window.removeEventListener('keydown', handleKey);
+            resolve(result);
+        };
+
+        const handleYes = () => cleanup(true);
+        const handleNo = () => cleanup(false);
+        const handleKey = (e) => {
+            if (e.key === 'Enter') cleanup(true);
+            if (e.key === 'Escape') cleanup(false);
+        };
+
+        yesBtn.addEventListener('click', handleYes, { once: true });
+        noBtn.addEventListener('click', handleNo, { once: true });
+        window.addEventListener('keydown', handleKey);
+        yesBtn.focus();
+    });
+}
 
 document.addEventListener('DOMContentLoaded', () => {
-    const getEl = (id) => document.getElementById(id);
+    // Theme initialization
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.body.className = savedTheme;
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+            const isDark = document.body.classList.contains('dark');
+            const newTheme = isDark ? 'light' : 'dark';
+            document.body.className = newTheme;
+            localStorage.setItem('theme', newTheme);
+        });
+    }
 
+    const getEl = (id) => document.getElementById(id);
     // Initialize UI Elements
     authOverlay = getEl('auth-overlay');
     setupView = getEl('setup-view');
@@ -36,7 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
         total: getEl('stat-total'),
         blocked: getEl('stat-blocked'),
         ratio: getEl('stat-ratio'),
-        cache: getEl('stat-cache')
+        cache: getEl('stat-cache'),
+        latency: getEl('stat-latency'),
+        clients: getEl('stat-clients')
     };
 
     apiKeysListContainer = getEl('api-keys-list');
@@ -46,19 +128,16 @@ document.addEventListener('DOMContentLoaded', () => {
     apiKeyValue = getEl('api-key-value');
     protectionStatusLabel = getEl('protection-status-label');
     toggleProtectionBtn = getEl('toggle-protection-btn');
+    adminDomainInput = getEl('admin-domain-input');
+    blockIpInput = getEl('block-ip-input');
 
-    getEl('create-api-key-btn')?.addEventListener('click', () => {
-        apiKeyForm.classList.remove('hidden');
-        apiKeyResult.classList.add('hidden');
-        apiKeyModal.classList.remove('hidden');
-    });
 
     getEl('cancel-api-key-btn')?.addEventListener('click', () => apiKeyModal.classList.add('hidden'));
     getEl('close-api-key-modal-btn')?.addEventListener('click', () => apiKeyModal.classList.add('hidden'));
 
     getEl('save-api-key-btn')?.addEventListener('click', async () => {
         const name = getEl('api-key-name').value;
-        if (!name) return alert('Please enter a name');
+        if (!name) { await showAlert('Please enter a name'); return; }
         
         const perms = [];
         if (getEl('perm-stats').checked) perms.push('read:stats');
@@ -78,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
             apiKeyResult.classList.remove('hidden');
             fetchAPIKeys();
         } catch (e) {
-            alert('Failed to create API key');
+            await showAlert('Failed to create API key');
         }
     });
 
@@ -99,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentConfig.filtering_enabled = newStatus;
             renderProtectionStatus();
         } catch (e) {
-            alert('Failed to toggle protection');
+            await showAlert('Failed to toggle protection');
         }
     });
 
@@ -125,12 +204,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     getEl('create-api-key-btn')?.addEventListener('click', () => {
         editingTokenId = null;
-        document.getElementById('api-key-modal-title').textContent = 'Generate API Key';
-        document.getElementById('api-key-name').value = '';
-        document.getElementById('perm-stats').checked = true;
-        document.getElementById('perm-logs').checked = false;
-        document.getElementById('perm-system').checked = false;
-        document.getElementById('perm-filtering').checked = false;
+        getEl('api-key-modal-title').textContent = 'Generate API Key';
+        getEl('api-key-name').value = '';
+        getEl('perm-stats').checked = true;
+        getEl('perm-logs').checked = false;
+        getEl('perm-system').checked = false;
+        getEl('perm-filtering').checked = false;
         getEl('save-api-key-btn').textContent = 'Generate';
         apiKeyForm.classList.remove('hidden');
         apiKeyResult.classList.add('hidden');
@@ -139,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     getEl('save-api-key-btn')?.addEventListener('click', async () => {
         const name = getEl('api-key-name').value;
-        if (!name) return alert('Please enter a name');
+        if (!name) { await showAlert('Please enter a name'); return; }
         
         const perms = [];
         if (getEl('perm-stats').checked) perms.push('read:stats');
@@ -169,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetchAPIKeys();
             }
         } catch (e) {
-            alert('Failed to save API key');
+            await showAlert('Failed to save API key');
         }
     });
 
@@ -229,14 +308,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const presets = await resp.json();
         const container = document.getElementById('setup-presets');
         container.innerHTML = '';
-        presets.forEach((p, i) => {
-            const item = document.createElement('div');
-            item.className = 'preset-selection-item';
-            item.innerHTML = `
-                <input type="checkbox" id="pre-${i}" value="${p.url}" checked>
-                <label for="pre-${i}">${p.name}</label>
-            `;
-            container.appendChild(item);
+
+        const grouped = {};
+        presets.forEach(p => {
+            const cat = p.category || 'Other';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(p);
+        });
+
+        Object.keys(grouped).forEach(cat => {
+            const catHeader = document.createElement('div');
+            catHeader.className = 'preset-category-header';
+            catHeader.textContent = cat;
+            catHeader.style.cssText = 'grid-column: 1 / -1; margin: 15px 0 10px 0; font-weight: 700; color: var(--accent); font-size: 0.9rem; text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 5px; text-align: left;';
+            container.appendChild(catHeader);
+
+            grouped[cat].forEach((p, i) => {
+                const item = document.createElement('div');
+                item.className = 'preset-selection-item';
+                item.innerHTML = `
+                    <input type="checkbox" id="pre-${cat}-${i}" value="${p.url}" ${p.enabled ? 'checked' : ''}>
+                    <label for="pre-${cat}-${i}">${p.name}</label>
+                `;
+                container.appendChild(item);
+            });
         });
     };
 
@@ -254,13 +349,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (password.length < 12) {
-            alert('Password too short!');
+            await showAlert('Password too short!');
             nextSetupStep(1);
             return;
         }
 
         if (password !== confirm) {
-            alert('Passwords do not match!');
+            await showAlert('Passwords do not match!');
             nextSetupStep(1);
             return;
         }
@@ -272,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (!setupResp.ok) {
-            alert('Setup failed at account creation.');
+            await showAlert('Setup failed at account creation.');
             return;
         }
 
@@ -283,9 +378,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (!loginResp.ok) {
-            alert('Login failed during setup.');
+            await showAlert('Login failed during setup.');
             return;
         }
+
+        const allowResp = await fetch('/api/presets/allow');
+        const allAllows = await allowResp.json();
+        const defaultAllows = allAllows.filter(a => a.enabled);
 
         // 3. Save Config (Upstreams + Selected Lists)
         await fetch('/api/config', {
@@ -295,13 +394,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 upstream_dot: dotUpstreams, 
                 prefer_encrypted: preferEncrypted, 
                 lists: selectedPresets,
-                allowlists: [
-                    { name: "ShieldDNS Official Allowlist", url: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/allowlists/default.txt", enabled: true }
-                ]
+                allowlists: defaultAllows
             })
         });
 
-        alert('Setup complete! Welcome to ShieldDNS.');
+        await showAlert('Setup complete! Welcome to ShieldDNS.');
         location.reload();
     });
 
@@ -315,14 +412,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (resp.ok) {
             checkAuthStatus();
         } else {
-            alert('Invalid password.');
+            await showAlert('Invalid password.');
         }
     });
 
-    document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    const handleLogout = async () => {
         await fetch('/api/logout', { method: 'POST' });
         location.reload();
-    });
+    };
+    document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+    document.getElementById('nav-logout-btn')?.addEventListener('click', handleLogout);
 
     document.getElementById('password-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -330,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newPwd = document.getElementById('new-password').value;
 
         if (newPwd.length < 12) {
-            alert('New password must be at least 12 characters.');
+            await showAlert('New password must be at least 12 characters.');
             return;
         }
 
@@ -340,11 +439,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (resp.ok) {
-            alert('Password changed successfully! Please login again.');
+            await showAlert('Password changed successfully! Please login again.');
             location.reload();
         } else {
             const err = await resp.text();
-            alert('Failed to change password: ' + err);
+            await showAlert('Failed to change password: ' + err);
         }
     });
 
@@ -469,11 +568,16 @@ document.addEventListener('DOMContentLoaded', () => {
             data.forEach(q => {
                 const row = document.createElement('tr');
                 const time = new Date(q.time).toLocaleTimeString();
+                const actionBtn = q.status === 'Allowed' 
+                    ? `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')">Block</button>`
+                    : `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')">Allow</button>`;
+                
                 row.innerHTML = `
                     <td>${time}</td>
                     <td title="${q.client_ip}">${q.domain}</td>
                     <td>${q.type}</td>
                     <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
+                    <td>${actionBtn}</td>
                 `;
                 container.appendChild(row);
             });
@@ -486,11 +590,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const createQueryRow = (q) => {
         const row = document.createElement('tr');
         const time = new Date(q.time || Date.now()).toLocaleTimeString();
+        const actionBtn = q.status === 'Allowed' 
+            ? `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')">Block</button>`
+            : `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')">Allow</button>`;
+
         row.innerHTML = `
             <td>${time}</td>
             <td title="${q.client_ip}">${q.domain}</td>
             <td>${q.type}</td>
             <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
+            <td>${actionBtn}</td>
         `;
         return row;
     };
@@ -517,12 +626,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctx = document.getElementById('type-chart')?.getContext('2d');
         if (!ctx) return;
 
-        const labels = Object.keys(queryTypes);
-        const data = Object.values(queryTypes);
+        let labels = Object.keys(queryTypes);
+        let data = Object.values(queryTypes);
+
+        if (labels.length === 0) {
+            labels = ['No Data'];
+            data = [1];
+        }
+
+        const colorPalette = {
+            'A': '#3b82f6',      // blue
+            'AAAA': '#10b981',   // emerald
+            'HTTPS': '#8b5cf6',  // purple
+            'TXT': '#f59e0b',    // orange
+            'SRV': '#ec4899',    // pink
+            'PTR': '#06b6d4',    // cyan
+            'MX': '#ef4444',     // red
+            'ANY': '#64748b'     // slate
+        };
+        const bgColors = labels.map((l, i) => colorPalette[l] || `hsl(${(i * 137.5) % 360}, 70%, 50%)`);
 
         if (typeChart) {
             typeChart.data.labels = labels;
             typeChart.data.datasets[0].data = data;
+            typeChart.data.datasets[0].backgroundColor = bgColors;
             typeChart.update();
             return;
         }
@@ -533,7 +660,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 labels: labels,
                 datasets: [{
                     data: data,
-                    backgroundColor: ['#5c6bc0', '#ef4444', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6'],
+                    backgroundColor: bgColors,
                     borderWidth: 0
                 }]
             },
@@ -563,27 +690,104 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderPresets = (presets) => {
         const container = document.getElementById('preset-items');
         container.innerHTML = '';
-        presets.forEach(preset => {
-            const card = document.createElement('div');
-            card.className = 'preset-card';
-            card.innerHTML = `
-                <div class="preset-info">
-                    <h3>${preset.name}</h3>
-                </div>
-                <button class="btn secondary" onclick="addPreset('${preset.name}', '${preset.url}')">Add</button>
-            `;
-            container.appendChild(card);
+
+        const grouped = {};
+        presets.forEach(p => {
+            const cat = p.category || 'Other';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(p);
+        });
+
+        Object.keys(grouped).forEach(cat => {
+            const catHeader = document.createElement('div');
+            catHeader.className = 'preset-category-group';
+            catHeader.style.cssText = 'grid-column: 1 / -1; margin-top: 20px;';
+            catHeader.innerHTML = `<h2 style="font-size: 1.1rem; color: var(--accent); margin-bottom: 10px; display: flex; align-items: center; justify-content: flex-start; text-align: left; gap: 8px;">
+                <i class="fas fa-folder-open"></i> ${cat}
+            </h2>`;
+            container.appendChild(catHeader);
+
+            grouped[cat].forEach(preset => {
+                const card = document.createElement('div');
+                card.className = 'preset-card';
+                card.innerHTML = `
+                    <div class="preset-info">
+                        <h3>${preset.name}</h3>
+                    </div>
+                    <button class="btn btn-sm secondary" onclick="addPreset('${preset.name}', '${preset.url}')">Add</button>
+                `;
+                container.appendChild(card);
+            });
         });
     };
 
-    window.addPreset = (name, url) => {
+    window.addPreset = async (name, url) => {
         if (currentConfig.lists.some(l => l.url === url)) {
-            alert('This list is already added.');
+            await showAlert('This list is already added.');
             return;
         }
         currentConfig.lists.push({ name, url, enabled: true });
-        saveConfig();
+        await saveConfig();
         renderConfig();
+    };
+
+    const fetchAllowlistPresets = async () => {
+        try {
+            const resp = await fetch('/api/presets/allow');
+            if (!resp.ok) return;
+            const presets = await resp.json();
+            renderAllowlistPresets(presets);
+        } catch (e) {
+            console.error('Failed to fetch allowlist presets', e);
+        }
+    };
+
+    const renderAllowlistPresets = (presets) => {
+        const container = document.getElementById('preset-allow-items');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const grouped = {};
+        presets.forEach(p => {
+            const cat = p.category || 'Official';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(p);
+        });
+
+        Object.keys(grouped).forEach(cat => {
+            const catHeader = document.createElement('div');
+            catHeader.className = 'preset-category-group';
+            catHeader.style.cssText = 'grid-column: 1 / -1; margin-top: 20px;';
+            catHeader.innerHTML = `<h2 style="font-size: 1.1rem; color: var(--accent); margin-bottom: 10px; display: flex; align-items: center; justify-content: flex-start; text-align: left; gap: 8px;">
+                <i class="fas fa-folder-open"></i> ${cat}
+            </h2>`;
+            container.appendChild(catHeader);
+
+            grouped[cat].forEach(preset => {
+                const isAdded = (currentConfig.allowlists || []).some(l => l.url === preset.url);
+                const card = document.createElement('div');
+                card.className = 'preset-card';
+                card.innerHTML = `
+                    <div class="preset-info">
+                        <h3>${preset.name}</h3>
+                    </div>
+                    <button class="btn btn-sm ${isAdded ? 'secondary' : 'primary'}" ${isAdded ? 'disabled' : ''} onclick="addAllowPreset('${preset.name}', '${preset.url}')">${isAdded ? 'Added ✓' : 'Add'}</button>
+                `;
+                container.appendChild(card);
+            });
+        });
+    };
+
+    window.addAllowPreset = async (name, url) => {
+        if (!currentConfig.allowlists) currentConfig.allowlists = [];
+        if (currentConfig.allowlists.some(l => l.url === url)) {
+            await showAlert('This allowlist is already added.');
+            return;
+        }
+        currentConfig.allowlists.push({ name, url, enabled: true, category: 'Official' });
+        await saveConfig();
+        renderConfig();
+        renderAllowlistPresets(await (await fetch('/api/presets/allow')).json());
     };
 
     const fetchAnalytics = async () => {
@@ -618,9 +822,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Navigation logic
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
-            e.preventDefault();
             const targetView = item.dataset.view;
             if (!targetView) return;
+
+            e.preventDefault();
 
             navItems.forEach(i => i.classList.remove('active'));
             item.classList.add('active');
@@ -629,14 +834,63 @@ document.addEventListener('DOMContentLoaded', () => {
             const viewEl = document.getElementById(targetView);
             if (viewEl) viewEl.classList.remove('hidden');
 
+            if (targetView === 'lists') { fetchPresets(); fetchAllowlistPresets(); }
             if (targetView === 'queries') fetchQueries();
             if (targetView === 'analytics') fetchAnalytics();
             if (targetView === 'about') fetchStats();
-            if (targetView === 'diagnostics') fetchDiagnostics();
+            if (targetView === 'diagnostics') {
+                fetchDiagnostics();
+                window.diagnosticsInterval = setInterval(fetchDiagnostics, 5000);
+            } else {
+                clearInterval(window.diagnosticsInterval);
+            }
             if (targetView === 'system-logs') startSystemLogStream();
             else stopSystemLogStream();
         });
     });
+
+    const fetchDiagnostics = async () => {
+        try {
+            const resp = await fetch('/api/diagnostics');
+            if (resp.status === 401) return;
+            const data = await resp.json();
+
+            const certInfo = document.getElementById('cert-info-content');
+            if (certInfo) {
+                if (!data.certificate || !data.certificate.valid) {
+                    certInfo.innerHTML = '<p class="help">No valid SSL certificate information available.</p>';
+                } else {
+                    const cert = data.certificate;
+                    const daysLeft = Math.floor((new Date(cert.not_after) - new Date()) / (1000 * 60 * 60 * 24));
+                    certInfo.innerHTML = `
+                        <div class="diag-item"><span>Issuer</span><span class="badge secondary">${cert.issuer}</span></div>
+                        <div class="diag-item"><span>Valid Until</span><span class="badge ${daysLeft < 30 ? 'danger' : 'official'}">${new Date(cert.not_after).toLocaleDateString()} (${daysLeft} days)</span></div>
+                    `;
+                }
+            }
+
+            const latencyList = document.getElementById('upstream-latency-list');
+            if (latencyList) {
+                if (!data.upstream_health || data.upstream_health.length === 0) {
+                    latencyList.innerHTML = '<tr><td colspan="3" class="help">No upstream servers configured.</td></tr>';
+                } else {
+                    latencyList.innerHTML = data.upstream_health.map(h => {
+                        const isUp = h.status === 'up';
+                        const latencyStr = isUp ? `${h.latency_ms} ms` : '-';
+                        return `
+                            <tr>
+                                <td>${h.server}</td>
+                                <td><span class="badge ${isUp ? 'official' : 'danger'}">${h.status.toUpperCase()}</span></td>
+                                <td style="text-align:right">${latencyStr}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch diagnostics', e);
+        }
+    };
 
     const fetchStats = async () => {
         try {
@@ -651,6 +905,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 statsContainer.ratio.textContent = `${ratio} %`;
                 const cacheRatio = data.total_queries > 0 ? (data.cache_hits / data.total_queries * 100).toFixed(1) : 0;
                 statsContainer.cache.textContent = `${cacheRatio} %`;
+                statsContainer.latency.textContent = `${(data.average_latency || 0).toFixed(2)} ms`;
+                statsContainer.clients.textContent = data.unique_clients || 0;
             }
             
             if (data.query_types) {
@@ -748,12 +1004,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.deleteAPIKey = async (id) => {
-        if (!confirm('Are you sure you want to delete this API key?')) return;
+        if (!(await showConfirm('Are you sure you want to delete this API key?'))) return;
         try {
             await fetch(`/api/tokens/delete?id=${id}`, { method: 'DELETE' });
             fetchAPIKeys();
         } catch (e) {
-            alert('Failed to delete key');
+            await showAlert('Failed to delete key');
         }
     };
 
@@ -762,12 +1018,16 @@ document.addEventListener('DOMContentLoaded', () => {
         dotUpstreamsInput.value = (currentConfig.upstream_dot || []).join(', ');
         preferEncryptedCheck.checked = currentConfig.prefer_encrypted;
         
+        if (adminDomainInput) adminDomainInput.value = currentConfig.admin_domain || '';
+        if (blockIpInput) blockIpInput.value = currentConfig.block_page_ip || '';
+        
         const smartCheck = document.getElementById('smart-upstream-check');
         if (smartCheck) smartCheck.checked = currentConfig.use_fastest_upstream || false;
         
         const retentionInput = document.getElementById('retention-input');
         if (retentionInput) retentionInput.value = currentConfig.retention_days || 30;
 
+        currentConfig.lists = currentConfig.lists || [];
         listItemsContainer.innerHTML = '';
         currentConfig.lists.forEach((list, index) => {
             const item = createListItem(list, index, 'block');
@@ -795,21 +1055,23 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCustomList(customAllowedList, currentConfig.custom_allowed, 'allowed');
     };
 
-    window.addCustomRule = (type) => {
-        const input = document.getElementById(type === 'blocked' ? 'custom-block-input' : 'custom-allow-input');
-        const domain = input.value.trim();
-        if (!domain) return;
+    window.addCustomRule = async (type, domain) => {
+        if (!domain) {
+            const input = document.getElementById(type === 'blocked' ? 'custom-block-input' : 'custom-allow-input');
+            domain = input.value.trim();
+            if (!domain) return;
+            input.value = '';
+        }
         
         const field = type === 'blocked' ? 'custom_blocked' : 'custom_allowed';
         if (!currentConfig[field]) currentConfig[field] = [];
         if (currentConfig[field].includes(domain)) {
-            alert('This domain is already in the list.');
+            await showAlert('This domain is already in the list.');
             return;
         }
         
         currentConfig[field].push(domain);
-        input.value = '';
-        saveConfig();
+        await saveConfig();
         renderConfig();
     };
 
@@ -827,6 +1089,7 @@ document.addEventListener('DOMContentLoaded', () => {
         item.innerHTML = `
             <div class="list-info">
                 <h3>${list.name} ${isOfficial ? '<span class="badge official">Official</span>' : ''}</h3>
+                ${list.category ? `<span class="badge secondary" style="font-size: 0.7rem;">${list.category}</span>` : ''}
                 <p>${list.url}</p>
             </div>
             <div class="list-actions">
@@ -844,12 +1107,14 @@ document.addEventListener('DOMContentLoaded', () => {
         currentConfig.upstreams = upstreams;
         currentConfig.upstream_dot = dots;
         currentConfig.prefer_encrypted = preferEncryptedCheck.checked;
+        currentConfig.admin_domain = adminDomainInput?.value.trim() || '';
+        currentConfig.block_ip_input = blockIpInput?.value.trim() || '';
 
         await fetch('/api/config', {
             method: 'POST',
             body: JSON.stringify(currentConfig)
         });
-        alert('Configuration saved!');
+        await showAlert('Configuration saved!');
     };
 
     document.getElementById('settings-form')?.addEventListener('submit', (e) => {
@@ -859,12 +1124,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('refresh-btn')?.addEventListener('click', async () => {
         await fetch('/api/refresh', { method: 'POST' });
-        alert('Update started in background...');
+        await showAlert('Update started in background...');
+    });
+
+    document.getElementById('check-updates-btn')?.addEventListener('click', async () => {
+        await fetch('/api/refresh', { method: 'POST' });
+        await showAlert('Update check started in background...');
     });
 
     document.getElementById('backup-btn')?.addEventListener('click', () => {
         window.location.href = '/api/backup';
     });
+
+    const restoreFileInput = document.getElementById('restore-file-input');
+    if (restoreFileInput) {
+        restoreFileInput.addEventListener('change', async (e) => {
+            if (!e.target.files.length) return;
+            const file = e.target.files[0];
+            
+            if (await showConfirm('Are you sure you want to restore this configuration? This will overwrite your current settings and restart the filtering engine.')) {
+                const formData = new FormData();
+                formData.append('config', file);
+                
+                try {
+                    const resp = await fetch('/api/restore', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (resp.ok) {
+                        await showAlert('Configuration restored successfully.');
+                        window.location.reload();
+                    } else {
+                        const errText = await resp.text();
+                        await showAlert('Restore failed: ' + errText);
+                    }
+                } catch (err) {
+                    await showAlert('Restore request failed: ' + err.message);
+                }
+            }
+            e.target.value = '';
+        });
+    }
 
     document.getElementById('smart-upstream-check')?.addEventListener('change', (e) => {
         currentConfig.use_fastest_upstream = e.target.checked;
@@ -894,11 +1194,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const name = document.getElementById('list-name').value;
         const url = document.getElementById('list-url').value;
         const type = document.getElementById('list-type').value;
+        const category = document.getElementById('list-category').value;
         if (name && url) {
             if (type === 'allow') {
-                currentConfig.allowlists.push({ name, url, enabled: true });
+                currentConfig.allowlists.push({ name, url, enabled: true, category });
             } else {
-                currentConfig.lists.push({ name, url, enabled: true });
+                currentConfig.lists.push({ name, url, enabled: true, category });
             }
             saveConfig();
             modal.classList.add('hidden');
@@ -934,6 +1235,97 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             result.textContent = `✅ ${domain} is NOT BLOCKED`;
             result.classList.add('allowed');
+        }
+    });
+
+    // System Reset Logic
+    const resetModal1 = document.getElementById('reset-modal-1');
+    const resetModal2 = document.getElementById('reset-modal-2');
+    const resetBtn = document.getElementById('reset-system-btn');
+    const resetConfirm1 = document.getElementById('reset-confirm-1');
+    const resetCancel1 = document.getElementById('reset-cancel-1');
+    const resetConfirm2 = document.getElementById('reset-confirm-2');
+    const resetCancel2 = document.getElementById('reset-cancel-2');
+    const resetFinalInput = document.getElementById('reset-final-input');
+    const restartOverlay = document.getElementById('restart-overlay');
+    const resetTriggerBackup = document.getElementById('reset-trigger-backup');
+
+    resetBtn?.addEventListener('click', () => {
+        resetModal1.classList.remove('hidden');
+    });
+
+    resetCancel1?.addEventListener('click', () => {
+        resetModal1.classList.add('hidden');
+    });
+
+    resetConfirm1?.addEventListener('click', () => {
+        resetModal1.classList.add('hidden');
+        resetModal2.classList.remove('hidden');
+    });
+
+    resetCancel2?.addEventListener('click', () => {
+        resetModal2.classList.add('hidden');
+        resetFinalInput.value = '';
+        resetConfirm2.disabled = true;
+    });
+
+    resetFinalInput?.addEventListener('input', (e) => {
+        resetConfirm2.disabled = e.target.value !== 'RESET';
+    });
+
+    resetTriggerBackup?.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.href = '/api/backup';
+    });
+
+    resetConfirm2?.addEventListener('click', async () => {
+        if (resetFinalInput.value !== 'RESET') return;
+
+        resetModal2.classList.add('hidden');
+        restartOverlay.classList.remove('hidden');
+
+        try {
+            const resp = await fetch('/api/reset', { method: 'POST' });
+            if (resp.ok) {
+                // Wait for the system to actually go down and come back
+                let attempts = 0;
+                const checkStatus = async () => {
+                    attempts++;
+                    try {
+                        const statusResp = await fetch('/api/auth-status');
+                        if (statusResp.ok) {
+                            location.reload();
+                        } else {
+                            setTimeout(checkStatus, 2000);
+                        }
+                    } catch (e) {
+                        if (attempts > 30) {
+                            await showAlert('System is taking longer than expected to restart. Please refresh manually.');
+                        } else {
+                            setTimeout(checkStatus, 2000);
+                        }
+                    }
+                };
+                setTimeout(checkStatus, 3000);
+            } else {
+                throw new Error('Reset failed');
+            }
+        } catch (e) {
+            restartOverlay.classList.add('hidden');
+            await showAlert('System reset failed: ' + e.message);
+        }
+    });
+
+    document.getElementById('reset-lists-btn')?.addEventListener('click', async () => {
+        if (!(await showConfirm('Are you sure you want to restore all filter lists to factory defaults? Your custom lists will be removed.'))) return;
+        try {
+            const resp = await fetch('/api/config/reset-lists', { method: 'POST' });
+            if (resp.ok) {
+                await showAlert('Filter lists restored to defaults! Processing updates in background...');
+                location.reload();
+            }
+        } catch (e) {
+            await showAlert('Failed to reset lists');
         }
     });
 
@@ -988,18 +1380,40 @@ const fetchDiagnostics = async () => {
         const resp = await fetch('/api/diagnostics');
         const data = await resp.json();
         
+        const cert = data.certificate || {};
         certInfoContent.innerHTML = `
-            <div class="diag-item"><span>Status</span><span class="badge ${data.is_expired ? 'danger' : 'official'}">${data.is_expired ? 'Expired' : 'Valid'}</span></div>
-            <div class="diag-item"><span>Subject</span><span>${data.subject}</span></div>
-            <div class="diag-item"><span>Issuer</span><span>${data.issuer}</span></div>
-            <div class="diag-item"><span>Expires</span><span>${new Date(data.expires).toLocaleString()}</span></div>
-            <div class="diag-item"><span>Not Before</span><span>${new Date(data.not_before).toLocaleString()}</span></div>
-            <div class="diag-item"><span>SANs</span><div style="text-align:right">${data.dns_names.join('<br>')}</div></div>
+            <div class="diag-item"><span>Status</span><span class="badge ${cert.valid ? 'official' : 'danger'}">${cert.valid ? 'Valid' : 'Expired'}</span></div>
+            <div class="diag-item"><span>Subject</span><span>${cert.subject || '-'}</span></div>
+            <div class="diag-item"><span>Issuer</span><span>${cert.issuer || '-'}</span></div>
+            <div class="diag-item"><span>Expires</span><span>${cert.not_after ? new Date(cert.not_after).toLocaleString() : '-'}</span></div>
+            <div class="diag-item"><span>Not Before</span><span>${cert.not_before ? new Date(cert.not_before).toLocaleString() : '-'}</span></div>
+            <div class="diag-item"><span>SANs</span><div style="text-align:right">${(cert.dns_names || []).join('<br>') || '-'}</div></div>
         `;
+
+        const latencyTable = document.getElementById('upstream-latency-list');
+        if (latencyTable) {
+            const upstreams = data.upstream_health || [];
+            if (upstreams.length === 0) {
+                latencyTable.innerHTML = '<tr><td colspan="3" class="help">No upstreams configured.</td></tr>';
+            } else {
+                latencyTable.innerHTML = upstreams.map(h => {
+                    const isUp = h.status === 'up';
+                    const latStr = isUp ? `${h.latency_ms.toFixed(1)} ms` : '-';
+                    return `
+                        <tr>
+                            <td>${h.server}</td>
+                            <td><span class="badge ${isUp ? 'official' : 'danger'}">${isUp ? 'Healthy' : 'Down'}</span></td>
+                            <td class="text-right">${latStr}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
     } catch (e) {
-        certInfoContent.innerHTML = '<p class="danger-text">Failed to load certificate information.</p>';
+        certInfoContent.innerHTML = '<p class="danger-text">Failed to load diagnostics information.</p>';
     }
 };
+
 
 window.toggleList = async (index, type) => {
     if (type === 'allow') {
@@ -1012,7 +1426,7 @@ window.toggleList = async (index, type) => {
 };
 
 window.removeList = async (index, type) => {
-    if (confirm('Are you sure you want to remove this list?')) {
+    if (await showConfirm('Are you sure you want to remove this list?')) {
         if (type === 'allow') {
             currentConfig.allowlists.splice(index, 1);
         } else {

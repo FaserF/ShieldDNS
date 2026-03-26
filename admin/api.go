@@ -54,7 +54,10 @@ func getRequiredPermission(r *http.Request) string {
 		return "read:logs"
 	case strings.HasPrefix(path, "/api/system-logs"), strings.HasPrefix(path, "/api/diagnostics"), strings.HasPrefix(path, "/api/backup"):
 		return "read:system"
-	case strings.HasPrefix(path, "/api/filtering/toggle"):
+	case strings.HasPrefix(path, "/api/filtering"), strings.HasPrefix(path, "/api/rules"):
+		if r.Method == http.MethodGet {
+			return "read:stats"
+		}
 		return "write:filtering"
 	case strings.HasPrefix(path, "/api/config"):
 		if r.Method == http.MethodPost {
@@ -200,6 +203,123 @@ func handleToggleFiltering(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func handleFilteringStatus(w http.ResponseWriter, r *http.Request) {
+	configLock.RLock()
+	enabled := config.FilteringEnabled
+	configLock.RUnlock()
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"enabled": enabled})
+}
+
+func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	var req struct {
+		Domain string `json:"domain"`
+		Type   string `json:"type"` // "block" or "allow"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	
+	domain := strings.TrimSpace(req.Domain)
+	if domain == "" {
+		http.Error(w, "Domain required", http.StatusBadRequest)
+		return
+	}
+	
+	configLock.Lock()
+	defer configLock.Unlock()
+	
+	if req.Type == "block" {
+		// Remove from allowed if present
+		var clean []string
+		for _, d := range config.CustomAllowed {
+			if d != domain { clean = append(clean, d) }
+		}
+		config.CustomAllowed = clean
+		
+		// Add to blocked if not present
+		exists := false
+		for _, d := range config.CustomBlocked {
+			if d == domain { exists = true; break }
+		}
+		if !exists {
+			config.CustomBlocked = append(config.CustomBlocked, domain)
+		}
+	} else if req.Type == "allow" {
+		// Remove from blocked if present
+		var clean []string
+		for _, d := range config.CustomBlocked {
+			if d != domain { clean = append(clean, d) }
+		}
+		config.CustomBlocked = clean
+		
+		// Add to allowed if not present
+		exists := false
+		for _, d := range config.CustomAllowed {
+			if d == domain { exists = true; break }
+		}
+		if !exists {
+			config.CustomAllowed = append(config.CustomAllowed, domain)
+		}
+	} else {
+		http.Error(w, "Type must be 'block' or 'allow'", http.StatusBadRequest)
+		return
+	}
+	
+	saveConfigNoLock()
+	go updateBlocklist() // Process rule changes asynchronously
+	
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	var req struct {
+		Domain string `json:"domain"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	
+	domain := strings.TrimSpace(req.Domain)
+	if domain == "" {
+		http.Error(w, "Domain required", http.StatusBadRequest)
+		return
+	}
+	
+	configLock.Lock()
+	defer configLock.Unlock()
+	
+	var cleanBlocked []string
+	for _, d := range config.CustomBlocked {
+		if d != domain { cleanBlocked = append(cleanBlocked, d) }
+	}
+	config.CustomBlocked = cleanBlocked
+	
+	var cleanAllowed []string
+	for _, d := range config.CustomAllowed {
+		if d != domain { cleanAllowed = append(cleanAllowed, d) }
+	}
+	config.CustomAllowed = cleanAllowed
+	
+	saveConfigNoLock()
+	go updateBlocklist() // Process rule changes asynchronously
+	
+	w.WriteHeader(http.StatusOK)
+}
+
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	// Simple health check for monitoring
 	w.Header().Set("Content-Type", "application/json")
@@ -342,20 +462,87 @@ func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	latencyLock.RLock()
+	lats := make(map[string]string)
+	latsRaw := make(map[string]time.Duration)
+	for k, v := range latencyMap {
+		lats[k] = v.String()
+		latsRaw[k] = v
+	}
+	latencyLock.RUnlock()
+
+	healthLock.RLock()
+	hUp := make(map[string]bool)
+	for _, u := range healthyUpstreams {
+		hUp[u] = true
+	}
+	hDoT := make(map[string]bool)
+	for _, u := range healthyDoT {
+		hDoT[u] = true
+	}
+	healthLock.RUnlock()
+
+	configLock.RLock()
+	allUpstreams := config.Upstreams
+	allDoT := config.UpstreamDoT
+	configLock.RUnlock()
+
+	type UpstreamHealth struct {
+		Server    string  `json:"server"`
+		Status    string  `json:"status"`
+		LatencyMs float64 `json:"latency_ms"`
+	}
+
+	var upstreamHealth []UpstreamHealth
+	for _, u := range allUpstreams {
+		key := u
+		if strings.Contains(u, ":") {
+			key = u
+		}
+		status := "down"
+		if hUp[key] {
+			status = "up"
+		}
+		latMs := 0.0
+		if d, ok := latsRaw[key]; ok {
+			latMs = float64(d.Microseconds()) / 1000.0
+		}
+		upstreamHealth = append(upstreamHealth, UpstreamHealth{Server: u, Status: status, LatencyMs: latMs})
+	}
+	for _, u := range allDoT {
+		key := u
+		status := "down"
+		if hDoT[key] {
+			status = "up"
+		}
+		latMs := 0.0
+		if d, ok := latsRaw[key]; ok {
+			latMs = float64(d.Microseconds()) / 1000.0
+		}
+		upstreamHealth = append(upstreamHealth, UpstreamHealth{Server: "tls://" + u, Status: status, LatencyMs: latMs})
+	}
+	if upstreamHealth == nil {
+		upstreamHealth = []UpstreamHealth{}
+	}
+
 	info := map[string]interface{}{
-		"issuer":     cert.Issuer.String(),
-		"subject":    cert.Subject.String(),
-		"expires":    cert.NotAfter.Format(time.RFC3339),
-		"not_before": cert.NotBefore.Format(time.RFC3339),
-		"dns_names":  cert.DNSNames,
-		"ip_addr":    cert.IPAddresses,
-		"self_signed": cert.Issuer.String() == cert.Subject.String(),
-		"is_expired":  time.Now().After(cert.NotAfter),
+		"certificate": map[string]interface{}{
+			"issuer":      cert.Issuer.String(),
+			"subject":     cert.Subject.String(),
+			"not_after":   cert.NotAfter.Format(time.RFC3339),
+			"not_before":  cert.NotBefore.Format(time.RFC3339),
+			"dns_names":   cert.DNSNames,
+			"valid":       !time.Now().After(cert.NotAfter),
+			"self_signed": cert.Issuer.String() == cert.Subject.String(),
+		},
+		"latencies":        lats,
+		"upstream_health":  upstreamHealth,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(info)
 }
+
 
 func handleBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/zip")
@@ -396,10 +583,57 @@ func handleBackup(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handleRestore(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	file, _, err := r.FormFile("config")
+	if err != nil {
+		http.Error(w, "Config file 'config' field required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	var newConfig Config
+	if err := json.NewDecoder(file).Decode(&newConfig); err != nil {
+		http.Error(w, "Invalid JSON format: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	configLock.Lock()
+	if newConfig.AdminPasswordHashed == "" {
+		newConfig.AdminPasswordHashed = config.AdminPasswordHashed
+	}
+	config = newConfig
+	saveConfigNoLock()
+	configLock.Unlock()
+
+	updateCorefile()
+	go updateBlocklist()
+
+	AddSystemLog("System Configuration Restored from uploaded file.")
+	w.WriteHeader(http.StatusOK)
+}
+
 func handleStats(w http.ResponseWriter, r *http.Request) {
 	statsLock.RLock()
 	s := stats
 	statsLock.RUnlock()
+
+	// Query unique clients in the last 24 hours from DB
+	var uniqueClients int
+	row := db.QueryRow("SELECT COUNT(DISTINCT client_ip) FROM queries WHERE timestamp > datetime('now', '-24 hours')")
+	if err := row.Scan(&uniqueClients); err == nil {
+		s.UniqueClients = uniqueClients
+	}
 
 	s.Version = Version
 	s.CoreDNSVersion = "v1.14.2" // Match Dockerfile
@@ -415,16 +649,61 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(s)
 }
 
+func handleBlockInfo(w http.ResponseWriter, r *http.Request) {
+	domain := r.URL.Query().Get("domain")
+	if domain == "" {
+		http.Error(w, "Domain required", http.StatusBadRequest)
+		return
+	}
+
+	blockAttributionLock.RLock()
+	lists := blockAttribution[domain]
+	blockAttributionLock.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"domain": domain,
+		"lists":  lists,
+	})
+}
+
 func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	host := r.Host
 	if strings.Contains(host, ":") {
 		host = strings.Split(host, ":")[0]
 	}
 
+	// Read configured upstreams for ServerAddresses fallback
+	configLock.RLock()
+	upstreams := config.Upstreams
+	configLock.RUnlock()
+
+	// Build ServerAddresses XML array from configured upstream IPs
+	serverAddrsXML := ""
+	for _, ip := range upstreams {
+		ip = strings.TrimSpace(ip)
+		if ip != "" {
+			serverAddrsXML += fmt.Sprintf("\t\t\t\t<string>%s</string>\n", ip)
+		}
+	}
+	if serverAddrsXML == "" {
+		serverAddrsXML = "\t\t\t\t<string>1.1.1.1</string>\n\t\t\t\t<string>8.8.8.8</string>\n"
+	}
+
+	// Generate unique UUIDs per download to avoid profile conflicts
+	payloadUUID := fmt.Sprintf("%08X-%04X-%04X-%04X-%012X",
+		time.Now().UnixNano()&0xFFFFFFFF, time.Now().UnixNano()>>32&0xFFFF,
+		0x4000|(time.Now().UnixNano()>>48&0x0FFF), 0x8000|(time.Now().UnixNano()>>60&0x3FFF),
+		time.Now().UnixNano()&0xFFFFFFFFFFFF)
+	profileUUID := fmt.Sprintf("%08X-%04X-%04X-%04X-%012X",
+		(time.Now().UnixNano()+1)&0xFFFFFFFF, (time.Now().UnixNano()+1)>>32&0xFFFF,
+		0x4000|((time.Now().UnixNano()+1)>>48&0x0FFF), 0x8000|((time.Now().UnixNano()+1)>>60&0x3FFF),
+		(time.Now().UnixNano()+1)&0xFFFFFFFFFFFF)
+
 	w.Header().Set("Content-Type", "application/x-apple-aspen-config")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=shielddns_%s.mobileconfig", host))
 
-	config := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+	mobileConfig := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -437,37 +716,58 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 				<string>TLS</string>
 				<key>ServerName</key>
 				<string>%s</string>
+				<key>ServerAddresses</key>
+				<array>
+%s				</array>
 			</dict>
+			<key>OnDemandRules</key>
+			<array>
+				<dict>
+					<key>Action</key>
+					<string>Connect</string>
+				</dict>
+			</array>
+			<key>ProhibitDisablement</key>
+			<false/>
 			<key>PayloadDescription</key>
-			<string>ShieldDNS Private DoT Configuration for %s</string>
+			<string>Configures encrypted DNS-over-TLS (DoT) to route all DNS queries through ShieldDNS on %s. This protects your browsing from tracking and blocks malicious domains.</string>
 			<key>PayloadDisplayName</key>
-			<string>ShieldDNS (%s)</string>
+			<string>ShieldDNS DNS Settings</string>
 			<key>PayloadIdentifier</key>
-			<string>com.shielddns.%s</string>
+			<string>com.shielddns.dns.%s</string>
 			<key>PayloadType</key>
 			<string>com.apple.dnsSettings.managed</string>
 			<key>PayloadUUID</key>
-			<string>4F8A6B1C-E8D1-4A5C-8B3D-4D5E6F7A8B9C</string>
+			<string>%s</string>
 			<key>PayloadVersion</key>
 			<integer>1</integer>
 		</dict>
 	</array>
 	<key>PayloadDisplayName</key>
-	<string>ShieldDNS DoT Profile</string>
+	<string>ShieldDNS Encrypted DNS</string>
+	<key>PayloadDescription</key>
+	<string>This profile enables encrypted DNS-over-TLS (DoT) via ShieldDNS. All DNS queries from this device will be routed through your private ShieldDNS server at %s, providing ad-blocking, tracking protection, and malware filtering.</string>
 	<key>PayloadIdentifier</key>
 	<string>com.shielddns.profile.%s</string>
+	<key>PayloadOrganization</key>
+	<string>ShieldDNS</string>
 	<key>PayloadRemovalDisallowed</key>
 	<false/>
 	<key>PayloadType</key>
 	<string>Configuration</string>
 	<key>PayloadUUID</key>
-	<string>D1E2F3A4-B5C6-4D7E-8F9A-0B1C2D3E4F5A</string>
+	<string>%s</string>
 	<key>PayloadVersion</key>
 	<integer>1</integer>
+	<key>ConsentText</key>
+	<dict>
+		<key>default</key>
+		<string>This profile will configure your device to use ShieldDNS (%s) as your encrypted DNS server (DNS-over-TLS). All DNS queries will be routed through this server for ad-blocking and privacy protection. You can remove this profile at any time in Settings > General > VPN &amp; Device Management.</string>
+	</dict>
 </dict>
-</plist>`, host, host, host, host, host)
+</plist>`, host, serverAddrsXML, host, host, payloadUUID, host, host, profileUUID, host)
 
-	w.Write([]byte(config))
+	w.Write([]byte(mobileConfig))
 }
 
 func handleConfig(w http.ResponseWriter, r *http.Request) {
@@ -481,6 +781,34 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.AdminPasswordHashed == "" {
 			newConfig.AdminPasswordHashed = config.AdminPasswordHashed
 		}
+
+		// Sanitize Custom Rules
+		sanitizeRule := func(r string) string {
+			r = strings.TrimSpace(r)
+			r = strings.TrimPrefix(r, "http://")
+			r = strings.TrimPrefix(r, "https://")
+			if idx := strings.Index(r, "/"); idx != -1 {
+				r = r[:idx]
+			}
+			return r
+		}
+
+		var cleanBlocked []string
+		for _, b := range newConfig.CustomBlocked {
+			if s := sanitizeRule(b); s != "" {
+				cleanBlocked = append(cleanBlocked, s)
+			}
+		}
+		newConfig.CustomBlocked = cleanBlocked
+
+		var cleanAllowed []string
+		for _, a := range newConfig.CustomAllowed {
+			if s := sanitizeRule(a); s != "" {
+				cleanAllowed = append(cleanAllowed, s)
+			}
+		}
+		newConfig.CustomAllowed = cleanAllowed
+
 		config = newConfig
 		saveConfigNoLock()
 		configLock.Unlock()
@@ -501,40 +829,13 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePresets(w http.ResponseWriter, r *http.Request) {
-	presets := []List{
-		// --- Hagezi ---
-		{Name: "Hagezi Multi (Light)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt", Enabled: true},
-		{Name: "Hagezi Multi (Normal)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/multi.txt", Enabled: true},
-		{Name: "Hagezi Multi (Pro)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.txt", Enabled: true},
-		{Name: "Hagezi Multi (Pro++)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.plus.txt", Enabled: true},
-		{Name: "Hagezi Multi (Ultimate)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/ultimate.txt", Enabled: true},
-		{Name: "Hagezi TIF (Threat Intelligence)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/tif.txt", Enabled: true},
-		{Name: "Hagezi Gambling", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/gambling/gambling.txt", Enabled: true},
-		{Name: "Hagezi Fake (Fake Stores/Malware)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/fake/fake.txt", Enabled: true},
-		// --- OISD ---
-		{Name: "OISD Basic", URL: "https://big.oisd.nl", Enabled: true},
-		{Name: "OISD Full", URL: "https://small.oisd.nl", Enabled: true},
-		// --- AdGuard ---
-		{Name: "AdGuard DNS Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt", Enabled: true},
-		{Name: "AdGuard Tracking Protection", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_3.txt", Enabled: true},
-		{Name: "AdGuard Social Media Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_4.txt", Enabled: true},
-		{Name: "AdGuard Annoyances Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt", Enabled: true},
-		// --- Steven Black ---
-		{Name: "Steven Black Unified", URL: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", Enabled: true},
-		{Name: "Steven Black (Porn/Gambling/FakeNews)", URL: "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn/hosts", Enabled: true},
-		// --- 1Hosts ---
-		{Name: "1Hosts (Lite)", URL: "https://badmojr.github.io/1Hosts/Lite/domains.txt", Enabled: true},
-		{Name: "1Hosts (Xtra)", URL: "https://badmojr.github.io/1Hosts/Xtra/domains.txt", Enabled: true},
-		{Name: "uBlock Origin Filter List", URL: "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt", Enabled: true},
-		// --- Specialized ---
-		{Name: "Phishing.Database (Phishing Domains)", URL: "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt", Enabled: true},
-		{Name: "Dandelion Sprout's Game Console List", URL: "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/GameConsoleAdblockList.txt", Enabled: true},
-		{Name: "Lightswitch05 (Ads & Tracking Extended)", URL: "https://raw.githubusercontent.com/lightswitch05/hosts/master/docs/lists/ads-and-tracking-extended.txt", Enabled: true},
-		{Name: "The Big List of Hacked Sites", URL: "https://raw.githubusercontent.com/mitchellkrogza/The-Big-List-of-Hacked-Malware-Web-Sites/master/hacked-domains.list", Enabled: true},
-		{Name: "KADhost (German Blocklist)", URL: "https://raw.githubusercontent.com/FiltersHeroes/KADhosts/master/KADhosts.txt", Enabled: true},
-	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(presets)
+	json.NewEncoder(w).Encode(DefaultPresets)
+}
+
+func handlePresetAllowlists(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(DefaultAllowlists)
 }
 
 func handleQueries(w http.ResponseWriter, r *http.Request) {
@@ -656,6 +957,13 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Standardize query (trim http://, paths, trailing dots)
+	query = strings.TrimSpace(query)
+	query = strings.TrimPrefix(query, "http://")
+	query = strings.TrimPrefix(query, "https://")
+	query = strings.Split(query, "/")[0]
+	query = strings.TrimSuffix(query, ".")
+
 	blockAttributionLock.RLock()
 	lists, found := blockAttribution[query]
 	blockAttributionLock.RUnlock()
@@ -728,4 +1036,73 @@ func handleTopClients(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+func handleReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	configLock.Lock()
+	defer configLock.Unlock()
+
+	log.Println("!!! SYSTEM RESET TRIGGERED !!!")
+
+	// 1. Close DB
+	if db != nil {
+		db.Close()
+		db = nil
+	}
+
+	// 2. Delete files
+	files := []string{ConfigPath, DBPath, BlocklistPath, AllowlistPath}
+	for _, f := range files {
+		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
+			log.Printf("Failed to remove %s: %v", f, err)
+		}
+	}
+
+	// 3. Clear sessions
+	sessionLock.Lock()
+	sessionToken = "" // Invalidate current session
+	sessionLock.Unlock()
+
+	// 4. Reset in-memory stats
+	statsLock.Lock()
+	stats = Stats{Version: Version} 
+	statsLock.Unlock()
+
+	queryLock.Lock()
+	recentQueries = nil
+	queryLock.Unlock()
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+
+	// Graceful exit after response
+	go func() {
+		time.Sleep(1 * time.Second)
+		log.Println("System Reset complete. Exiting for restart.")
+		os.Exit(0)
+	}()
+}
+
+func handleResetLists(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	configLock.Lock()
+	config.Lists = DefaultPresets
+	config.Allowlists = DefaultAllowlists
+	saveConfigNoLock()
+	configLock.Unlock()
+
+	// Trigger background update
+	go updateBlocklist()
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
