@@ -10,7 +10,7 @@ import (
 	"html/template"
 )
 
-const Version        = "v1.3.0"
+const Version        = "v1.2.0"
 
 func main() {
 	stats.QueryTypes = make(map[string]int64)
