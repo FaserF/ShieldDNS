@@ -8,6 +8,8 @@ import (
 	"syscall"
 )
 
+const Version = "v1.0.1"
+
 func main() {
 	stats.QueryTypes = make(map[string]int64)
 	initPaths()

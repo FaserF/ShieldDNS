@@ -12,6 +12,7 @@ It features a premium **Admin Dashboard** with persistent SQLite-backed analytic
 - 📊 **Persistent Analytics**: SQLite-backed query history and advanced analytics (Top Blocked Domains, Top Clients).
 - 🏳️ **Custom Rules**: Instantly allow or block individual domains via the Admin UI.
 - 🛡️ **DNS Filtering**: Integrated engine for blocklists with automatic updates and deduplication.
+- 🔌 **Protection Kill-Switch**: Instantly disable all filtering via the dashboard or API.
 - ⚡ **Optimized Performance**: Intelligent caching and prefetching enabled by default for ultra-low latency.
 - 🔐 **Secure Admin**: Mandatory password protection (bcrypt) for the Admin UI on port 443.
 - 📱 **Modern Protocols**: Perfect for Android Private DNS and standard system-wide filtering.
@@ -108,6 +109,10 @@ ShieldDNS uses a Role-Based Access Control model. Tokens can be restricted to:
 - `read:system`: System terminal logs, SSL diagnostics, and backups.
 - `write:filtering`: Toggle the global protection/filtering engine.
 - `read:all`: Grant all read-only permissions above.
+
+### Health Endpoints
+- `/api/health/live`: Public endpoint for container liveness checks (No authentication required).
+- `/api/health/ready`: System readiness check (Requires `read:system` permission).
 
 > [!IMPORTANT]
 > **Security Guard Policy**: If no API keys are defined in the Settings, all token-based authentication attempts are rejected by default.

@@ -13,6 +13,49 @@ import (
 
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1. Try API Token Authentication first (for Drittsysteme)
+		token := r.Header.Get("X-API-Key")
+		if token == "" {
+			authHeader := r.Header.Get("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				token = strings.TrimPrefix(authHeader, "Bearer ")
+			}
+		}
+
+		if token != "" {
+			configLock.RLock()
+			keys := config.APIKeys
+			configLock.RUnlock()
+
+			// Safety Guard: If no tokens exist, reject all API attempts
+			if len(keys) == 0 {
+				http.Error(w, "Unauthorized: No API keys configured", http.StatusUnauthorized)
+				return
+			}
+
+			hashed := hashToken(token)
+			var matchedKey *APIKey
+			for _, k := range keys {
+				if k.TokenHash == hashed {
+					matchedKey = &k
+					break
+				}
+			}
+
+			if matchedKey != nil {
+				required := getRequiredPermission(r)
+				if hasPermission(matchedKey, required) {
+					next.ServeHTTP(w, r)
+					return
+				}
+				http.Error(w, "Forbidden: Insufficient permissions", http.StatusForbidden)
+				return
+			}
+			http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		// 2. Try Session Cookie Authentication (for Admin UI)
 		configLock.RLock()
 		hasPwd := config.AdminPasswordHashed != ""
 		configLock.RUnlock()
@@ -31,6 +74,7 @@ func authMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	})
 }

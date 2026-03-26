@@ -72,7 +72,6 @@ var (
 	queryLock      sync.RWMutex
 	history        [24]HourStats
 	historyLock    sync.RWMutex
-	Version        = "v1.0.1"
 
 	// Health monitoring
 	healthyUpstreams []string

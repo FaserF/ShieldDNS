@@ -25,6 +25,7 @@ func TestAuthMiddleware(t *testing.T) {
 				Permissions: []string{"read:all"},
 			},
 		},
+		AdminPasswordHashed: "dummy-hash",
 	}
 
 	handler := authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

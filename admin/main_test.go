@@ -105,26 +105,6 @@ func TestBlockAttribution(t *testing.T) {
 	}
 }
 
-func TestAuthMiddleware(t *testing.T) {
-	configLock.Lock()
-	config.AdminPasswordHashed = "$2a$10$vI8pI.N6uQXq1/v4u.pI9u4/v4u.pI9u4/v4u.pI9u4/v4u.pI9" // dummy hash
-	configLock.Unlock()
-
-	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/stats", nil)
-	
-	handler := authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	handler.ServeHTTP(rr, req)
-
-	// Should be unauthorized without cookie
-	if rr.Code != http.StatusUnauthorized {
-		t.Errorf("expected unauthorized, got %v", rr.Code)
-	}
-}
-
 func TestParseLogLine(t *testing.T) {
 	statsLock.Lock()
 	stats.TotalQueries = 0

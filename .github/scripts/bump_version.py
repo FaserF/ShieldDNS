@@ -56,12 +56,19 @@ def update_source_code(new_version):
         content = f.read()
 
     # Match Version = "vX.Y.Z-dev" or similar
-    new_content = re.sub(
-        r'Version\s*=\s*"[^"]+"',
-        f'Version        = "v{new_version}"',
-        content,
-        count=1
-    )
+    if re.search(r'Version\s*=\s*"[^"]+"', content):
+        new_content = re.sub(
+            r'Version\s*=\s*"[^"]+"',
+            f'Version        = "v{new_version}"',
+            content,
+            count=1
+        )
+    else:
+        # If not found, append it before func main()
+        if "func main()" in content:
+            new_content = content.replace("func main()", f'const Version = "v{new_version}"\n\nfunc main()')
+        else:
+            new_content = content + f'\nconst Version = "v{new_version}"\n'
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(new_content)
