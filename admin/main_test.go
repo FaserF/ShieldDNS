@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -150,9 +151,17 @@ func TestUpdateCorefile(t *testing.T) {
 	// Setup
 	originalConfig := config
 	originalHealthy := healthyUpstreams
+	originalPath := CorefilePath
+	
+	tmpFile, _ := os.CreateTemp("", "Corefile")
+	CorefilePath = tmpFile.Name()
+	
 	defer func() {
 		config = originalConfig
 		healthyUpstreams = originalHealthy
+		CorefilePath = originalPath
+		os.Remove(CorefilePath)
+		tmpFile.Close()
 	}()
 
 	config = Config{
@@ -185,6 +194,19 @@ func TestUpdateCorefile(t *testing.T) {
 
 func TestConfigDefaults(t *testing.T) {
 	// Test loadConfig creating defaults
+	originalDir := DataDir
+	originalConfigPath := ConfigPath
+	
+	tmpDir, _ := os.MkdirTemp("", "shielddns-test")
+	DataDir = tmpDir
+	ConfigPath = filepath.Join(tmpDir, "config.json")
+	
+	defer func() {
+		DataDir = originalDir
+		ConfigPath = originalConfigPath
+		os.RemoveAll(tmpDir)
+	}()
+
 	os.Remove(ConfigPath)
 	loadConfig()
 	if len(config.Upstreams) != 5 {
@@ -213,7 +235,17 @@ func TestQueryTypeTracking(t *testing.T) {
 func TestSmartSorting(t *testing.T) {
 	// Setup
 	originalConfig := config
-	defer func() { config = originalConfig }()
+	originalPath := CorefilePath
+	
+	tmpFile, _ := os.CreateTemp("", "Corefile-smart")
+	CorefilePath = tmpFile.Name()
+	
+	defer func() {
+		config = originalConfig
+		CorefilePath = originalPath
+		os.Remove(CorefilePath)
+		tmpFile.Close()
+	}()
 
 	config = Config{
 		Upstreams:          []string{"1.1.1.1", "8.8.8.8"},
