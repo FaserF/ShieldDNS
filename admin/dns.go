@@ -398,16 +398,20 @@ func parseLogLine(line string) {
 	
 	// Validation
 	if len(fields) < 6 {
+		log.Printf("DEBUG: parseLogLine: too few fields (%d): %s", len(fields), line)
 		return
 	}
 
 	durationStr := fields[len(fields)-1]
-	if !strings.HasSuffix(durationStr, "s") || len(durationStr) < 2 {
+	rflags      := fields[len(fields)-2]
+	
+	if !strings.HasSuffix(durationStr, "s") {
+		// Possibly a different log format or non-query log
 		return
 	}
 
-	rflags      := fields[len(fields)-2]
 	if !strings.Contains(rflags, "qr") {
+		log.Printf("DEBUG: parseLogLine: not a response (no qr): %s", line)
 		return
 	}
 
@@ -417,6 +421,7 @@ func parseLogLine(line string) {
 	remote      := fields[len(fields)-6]
 
 	if strings.Contains(qType, "=") || len(qType) > 10 || qType == "-" {
+		log.Printf("DEBUG: parseLogLine: invalid qType (%s): %s", qType, line)
 		return
 	}
 

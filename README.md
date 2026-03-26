@@ -184,6 +184,26 @@ Immediately take control of your network without managing external lists:
 - **Android**: Go to **Settings > Network > Private DNS** and enter your domain (e.g., `dns.example.com`).
 - **iOS/macOS**: Use a `.mobileconfig` profile pointing to your DoT endpoint.
 
+### OpenWrt Integration (Best Practices)
+If you host ShieldDNS publicly and want to route your entire home network through it via an OpenWrt router, follow these steps:
+
+#### 1. Configure DNS Forwarding
+Navigate to **Network > DHCP and DNS** in LuCI:
+- **DNS forwardings**: Enter the IP of your ShieldDNS server (e.g., `94.31.75.54`).
+- **Fallback**: Add a secondary DNS server (e.g., `1.1.1.1`) as a second entry. 
+- **Strict Order**: (Optional) In the **Advanced Settings** tab, check `Strict Order` to ensure ShieldDNS is always tried first.
+
+#### 2. Enforce ShieldDNS (DNS Hijacking)
+To prevent devices from bypassing ShieldDNS by using hardcoded DNS servers (like 8.8.8.8), add a NAT rule under **Network > Firewall > Traffic Rules > DNAT**:
+- **Protocol**: `UDP`, `TCP`
+- **Source zone**: `lan`
+- **Destination port**: `53`
+- **Action**: `DNAT`
+- **Rewrite IP**: (Select your router's LAN IP)
+- **Rewrite port**: `53`
+
+This forces all DNS traffic on your network to go through the router's DNSmasq, which then forwards it to ShieldDNS.
+
 ## 🛡️ Technical Hardening
 ShieldDNS is built for extreme reliability in production environments:
 1.  **Graceful Shutdown**: SIGTERM/SIGINT handling ensures all buffered logs are flushed to SQLite and connections are closed safely, preventing data corruption.

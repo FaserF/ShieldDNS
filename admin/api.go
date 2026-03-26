@@ -86,7 +86,7 @@ func getRequiredPermission(r *http.Request) string {
 func handleGetTokens(w http.ResponseWriter, r *http.Request) {
 	configLock.RLock()
 	defer configLock.RUnlock()
-	
+
 	// Strip hashes before sending to UI
 	type TokenInfo struct {
 		ID          string    `json:"id"`
@@ -95,7 +95,7 @@ func handleGetTokens(w http.ResponseWriter, r *http.Request) {
 		CreatedAt   time.Time `json:"created_at"`
 		LastUsed    time.Time `json:"last_used"`
 	}
-	
+
 	tokens := make([]TokenInfo, len(config.APIKeys))
 	for i, k := range config.APIKeys {
 		tokens[i] = TokenInfo{
@@ -106,7 +106,7 @@ func handleGetTokens(w http.ResponseWriter, r *http.Request) {
 			LastUsed:    k.LastUsed,
 		}
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tokens)
 }
@@ -151,7 +151,7 @@ func handleDeleteToken(w http.ResponseWriter, r *http.Request) {
 
 	configLock.Lock()
 	defer configLock.Unlock()
-	
+
 	newKeys := make([]APIKey, 0)
 	for _, k := range config.APIKeys {
 		if k.ID != id {
@@ -176,7 +176,7 @@ func handleUpdateToken(w http.ResponseWriter, r *http.Request) {
 
 	configLock.Lock()
 	defer configLock.Unlock()
-	
+
 	for i := range config.APIKeys {
 		if config.APIKeys[i].ID == req.ID {
 			config.APIKeys[i].Name = req.Name
@@ -209,7 +209,7 @@ func handleToggleFiltering(w http.ResponseWriter, r *http.Request) {
 	configLock.Unlock()
 
 	updateCorefile()
-	
+
 	status := "Disabled"
 	if req.Enabled { status = "Enabled" }
 	AddSystemLog("Global protection " + status)
@@ -221,7 +221,7 @@ func handleFilteringStatus(w http.ResponseWriter, r *http.Request) {
 	configLock.RLock()
 	enabled := config.FilteringEnabled
 	configLock.RUnlock()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"enabled": enabled})
 }
@@ -231,7 +231,7 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	var req struct {
 		Domain string `json:"domain"`
 		Type   string `json:"type"` // "block" or "allow"
@@ -240,16 +240,16 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	
+
 	domain := strings.TrimSpace(req.Domain)
 	if domain == "" {
 		http.Error(w, "Domain required", http.StatusBadRequest)
 		return
 	}
-	
+
 	configLock.Lock()
 	defer configLock.Unlock()
-	
+
 	if req.Type == "block" {
 		// Remove from allowed if present
 		var clean []string
@@ -257,7 +257,7 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 			if d != domain { clean = append(clean, d) }
 		}
 		config.CustomAllowed = clean
-		
+
 		// Add to blocked if not present
 		exists := false
 		for _, d := range config.CustomBlocked {
@@ -273,7 +273,7 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 			if d != domain { clean = append(clean, d) }
 		}
 		config.CustomBlocked = clean
-		
+
 		// Add to allowed if not present
 		exists := false
 		for _, d := range config.CustomAllowed {
@@ -286,10 +286,10 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Type must be 'block' or 'allow'", http.StatusBadRequest)
 		return
 	}
-	
+
 	saveConfigNoLock()
 	go updateBlocklist() // Process rule changes asynchronously
-	
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -298,7 +298,7 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	var req struct {
 		Domain string `json:"domain"`
 	}
@@ -306,31 +306,31 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	
+
 	domain := strings.TrimSpace(req.Domain)
 	if domain == "" {
 		http.Error(w, "Domain required", http.StatusBadRequest)
 		return
 	}
-	
+
 	configLock.Lock()
 	defer configLock.Unlock()
-	
+
 	var cleanBlocked []string
 	for _, d := range config.CustomBlocked {
 		if d != domain { cleanBlocked = append(cleanBlocked, d) }
 	}
 	config.CustomBlocked = cleanBlocked
-	
+
 	var cleanAllowed []string
 	for _, d := range config.CustomAllowed {
 		if d != domain { cleanAllowed = append(cleanAllowed, d) }
 	}
 	config.CustomAllowed = cleanAllowed
-	
+
 	saveConfigNoLock()
 	go updateBlocklist() // Process rule changes asynchronously
-	
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -673,7 +673,7 @@ func handleBackup(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		
+
 		info, err := file.Stat()
 		if err != nil {
 			file.Close()
@@ -753,7 +753,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 
 	s.Version = Version
 	s.CoreDNSVersion = "v1.14.2" // Match Dockerfile
-	
+
 	// Try to read Alpine version
 	alpineVer := "3.23"
 	if b, err := os.ReadFile("/etc/alpine-release"); err == nil {
@@ -788,10 +788,6 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(host, ":") {
 		host = strings.Split(host, ":")[0]
 	}
-
-	// Read configured upstreams for ServerAddresses fallback
-	configLock.RLock()
-	configLock.RUnlock()
 
 	// Build ServerAddresses XML array from configured upstream IPs
 	serverIP := config.BlockPageIP
@@ -1038,7 +1034,7 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 
 func handleHistory(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
-		SELECT 
+		SELECT
 			strftime('%H', timestamp) as hr,
 			COUNT(*) as total,
 			SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END) as blocked
@@ -1111,11 +1107,11 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 
 func handleTopBlocked(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
-		SELECT domain, COUNT(*) as count 
-		FROM queries 
-		WHERE status = 'Blocked' 
-		GROUP BY domain 
-		ORDER BY count DESC 
+		SELECT domain, COUNT(*) as count
+		FROM queries
+		WHERE status = 'Blocked'
+		GROUP BY domain
+		ORDER BY count DESC
 		LIMIT 10
 	`)
 	if err != nil {
@@ -1137,10 +1133,10 @@ func handleTopBlocked(w http.ResponseWriter, r *http.Request) {
 
 func handleTopClients(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
-		SELECT client_ip, COUNT(*) as count 
-		FROM queries 
-		GROUP BY client_ip 
-		ORDER BY count DESC 
+		SELECT client_ip, COUNT(*) as count
+		FROM queries
+		GROUP BY client_ip
+		ORDER BY count DESC
 		LIMIT 10
 	`)
 	if err != nil {
@@ -1193,7 +1189,7 @@ func handleReset(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Reset in-memory stats
 	statsLock.Lock()
-	stats = Stats{Version: Version} 
+	stats = Stats{Version: Version}
 	statsLock.Unlock()
 
 	queryLock.Lock()
