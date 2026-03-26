@@ -85,15 +85,31 @@ services:
     environment:
       - UPSTREAM_DNS=86.54.11.100, 1.1.1.1, 9.9.9.9, 8.8.8.8, 1.0.0.1 # Max 5
       - UPSTREAM_DOT=unfiltered.joindns4.eu, dns.quad9.net, one.one.one.one # Max 5
-      - PREFER_ENCRYPTED=true # Set to true to prefer DoT over standard DNS
-      - LOG_LEVEL=info # debug, info, error
-      - CERT_FILE=/ssl/fullchain.pem
-      - KEY_FILE=/ssl/privkey.pem
-      - DATA_DIR=/etc/shielddns # Optional: customize data path
+      - PREFER_ENCRYPTED=true
+      - LOG_LEVEL=info
+      - DATA_DIR=/etc/shielddns
     volumes:
       - ./ssl:/ssl
       - ./data:/etc/shielddns # Persistent config, database, and lists
 ```
+
+### 🐋 Standard Docker
+If you prefer the command line, use the following to build and run with persistence:
+```bash
+docker build -t shielddns:local .
+docker run -d \
+  --name shielddns \
+  -p 53:53/udp -p 53:53/tcp \
+  -p 443:443/tcp -p 853:853/tcp \
+  -v $(pwd)/data:/etc/shielddns \
+  -v $(pwd)/ssl:/ssl \
+  shielddns:local
+```
+
+### 💾 Persistent Storage
+To ensure your configuration, query logs, and SSL certificates are saved across container updates and restarts, you **must** mount the following directories:
+- `/etc/shielddns` (Config, SQLite Database, Blocklists)
+- `/ssl` (Your certificates, or where ShieldDNS generates fallback ones)
 
 ## 🛠️ Troubleshooting
 

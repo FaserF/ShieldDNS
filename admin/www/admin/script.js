@@ -216,6 +216,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetchAPIKeys();
             }
         } catch (e) {
+            if (e.message.includes('Unexpected token') || e.message.includes('JSON')) {
+                 // Likely getting 'Setup required' plain text
+                 checkAuthStatus();
+            }
             await showAlert('Failed to save API key');
         }
     });
@@ -238,6 +242,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const checkAuthStatus = async () => {
         try {
             const resp = await fetch('/api/auth-status');
+            if (resp.status === 403) {
+                // Backend says setup required
+                authOverlay.classList.remove('hidden');
+                setupView.classList.remove('hidden');
+                loginView.classList.add('hidden');
+                return;
+            }
             const data = await resp.json();
 
             if (data.need_setup) {
@@ -433,6 +444,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchHistory = async () => {
         try {
             const resp = await fetch('/api/history');
+            if (resp.status === 403) {
+                const text = await resp.text();
+                if (text.includes('Setup required') || text.includes('SETUP_REQUIRED')) {
+                    checkAuthStatus();
+                    return;
+                }
+            }
             if (resp.status === 401) return;
             const data = await resp.json();
             renderChart(data);
@@ -515,6 +533,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const resp = await fetch(`/api/queries?search=${encodeURIComponent(search)}&status=${status}`);
+            if (resp.status === 403) {
+                const text = await resp.text();
+                if (text.includes('Setup required') || text.includes('SETUP_REQUIRED')) {
+                    checkAuthStatus();
+                    return;
+                }
+            }
             if (resp.status === 401) return;
             const queries = await resp.json();
             renderQueries(queries);
@@ -871,6 +896,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchStats = async () => {
         try {
             const resp = await fetch('/api/stats');
+            if (resp.status === 403) {
+                const text = await resp.text();
+                if (text.includes('Setup required') || text.includes('SETUP_REQUIRED')) {
+                    checkAuthStatus();
+                    return;
+                }
+            }
             if (resp.status === 401) return; 
             const data = await resp.json();
             

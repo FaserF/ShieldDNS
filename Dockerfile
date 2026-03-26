@@ -32,6 +32,9 @@ COPY --from=admin-build /app/shielddns-admin /usr/bin/shielddns-admin
 # Expose ports
 EXPOSE 53/udp 53/tcp 443/tcp 853/tcp
 
+# Define persistent volumes
+VOLUME ["/etc/shielddns", "/ssl"]
+
 # Copy the entrypoint script
 COPY run.sh /run.sh
 RUN dos2unix /run.sh && chmod +x /run.sh

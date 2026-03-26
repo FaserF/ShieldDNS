@@ -93,10 +93,14 @@ func authMiddleware(next http.Handler) http.Handler {
 					next.ServeHTTP(w, r)
 					return
 				}
-				http.Error(w, "Forbidden: Insufficient permissions", http.StatusForbidden)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Forbidden: Insufficient permissions", "code": "FORBIDDEN"})
 				return
 			}
-			http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized: Invalid token", "code": "UNAUTHORIZED"})
 			return
 		}
 
@@ -106,7 +110,9 @@ func authMiddleware(next http.Handler) http.Handler {
 		configLock.RUnlock()
 
 		if !hasPwd {
-			http.Error(w, "Setup required", http.StatusForbidden)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Setup required", "code": "SETUP_REQUIRED"})
 			return
 		}
 
@@ -116,7 +122,9 @@ func authMiddleware(next http.Handler) http.Handler {
 		sessionLock.RUnlock()
 
 		if !valid {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized", "code": "UNAUTHORIZED"})
 			return
 		}
 
