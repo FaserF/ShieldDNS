@@ -194,12 +194,9 @@ func updateCorefile() {
     // Repeat for TLS and HTTPS blocks
     corefile += fmt.Sprintf(`
 tls://.:853 {
-    tls %s %s {
-        protocols tls1.2 tls1.3
-        ciphers ECDHE-ECDSA-AES128-GCM-SHA256 ECDHE-RSA-AES128-GCM-SHA256 ECDHE-ECDSA-AES256-GCM-SHA384 ECDHE-RSA-AES256-GCM-SHA384 ECDHE-ECDSA-CHACHA20-POLY1305 ECDHE-RSA-CHACHA20-POLY1305
-    }
+    bind 0.0.0.0
+    tls %s %s
     dnssec
-    health :8082
     reload 5s
     cache 3600 {
         success 10000
@@ -214,12 +211,9 @@ tls://.:853 {
 }
 
 https://.:5553 {
-    tls %s %s {
-        protocols tls1.2 tls1.3
-        ciphers ECDHE-ECDSA-AES128-GCM-SHA256 ECDHE-RSA-AES128-GCM-SHA256 ECDHE-ECDSA-AES256-GCM-SHA384 ECDHE-RSA-AES256-GCM-SHA384 ECDHE-ECDSA-CHACHA20-POLY1305 ECDHE-RSA-CHACHA20-POLY1305
-    }
+    bind 0.0.0.0
+    tls %s %s
     dnssec
-    health :8082
     reload 5s
     cache 3600 {
         success 10000
