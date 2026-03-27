@@ -46,6 +46,7 @@ func loadConfig() {
 		DiagnosticsRefreshInterval: 30, // Default to 30s
 		ServeStale:          true,
 		DNSSECEnabled:       true,
+		SignMobileConfig:    true,
 	}
 
 	// 2. Load from file if exists

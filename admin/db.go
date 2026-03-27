@@ -36,6 +36,12 @@ func initDB() {
 		CREATE INDEX IF NOT EXISTS idx_timestamp ON queries(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_status ON queries(status);
 		CREATE INDEX IF NOT EXISTS idx_client ON queries(client_ip);
+		CREATE TABLE IF NOT EXISTS clients (
+			ip TEXT PRIMARY KEY,
+			user_agent TEXT,
+			last_seen DATETIME
+		);
+		CREATE INDEX IF NOT EXISTS idx_clients_ip ON clients(ip);
 	`)
 	if err != nil {
 		log.Fatalf("Fatal: Could not initialize database schema: %v", err)
@@ -276,4 +282,36 @@ func getClientTopBlocked(ip string, limit int) ([]DomainCount, error) {
 	}
 
 	return results, nil
+}
+
+func saveClientUA(ip, ua string) {
+	if db == nil || ip == "" || ua == "" {
+		return
+	}
+	// Upsert: Try to insert, update if exists
+	_, err := db.Exec(`
+		INSERT INTO clients (ip, user_agent, last_seen) 
+		VALUES (?, ?, datetime('now'))
+		ON CONFLICT(ip) DO UPDATE SET 
+			user_agent = CASE WHEN excluded.user_agent != '' THEN excluded.user_agent ELSE clients.user_agent END,
+			last_seen = datetime('now')
+	`, ip, ua)
+	if err != nil {
+		log.Printf("Error saving client UA: %v", err)
+	}
+}
+
+func getClientUA(ip string) string {
+	if db == nil || ip == "" {
+		return ""
+	}
+	var ua string
+	err := db.QueryRow("SELECT user_agent FROM clients WHERE ip = ?", ip).Scan(&ua)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("Error getting client UA: %v", err)
+		}
+		return ""
+	}
+	return ua
 }

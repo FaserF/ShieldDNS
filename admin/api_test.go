@@ -267,21 +267,26 @@ func TestHandleMobileConfig(t *testing.T) {
 
 	body := rr.Body.String()
 	
-	// Check for protocols (only HTTPS should be present now)
+	// Check for protocols
 	if strings.Contains(body, "<string>TLS</string>") {
-		t.Error("TLS protocol should not be present in simplified mobileconfig")
+		t.Error("TLS protocol should not be present in mobileconfig")
 	}
 	if !strings.Contains(body, "<string>HTTPS</string>") {
 		t.Error("Missing HTTPS protocol in mobileconfig")
 	}
-	if strings.Contains(body, "<string>QUIC</string>") {
-		t.Error("QUIC protocol should not be present in simplified mobileconfig")
+	if !strings.Contains(body, "<string>QUIC</string>") {
+		t.Error("Missing QUIC protocol in mobileconfig")
 	}
 	
 	// Check for correct ServerURL for HTTPS
-	expectedURL := "<string>https://dns.example.com/dns-query</string>"
-	if !strings.Contains(body, expectedURL) {
-		t.Errorf("Missing or incorrect ServerURL for HTTPS. Expected %s", expectedURL)
+	expectedHTTPS := "<string>https://dns.example.com/dns-query</string>"
+	if !strings.Contains(body, expectedHTTPS) {
+		t.Errorf("Missing or incorrect ServerURL for HTTPS. Expected %s", expectedHTTPS)
+	}
+	// Check for correct ServerURL for QUIC
+	expectedQUIC := "<string>quic://dns.example.com</string>"
+	if !strings.Contains(body, expectedQUIC) {
+		t.Errorf("Missing or incorrect ServerURL for QUIC. Expected %s", expectedQUIC)
 	}
 	// Check that ServerAddresses (127.0.0.1) is NOT present
 	if strings.Contains(body, "<string>127.0.0.1</string>") {

@@ -8,7 +8,7 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     
     // UI Elements
     let authOverlay, setupView, loginView, listItemsContainer, allowlistItemsContainer, views;
-    let upstreamsInput, dotUpstreamsInput, preferEncryptedCheck, customBlockedList, customAllowedList;
+    let upstreamsInput, dotUpstreamsInput, preferEncryptedCheck, signMobileConfigCheck, customBlockedList, customAllowedList;
     let systemLogTerminal, certInfoContent, statsContainer, topBlockedContainer, topClientsContainer;
     let queryLogItems, fullQueryLogItems, latencyList;
     let systemLogEventSource = null;
@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
     upstreamsInput = getEl('upstreams-input');
     dotUpstreamsInput = getEl('dot-upstreams-input');
     preferEncryptedCheck = getEl('prefer-encrypted-check');
+    signMobileConfigCheck = getEl('sign-mobileconfig-check');
     customBlockedList = getEl('custom-blocked-list');
     customAllowedList = getEl('custom-allowed-list');
     systemLogTerminal = getEl('system-log-terminal');
@@ -1180,6 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         upstreamsInput.value = currentConfig.upstreams.join(', ');
         dotUpstreamsInput.value = (currentConfig.upstream_dot || []).join(', ');
         preferEncryptedCheck.checked = currentConfig.prefer_encrypted;
+        if (signMobileConfigCheck) signMobileConfigCheck.checked = currentConfig.sign_mobileconfig;
         
         if (adminDomainInput) adminDomainInput.value = currentConfig.admin_domain || '';
         if (blockIpInput) blockIpInput.value = currentConfig.block_page_ip || '';
@@ -1233,7 +1235,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCustomList(customAllowedList, currentConfig.custom_allowed, 'allowed');
 
         // Render Blocked Countries Tags
-        const tagsContainer = document.getElementById('blocked-countries-tags');
         if (tagsContainer) {
             tagsContainer.innerHTML = (currentConfig.blocked_countries || []).map(code => {
                 const name = allCountries[code] || code;
@@ -1246,6 +1247,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }).join('');
         }
+
+        renderLastLogin();
+    };
+
+    const renderLastLogin = () => {
+        const lastLoginEl = document.getElementById('dashboard-last-login');
+        if (!lastLoginEl || !currentConfig.last_login) {
+            if (lastLoginEl) lastLoginEl.style.display = 'none';
+            return;
+        }
+
+        const date = new Date(currentConfig.last_login);
+        if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+            lastLoginEl.style.display = 'none';
+            return;
+        }
+
+        lastLoginEl.style.display = 'block';
+        lastLoginEl.textContent = `Your last login was at ${date.toLocaleString()}`;
     };
 
     window.addCustomRule = async (type, domain) => {
@@ -1300,8 +1320,9 @@ document.addEventListener('DOMContentLoaded', () => {
         currentConfig.upstreams = upstreams;
         currentConfig.upstream_dot = dots;
         currentConfig.prefer_encrypted = preferEncryptedCheck.checked;
+        currentConfig.sign_mobileconfig = signMobileConfigCheck?.checked || false;
         currentConfig.admin_domain = adminDomainInput?.value.trim() || '';
-        currentConfig.block_ip_input = blockIpInput?.value.trim() || '';
+        currentConfig.block_page_ip = blockIpInput?.value.trim() || '';
 
         await fetch('/api/config', {
             method: 'POST',
@@ -1394,6 +1415,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('dnssec-check')?.addEventListener('change', (e) => {
         currentConfig.dnssec_enabled = e.target.checked;
+        saveConfig();
+    });
+
+    document.getElementById('sign-mobileconfig-check')?.addEventListener('change', (e) => {
+        currentConfig.sign_mobileconfig = e.target.checked;
         saveConfig();
     });
 
@@ -1664,7 +1690,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 document.getElementById('ip-info-hostname').textContent = data.hostname || (data.is_private ? 'Local Device' : 'Cloud/Public');
                 
-                let manufacturer = data.manufacturer || (data.is_private ? 'Unknown' : 'Public Provider');
+                let provider = data.isp || (data.is_private ? 'Unknown' : 'Public Provider');
+                let manufacturer = data.manufacturer || (data.is_private ? 'Unknown' : provider);
+                
                 let deviceText = manufacturer;
                 if (data.os) {
                     deviceText = `${data.os} (${manufacturer})`;
@@ -1672,6 +1700,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 document.getElementById('ip-info-manufacturer').textContent = deviceText;
                 document.getElementById('ip-info-manufacturer').title = data.user_agent || '';
+                
+                // If it's a public IP and we have a specific ISP, show it in hostname or as a separate info
+                if (!data.is_private && data.isp) {
+                    // Update hostname to include ISP if generic
+                    if (!data.hostname) {
+                        document.getElementById('ip-info-hostname').textContent = data.isp;
+                    }
+                }
 
                 if (data.is_private) {
                     document.getElementById('ip-info-mac').textContent = data.mac || 'MAC Not Available';

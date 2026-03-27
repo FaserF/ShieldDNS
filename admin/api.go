@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
@@ -14,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -684,8 +686,18 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add User-Agent and OS info if available
+	ua := ""
 	if uaVal, ok := ipToUA.Load(ip); ok {
-		ua := uaVal.(string)
+		ua = uaVal.(string)
+	} else {
+		// Fallback to database for persistence across restarts
+		ua = getClientUA(ip)
+		if ua != "" {
+			ipToUA.Store(ip, ua) // Refresh memory cache
+		}
+	}
+
+	if ua != "" && ua != "-" {
 		info.UserAgent = ua
 		info.OS = detectOS(ua)
 		
@@ -938,6 +950,7 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	configLock.RLock()
 	adminDomain := config.AdminDomain
 	blockPageIP := config.BlockPageIP
+	signEnabled := config.SignMobileConfig
 	configLock.RUnlock()
 
 	host := adminDomain
@@ -993,8 +1006,9 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dohUUID := genUUID(0)
-	profileUUID := genUUID(1)
-	certPayloadUUID := genUUID(2)
+	doqUUID := genUUID(1)
+	profileUUID := genUUID(2)
+	certPayloadUUID := genUUID(3)
 
 	certPayloadXML := ""
 	certReferenceXML := ""
@@ -1021,6 +1035,36 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 
 		certReferenceXML = fmt.Sprintf("\n\t\t\t<key>PayloadCertificateUUID</key>\n\t\t\t<string>%s</string>", certPayloadUUID)
 	}
+
+	quicPayloadXML := fmt.Sprintf(`
+		<dict>
+			<key>DNSSettings</key>
+			<dict>
+				<key>DNSProtocol</key>
+				<string>QUIC</string>
+				<key>ServerURL</key>
+				<string>quic://%[1]s</string>%[2]s
+			</dict>
+			<key>OnDemandRules</key>
+			<array>
+				<dict>
+					<key>Action</key>
+					<string>Connect</string>
+				</dict>
+			</array>
+			<key>PayloadDescription</key>
+			<string>Encrypted DNS-over-QUIC (DoQ) for ShieldDNS (%[1]s).</string>
+			<key>PayloadDisplayName</key>
+			<string>ShieldDNS DoQ (%[1]s)</string>
+			<key>PayloadIdentifier</key>
+			<string>com.shielddns.doq.%[1]s</string>
+			<key>PayloadType</key>
+			<string>com.apple.dnsSettings.managed</string>
+			<key>PayloadUUID</key>
+			<string>%[3]s</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>%[4]s
+		</dict>`, host, serverAddrsXML, doqUUID, certReferenceXML)
 
 	w.Header().Set("Content-Type", "application/x-apple-aspen-config")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=shielddns_%s.mobileconfig", host))
@@ -1058,7 +1102,7 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 			<string>%[3]s</string>
 			<key>PayloadVersion</key>
 			<integer>1</integer>%[5]s
-		</dict>%[4]s
+		</dict>%[7]s%[4]s
 	</array>
 	<key>PayloadDescription</key>
 	<string>ShieldDNS Encryption Profile (%[1]s). Enables system-wide DNS encryption for improved privacy.</string>
@@ -1085,15 +1129,55 @@ ShieldDNS will encrypt all DNS queries from this device, preventing ISPs and thi
 
 TECHNICAL DETAILS:
 - Target Server: %[1]s
-- Supported Protocols: DNS-over-HTTPS (DoH)
+- Supported Protocols: DNS-over-HTTPS (DoH), DNS-over-QUIC (DoQ)
 - Documentation: https://github.com/FaserF/ShieldDNS
 
 By proceeding, you consent to all DNS traffic being routed through this server. No personal web traffic (HTTP/HTTPS content) is decrypted; only the destination addresses are processed for filtering. You can remove this profile at any time in Settings &gt; General &gt; VPN &amp; Device Management.</string>
 	</dict>
 </dict>
-</plist>`, host, serverAddrsXML, dohUUID, certPayloadXML, certReferenceXML, profileUUID)
+</plist>`, host, serverAddrsXML, dohUUID, certPayloadXML, certReferenceXML, profileUUID, quicPayloadXML)
 
-	w.Write([]byte(mobileConfig))
+	finalContent := []byte(mobileConfig)
+	if signEnabled {
+		// Get cert and key files
+		certFile := os.Getenv("CERT_FILE")
+		if certFile == "" { certFile = "/ssl/fullchain.pem" }
+		keyFile := os.Getenv("KEY_FILE")
+		if keyFile == "" { keyFile = "/ssl/privkey.pem" }
+
+		if _, err := os.Stat(certFile); err == nil {
+			if signed, err := signProfile(finalContent, certFile, keyFile); err == nil {
+				finalContent = signed
+			} else {
+				log.Printf("⚠️ Error signing profile: %v", err)
+			}
+		}
+	}
+
+	w.Write(finalContent)
+}
+
+func signProfile(content []byte, certFile, keyFile string) ([]byte, error) {
+	// openssl smime -sign -signer cert.pem -inkey key.pem -certfile chain.pem -nodetach -outform der
+	// Note: certFile (fullchain.pem) usually contains both the entity cert and the chain.
+	cmd := exec.Command("openssl", "smime", "-sign",
+		"-signer", certFile,
+		"-inkey", keyFile,
+		"-certfile", certFile,
+		"-nodetach",
+		"-outform", "der")
+
+	cmd.Stdin = bytes.NewReader(content)
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("openssl error: %v, stderr: %s", err, stderr.String())
+	}
+
+	return out.Bytes(), nil
 }
 
 func handleConfig(w http.ResponseWriter, r *http.Request) {

@@ -231,6 +231,13 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   86400,
 		SameSite: http.SameSiteLaxMode,
 	})
+
+	// Record last login
+	configLock.Lock()
+	config.LastLogin = time.Now()
+	saveConfigNoLock()
+	configLock.Unlock()
+
 	w.WriteHeader(http.StatusOK)
 }
 

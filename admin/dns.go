@@ -559,6 +559,7 @@ func parseLogLine(line string) {
 	// Update latest User-Agent for this IP
 	if userAgent != "" && userAgent != "-" {
 		ipToUA.Store(clientIP, userAgent)
+		go saveClientUA(clientIP, userAgent) // Save persistently in background
 	}
 
 	isBlocked := strings.Contains(rflags, "qr,aa") // typical for local hosts block

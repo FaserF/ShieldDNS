@@ -29,6 +29,8 @@ type Config struct {
 	DNSSECEnabled       bool     `json:"dnssec_enabled"`
 	BlockedCountries    []string          `json:"blocked_countries"`
 	ClientAliases       map[string]string `json:"client_aliases"`
+	SignMobileConfig    bool              `json:"sign_mobileconfig"`
+	LastLogin           time.Time         `json:"last_login"`
 }
 
 type APIKey struct {
@@ -69,6 +71,7 @@ type Query struct {
 	Type       string    `json:"type"`
 	Status     string    `json:"status"`
 	ClientIP   string    `json:"client_ip"`
+	UserAgent  string    `json:"user_agent,omitempty"`
 	IsCacheHit bool      `json:"is_cache_hit"`
 	DurationMs float64   `json:"duration_ms"`
 }

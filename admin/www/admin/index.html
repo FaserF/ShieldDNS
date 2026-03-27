@@ -75,6 +75,7 @@
                         <div class="status-text">
                             <h2 id="status-title">ShieldDNS is Active</h2>
                             <p id="status-desc">Your requests are being filtered and secured.</p>
+                            <p id="dashboard-last-login" class="help" style="margin-top: 4px; font-size: 0.8rem; opacity: 0.8;"></p>
                         </div>
                         <div class="status-toggle-wrapper">
                             <button id="toggle-protection-btn" class="btn btn-primary">Disable Protection</button>
@@ -457,6 +458,16 @@
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="prefer-encrypted-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <div class="checkbox-text">
+                            <label>Sign Apple Profiles (.mobileconfig)</label>
+                            <p class="help">Use the server's SSL certificate to sign generated profiles for a "Verified" status on iOS.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="sign-mobileconfig-check">
                             <span class="slider"></span>
                         </label>
                     </div>
