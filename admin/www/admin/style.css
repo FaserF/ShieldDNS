@@ -873,10 +873,13 @@ h1 {
 
 .diag-item span:last-child {
     text-align: right;
-    word-break: break-word; /* Better than break-all for readable wrapping */
+    word-break: break-all;
     font-weight: 500;
     font-size: 0.9rem;
-    max-width: 70%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
 }
 
 .diag-item.diag-stack {
@@ -1147,12 +1150,14 @@ input:checked + .slider:before {
 
 .diag-item > span:last-child {
     text-align: right;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
     min-width: 0;
     font-size: 0.95rem;
     color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
 }
 
 .diag-item:last-child {

@@ -49,16 +49,25 @@ func getCoreDNSVersion() string {
 		return coreDNSVersion
 	}
 
-	// Output format is usually: "CoreDNS-1.14.2"
+	// Output format is usually: "CoreDNS-1.14.2" or "v1.14.2 ..."
 	s := strings.TrimSpace(string(out))
 	if strings.Contains(s, "CoreDNS-") {
 		coreDNSVersion = "v" + strings.TrimPrefix(s, "CoreDNS-")
-	} else if strings.Contains(s, " ") {
-		coreDNSVersion = strings.Fields(s)[1]
-	} else {
+	} else if strings.Contains(s, "V") || strings.Contains(s, "v") {
+		fields := strings.Fields(s)
+		for _, f := range fields {
+			if strings.HasPrefix(strings.ToLower(f), "v") {
+				coreDNSVersion = f
+				break
+			}
+		}
+	}
+	
+	if coreDNSVersion == "" {
 		coreDNSVersion = s
 	}
 
+	coreDNSVersion = strings.ToLower(coreDNSVersion)
 	return coreDNSVersion
 }
 

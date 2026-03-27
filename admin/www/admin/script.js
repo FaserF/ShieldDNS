@@ -936,11 +936,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // About view updates
             const updateBadge = (el, current, latest) => {
                 if (!el) return;
-                let html = current;
-                if (latest && latest !== current) {
-                    html += ` <span class="badge warning" style="margin-left:8px; background:#f59e0b; color:white;">Update to ${latest} available</span>`;
+                
+                // Shorten very long version strings (like CoreDNS) for display
+                let displayVersion = current;
+                if (current.includes(' ')) {
+                    displayVersion = current.split(' ')[0];
+                }
+                if (displayVersion.includes(',')) {
+                    displayVersion = displayVersion.split(',')[0];
+                }
+
+                let html = `<span title="${current}">${displayVersion}</span>`;
+                if (latest && latest.toLowerCase() !== current.toLowerCase()) {
+                    html += ` <span class="badge warning" style="margin-left:8px; background:#f59e0b; color:white;">UPDATE</span>`;
                 } else if (latest) {
-                    html += ` <span class="badge official" style="margin-left:8px;">Latest</span>`;
+                    html += ` <span class="badge official" style="margin-left:8px;">LATEST</span>`;
                 }
                 el.innerHTML = html;
             };
