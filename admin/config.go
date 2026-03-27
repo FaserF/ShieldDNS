@@ -114,6 +114,7 @@ func loadConfig() {
 	if config.DiagnosticsRefreshInterval == 0 {
 		config.DiagnosticsRefreshInterval = 30
 	}
+	debugModeEnabled.Store(config.DebugMode)
 }
 
 func ensureOfficialLists() {
@@ -149,6 +150,7 @@ func ensureOfficialLists() {
 }
 
 func saveConfigNoLock() {
+	debugModeEnabled.Store(config.DebugMode)
 	data, _ := json.MarshalIndent(config, "", "  ")
 	os.MkdirAll(filepath.Dir(ConfigPath), 0755)
 	if err := os.WriteFile(ConfigPath, data, 0644); err != nil {

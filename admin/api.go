@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -401,11 +402,10 @@ func AddSystemLog(line string) {
 	}
 }
 
+var debugModeEnabled atomic.Bool
+
 func DebugLog(msg string) {
-	configLock.RLock()
-	debug := config.DebugMode
-	configLock.RUnlock()
-	if debug {
+	if debugModeEnabled.Load() {
 		AddSystemLog("[DEBUG] " + msg)
 	}
 }
