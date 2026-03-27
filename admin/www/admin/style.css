@@ -125,6 +125,20 @@ h1 {
     font-weight: 700;
 }
 
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    margin-top: 16px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
 /* Mobile Components */
 .mobile-header {
     display: none;
@@ -294,12 +308,17 @@ h1 {
 }
 
 .btn {
-    padding: 10px 20px;
-    border-radius: 8px;
+    padding: 10px 22px;
+    border-radius: 10px;
     font-weight: 600;
     cursor: pointer;
     border: none;
     transition: all 0.2s;
+    margin-right: 8px;
+}
+
+.btn:last-child {
+    margin-right: 0;
 }
 
 .btn.primary {
@@ -831,6 +850,13 @@ h1 {
     padding: 8px 0;
     border-bottom: 1px solid var(--border);
 }
+.quick-copy-grid, .connection-guide-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
 .analytics-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));

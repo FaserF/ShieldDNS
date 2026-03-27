@@ -598,11 +598,22 @@ func parseLogLine(line string) {
 	// Broadcast to SSE clients
 	go func(query Query) {
 		sseLock.Lock()
-		defer sseLock.Unlock()
+		if len(sseClients) == 0 {
+			sseLock.Unlock()
+			return
+		}
+		// Create a local copy of clients to broadcast outside the lock
+		clients := make([]chan Query, 0, len(sseClients))
 		for ch := range sseClients {
+			clients = append(clients, ch)
+		}
+		sseLock.Unlock()
+
+		for _, ch := range clients {
 			select {
 			case ch <- query:
 			default:
+				// If channel is full, we skip this query for this client to avoid stalling the broadcaster
 			}
 		}
 	}(q)

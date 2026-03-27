@@ -51,7 +51,8 @@
             </div>
             <div class="version-info" style="display:flex; justify-content:space-between; align-items:center;">
                 <span>ShieldDNS <span id="app-version">v0.0.0</span></span>
-                <button id="theme-toggle" class="btn secondary" style="padding: 4px 8px; font-size: 0.8rem; height: auto;">🌓</button>
+                <button id="theme-toggle" class="btn secondary"
+                    style="padding: 4px 8px; font-size: 0.8rem; height: auto;">🌓</button>
             </div>
         </aside>
 
@@ -75,79 +76,107 @@
                         <div class="status-text">
                             <h2 id="status-title">ShieldDNS is Active</h2>
                             <p id="status-desc">Your requests are being filtered and secured.</p>
-                            <p id="dashboard-last-login" class="help" style="margin-top: 4px; font-size: 0.8rem; opacity: 0.8;"></p>
-                        </div>
+                            <p id="dashboard-last-login" class="help"
+                                style="margin-top: 4px; font-size: 0.8rem; opacity: 0.8;"></p>
                         <div class="status-toggle-wrapper">
                             <button id="toggle-protection-btn" class="btn btn-primary">Disable Protection</button>
                         </div>
                     </div>
-                    <div class="quick-copy-grid">
-                        <div class="copy-box">
-                            <label>DoT Hostname (Android)</label>
-                            <div class="copy-input">
-                                <input type="text" id="copy-dot" readonly value="">
-                                <button class="copy-btn" onclick="copyText('copy-dot')">Copy</button>
+                </div>
+                    <div class="connection-guide-section card">
+                        <div class="chart-header">
+                            <h2>Connection Guide <span class="help"
+                                    style="font-size: 0.8rem; font-weight: 400; margin-left: 8px; opacity: 0.7;">(Updates
+                                    based on your domain)</span></h2>
+                        </div>
+                        <div class="connection-guide-grid">
+                            <div class="copy-box">
+                                <label><i class="fab fa-android"></i> Private DNS (Android DoT Hostname)</label>
+                                <div class="copy-input">
+                                    <input type="text" id="guide-dot-host" readonly value="loading...">
+                                    <button class="copy-btn" onclick="copyText('guide-dot-host')">Copy</button>
+                                </div>
+                            </div>
+                            <div class="copy-box">
+                                <label><i class="fas fa-shield-alt"></i> DoT URL</label>
+                                <div class="copy-input">
+                                    <input type="text" id="guide-dot-url" readonly value="loading...">
+                                    <button class="copy-btn" onclick="copyText('guide-dot-url')">Copy</button>
+                                </div>
+                            </div>
+                            <div class="copy-box">
+                                <label><i class="fas fa-globe"></i> DNS-over-HTTPS (DoH) URL</label>
+                                <div class="copy-input">
+                                    <input type="text" id="guide-doh-url" readonly value="loading...">
+                                    <button class="copy-btn" onclick="copyText('guide-doh-url')">Copy</button>
+                                </div>
+                            </div>
+                            <div class="copy-box">
+                                <label><i class="fas fa-bolt"></i> DNS-over-QUIC (DoQ) URL</label>
+                                <div class="copy-input">
+                                    <input type="text" id="guide-doq-url" readonly value="loading...">
+                                    <button class="copy-btn" onclick="copyText('guide-doq-url')">Copy</button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <label>Total Queries (24h)</label>
-                        <div class="value" id="stat-total">-</div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <label>Total Queries (24h)</label>
+                            <div class="value" id="stat-total">-</div>
+                        </div>
+                        <div class="stat-card blocked">
+                            <label>Blocked Queries</label>
+                            <div class="value" id="stat-blocked">-</div>
+                        </div>
+                        <div class="stat-card percentage">
+                            <label>Blocking Ratio</label>
+                            <div class="value" id="stat-ratio">- %</div>
+                        </div>
+                        <div class="stat-card latency">
+                            <label>Avg. Response Time</label>
+                            <div class="value" id="stat-latency">- ms</div>
+                        </div>
+                        <div class="stat-card clients">
+                            <label>Unique Clients (24h)</label>
+                            <div class="value" id="stat-clients">-</div>
+                        </div>
+                        <div class="stat-card cache">
+                            <label>Cache Hit Ratio</label>
+                            <div class="value" id="stat-cache">- %</div>
+                        </div>
                     </div>
-                    <div class="stat-card blocked">
-                        <label>Blocked Queries</label>
-                        <div class="value" id="stat-blocked">-</div>
-                    </div>
-                    <div class="stat-card percentage">
-                        <label>Blocking Ratio</label>
-                        <div class="value" id="stat-ratio">- %</div>
-                    </div>
-                    <div class="stat-card latency">
-                        <label>Avg. Response Time</label>
-                        <div class="value" id="stat-latency">- ms</div>
-                    </div>
-                    <div class="stat-card clients">
-                        <label>Unique Clients (24h)</label>
-                        <div class="value" id="stat-clients">-</div>
-                    </div>
-                    <div class="stat-card cache">
-                        <label>Cache Hit Ratio</label>
-                        <div class="value" id="stat-cache">- %</div>
-                    </div>
-                </div>
 
-                <div class="chart-section card">
-                    <div class="chart-header">
-                        <h2>Traffic Overview (Last 24h)</h2>
+                    <div class="chart-section card">
+                        <div class="chart-header">
+                            <h2>Traffic Overview (Last 24h)</h2>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="traffic-chart"></canvas>
+                        </div>
                     </div>
-                    <div class="chart-wrapper">
-                        <canvas id="traffic-chart"></canvas>
-                    </div>
-                </div>
 
-                <div class="query-log-container">
-                    <div class="chart-header">
-                        <h2>Live Query Log</h2>
+                    <div class="query-log-container">
+                        <div class="chart-header">
+                            <h2>Live Query Log</h2>
+                        </div>
+                        <table class="query-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Domain</th>
+                                    <th>Client IP</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="query-log-items">
+                                <!-- Queries will be injected here -->
+                            </tbody>
+                        </table>
                     </div>
-                    <table class="query-table">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Domain</th>
-                                <th>Client IP</th>
-                                <th>Type</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="query-log-items">
-                            <!-- Queries will be injected here -->
-                        </tbody>
-                    </table>
-                </div>
             </section>
 
             <!-- Analytics View -->
@@ -192,12 +221,18 @@
                         <div class="chart-wrapper-small">
                             <canvas id="type-chart"></canvas>
                         </div>
-                        <div style="margin-top: 20px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; text-align: left; padding-top: 15px; border-top: 1px solid var(--border);">
-                            <div style="margin-bottom: 5px;"><strong>A (IPv4) / AAAA (IPv6):</strong> Standard website connections (IP addresses).</div>
-                            <div style="margin-bottom: 5px;"><strong>HTTPS:</strong> Secure, encrypted connection information.</div>
-                            <div style="margin-bottom: 5px;"><strong>TXT:</strong> Additional text info (e.g., used for email spam protection).</div>
-                            <div style="margin-bottom: 5px;"><strong>SRV / PTR / SOA:</strong> Technical network services (e.g., local network printers).</div>
-                            <div style="margin-bottom: 5px;"><strong>ANY:</strong> General requests for "all info" about a server.</div>
+                        <div
+                            style="margin-top: 20px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; text-align: left; padding-top: 15px; border-top: 1px solid var(--border);">
+                            <div style="margin-bottom: 5px;"><strong>A (IPv4) / AAAA (IPv6):</strong> Standard website
+                                connections (IP addresses).</div>
+                            <div style="margin-bottom: 5px;"><strong>HTTPS:</strong> Secure, encrypted connection
+                                information.</div>
+                            <div style="margin-bottom: 5px;"><strong>TXT:</strong> Additional text info (e.g., used for
+                                email spam protection).</div>
+                            <div style="margin-bottom: 5px;"><strong>SRV / PTR / SOA:</strong> Technical network
+                                services (e.g., local network printers).</div>
+                            <div style="margin-bottom: 5px;"><strong>ANY:</strong> General requests for "all info" about
+                                a server.</div>
                         </div>
                     </div>
                 </div>
@@ -294,15 +329,19 @@
                                     <span>CPU Load (1/5/15m)</span>
                                     <span id="diag-cpu-load" class="badge">0.00, 0.00, 0.00</span>
                                 </div>
-                                <div id="diag-cpu-model" class="help" style="font-size: 0.75rem; margin-top: 2px;">Detecting...</div>
+                                <div id="diag-cpu-model" class="help" style="font-size: 0.75rem; margin-top: 2px;">
+                                    Detecting...</div>
                             </div>
                             <div class="diag-item diag-stack">
                                 <div style="display:flex; justify-content:space-between; width:100%">
                                     <span>RAM Usage</span>
                                     <span id="diag-ram-usage" class="badge">0 / 0 MB</span>
                                 </div>
-                                <div class="progress-bar-bg" style="width:100%; height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-top:4px;">
-                                    <div id="diag-ram-bar" style="height:100%; width:0%; background:var(--accent); transition: width 0.5s;"></div>
+                                <div class="progress-bar-bg"
+                                    style="width:100%; height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-top:4px;">
+                                    <div id="diag-ram-bar"
+                                        style="height:100%; width:0%; background:var(--accent); transition: width 0.5s;">
+                                    </div>
                                 </div>
                             </div>
                             <div class="diag-item diag-stack">
@@ -310,8 +349,11 @@
                                     <span>Disk Space</span>
                                     <span id="diag-disk-usage" class="badge">0 / 0 GB</span>
                                 </div>
-                                <div class="progress-bar-bg" style="width:100%; height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-top:4px;">
-                                    <div id="diag-disk-bar" style="height:100%; width:0%; background:var(--success); transition: width 0.5s;"></div>
+                                <div class="progress-bar-bg"
+                                    style="width:100%; height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-top:4px;">
+                                    <div id="diag-disk-bar"
+                                        style="height:100%; width:0%; background:var(--success); transition: width 0.5s;">
+                                    </div>
                                 </div>
                             </div>
                             <div class="diag-item">
@@ -321,7 +363,9 @@
                         </div>
                     </div>
                     <div class="stat-card card" style="grid-column: 1 / -1">
-                        <h3>Upstream Performance <span id="upstream-selection-method" class="help" style="font-size: 0.8rem; font-weight: 400; margin-left: 8px; opacity: 0.7;"></span></h3>
+                        <h3>Upstream Performance <span id="upstream-selection-method" class="help"
+                                style="font-size: 0.8rem; font-weight: 400; margin-left: 8px; opacity: 0.7;"></span>
+                        </h3>
                         <div class="card-body" style="margin-top:15px">
                             <table class="query-table">
                                 <thead>
@@ -373,7 +417,9 @@
                     <h1>Filtering Lists</h1>
                     <div class="header-actions">
                         <button id="add-allowlist-btn" class="btn secondary">Add Allowlist</button>
-                        <button id="reset-lists-btn" class="btn secondary" title="Reset all lists to factory defaults">Restore Defaults</button>
+                        <button id="apply-recommended-btn" class="btn secondary">Apply All Recommended</button>
+                        <button id="reset-lists-btn" class="btn secondary"
+                            title="Reset all lists to factory defaults">Restore Defaults</button>
                         <button id="check-updates-btn" class="btn secondary">Check for Updates</button>
                         <button id="add-list-btn" class="btn primary">Add Blocklist</button>
                     </div>
@@ -415,7 +461,8 @@
 
                 <div class="list-section">
                     <h2>Suggested Allowlist Presets</h2>
-                    <p class="help">One-click activation for popular allowlists (domains that should never be blocked)</p>
+                    <p class="help">One-click activation for popular allowlists (domains that should never be blocked)
+                    </p>
                     <div class="presets-grid" id="preset-allow-items">
                         <!-- Allowlist presets will be injected here -->
                     </div>
@@ -464,7 +511,8 @@
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
                             <label>Sign Apple Profiles (.mobileconfig)</label>
-                            <p class="help">Use the server's SSL certificate to sign generated profiles for a "Verified" status on iOS.</p>
+                            <p class="help">Use the server's SSL certificate to sign generated profiles for a "Verified"
+                                status on iOS.</p>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="sign-mobileconfig-check">
@@ -553,7 +601,8 @@
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
                             <label>Enable Serve Stale</label>
-                            <p class="help">Serve expired cache entries while refreshing in background (faster perceived speed).</p>
+                            <p class="help">Serve expired cache entries while refreshing in background (faster perceived
+                                speed).</p>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="serve-stale-check">
@@ -563,7 +612,8 @@
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
                             <label>DNSSEC Validation</label>
-                            <p class="help">Perform full local DNSSEC validation. Disable to offload to upstream (recommended for speed).</p>
+                            <p class="help">Perform full local DNSSEC validation. Disable to offload to upstream
+                                (recommended for speed).</p>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="dnssec-check">
@@ -576,7 +626,9 @@
                         <div style="display:flex;gap:12px;align-items:center;">
                             <button type="button" class="btn secondary" id="backup-btn">Download Full Backup</button>
                             <input type="file" id="restore-file-input" accept=".json" style="display:none">
-                            <button type="button" class="btn secondary" id="restore-btn" onclick="document.getElementById('restore-file-input').click()">Restore Config (.json)</button>
+                            <button type="button" class="btn secondary" id="restore-btn"
+                                onclick="document.getElementById('restore-file-input').click()">Restore Config
+                                (.json)</button>
                             <button type="button" class="btn danger" id="reset-system-btn">Factory Reset</button>
                         </div>
                     </div>
@@ -588,7 +640,8 @@
                     <div class="form-group" style="position: relative;">
                         <label>Select Countries to Block</label>
                         <div class="country-picker-wrapper">
-                            <input type="text" id="country-search" placeholder="Search country (e.g. Russia, China)..." autocomplete="off">
+                            <input type="text" id="country-search" placeholder="Search country (e.g. Russia, China)..."
+                                autocomplete="off">
                             <div id="country-dropdown" class="custom-dropdown hidden"></div>
                         </div>
                         <div id="blocked-countries-tags" class="tag-container"></div>
@@ -631,10 +684,10 @@
                         <div class="minimal-list" style="margin-top:15px">
                             <a href="https://github.com/faserf/ShieldDNS" target="_blank" class="external-link"><i
                                     class="fab fa-github"></i> Repository</a>
-                            <a href="https://github.com/faserf/ShieldDNS/releases" target="_blank" class="external-link"><i
-                                    class="fas fa-tag"></i> Releases</a>
-                            <a href="https://github.com/faserf/ShieldDNS/issues" target="_blank" class="external-link"><i
-                                    class="fas fa-bug"></i> Report Issue</a>
+                            <a href="https://github.com/faserf/ShieldDNS/releases" target="_blank"
+                                class="external-link"><i class="fas fa-tag"></i> Releases</a>
+                            <a href="https://github.com/faserf/ShieldDNS/issues" target="_blank"
+                                class="external-link"><i class="fas fa-bug"></i> Report Issue</a>
                         </div>
                     </div>
                 </div>
@@ -674,11 +727,13 @@
                     <p>Configure how ShieldDNS should resolve requests.</p>
                     <div class="form-group">
                         <label>DNS Servers (Standard)</label>
-                        <input type="text" id="setup-upstreams" value="86.54.11.100, 1.1.1.1, 9.9.9.9, 8.8.8.8, 1.0.0.1">
+                        <input type="text" id="setup-upstreams"
+                            value="86.54.11.100, 1.1.1.1, 9.9.9.9, 8.8.8.8, 1.0.0.1">
                     </div>
                     <div class="form-group">
                         <label>DoT Servers (Encrypted)</label>
-                        <input type="text" id="setup-dot-upstreams" value="unfiltered.joindns4.eu, dns.quad9.net, one.one.one.one, dns.google">
+                        <input type="text" id="setup-dot-upstreams"
+                            value="unfiltered.joindns4.eu, dns.quad9.net, one.one.one.one, dns.google">
                     </div>
                     <div class="form-group checkbox-group">
                         <input type="checkbox" id="setup-prefer-encrypted" checked>
@@ -765,28 +820,32 @@
                                 <input type="checkbox" id="perm-stats" checked>
                                 <span class="slider"></span>
                             </label>
-                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:stats (Dashboard/Metrics)</span>
+                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:stats
+                                (Dashboard/Metrics)</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:12px;">
                             <label class="switch" style="flex-shrink:0;">
                                 <input type="checkbox" id="perm-logs">
                                 <span class="slider"></span>
                             </label>
-                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:logs (Sensitive: Client IPs, Query Logs)</span>
+                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:logs (Sensitive: Client
+                                IPs, Query Logs)</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:12px;">
                             <label class="switch" style="flex-shrink:0;">
                                 <input type="checkbox" id="perm-system">
                                 <span class="slider"></span>
                             </label>
-                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:system (Diagnostics, System Logs)</span>
+                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:system (Diagnostics,
+                                System Logs)</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:12px;">
                             <label class="switch" style="flex-shrink:0;">
                                 <input type="checkbox" id="perm-filtering">
                                 <span class="slider"></span>
                             </label>
-                            <span style="font-size:0.9rem; color:var(--text-secondary);">write:filtering (Toggle Protection)</span>
+                            <span style="font-size:0.9rem; color:var(--text-secondary);">write:filtering (Toggle
+                                Protection)</span>
                         </div>
                     </div>
                 </div>
@@ -811,9 +870,12 @@
     <div id="reset-modal-1" class="modal hidden">
         <div class="modal-content">
             <h2 class="danger-text">⚠️ High Risk Operation</h2>
-            <p style="margin: 15px 0; color: var(--text-primary);">You are about to reset ShieldDNS to its factory defaults. All configuration, queries, and statistics will be <strong>permanently deleted</strong>.</p>
-            <div class="alert warning" style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-bottom: 20px;">
-                <strong>IMPORTANT:</strong> Please perform a <a href="#" id="reset-trigger-backup" style="color:var(--accent)">System Backup</a> before continuing!
+            <p style="margin: 15px 0; color: var(--text-primary);">You are about to reset ShieldDNS to its factory
+                defaults. All configuration, queries, and statistics will be <strong>permanently deleted</strong>.</p>
+            <div class="alert warning"
+                style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-bottom: 20px;">
+                <strong>IMPORTANT:</strong> Please perform a <a href="#" id="reset-trigger-backup"
+                    style="color:var(--accent)">System Backup</a> before continuing!
             </div>
             <div class="modal-actions">
                 <button class="btn secondary" id="reset-cancel-1">Cancel</button>
@@ -826,8 +888,10 @@
     <div id="reset-modal-2" class="modal hidden">
         <div class="modal-content">
             <h2 class="danger-text">Final Confirmation</h2>
-            <p style="margin: 15px 0; color: var(--text-primary);">This action CANNOT be undone. The system will wipe all data and restart immediately.</p>
-            <p style="margin-bottom: 20px; color: var(--text-secondary);">Type <strong>RESET</strong> below to confirm:</p>
+            <p style="margin: 15px 0; color: var(--text-primary);">This action CANNOT be undone. The system will wipe
+                all data and restart immediately.</p>
+            <p style="margin-bottom: 20px; color: var(--text-secondary);">Type <strong>RESET</strong> below to confirm:
+            </p>
             <div class="form-group">
                 <input type="text" id="reset-final-input" placeholder="RESET" autocomplete="off">
             </div>
@@ -843,7 +907,8 @@
         <div class="modal-content text-center" style="text-align: center;">
             <div class="pulse" style="margin: 0 auto 20px auto; width: 40px; height: 40px;"></div>
             <h2>System Resetting...</h2>
-            <p style="color: var(--text-secondary); margin-top: 10px;">ShieldDNS is wiping all data and restarting. You will be redirected shortly.</p>
+            <p style="color: var(--text-secondary); margin-top: 10px;">ShieldDNS is wiping all data and restarting. You
+                will be redirected shortly.</p>
         </div>
     </div>
 
@@ -865,18 +930,22 @@
                 <div style="flex-grow: 1;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <h2 id="ip-info-title" style="margin-bottom: 0;">Client Details</h2>
-                        <button class="btn btn-sm secondary" id="edit-alias-btn" title="Edit Alias"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm secondary" id="edit-alias-btn" title="Edit Alias"><i
+                                class="fas fa-edit"></i></button>
                     </div>
-                    <div id="alias-edit-box" class="hidden" style="margin-top: 5px; display: flex; gap: 5px; max-width: 300px;">
-                        <input type="text" id="client-alias-input" placeholder="Custom Alias (e.g. Work Laptop)" style="padding: 5px 10px; font-size: 0.8rem;">
+                    <div id="alias-edit-box" class="hidden"
+                        style="margin-top: 5px; display: flex; gap: 5px; max-width: 300px;">
+                        <input type="text" id="client-alias-input" placeholder="Custom Alias (e.g. Work Laptop)"
+                            style="padding: 5px 10px; font-size: 0.8rem;">
                         <button class="btn btn-sm primary" id="save-alias-btn">Save</button>
                     </div>
                     <p id="ip-info-subtitle" class="help" style="margin-top: 2px;"></p>
                 </div>
                 <button class="btn btn-sm secondary" id="ip-info-close-btn">&times;</button>
             </div>
-            
-            <div class="analytics-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px;">
+
+            <div class="analytics-grid"
+                style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px;">
                 <div class="stat-card card" style="padding: 10px;">
                     <label style="font-size: 0.65rem; color: var(--text-secondary);">Total Queries</label>
                     <div class="value" id="ip-info-total" style="font-size: 1.1rem; font-weight: 600;">0</div>
@@ -884,42 +953,56 @@
                 <div class="stat-card card blocked" style="padding: 10px;">
                     <label style="font-size: 0.65rem; color: var(--text-secondary);">Blocked</label>
                     <div class="value" id="ip-info-blocked" style="font-size: 1.1rem; font-weight: 600;">0</div>
-                    <div class="progress-bar-container" style="height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 6px; overflow: hidden;">
-                        <div id="ip-info-blocked-bar" style="height: 100%; background: var(--danger); width: 0%; transition: width 0.5s ease;"></div>
+                    <div class="progress-bar-container"
+                        style="height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 6px; overflow: hidden;">
+                        <div id="ip-info-blocked-bar"
+                            style="height: 100%; background: var(--danger); width: 0%; transition: width 0.5s ease;">
+                        </div>
                     </div>
                 </div>
                 <div class="stat-card card" style="padding: 10px;">
                     <label style="font-size: 0.65rem; color: var(--text-secondary);">Network Info</label>
-                    <div id="ip-info-type-tag" class="badge" style="display: block; width: fit-content; font-size: 0.7rem; margin-top: 4px;">-</div>
-                    <div class="value" id="ip-info-hostname" style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; font-weight: 500;">-</div>
+                    <div id="ip-info-type-tag" class="badge"
+                        style="display: block; width: fit-content; font-size: 0.7rem; margin-top: 4px;">-</div>
+                    <div class="value" id="ip-info-hostname"
+                        style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; font-weight: 500;">
+                        -</div>
                 </div>
                 <!-- New Device Card -->
                 <div class="stat-card card" style="padding: 10px;">
                     <label style="font-size: 0.65rem; color: var(--text-secondary);">Device Info</label>
                     <div id="ip-info-manufacturer" class="value" style="font-size: 0.85rem; font-weight: 600;">-</div>
-                    <div id="ip-info-mac" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">-</div>
+                    <div id="ip-info-mac" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">-
+                    </div>
                 </div>
                 <!-- New Location Card -->
                 <div class="stat-card card" style="padding: 10px;">
                     <label style="font-size: 0.65rem; color: var(--text-secondary);">Location</label>
                     <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                         <div id="ip-info-flag"></div>
-                        <div id="ip-info-country" class="value" style="font-size: 0.85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</div>
+                        <div id="ip-info-country" class="value"
+                            style="font-size: 0.85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            -</div>
                     </div>
-                    <div id="ip-info-city" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">-</div>
+                    <div id="ip-info-city" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">-
+                    </div>
                 </div>
                 <!-- Client Timeline -->
                 <div class="stat-card card" style="padding: 10px; grid-column: span 2;">
-                    <label style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 5px; display: block;">Activity (Last 24h)</label>
+                    <label
+                        style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 5px; display: block;">Activity
+                        (Last 24h)</label>
                     <div style="height: 50px; position: relative;">
                         <canvas id="ip-info-chart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <div class="analytics-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div class="analytics-row"
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                 <div class="query-log-container card" style="padding: 16px; margin-top: 0;">
-                    <h3 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--accent);">Top 10 Domains (Allowed)</h3>
+                    <h3 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--accent);">Top 10 Domains (Allowed)
+                    </h3>
                     <div class="overflow-x">
                         <table class="query-table" style="font-size: 0.75rem;">
                             <thead>
@@ -970,7 +1053,7 @@
                     </table>
                 </div>
             </div>
-            
+
             <div style="display: flex; justify-content: flex-end; gap: 12px;">
                 <button class="btn secondary" id="ip-info-view-all-btn">View full log for this client</button>
                 <button class="btn primary" id="ip-info-done-btn">Done</button>

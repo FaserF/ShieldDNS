@@ -101,8 +101,6 @@ var (
 	dnsCmd         *exec.Cmd
 	sessionToken   string
 	sessionLock    sync.RWMutex
-	recentQueries  []Query
-	queryLock      sync.RWMutex
 	history        [24]HourStats
 	historyLock    sync.RWMutex
 

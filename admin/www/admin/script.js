@@ -386,9 +386,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     const initializeApp = () => {
-        // Initialize dynamic hostname in dashboard
-        const dotInput = document.getElementById('copy-dot');
-        if (dotInput) dotInput.value = window.location.hostname;
+        // Initialize dynamic connection guide in dashboard
+        const currentDomain = window.location.hostname;
+        const setGuide = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+        };
+        setGuide('guide-dot-host', currentDomain);
+        setGuide('guide-dot-url', `tls://${currentDomain}`);
+        setGuide('guide-doh-url', `https://${currentDomain}/dns-query`);
+        setGuide('guide-doq-url', `quic://${currentDomain}`);
 
         fetchStats();
         fetchConfig();
@@ -554,9 +561,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (query.type === 'ping') return;
             
             const row = createQueryRow(query);
-            queryLogItems.prepend(row);
-            if (queryLogItems.children.length > 15) {
-                queryLogItems.lastElementChild.remove();
+            
+            // Update Dashboard Live Log
+            if (queryLogItems) {
+                queryLogItems.prepend(row);
+                if (queryLogItems.children.length > 15) {
+                    queryLogItems.lastElementChild.remove();
+                }
+            }
+
+            // Update Full Query Log
+            if (fullQueryLogItems) {
+                const fullRow = row.cloneNode(true);
+                fullQueryLogItems.prepend(fullRow);
+                if (fullQueryLogItems.children.length > 500) {
+                    fullQueryLogItems.lastElementChild.remove();
+                }
             }
         };
         source.onerror = () => {
@@ -1278,6 +1298,12 @@ document.addEventListener('DOMContentLoaded', () => {
         await showAlert('Update check started in background...');
     });
 
+    document.getElementById('apply-recommended-btn')?.addEventListener('click', async () => {
+        if (await showConfirm('This will add a set of recommended, non-redundant blocklists and allowlists for privacy and performance. Continue?')) {
+            await applyRecommendedFilters();
+        }
+    });
+
     document.getElementById('backup-btn')?.addEventListener('click', () => {
         window.location.href = '/api/backup';
     });
@@ -1779,7 +1805,46 @@ window.clearSystemLogs = () => {
     systemLogTerminal.textContent = '';
 };
 
+window.applyRecommendedFilters = async () => {
+    const recommendedBlock = [
+        { name: 'OISD Basic', url: 'https://big.oisd.nl/basic', category: 'Privacy' },
+        { name: 'Steven Black Unified', url: 'https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts', category: 'Ads/Malware' },
+        { name: 'HaGeZi Multi Light', url: 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt', category: 'Ads/Trackers (DE Focus)' },
+        { name: 'AdGuard DNS Filter', url: 'https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt', category: 'Ads' }
+    ];
 
+    const recommendedAllow = [
+        { name: 'Apple Services', url: 'https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/apple.txt', category: 'Services' },
+        { name: 'Microsoft Services', url: 'https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/microsoft.txt', category: 'Services' },
+        { name: 'Google Services', url: 'https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/google.txt', category: 'Services' },
+        { name: 'WhatsApp', url: 'https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whatsapp.txt', category: 'Messaging' },
+        { name: 'Facebook Services', url: 'https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/facebook.txt', category: 'Social' }
+    ];
+
+    let addedCount = 0;
+    
+    recommendedBlock.forEach(rec => {
+        if (!currentConfig.lists.some(l => l.url === rec.url)) {
+            currentConfig.lists.push({ ...rec, enabled: true });
+            addedCount++;
+        }
+    });
+
+    recommendedAllow.forEach(rec => {
+        if (!currentConfig.allowlists.some(l => l.url === rec.url)) {
+            currentConfig.allowlists.push({ ...rec, enabled: true });
+            addedCount++;
+        }
+    });
+
+    if (addedCount > 0) {
+        await saveConfig();
+        renderConfig();
+        await showAlert(`Successfully added ${addedCount} recommended lists!`);
+    } else {
+        await showAlert('All recommended lists are already in your configuration.');
+    }
+};
 
 
 window.toggleList = async (index, type) => {
@@ -1803,5 +1868,3 @@ window.removeList = async (index, type) => {
         renderConfig();
     }
 };
-
-

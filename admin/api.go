@@ -928,6 +928,13 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 func handleStats(w http.ResponseWriter, r *http.Request) {
 	statsLock.RLock()
 	s := stats
+	// Deep copy QueryTypes map to avoid race condition during JSON encoding
+	if stats.QueryTypes != nil {
+		s.QueryTypes = make(map[string]int64)
+		for k, v := range stats.QueryTypes {
+			s.QueryTypes[k] = v
+		}
+	}
 	statsLock.RUnlock()
 
 	// Query unique clients in the last 24 hours from DB
@@ -1631,14 +1638,9 @@ func handleReset(w http.ResponseWriter, r *http.Request) {
 	sessionToken = "" // Invalidate current session
 	sessionLock.Unlock()
 
-	// 4. Reset in-memory stats
 	statsLock.Lock()
 	stats = Stats{Version: Version}
 	statsLock.Unlock()
-
-	queryLock.Lock()
-	recentQueries = nil
-	queryLock.Unlock()
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
