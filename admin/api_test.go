@@ -12,6 +12,7 @@ import (
 
 func TestAuthMiddleware(t *testing.T) {
 	// Initialize minimal config
+	configLock.Lock()
 	config = Config{
 		APIKeys: []APIKey{
 			{
@@ -29,6 +30,7 @@ func TestAuthMiddleware(t *testing.T) {
 		},
 		AdminPasswordHashed: "dummy-hash",
 	}
+	configLock.Unlock()
 
 	handler := authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -65,7 +67,9 @@ func TestAuthMiddleware(t *testing.T) {
 }
 
 func TestNoAPIKeysRejectsAll(t *testing.T) {
+	configLock.Lock()
 	config = Config{ APIKeys: []APIKey{} }
+	configLock.Unlock()
 	
 	handler := authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -82,7 +86,9 @@ func TestNoAPIKeysRejectsAll(t *testing.T) {
 }
 
 func TestToggleFiltering(t *testing.T) {
+	configLock.Lock()
 	config = Config{ FilteringEnabled: true }
+	configLock.Unlock()
 	
 	reqBody, _ := json.Marshal(map[string]bool{"enabled": false})
 	req := httptest.NewRequest("POST", "/api/filtering/toggle", bytes.NewBuffer(reqBody))
@@ -102,7 +108,9 @@ func TestToggleFiltering(t *testing.T) {
 // TestCustomRuleSanitization verifies that http/https prefixes and trailing paths
 // are stripped from custom rules when saving the configuration.
 func TestCustomRuleSanitization(t *testing.T) {
+	configLock.Lock()
 	config = Config{AdminPasswordHashed: "existing-hash"}
+	configLock.Unlock()
 
 	testCases := []struct {
 		input    string
@@ -143,7 +151,9 @@ func TestCustomRuleSanitization(t *testing.T) {
 
 // TestHandleRestore verifies that a valid config JSON can be restored via a multipart upload.
 func TestHandleRestore(t *testing.T) {
+	configLock.Lock()
 	config = Config{AdminPasswordHashed: "existing-hash"}
+	configLock.Unlock()
 
 	restoredConfig := Config{
 		AdminPasswordHashed: "", // should be preserved from current config
@@ -251,10 +261,12 @@ func TestHandleQueriesWithFiltering(t *testing.T) {
 	}
 }
 func TestHandleMobileConfig(t *testing.T) {
+	configLock.Lock()
 	config = Config{
 		BlockPageIP: "1.2.3.4",
 		AdminDomain: "dns.example.com",
 	}
+	configLock.Unlock()
 
 	req := httptest.NewRequest("GET", "/api/mobileconfig", nil)
 	rr := httptest.NewRecorder()
@@ -336,7 +348,9 @@ func TestIsValidDomain(t *testing.T) {
 }
 
 func TestHandleRuleAddValidation(t *testing.T) {
+	configLock.Lock()
 	config = Config{AdminPasswordHashed: "test"}
+	configLock.Unlock()
 
 	tests := []struct {
 		name       string
@@ -370,7 +384,9 @@ func TestHandleRuleAddValidation(t *testing.T) {
 }
 
 func TestHandleConfigRejectsInvalidCustomRules(t *testing.T) {
+	configLock.Lock()
 	config = Config{AdminPasswordHashed: "existing-hash"}
+	configLock.Unlock()
 
 	newConfig := Config{
 		AdminPasswordHashed: "",

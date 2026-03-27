@@ -92,10 +92,12 @@ func TestHandleSearch(t *testing.T) {
 }
 
 func TestBlockAttribution(t *testing.T) {
+	configLock.Lock()
 	config.Lists = []List{
-		{Name: "List 1", URL: "https://example.com/1", Enabled: true},
+		{Name: "Test List", URL: "http://test.loc/list", Enabled: true},
 	}
 	config.CustomBlocked = []string{"custom.test"}
+	configLock.Unlock()
 
 	// Temporarily redirect BlocklistPath
 	originalPath := BlocklistPath
@@ -169,17 +171,21 @@ func TestUpdateCorefile(t *testing.T) {
 	CorefilePath = tmpFile.Name()
 	
 	defer func() {
+		configLock.Lock()
 		config = originalConfig
+		configLock.Unlock()
 		healthyUpstreams = originalHealthy
 		CorefilePath = originalPath
 		os.Remove(CorefilePath)
 		tmpFile.Close()
 	}()
 
+	configLock.Lock()
 	config = Config{
 		Upstreams:       []string{"1.1.1.1"},
 		PreferEncrypted: false,
 	}
+	configLock.Unlock()
 	healthyUpstreams = []string{"1.1.1.1"}
 	healthyDoT = []string{}
 
@@ -194,8 +200,10 @@ func TestUpdateCorefile(t *testing.T) {
 	}
 
 	// Test PreferEncrypted
+	configLock.Lock()
 	config.PreferEncrypted = true
 	config.UpstreamDoT = []string{"dns.google"}
+	configLock.Unlock()
 	// Mock healthy DoT
 	healthLock.Lock()
 	healthyDoT = []string{"dns.google"}
@@ -267,7 +275,9 @@ func TestSmartSorting(t *testing.T) {
 	CorefilePath = tmpFile.Name()
 	
 	defer func() {
+		configLock.Lock()
 		config = originalConfig
+		configLock.Unlock()
 		CorefilePath = originalPath
 		os.Remove(CorefilePath)
 		tmpFile.Close()

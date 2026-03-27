@@ -162,6 +162,7 @@ func updateBlocklist() {
 	allowlists := config.Allowlists
 	customBlocked := config.CustomBlocked
 	customAllowed := config.CustomAllowed
+	blockPageIP := config.BlockPageIP
 	configLock.RUnlock()
 
 	newBlockAttribution := make(map[string][]string)
@@ -209,7 +210,7 @@ func updateBlocklist() {
 
 	// Write Blocklist
 	var combined strings.Builder
-	ip := config.BlockPageIP
+	ip := blockPageIP
 	if ip == "" { ip = "0.0.0.0" }
 	
 	for domain := range blockDomains {
