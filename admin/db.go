@@ -29,7 +29,9 @@ func initDB() {
 			domain TEXT,
 			type TEXT,
 			status TEXT,
-			client_ip TEXT
+			client_ip TEXT,
+			is_cache_hit BOOLEAN DEFAULT 0,
+			duration_ms REAL DEFAULT 0
 		);
 		CREATE INDEX IF NOT EXISTS idx_timestamp ON queries(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_status ON queries(status);
@@ -38,6 +40,10 @@ func initDB() {
 	if err != nil {
 		log.Fatalf("Fatal: Could not initialize database schema: %v", err)
 	}
+
+	// Migrations for existing databases
+	db.Exec("ALTER TABLE queries ADD COLUMN is_cache_hit BOOLEAN DEFAULT 0")
+	db.Exec("ALTER TABLE queries ADD COLUMN duration_ms REAL DEFAULT 0")
 }
 
 func startDBWorker() {
@@ -94,7 +100,7 @@ func flushLogs(toFlush []Query) {
 		return
 	}
 
-	stmt, err := tx.Prepare("INSERT INTO queries (timestamp, domain, type, status, client_ip) VALUES (?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO queries (timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		log.Printf("Error preparing log statement: %v", err)
 		tx.Rollback()
@@ -103,7 +109,7 @@ func flushLogs(toFlush []Query) {
 	defer stmt.Close()
 
 	for _, q := range toFlush {
-		_, err = stmt.Exec(q.Time.Format(time.RFC3339), q.Domain, q.Type, q.Status, q.ClientIP)
+		_, err = stmt.Exec(q.Time.Format(time.RFC3339), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs)
 		if err != nil {
 			log.Printf("Error executing log statement: %v", err)
 		}
@@ -112,4 +118,67 @@ func flushLogs(toFlush []Query) {
 	if err := tx.Commit(); err != nil {
 		log.Printf("Error committing log transaction: %v", err)
 	}
+}
+
+func initializeStatsFromDB() {
+	if db == nil {
+		return
+	}
+
+	statsLock.Lock()
+	defer statsLock.Unlock()
+
+	// 1. Total, Blocked, Cache Hits and Latency (last 24h)
+	var total, blocked, cacheHits int64
+	var avgLatency float64
+	row := db.QueryRow(`
+		SELECT 
+			COUNT(*), 
+			COALESCE(SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END), 0),
+			COALESCE(AVG(CASE WHEN duration_ms > 0 THEN duration_ms ELSE NULL END), 0)
+		FROM queries 
+		WHERE timestamp > datetime('now', '-24 hours')
+	`)
+	row.Scan(&total, &blocked, &cacheHits, &avgLatency)
+	stats.TotalQueries = total
+	stats.BlockedQueries = blocked
+	stats.CacheHits = cacheHits
+	stats.AverageLatency = avgLatency
+
+	// 2. Populate History (bars for chart)
+	historyLock.Lock()
+	defer historyLock.Unlock()
+
+	// Reset history
+	for i := range history {
+		history[i] = HourStats{}
+	}
+
+	rows, err := db.Query(`
+		SELECT 
+			(23 - (strftime('%H', 'now') - strftime('%H', timestamp) + 24) % 24) as hour_index,
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END), 0)
+		FROM queries
+		WHERE timestamp > datetime('now', '-24 hours')
+		GROUP BY hour_index
+	`)
+
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var idx int
+			var hTotal, hBlocked int64
+			if err := rows.Scan(&idx, &hTotal, &hBlocked); err == nil {
+				if idx >= 0 && idx < 24 {
+					history[idx] = HourStats{Total: hTotal, Blocked: hBlocked}
+				}
+			}
+		}
+	} else {
+		log.Printf("Error initializing history from DB: %v", err)
+	}
+	
+	log.Printf("Statistics initialized from database: %d total queries, %d blocked, avg latency %.2fms", stats.TotalQueries, stats.BlockedQueries, stats.AverageLatency)
 }

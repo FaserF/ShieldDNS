@@ -6,7 +6,7 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     let authOverlay, setupView, loginView, listItemsContainer, allowlistItemsContainer, views;
     let upstreamsInput, dotUpstreamsInput, preferEncryptedCheck, customBlockedList, customAllowedList;
     let systemLogTerminal, certInfoContent, statsContainer, topBlockedContainer, topClientsContainer;
-    let queryLogItems, fullQueryLogItems;
+    let queryLogItems, fullQueryLogItems, latencyList;
     let systemLogEventSource = null;
     let apiKeysListContainer, apiKeyModal, apiKeyForm, apiKeyResult, apiKeyValue, protectionStatusLabel, toggleProtectionBtn;
     let adminDomainInput, blockIpInput;
@@ -86,6 +86,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Mobile Sidebar Toggle
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+
+    const toggleSidebar = () => {
+        sidebar.classList.toggle('open');
+        sidebarOverlay.classList.toggle('open');
+    };
+
+    sidebarToggle?.addEventListener('click', toggleSidebar);
+    sidebarOverlay?.addEventListener('click', toggleSidebar);
+
     const getEl = (id) => document.getElementById(id);
     // Initialize UI Elements
     authOverlay = getEl('auth-overlay');
@@ -105,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
     topClientsContainer = getEl('top-clients-list');
     queryLogItems = getEl('query-log-items');
     fullQueryLogItems = getEl('full-query-log-items');
+    latencyList = getEl('upstream-latency-list');
 
     statsContainer = {
         total: getEl('stat-total'),
@@ -801,7 +815,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const clients = await clientsResp.json();
                 topClientsContainer.innerHTML = (clients || []).map(c => `
                     <tr>
-                        <td>${c.client_ip}</td>
+                        <td><span class="ip-link" onclick="showIPDetails('${c.client_ip}')">${c.client_ip}</span></td>
                         <td class="text-right">${c.count || 0}</td>
                     </tr>
                 `).join('') || '<tr><td colspan="2">No data available</td></tr>';
@@ -826,20 +840,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const viewEl = document.getElementById(targetView);
             if (viewEl) viewEl.classList.remove('hidden');
 
-            if (targetView === 'lists') { fetchPresets(); fetchAllowlistPresets(); }
             if (targetView === 'queries') fetchQueries();
-            if (targetView === 'analytics') fetchAnalytics();
-            if (targetView === 'about') fetchStats();
-            if (targetView === 'diagnostics') {
+            else if (targetView === 'analytics') fetchAnalytics();
+            else if (targetView === 'system-logs') startSystemLogStream();
+            else if (targetView === 'diagnostics') {
                 fetchDiagnostics();
-                window.diagnosticsInterval = setInterval(fetchDiagnostics, 5000);
-            } else {
-                clearInterval(window.diagnosticsInterval);
+                startDiagTimer();
             }
-            if (targetView === 'system-logs') startSystemLogStream();
-            else stopSystemLogStream();
+            else if (targetView === 'lists') { fetchPresets(); fetchAllowlistPresets(); }
+            else if (targetView === 'settings') fetchConfig();
+            else if (targetView === 'about') fetchStats();
+            
+            if (targetView !== 'diagnostics') stopDiagTimer();
+            if (targetView !== 'system-logs') stopSystemLogStream();
+
+            // Auto-close sidebar on mobile after selection
+            if (sidebar.classList.contains('open')) {
+                toggleSidebar();
+            }
         });
     });
+
+    let diagnosticsInterval;
+    const startDiagTimer = () => {
+        stopDiagTimer(); // Clear any existing timer
+        const interval = (currentConfig.diagnostics_refresh_interval || 600) * 1000;
+        diagnosticsInterval = setInterval(fetchDiagnostics, interval);
+    };
+
+    const stopDiagTimer = () => {
+        if (diagnosticsInterval) {
+            clearInterval(diagnosticsInterval);
+            diagnosticsInterval = null;
+        }
+    };
+
+    const formatUptime = (seconds) => {
+        const d = Math.floor(seconds / (3600 * 24));
+        const h = Math.floor((seconds % (3600 * 24)) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+
+        let uptimeString = '';
+        if (d > 0) uptimeString += `${d}d `;
+        if (h > 0) uptimeString += `${h}h `;
+        if (m > 0) uptimeString += `${m}m `;
+        uptimeString += `${s}s`;
+        return uptimeString.trim();
+    };
 
     const fetchDiagnostics = async () => {
         try {
@@ -869,7 +917,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            const latencyList = document.getElementById('upstream-latency-list');
             if (latencyList) {
                 if (!data.upstream_health || data.upstream_health.length === 0) {
                     latencyList.innerHTML = '<tr><td colspan="3" class="help">No upstream servers configured.</td></tr>';
@@ -886,6 +933,38 @@ document.addEventListener('DOMContentLoaded', () => {
                             </tr>
                         `;
                     }).join('');
+                }
+            }
+
+            // System Resources
+            if (data.system) {
+                const sys = data.system;
+                const cpuLoad = document.getElementById('diag-cpu-load');
+                if (cpuLoad && sys.cpu_load) {
+                    cpuLoad.textContent = sys.cpu_load.join(', ');
+                }
+                const cpuModel = document.getElementById('diag-cpu-model');
+                if (cpuModel && sys.cpu_model) {
+                    cpuModel.textContent = `${sys.cpu_model} (${sys.cpu_cores || 1} cores)`;
+                }
+                
+                const ramUsage = document.getElementById('diag-ram-usage');
+                const ramBar = document.getElementById('diag-ram-bar');
+                if (ramUsage && sys.ram_total_mb) {
+                    ramUsage.textContent = `${sys.ram_used_mb}MB / ${sys.ram_total_mb}MB (${sys.ram_percent}%)`;
+                    if (ramBar) ramBar.style.width = `${sys.ram_percent}%`;
+                }
+
+                const diskUsage = document.getElementById('diag-disk-usage');
+                const diskBar = document.getElementById('diag-disk-bar');
+                if (diskUsage && sys.disk_total_gb) {
+                    diskUsage.textContent = `${sys.disk_used_gb}GB / ${sys.disk_total_gb}GB (${sys.disk_percent}%)`;
+                    if (diskBar) diskBar.style.width = `${sys.disk_percent}%`;
+                }
+
+                const uptime = document.getElementById('diag-uptime');
+                if (uptime && sys.uptime_seconds) {
+                    uptime.textContent = formatUptime(sys.uptime_seconds);
                 }
             }
         } catch (e) {
@@ -928,14 +1007,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // About view updates
-            const shieldVer = document.getElementById('about-shielddns-ver');
-            if (shieldVer) shieldVer.textContent = data.version;
-            
-            const coreVer = document.getElementById('about-coredns-ver');
-            if (coreVer) coreVer.textContent = data.coredns_version || 'v1.14.2';
-            
-            const osVer = document.getElementById('about-os-ver');
-            if (osVer) osVer.textContent = 'Alpine ' + (data.alpine_version || '3.23');
+            const updateBadge = (el, current, latest) => {
+                if (!el) return;
+                let html = current;
+                if (latest && latest !== current) {
+                    html += ` <span class="badge warning" style="margin-left:8px; background:#f59e0b; color:white;">Update to ${latest} available</span>`;
+                } else if (latest) {
+                    html += ` <span class="badge official" style="margin-left:8px;">Latest</span>`;
+                }
+                el.innerHTML = html;
+            };
+
+            updateBadge(document.getElementById('about-shielddns-ver'), data.version, data.latest_version);
+            updateBadge(document.getElementById('about-coredns-ver'), data.coredns_version || 'v1.14.2', data.latest_coredns_version);
+            updateBadge(document.getElementById('about-os-ver'), (data.alpine_version || '3.23'), data.latest_alpine_version);
         } catch (e) {
             console.error('Failed to fetch stats', e);
         }
@@ -1034,6 +1119,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const retentionInput = document.getElementById('retention-input');
         if (retentionInput) retentionInput.value = currentConfig.retention_days || 30;
+
+        const latencyIntervalInput = document.getElementById('latency-interval-input');
+        if (latencyIntervalInput) latencyIntervalInput.value = currentConfig.latency_test_interval || 10;
+
+        const smartPolicyInput = document.getElementById('smart-selection-policy-input');
+        if (smartPolicyInput) smartPolicyInput.value = currentConfig.smart_selection_policy || 'fastest';
+
+        const diagRefreshInput = document.getElementById('diagnostics-interval-input');
+        if (diagRefreshInput) diagRefreshInput.value = currentConfig.diagnostics_refresh_interval || 600;
+
+        const serveStaleCheck = document.getElementById('serve-stale-check');
+        if (serveStaleCheck) serveStaleCheck.checked = currentConfig.serve_stale;
+
+        const dnssecCheck = document.getElementById('dnssec-check');
+        if (dnssecCheck) dnssecCheck.checked = currentConfig.dnssec_enabled;
 
         currentConfig.lists = currentConfig.lists || [];
         listItemsContainer.innerHTML = '';
@@ -1181,6 +1281,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('retention-input')?.addEventListener('change', (e) => {
         currentConfig.retention_days = parseInt(e.target.value);
+        saveConfig();
+    });
+
+    document.getElementById('latency-interval-input')?.addEventListener('change', (e) => {
+        currentConfig.latency_test_interval = parseInt(e.target.value);
+        saveConfig();
+    });
+
+    document.getElementById('smart-selection-policy-input')?.addEventListener('change', (e) => {
+        currentConfig.smart_selection_policy = e.target.value;
+        saveConfig();
+    });
+
+    document.getElementById('diagnostics-interval-input')?.addEventListener('change', (e) => {
+        currentConfig.diagnostics_refresh_interval = parseInt(e.target.value);
+        saveConfig();
+        if (document.querySelector('.nav-item.active[data-view="diagnostics"]')) {
+            startDiagTimer();
+        }
+    });
+
+    document.getElementById('serve-stale-check')?.addEventListener('change', (e) => {
+        currentConfig.serve_stale = e.target.checked;
+        saveConfig();
+    });
+
+    document.getElementById('dnssec-check')?.addEventListener('change', (e) => {
+        currentConfig.dnssec_enabled = e.target.checked;
         saveConfig();
     });
 
@@ -1339,6 +1467,114 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial check
     checkAuthStatus();
+
+    // IP Detail Modal Listeners
+    const ipModal = document.getElementById('ip-info-modal');
+    document.getElementById('ip-info-close-btn')?.addEventListener('click', () => ipModal.classList.add('hidden'));
+    document.getElementById('ip-info-done-btn')?.addEventListener('click', () => ipModal.classList.add('hidden'));
+    document.getElementById('ip-info-view-all-btn')?.addEventListener('click', () => {
+        const ip = document.getElementById('ip-info-subtitle').textContent;
+        ipModal.classList.add('hidden');
+        
+        // Switch to queries view
+        document.querySelector('.nav-item[data-view="queries"]').click();
+        
+        // Apply filter
+        const searchInput = document.getElementById('query-search');
+        if (searchInput) {
+            searchInput.value = ip;
+            fetchQueries();
+        }
+    });
+
+    window.showIPDetails = async (ip) => {
+        if (!ip || ip === 'Unknown') return;
+        
+        const modal = document.getElementById('ip-info-modal');
+        const title = document.getElementById('ip-info-title');
+        const subtitle = document.getElementById('ip-info-subtitle');
+        
+        subtitle.textContent = ip;
+        modal.classList.remove('hidden');
+
+        // Reset fields
+        document.getElementById('ip-info-total').textContent = '...';
+        document.getElementById('ip-info-blocked').textContent = '...';
+        document.getElementById('ip-info-hostname').textContent = '...';
+        document.getElementById('ip-info-type-tag').textContent = '...';
+        document.getElementById('ip-info-type-tag').className = 'badge';
+        document.getElementById('ip-info-manufacturer').textContent = '-';
+        document.getElementById('ip-info-mac').textContent = '-';
+        document.getElementById('ip-info-country').textContent = '-';
+        document.getElementById('ip-info-city').textContent = '-';
+        document.getElementById('ip-info-flag').innerHTML = '';
+        document.getElementById('ip-info-top-domains').innerHTML = '<tr><td colspan="2" class="help">Loading...</td></tr>';
+        document.getElementById('ip-info-history').innerHTML = '<tr><td colspan="3" class="help">Loading...</td></tr>';
+
+        try {
+            // Fetch IP Info (Geo, Hostname, MAC)
+            fetch(`/api/ip-info?ip=${ip}`).then(r => r.json()).then(data => {
+                const typeTag = document.getElementById('ip-info-type-tag');
+                typeTag.textContent = data.is_private ? 'Local Network' : 'Public IP';
+                typeTag.classList.add(data.is_private ? 'local' : 'public');
+                
+                document.getElementById('ip-info-hostname').textContent = data.hostname || (data.is_private ? 'Local Device' : 'Cloud/Public');
+                
+                if (data.is_private) {
+                    document.getElementById('ip-info-manufacturer').textContent = data.manufacturer || 'Unknown Device';
+                    document.getElementById('ip-info-mac').textContent = data.mac || 'MAC not available';
+                    document.getElementById('ip-info-country').textContent = 'Local';
+                    document.getElementById('ip-info-city').textContent = 'N/A';
+                    document.getElementById('ip-info-flag').innerHTML = '🏠';
+                } else {
+                    document.getElementById('ip-info-manufacturer').textContent = data.isp || 'Public Provider';
+                    document.getElementById('ip-info-mac').textContent = 'N/A';
+                    document.getElementById('ip-info-country').textContent = data.country || 'Unknown';
+                    document.getElementById('ip-info-city').textContent = data.city || 'Unknown';
+                    if (data.country_code) {
+                        document.getElementById('ip-info-flag').innerHTML = `<img src="https://flagcdn.com/w20/${data.country_code.toLowerCase()}.png" style="vertical-align: middle; border-radius: 2px;">`;
+                    } else {
+                        document.getElementById('ip-info-flag').innerHTML = '🌐';
+                    }
+                }
+            });
+
+            // Fetch Stats
+            fetch(`/api/client/stats?ip=${ip}`).then(r => r.json()).then(data => {
+                document.getElementById('ip-info-total').textContent = data.total.toLocaleString();
+                document.getElementById('ip-info-blocked').textContent = data.blocked.toLocaleString();
+            });
+
+            // Fetch Top Domains
+            fetch(`/api/client/top-domains?ip=${ip}`).then(r => r.json()).then(domains => {
+                const container = document.getElementById('ip-info-top-domains');
+                container.innerHTML = (domains || []).map(d => `
+                    <tr>
+                        <td>${d.domain}</td>
+                        <td style="text-align:right">${d.count}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="2" class="help">No data</td></tr>';
+            });
+
+            // Fetch Recent History (reuse existing queries API with client_ip filter)
+            fetch(`/api/queries?client_ip=${ip}&limit=20`).then(r => r.json()).then(queries => {
+                const container = document.getElementById('ip-info-history');
+                container.innerHTML = (queries || []).map(q => {
+                    const time = new Date(q.time).toLocaleTimeString();
+                    return `
+                        <tr>
+                            <td>${time}</td>
+                            <td class="truncate" style="max-width: 150px;" title="${q.domain}">${q.domain}</td>
+                            <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
+                        </tr>
+                    `;
+                }).join('') || '<tr><td colspan="3" class="help">No recent activity</td></tr>';
+            });
+
+        } catch (e) {
+            console.error('Failed to fetch client details', e);
+        }
+    };
 
     // Attach to window for global access
     window.saveConfig = saveConfig;

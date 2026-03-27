@@ -31,25 +31,35 @@ func loadConfig() {
 	configLock.Lock()
 	defer configLock.Unlock()
 
-	file, err := os.ReadFile(ConfigPath)
-	if err != nil {
-		log.Printf("Creating default config")
-		config = Config{
-			Upstreams:       []string{"86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"},
-			UpstreamDoT:     []string{"unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"},
-			PreferEncrypted: true,
-			FilteringEnabled: true,
-			AdminDomain:      "shielddns.local",
-			BlockPageIP:      "127.0.0.1",
-			Lists:            DefaultPresets,
-			Allowlists:       DefaultAllowlists,
-		}
-		saveConfigNoLock()
-		return
+	// 1. Initialize with current defaults
+	config = Config{
+		Upstreams:           []string{"86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"},
+		UpstreamDoT:          []string{"unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"},
+		PreferEncrypted:      true,
+		FilteringEnabled:    true,
+		AdminDomain:         "shielddns.local",
+		BlockPageIP:         "127.0.0.1",
+		Lists:               DefaultPresets,
+		Allowlists:          DefaultAllowlists,
+		LatencyTestInterval: 10,
+		SmartSelectionPolicy: "fastest",
+		DiagnosticsRefreshInterval: 30, // Default to 30s
+		ServeStale:          true,
+		DNSSECEnabled:       true,
 	}
-	json.Unmarshal(file, &config)
+
+	// 2. Load from file if exists
+	file, err := os.ReadFile(ConfigPath)
+	if err == nil {
+		// This will overwrite defaults with values from file
+		// If a key is missing in JSON, the default value from above remains
+		json.Unmarshal(file, &config)
+	} else {
+		log.Printf("Creating default config at %s", ConfigPath)
+		saveConfigNoLock()
+	}
 	
-	// Check environment variables for overrides
+	// 3. Check environment variables for overrides
 	if envDNS := os.Getenv("UPSTREAM_DNS"); envDNS != "" {
 		parts := strings.Fields(strings.ReplaceAll(envDNS, ",", " "))
 		if len(parts) > 0 {
@@ -63,7 +73,46 @@ func loadConfig() {
 		}
 	}
 
-	// Prepend official lists if missing
+	// 4. Prepend official lists if missing
+	ensureOfficialLists()
+
+	// 5. Final Sanitization & Constraints
+	if len(config.Upstreams) == 0 {
+		config.Upstreams = []string{"86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"}
+	}
+	if len(config.UpstreamDoT) == 0 {
+		config.UpstreamDoT = []string{"unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"}
+	}
+	// Limit to max 5
+	if len(config.Upstreams) > 5 { config.Upstreams = config.Upstreams[:5] }
+	if len(config.UpstreamDoT) > 5 { config.UpstreamDoT = config.UpstreamDoT[:5] }
+
+	// Sanitize upstreams strings
+	for i, u := range config.Upstreams {
+		config.Upstreams[i] = strings.Trim(u, " ,")
+	}
+	for i, u := range config.UpstreamDoT {
+		config.UpstreamDoT[i] = strings.Trim(u, " ,")
+	}
+
+	if config.AdminDomain == "" {
+		config.AdminDomain = "shielddns.local"
+	}
+	if config.BlockPageIP == "" {
+		config.BlockPageIP = "127.0.0.1"
+	}
+	if config.LatencyTestInterval == 0 {
+		config.LatencyTestInterval = 10
+	}
+	if config.SmartSelectionPolicy == "" {
+		config.SmartSelectionPolicy = "fastest"
+	}
+	if config.DiagnosticsRefreshInterval == 0 {
+		config.DiagnosticsRefreshInterval = 30
+	}
+}
+
+func ensureOfficialLists() {
 	hasOfficialBlock := false
 	for _, l := range config.Lists {
 		if strings.Contains(l.URL, "FaserF/ShieldDNS") {
@@ -92,32 +141,6 @@ func loadConfig() {
 			URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/allowlists/default.txt", 
 			Enabled: true,
 		}}, config.Allowlists...)
-	}
-
-	// Ensure defaults if fields are empty
-	if len(config.Upstreams) == 0 {
-		config.Upstreams = []string{"86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"}
-	}
-	if len(config.UpstreamDoT) == 0 {
-		config.UpstreamDoT = []string{"unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"}
-	}
-	// Limit to max 5
-	if len(config.Upstreams) > 5 { config.Upstreams = config.Upstreams[:5] }
-	if len(config.UpstreamDoT) > 5 { config.UpstreamDoT = config.UpstreamDoT[:5] }
-
-	// Sanitize upstreams
-	for i, u := range config.Upstreams {
-		config.Upstreams[i] = strings.Trim(u, " ,")
-	}
-	for i, u := range config.UpstreamDoT {
-		config.UpstreamDoT[i] = strings.Trim(u, " ,")
-	}
-
-	if config.AdminDomain == "" {
-		config.AdminDomain = "shielddns.local"
-	}
-	if config.BlockPageIP == "" {
-		config.BlockPageIP = "127.0.0.1"
 	}
 }
 

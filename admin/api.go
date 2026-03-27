@@ -29,13 +29,16 @@ var (
 )
 
 type IPInfo struct {
-	IP        string    `json:"ip"`
-	IsPrivate bool      `json:"is_private"`
-	Hostname  string    `json:"hostname"`
-	Country   string    `json:"country"`
-	City      string    `json:"city"`
-	ISP       string    `json:"isp"`
-	ExpiresAt time.Time `json:"-"`
+	IP           string    `json:"ip"`
+	IsPrivate    bool      `json:"is_private"`
+	Hostname     string    `json:"hostname"`
+	Country      string    `json:"country"`
+	CountryCode  string    `json:"country_code"`
+	City         string    `json:"city"`
+	ISP          string    `json:"isp"`
+	MAC          string    `json:"mac,omitempty"`
+	Manufacturer string    `json:"manufacturer,omitempty"`
+	ExpiresAt    time.Time `json:"-"`
 }
 
 func hashToken(token string) string {
@@ -440,6 +443,17 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getSystemStats() map[string]interface{} {
+	stats := make(map[string]interface{})
+
+	fillCPUStats(stats)
+	fillRAMStats(stats)
+	fillUptimeStats(stats)
+	fillDiskStats(stats)
+
+	return stats
+}
+
 func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	certFile := os.Getenv("CERT_FILE")
 	if certFile == "" {
@@ -576,7 +590,11 @@ func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 
 	selectionMode := "Manual"
 	if smartSelection {
-		selectionMode = "Smart Selection (Latency based)"
+		if config.SmartSelectionPolicy == "random" {
+			selectionMode = "Smart Selection (Random Load Balancing)"
+		} else {
+			selectionMode = "Smart Selection (Lowest Latency)"
+		}
 	}
 
 	info := map[string]interface{}{
@@ -591,6 +609,7 @@ func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 		},
 		"selection_mode":  selectionMode,
 		"upstream_health": upstreamHealth,
+		"system":          getSystemStats(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -634,15 +653,26 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		resp, err := http.Get("http://ip-api.com/json/" + ip)
 		if err == nil {
 			var geo struct {
-				Country string `json:"country"`
-				City    string `json:"city"`
-				Org     string `json:"org"`
+				Country     string `json:"country"`
+				CountryCode string `json:"countryCode"`
+				City        string `json:"city"`
+				Org         string `json:"org"`
 			}
 			json.NewDecoder(resp.Body).Decode(&geo)
 			resp.Body.Close()
 			info.Country = geo.Country
+			info.CountryCode = geo.CountryCode
 			info.City = geo.City
 			info.ISP = geo.Org
+		}
+	}
+
+	// MAC and Manufacturer for local IPs
+	if isPrivate {
+		mac := getMACByIP(ip)
+		if mac != "" {
+			info.MAC = mac
+			info.Manufacturer = getManufacturerByMAC(mac)
 		}
 	}
 
@@ -657,6 +687,59 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(info)
+}
+
+func getMACByIP(ip string) string {
+	data, err := os.ReadFile("/proc/net/arp")
+	if err != nil {
+		return ""
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) >= 4 && fields[0] == ip {
+			return fields[3]
+		}
+	}
+	return ""
+}
+
+func getManufacturerByMAC(mac string) string {
+	if len(mac) < 8 {
+		return ""
+	}
+	prefix := strings.ToUpper(strings.ReplaceAll(mac[:8], ":", ""))
+	
+	// Small OUI database for common devices
+	ouis := map[string]string{
+		"B4FB12": "Apple",
+		"0017F2": "Apple",
+		"D0034B": "Apple",
+		"F01898": "Apple",
+		"000420": "Slim Devices (Logitech)",
+		"000C29": "VMware",
+		"080027": "VirtualBox",
+		"B827EB": "Raspberry Pi",
+		"DCA632": "Raspberry Pi",
+		"E45F01": "Raspberry Pi",
+		"28D244": "Xiaomi",
+		"00000C": "Cisco",
+		"0010FA": "Sony",
+		"00166B": "Samsung",
+		"E470B8": "Samsung",
+		"702C1F": "Google",
+		"D824BD": "Google",
+		"001F3B": "Nintendo",
+		"00096B": "IBM",
+		"001422": "Dell",
+		"001143": "HP",
+		"001132": "Synology",
+		"9009DF": "Synology",
+		"0024A5": "Synology",
+	}
+
+	return ouis[prefix]
 }
 
 
@@ -761,6 +844,12 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	s.AlpineVersion = alpineVer
 
+	// Get latest versions for update check
+	latest := getLatestVersions()
+	s.LatestVersion = latest.ShieldDNS
+	s.LatestCoreDNSVersion = latest.CoreDNS
+	s.LatestAlpineVersion = latest.Alpine
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s)
 }
@@ -805,6 +894,10 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 		(time.Now().UnixNano()+1)&0xFFFFFFFF, (time.Now().UnixNano()+1)>>32&0xFFFF,
 		0x4000|((time.Now().UnixNano()+1)>>48&0x0FFF), 0x8000|((time.Now().UnixNano()+1)>>60&0x3FFF),
 		(time.Now().UnixNano()+1)&0xFFFFFFFFFFFF)
+	quicUUID := fmt.Sprintf("%08X-%04X-%04X-%04X-%012X",
+		(time.Now().UnixNano()+2)&0xFFFFFFFF, (time.Now().UnixNano()+2)>>32&0xFFFF,
+		0x4000|((time.Now().UnixNano()+2)>>48&0x0FFF), 0x8000|((time.Now().UnixNano()+2)>>60&0x3FFF),
+		(time.Now().UnixNano()+2)&0xFFFFFFFFFFFF)
 
 	w.Header().Set("Content-Type", "application/x-apple-aspen-config")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=shielddns_%s.mobileconfig", host))
@@ -833,14 +926,43 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 					<string>Connect</string>
 				</dict>
 			</array>
-			<key>ProhibitDisablement</key>
-			<false/>
 			<key>PayloadDescription</key>
-			<string>Configures encrypted DNS-over-TLS (DoT) to route all DNS queries through ShieldDNS on %s. This protects your browsing from tracking and blocks malicious domains.</string>
+			<string>Configures encrypted DNS-over-TLS (DoT) for ShieldDNS.</string>
 			<key>PayloadDisplayName</key>
-			<string>ShieldDNS DNS Settings</string>
+			<string>ShieldDNS DoT</string>
 			<key>PayloadIdentifier</key>
-			<string>com.shielddns.dns.%s</string>
+			<string>com.shielddns.dot.%s</string>
+			<key>PayloadType</key>
+			<string>com.apple.dnsSettings.managed</string>
+			<key>PayloadUUID</key>
+			<string>%s</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>DNSSettings</key>
+			<dict>
+				<key>DNSProtocol</key>
+				<string>QUIC</string>
+				<key>ServerName</key>
+				<string>%s</string>
+				<key>ServerAddresses</key>
+				<array>
+%s				</array>
+			</dict>
+			<key>OnDemandRules</key>
+			<array>
+				<dict>
+					<key>Action</key>
+					<string>Connect</string>
+				</dict>
+			</array>
+			<key>PayloadDescription</key>
+			<string>Configures encrypted DNS-over-QUIC (DoQ) for ShieldDNS.</string>
+			<key>PayloadDisplayName</key>
+			<string>ShieldDNS DoQ</string>
+			<key>PayloadIdentifier</key>
+			<string>com.shielddns.doq.%s</string>
 			<key>PayloadType</key>
 			<string>com.apple.dnsSettings.managed</string>
 			<key>PayloadUUID</key>
@@ -851,14 +973,10 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	</array>
 	<key>PayloadDisplayName</key>
 	<string>ShieldDNS Encrypted DNS</string>
-	<key>PayloadDescription</key>
-	<string>This profile enables encrypted DNS-over-TLS (DoT) via ShieldDNS. All DNS queries from this device will be routed through your private ShieldDNS server at %s, providing ad-blocking, tracking protection, and malware filtering.</string>
 	<key>PayloadIdentifier</key>
 	<string>com.shielddns.profile.%s</string>
 	<key>PayloadOrganization</key>
 	<string>ShieldDNS</string>
-	<key>PayloadRemovalDisallowed</key>
-	<false/>
 	<key>PayloadType</key>
 	<string>Configuration</string>
 	<key>PayloadUUID</key>
@@ -868,10 +986,10 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	<key>ConsentText</key>
 	<dict>
 		<key>default</key>
-		<string>This profile will configure your device to use ShieldDNS (%s) as your encrypted DNS server (DNS-over-TLS). All DNS queries will be routed through this server for ad-blocking and privacy protection. You can remove this profile at any time in Settings > General > VPN &amp; Device Management.</string>
+		<string>This profile configures ShieldDNS (%s) for DoT and DoQ protection.</string>
 	</dict>
 </dict>
-</plist>`, host, serverAddrsXML, host, host, payloadUUID, host, host, profileUUID, host)
+</plist>`, host, serverAddrsXML, host, payloadUUID, host, serverAddrsXML, host, quicUUID, host, profileUUID, host)
 
 	w.Write([]byte(mobileConfig))
 }
@@ -1155,6 +1273,68 @@ func handleTopClients(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+func handleTopDomainsForClient(w http.ResponseWriter, r *http.Request) {
+	clientIP := r.URL.Query().Get("ip")
+	if clientIP == "" {
+		http.Error(w, "IP required", http.StatusBadRequest)
+		return
+	}
+
+	rows, err := db.Query(`
+		SELECT domain, COUNT(*) as count
+		FROM queries
+		WHERE client_ip = ?
+		GROUP BY domain
+		ORDER BY count DESC
+		LIMIT 10
+	`, clientIP)
+	if err != nil {
+		http.Error(w, "Error querying database", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	result := make([]map[string]interface{}, 0)
+	for rows.Next() {
+		var domain string
+		var count int
+		rows.Scan(&domain, &count)
+		result = append(result, map[string]interface{}{"domain": domain, "count": count})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func handleClientStats(w http.ResponseWriter, r *http.Request) {
+	clientIP := r.URL.Query().Get("ip")
+	if clientIP == "" {
+		http.Error(w, "IP required", http.StatusBadRequest)
+		return
+	}
+
+	var total, blocked int
+	// Use separate queries or a single one with conditional sum
+	row := db.QueryRow(`
+		SELECT 
+			COUNT(*), 
+			SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END)
+		FROM queries
+		WHERE client_ip = ?
+	`, clientIP)
+	
+	err := row.Scan(&total, &blocked)
+	if err != nil {
+		log.Printf("Error scanning client stats: %v", err)
+		// total and blocked remain 0
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{
+		"total":   total,
+		"blocked": blocked,
+	})
 }
 
 func handleReset(w http.ResponseWriter, r *http.Request) {

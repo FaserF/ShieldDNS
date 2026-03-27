@@ -49,6 +49,11 @@ Android natively supports "Private DNS" (DNS-over-TLS) to encrypt your queries n
 3.  **Configure**: Select **Private DNS provider hostname**.
 4.  **Enter Hostname**: Type in your ShieldDNS domain name (e.g., `dns.mydomain.de`) and save.
 
+### Advanced Android Setup (DoQ / DoH3)
+While standard "Private DNS" uses DoT, you can use specialized apps for even better performance and DNS-over-QUIC:
+1.  **Google Intra**: Install [Intra](https://play.google.com/store/apps/details?id=app.intra) and enter your DoH URL (e.g. `https://dns.mydomain.de/dns-query`).
+2.  **AdGuard**: Use AdGuard for Android for system-wide protection with DoQ support (`quic://dns.mydomain.de:853`).
+
 ---
 
 ## macOS 14 (Sonoma) and later
@@ -58,8 +63,8 @@ Apple now supports encrypted DNS natively in macOS. You can install the same Con
 1.  **Download Profile**: Open Safari or any browser, go to your ShieldDNS home page, and click **Download Config Profile**.
 2.  **Open Settings**: Open **System Settings**.
 3.  **Navigate to Profiles**: Go to **Privacy & Security** &rarr; **Profiles** (scroll down to the "Others" section at the bottom).
-4.  **Install**: Double-click the downloaded ShieldDNS profile and click **Install**. 
-5.  **Confirm**: You will need to enter your Mac password. 
+4.  **Install**: Double-click the downloaded ShieldDNS profile and click **Install**.
+5.  **Confirm**: You will need to enter your Mac password.
 *Note: The "Not Signed" warning is completely normal for auto-generated local profiles.*
 
 ---

@@ -7,11 +7,25 @@
     <title>ShieldDNS</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 
 <body class="dark">
+    <div class="mobile-header">
+        <button id="sidebar-toggle" class="hamburger">
+            <i class="fas fa-bars"></i>
+        </button>
+        <div class="mobile-logo">
+            <img src="/logo.png?v=2" alt="ShieldDNS">
+            <span>ShieldDNS</span>
+        </div>
+        <div style="width: 40px;"></div> <!-- Spacer -->
+    </div>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
     <div class="app-container">
         <aside class="sidebar">
             <a href="/" class="logo"
@@ -270,6 +284,41 @@
                             </div>
                         </div>
                     </div>
+                    <!-- New Resource Usage Card -->
+                    <div class="stat-card card">
+                        <h3>Resource Usage</h3>
+                        <div class="list-info" style="margin-top:10px">
+                            <div class="diag-item diag-stack">
+                                <div style="display:flex; justify-content:space-between; width:100%">
+                                    <span>CPU Load (1/5/15m)</span>
+                                    <span id="diag-cpu-load" class="badge">0.00, 0.00, 0.00</span>
+                                </div>
+                                <div id="diag-cpu-model" class="help" style="font-size: 0.75rem; margin-top: 2px;">Detecting...</div>
+                            </div>
+                            <div class="diag-item diag-stack">
+                                <div style="display:flex; justify-content:space-between; width:100%">
+                                    <span>RAM Usage</span>
+                                    <span id="diag-ram-usage" class="badge">0 / 0 MB</span>
+                                </div>
+                                <div class="progress-bar-bg" style="width:100%; height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-top:4px;">
+                                    <div id="diag-ram-bar" style="height:100%; width:0%; background:var(--accent); transition: width 0.5s;"></div>
+                                </div>
+                            </div>
+                            <div class="diag-item diag-stack">
+                                <div style="display:flex; justify-content:space-between; width:100%">
+                                    <span>Disk Space</span>
+                                    <span id="diag-disk-usage" class="badge">0 / 0 GB</span>
+                                </div>
+                                <div class="progress-bar-bg" style="width:100%; height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-top:4px;">
+                                    <div id="diag-disk-bar" style="height:100%; width:0%; background:var(--success); transition: width 0.5s;"></div>
+                                </div>
+                            </div>
+                            <div class="diag-item">
+                                <span>Uptime</span>
+                                <span id="diag-uptime" class="badge">00:00:00</span>
+                            </div>
+                        </div>
+                    </div>
                     <div class="stat-card card" style="grid-column: 1 / -1">
                         <h3>Upstream Performance <span id="upstream-selection-method" class="help" style="font-size: 0.8rem; font-weight: 400; margin-left: 8px; opacity: 0.7;"></span></h3>
                         <div class="card-body" style="margin-top:15px">
@@ -472,6 +521,45 @@
                         <input type="number" id="retention-input" min="1" max="365" value="30">
                     </div>
                     <div class="form-group">
+                        <label>Latency Test Interval (Minutes)</label>
+                        <p class="help">Frequency of response time checks. Distributed across the interval.</p>
+                        <input type="number" id="latency-interval-input" min="1" max="1440" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label>Diagnostics Refresh Interval (Seconds)</label>
+                        <p class="help">Frequency of hardware resource updates (CPU, RAM, etc.) in Diagnostics view.</p>
+                        <input type="number" id="diagnostics-interval-input" min="5" max="3600" value="600">
+                    </div>
+                    <div class="form-group">
+                        <label>Smart Selection Mode</label>
+                        <p class="help">Strategy used for upstream selection when Smart Selection is active.</p>
+                        <select id="smart-selection-policy-input">
+                            <option value="fastest">Fastest (Lowest Latency)</option>
+                            <option value="random">Random (Load Balancing)</option>
+                            <option value="broadcast">Broadcast (Ultra Fast - Parallel Queries)</option>
+                        </select>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <div class="checkbox-text">
+                            <label>Enable Serve Stale</label>
+                            <p class="help">Serve expired cache entries while refreshing in background (faster perceived speed).</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="serve-stale-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <div class="checkbox-text">
+                            <label>DNSSEC Validation</label>
+                            <p class="help">Perform full local DNSSEC validation. Disable to offload to upstream (recommended for speed).</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="dnssec-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
                         <label>System Backup & Restore</label>
                         <p class="help">Download a full system backup (.zip) or restore your configuration (.json).</p>
                         <div style="display:flex;gap:12px;align-items:center;">
@@ -499,17 +587,15 @@
                     <div class="stat-card card">
                         <h3>Environment</h3>
                         <div class="list-info" style="margin-top:15px">
-                            <div
-                                style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+                            <div class="diag-item">
                                 <span>ShieldDNS Version</span>
                                 <span id="about-shielddns-ver" class="badge official">v1.1.1-dev</span>
                             </div>
-                            <div
-                                style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+                            <div class="diag-item">
                                 <span>CoreDNS Version</span>
                                 <span id="about-coredns-ver" class="badge">v1.14.2</span>
                             </div>
-                            <div style="display:flex;justify-content:space-between;padding:10px 0;">
+                            <div class="diag-item">
                                 <span>OS Base</span>
                                 <span id="about-os-ver" class="badge">Alpine 3.23</span>
                             </div>
@@ -749,7 +835,7 @@
 
     <!-- IP Detail Modal -->
     <div id="ip-info-modal" class="modal hidden">
-        <div class="modal-content" style="width: 600px; max-width: 90vw;">
+        <div class="modal-content" style="width: 700px; max-width: 95vw;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
                 <div>
                     <h2 id="ip-info-title">Client Details</h2>
@@ -758,41 +844,77 @@
                 <button class="btn btn-sm secondary" id="ip-info-close-btn">&times;</button>
             </div>
             
-            <div class="analytics-grid" style="grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-                <div class="stat-card card">
-                    <label>Network Type</label>
-                    <div class="value" id="ip-info-type" style="font-size: 1.2rem;">-</div>
+            <div class="analytics-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                <div class="stat-card card" style="padding: 10px;">
+                    <label style="font-size: 0.65rem; color: var(--text-secondary);">Total Queries</label>
+                    <div class="value" id="ip-info-total" style="font-size: 1.1rem; font-weight: 600;">0</div>
                 </div>
-                <div class="stat-card card">
-                    <label>Reverse DNS</label>
-                    <div class="value" id="ip-info-hostname" style="font-size: 1.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</div>
+                <div class="stat-card card blocked" style="padding: 10px;">
+                    <label style="font-size: 0.65rem; color: var(--text-secondary);">Blocked</label>
+                    <div class="value" id="ip-info-blocked" style="font-size: 1.1rem; font-weight: 600;">0</div>
                 </div>
-                <div class="stat-card card" id="ip-info-geo-card">
-                    <label>Location</label>
-                    <div class="value" id="ip-info-location" style="font-size: 1.1rem;">-</div>
+                <div class="stat-card card" style="padding: 10px;">
+                    <label style="font-size: 0.65rem; color: var(--text-secondary);">Network Info</label>
+                    <div id="ip-info-type-tag" class="badge" style="display: block; width: fit-content; font-size: 0.7rem; margin-top: 4px;">-</div>
+                    <div class="value" id="ip-info-hostname" style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; font-weight: 500;">-</div>
                 </div>
-                <div class="stat-card card" id="ip-info-isp-card">
-                    <label>Provider / ISP</label>
-                    <div class="value" id="ip-info-isp" style="font-size: 1.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</div>
+                <!-- New Device Card -->
+                <div class="stat-card card" style="padding: 10px;">
+                    <label style="font-size: 0.65rem; color: var(--text-secondary);">Device Info</label>
+                    <div id="ip-info-manufacturer" class="value" style="font-size: 0.85rem; font-weight: 600;">-</div>
+                    <div id="ip-info-mac" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">-</div>
+                </div>
+                <!-- New Location Card -->
+                <div class="stat-card card" style="padding: 10px;">
+                    <label style="font-size: 0.65rem; color: var(--text-secondary);">Location</label>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                        <div id="ip-info-flag"></div>
+                        <div id="ip-info-country" class="value" style="font-size: 0.85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</div>
+                    </div>
+                    <div id="ip-info-city" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">-</div>
                 </div>
             </div>
 
-            <div class="query-log-container card" style="padding: 16px;">
-                <h3 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--text-secondary);">Last 20 Queries from this Client</h3>
-                <div class="overflow-x">
-                    <table class="query-table" style="font-size: 0.8rem;">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Domain</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ip-info-history">
-                            <!-- Dynamic -->
-                        </tbody>
-                    </table>
+            <div class="analytics-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div class="query-log-container card" style="padding: 16px; margin-top: 0;">
+                    <h3 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--accent);">Top 10 Domains</h3>
+                    <div class="overflow-x">
+                        <table class="query-table" style="font-size: 0.75rem;">
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th style="text-align:right">Hits</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ip-info-top-domains">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+
+                <div class="query-log-container card" style="padding: 16px; margin-top: 0;">
+                    <h3 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--accent);">Recent Activity</h3>
+                    <div class="overflow-x">
+                        <table class="query-table" style="font-size: 0.75rem;">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Domain</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ip-info-history">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button class="btn secondary" id="ip-info-view-all-btn">View full log for this client</button>
+                <button class="btn primary" id="ip-info-done-btn">Done</button>
             </div>
         </div>
     </div>

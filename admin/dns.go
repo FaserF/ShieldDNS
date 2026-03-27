@@ -16,10 +16,13 @@ import (
 )
 
 func startHealthChecker() {
-	checkAll() // Initial check
 	for {
-		time.Sleep(60 * time.Second)
 		checkAll()
+		configLock.RLock()
+		interval := config.LatencyTestInterval
+		configLock.RUnlock()
+		if interval < 1 { interval = 1 }
+		time.Sleep(time.Duration(interval) * time.Minute)
 	}
 }
 
@@ -28,12 +31,26 @@ func checkAll() {
 	upstreams := config.Upstreams
 	dots := config.UpstreamDoT
 	smart := config.UseFastestUpstream
+	interval := config.LatencyTestInterval
 	configLock.RUnlock()
+
+	if interval < 1 { interval = 1 }
 
 	var newHealthyUpstreams []string
 	var newHealthyDoT []string
 
-	// Sequential Check for Upstreams with delay for absolute reliability
+	total := len(upstreams) + len(dots)
+	if total == 0 { return }
+
+	// Calculate delay to spread checks over the interval
+	// We want to finish all checks within the interval
+	delay := time.Duration((interval * 60) / total) * time.Second
+	// Don't wait more than 30s between checks to keep it responsive if few servers
+	if delay > 30*time.Second { delay = 30 * time.Second }
+	// Don't wait less than 500ms to avoid burst
+	if delay < 500*time.Millisecond { delay = 500 * time.Millisecond }
+
+	// Check Upstreams
 	for _, u := range upstreams {
 		host, port := splitAddr(u, "53")
 		ip := resolveHost(host)
@@ -47,10 +64,10 @@ func checkAll() {
 			latencyLock.Unlock()
 			newHealthyUpstreams = append(newHealthyUpstreams, u)
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(delay)
 	}
 
-	// Sequential Check for DoT
+	// Check DoT
 	for _, u := range dots {
 		host, port := splitAddr(u, "853")
 		ip := resolveHost(host)
@@ -64,12 +81,25 @@ func checkAll() {
 			latencyLock.Unlock()
 			newHealthyDoT = append(newHealthyDoT, u)
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(delay)
 	}
 
 	healthLock.Lock()
 	healthyUpstreams = newHealthyUpstreams
 	healthyDoT = newHealthyDoT
+	
+	// If smart selection is enabled, sort the global healthy lists by latency
+	// so that other parts of the app (like Diagnostics API) see the correct order.
+	if smart {
+		latencyLock.RLock()
+		sort.Slice(healthyUpstreams, func(i, j int) bool {
+			return latencyMap[healthyUpstreams[i]] < latencyMap[healthyUpstreams[j]]
+		})
+		sort.Slice(healthyDoT, func(i, j int) bool {
+			return latencyMap[healthyDoT[i]] < latencyMap[healthyDoT[j]]
+		})
+		latencyLock.RUnlock()
+	}
 	healthLock.Unlock()
 
 	if smart {
@@ -208,6 +238,9 @@ func updateCorefile() {
 	configLock.RLock()
 	preferEncrypted := config.PreferEncrypted
 	smart := config.UseFastestUpstream
+	policy := config.SmartSelectionPolicy
+	serveStale := config.ServeStale
+	dnssec := config.DNSSECEnabled
 	configLock.RUnlock()
 
 	healthLock.RLock()
@@ -217,6 +250,8 @@ func updateCorefile() {
 	copy(hDoT, healthyDoT)
 	healthLock.RUnlock()
 
+	// Sorting is already handled in checkAll for the global lists, 
+	// but we do it again on local copies to be certain and safe for future changes.
 	if smart {
 		latencyLock.RLock()
 		sort.Slice(hDNS, func(i, j int) bool {
@@ -296,39 +331,71 @@ func updateCorefile() {
         tlsBlock = fmt.Sprintf("    tls_servername %s", dotServerName)
     }
 
+    dnssecBlock := ""
+    if dnssec {
+        dnssecBlock = "    dnssec"
+    }
+
+    staleBlock := ""
+    if serveStale {
+        staleBlock = "        serve_stale 1h"
+    }
+
+    policyBlock := ""
+    if smart {
+        if policy == "random" {
+            policyBlock = "        policy random"
+        } else if policy == "broadcast" {
+            policyBlock = "        policy broadcast"
+            // If broadcast and preferEncrypted, we only want to forward to DoT servers
+            if preferEncrypted && len(hDoT) > 0 {
+                upstreamStr = strings.Join(hDoT, " tls://")
+                if !strings.HasPrefix(upstreamStr, "tls://") {
+                    upstreamStr = "tls://" + upstreamStr
+                }
+            }
+        } else {
+            policyBlock = "        policy sequential"
+        }
+    }
+
     corefile := fmt.Sprintf(`.:53 {
     bind 0.0.0.0
-    dnssec
+    %s
     health :8082
     reload 5s
     cache 3600 {
         success 10000
         denial 2500
         prefetch 10 10m 10%%
+        %s
     }
     forward . %s {
         health_check 10s
+        %s
         %s
     }%s
     log . 
     errors
 }
-`, upstreamStr, tlsBlock, hostsBlock)
+`, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock)
 
     // Repeat for TLS and HTTPS blocks
     corefile += fmt.Sprintf(`
 tls://.:853 {
     bind 0.0.0.0
     tls %s %s
-    dnssec
+    %s
     reload 5s
     cache 3600 {
         success 10000
         denial 2500
         prefetch 10 10m 10%%
+        %s
     }
     forward . %s {
         health_check 10s
+        %s
         %s
     }%s
     log . 
@@ -338,21 +405,42 @@ tls://.:853 {
 https://.:5553 {
     bind 0.0.0.0
     tls %s %s
-    dnssec
+    %s
     reload 5s
     cache 3600 {
         success 10000
         denial 2500
         prefetch 10 10m 10%%
+        %s
     }
     forward . %s {
         health_check 10s
+        %s
         %s
     }%s
     log . 
     errors
 }
-`, certFile, keyFile, upstreamStr, tlsBlock, hostsBlock, certFile, keyFile, upstreamStr, tlsBlock, hostsBlock)
+
+quic://.:853 {
+    tls %s %s
+    %s
+    reload 5s
+    cache 3600 {
+        success 10000
+        denial 2500
+        prefetch 10 10m 10%%
+        %s
+    }
+    forward . %s {
+        health_check 10s
+        %s
+        %s
+    }%s
+    log . 
+    errors
+}
+`, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock)
 
 	os.WriteFile(CorefilePath, []byte(corefile), 0644)
 }
@@ -436,7 +524,6 @@ func parseLogLine(line string) {
 	}
 
 	isBlocked := strings.Contains(rflags, "qr,aa") // typical for local hosts block
-	isCacheHit := strings.Contains(rflags, "qr,aa") && !isBlocked // Fallback heuristic
 
 	// Extract Duration
 	duration := 0.0
@@ -445,6 +532,11 @@ func parseLogLine(line string) {
 			duration = float64(d.Microseconds()) / 1000.0 // in ms
 		}
 	}
+
+	// Cache Hit Detection:
+	// A cache hit in CoreDNS usually results in a very low duration (< 1ms).
+	// Since blocked queries (qr,aa) also have low duration, we must ensure it's not a block.
+	isCacheHit := !isBlocked && duration < 1.0
 
 	// Update memory stats for real-time dashboard
 	statsLock.Lock()
@@ -477,14 +569,21 @@ func parseLogLine(line string) {
 	}
 
 	// Buffer for batch SQLite insert
+	// The original code had `q := Query{...}` and then `logBuffer = append(logBuffer, q)`.
+	// The change implies direct append with the literal.
 	q := Query{
-		Time:     time.Now(),
-		Domain:   qDomain,
-		Type:     qType,
-		Status:   status,
-		ClientIP: clientIP,
-		Duration: duration,
+		Time:       time.Now(),
+		Domain:     qDomain,
+		Type:       qType,
+		Status:     status,
+		ClientIP:   clientIP,
+		IsCacheHit: isCacheHit,
+		DurationMs: duration,
 	}
+
+	bufferLock.Lock()
+	logBuffer = append(logBuffer, q)
+	bufferLock.Unlock()
 
 	// Broadcast to SSE clients
 	go func(query Query) {
@@ -497,8 +596,4 @@ func parseLogLine(line string) {
 			}
 		}
 	}(q)
-
-	bufferLock.Lock()
-	logBuffer = append(logBuffer, q)
-	bufferLock.Unlock()
 }

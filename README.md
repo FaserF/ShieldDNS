@@ -2,22 +2,22 @@
 
 # ShieldDNS 🛡️
 
-**ShieldDNS** is a high-performance, hardened, privacy-focused DNS solution supporting **DNS-over-TLS (DoT)** and standard DNS.
+**ShieldDNS** is a high-performance, hardened, privacy-focused DNS solution supporting **DNS-over-TLS (DoT)**, **DNS-over-HTTPS (DoH)**, **DNS-over-QUIC (DoQ)** and standard DNS.
 
 It features a premium **Admin Dashboard** with persistent SQLite-backed analytics, custom rule management, and a powerful **Filtering Engine** compatible with AdGuard, Pi-hole, and uBlock origin lists.
 
 ## 🚀 Key Features
 
-- 🔒 **Secure DNS**: Native support for **DNS-over-TLS (DoT)** (port 853) and **DNS-over-HTTPS (DoH)** (port 443) — zero extra setup needed.
+- 🔒 **Secure DNS**: Native support for **DNS-over-TLS (DoT)** (port 853), **DNS-over-HTTPS (DoH)** (port 443), and **DNS-over-QUIC (DoQ)** — zero extra setup needed.
 - 📊 **Persistent Analytics**: SQLite-backed query history and advanced analytics (Top Blocked Domains, Top Clients).
 - 🏳️ **Custom Rules**: Instantly allow or block individual domains via the Admin UI. Input is auto-sanitized — paste a full URL if you like!
 - 🛡️ **DNS Filtering**: Integrated engine for blocklists with automatic updates and deduplication.
 - 🔌 **Protection Kill-Switch**: Instantly disable all filtering via the dashboard or API.
-- ⚡ **Optimized Performance**: Intelligent caching and prefetching enabled by default for ultra-low latency.
+- ⚡ **Optimized Performance**: Intelligent caching, prefetching, and **Serve Stale** support for instant responses even when upstreams are slow.
 - 🔐 **Secure Admin**: Mandatory password protection (bcrypt) for the Admin UI on port 443.
-- 📱 **Modern Protocols**: Perfect for Android Private DNS and standard system-wide filtering (iOS `.mobileconfig`).
+- 📱 **Modern Protocols**: Perfect for Android Private DNS and standard system-wide filtering (iOS `.mobileconfig` with DoT/DoH/DoQ support).
 - ⚡ **Live Monitoring**: Real-time query log updates via Server-Sent Events (SSE).
-- 🧠 **Smart DNS**: Automatic upstream selection based on live latency (RTT) measurements.
+- 🧠 **Smart DNS**: Automatic upstream selection based on live latency (RTT) with **Broadcast Mode** for ultra-low latency.
 - 🌙 **Dark & Light Mode**: Full theme support, persisted locally per user.
 - 🔄 **Config Backup & Restore**: One-click backup download and in-browser JSON configuration restore.
 - ⚡ **1-Click Allow / Block**: Directly allow or block any domain from the live Query Log table.
@@ -50,6 +50,7 @@ ShieldDNS is a modern, lightweight alternative to established solutions like AdG
 | **Base** | CoreDNS (Go) | Cloudflare Go | dnsmasq (C) |
 | **DoT (Port 853)** | Native ✅ | Native ✅ | Requires Unbound ❌ |
 | **DoH (Port 443)** | Native ✅ | Native ✅ | Requires cloudflared ❌ |
+| **DoQ (QUIC)** | Native ✅ | Native ✅ | ❌ |
 | **Performance** | Ultra-High (Go/WAL) | High | Moderate (dnsmasq) |
 | **Analytics** | SQLite (WAL/Batching) | Internal (Local) | FTL (C/Stats) |
 | **Hardening** | AEAD-only Ciphers  | Standard | Upstream Dependent |
@@ -58,8 +59,8 @@ ShieldDNS is a modern, lightweight alternative to established solutions like AdG
 ### 🛠️ Pros and Cons
 
 #### **ShieldDNS**
-- **Pros**: Incredibly performant thanks to the CoreDNS core; native DoT support (perfect for Android Private DNS); modern DoH stack; transaction-safe logging via SQLite WAL; real-time SSE updates.
-- **Cons**: More focused feature set than AdGuard Home (no DNS-over-QUIC yet); minimalist UI designed for efficiency.
+- **Pros**: Incredibly performant thanks to the CoreDNS core; native DoT/DoH/DoQ support; modern security stack; transaction-safe logging via SQLite WAL; real-time SSE updates.
+- **Cons**: Focused feature set designed for efficiency.
 
 #### **AdGuard Home**
 - **Pros**: Very comprehensive user interface; supports DNS-over-QUIC; integrated parental controls.
@@ -196,9 +197,22 @@ Immediately take control of your network without managing external lists:
 
 ## 📱 Client Configuration
 
-### DoT (DNS-over-TLS) - Port 853
-- **Android**: Go to **Settings > Network > Private DNS** and enter your domain (e.g., `dns.example.com`).
-- **iOS/macOS**: Use a `.mobileconfig` profile pointing to your DoT endpoint.
+### DoT (DNS-over-TLS) & DoQ (DNS-over-QUIC) - Port 853
+- **Android**: Go to **Settings > Network > Private DNS** and enter your domain (e.g., `dns.example.com`). Modern Android versions will automatically attempt DoT first. For DoQ, use a supporting app like *Nebulo* or *Personal DNS Filter*.
+- **iOS/macOS**: Download the `.mobileconfig` from your ShieldDNS dashboard. It implements both DoT and DoH. For native DoQ, ensure you are on iOS 17+.
+
+### ⚡ Setup DNS-over-QUIC (DoQ)
+DNS-over-QUIC is the fastest encrypted protocol as it eliminates TCP head-of-line blocking. ShieldDNS supports it out of the box on port 853.
+
+#### **Android (Advanced)**
+While standard "Private DNS" uses DoT, you can use **DoQ** for even better performance on unstable networks:
+1. Install an app like [Google Intra](https://play.google.com/store/apps/details?id=app.intra), or [AdGuard for Android](https://adguard.com/).
+2. Add a custom server: `quic://your.domain:853`.
+
+#### **iOS (Native)**
+ShieldDNS provides a profile that prefers DoT/DoH. To specifically force **DoQ**:
+1. Port 853 (UDP) must be open in your firewall.
+2. Use an app like [DNSecure](https://apps.apple.com/app/dnsecure/id1531065103) and enter `quic://your.domain`.
 
 ### OpenWrt Integration (Best Practices)
 If you host ShieldDNS publicly and want to route your entire home network through it via an OpenWrt router, follow these steps:
@@ -206,7 +220,7 @@ If you host ShieldDNS publicly and want to route your entire home network throug
 #### 1. Configure DNS Forwarding
 Navigate to **Network > DHCP and DNS** in LuCI:
 - **DNS forwardings**: Enter the IP of your ShieldDNS server (e.g., `94.31.75.54`).
-- **Fallback**: Add a secondary DNS server (e.g., `1.1.1.1`) as a second entry. 
+- **Fallback**: Add a secondary DNS server (e.g., `1.1.1.1`) as a second entry.
 - **Strict Order**: (Optional) In the **Advanced Settings** tab, check `Strict Order` to ensure ShieldDNS is always tried first.
 
 #### 2. Enforce ShieldDNS (DNS Hijacking)

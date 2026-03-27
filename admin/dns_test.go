@@ -44,8 +44,8 @@ func TestParseLogLine_Structured(t *testing.T) {
 		t.Errorf("Expected Status Allowed, got %s", q.Status)
 	}
 	// 0.00123s = 1.23ms
-	if q.Duration < 1.2 || q.Duration > 1.4 {
-		t.Errorf("Expected Duration ~1.23ms, got %f", q.Duration)
+	if q.DurationMs < 1.2 || q.DurationMs > 1.4 {
+		t.Errorf("Expected Duration ~1.23ms, got %f", q.DurationMs)
 	}
 }
 
@@ -79,8 +79,8 @@ func TestParseLogLine_Blocked(t *testing.T) {
 		t.Errorf("Expected Blocked, got %s", q.Status)
 	}
 	// 0.05s = 50ms
-	if q.Duration < 49.9 || q.Duration > 50.1 {
-		t.Errorf("Expected Duration ~50ms, got %f", q.Duration)
+	if q.DurationMs < 49.9 || q.DurationMs > 50.1 {
+		t.Errorf("Expected Duration ~50ms, got %f", q.DurationMs)
 	}
 }
 

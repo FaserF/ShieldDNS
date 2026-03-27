@@ -19,6 +19,7 @@ func main() {
 
 	// Initialize SQLite
 	initDB()
+	initializeStatsFromDB()
 
 	// Start background updater
 	go startBackgroundUpdater()
@@ -60,6 +61,8 @@ func main() {
 	http.Handle("/api/search", authMiddleware(http.HandlerFunc(handleSearch)))
 	http.Handle("/api/top-blocked", authMiddleware(http.HandlerFunc(handleTopBlocked)))
 	http.Handle("/api/top-clients", authMiddleware(http.HandlerFunc(handleTopClients)))
+	http.Handle("/api/client/top-domains", authMiddleware(http.HandlerFunc(handleTopDomainsForClient)))
+	http.Handle("/api/client/stats", authMiddleware(http.HandlerFunc(handleClientStats)))
 	http.Handle("/api/export", authMiddleware(http.HandlerFunc(handleExport)))
 	http.Handle("/api/backup", authMiddleware(http.HandlerFunc(handleBackup)))
 	http.Handle("/api/restore", authMiddleware(http.HandlerFunc(handleRestore)))
