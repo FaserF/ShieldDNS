@@ -274,8 +274,9 @@ func TestHandleMobileConfig(t *testing.T) {
 	if !strings.Contains(body, "<string>HTTPS</string>") {
 		t.Error("Missing HTTPS protocol in mobileconfig")
 	}
-	if !strings.Contains(body, "<string>QUIC</string>") {
-		t.Error("Missing QUIC protocol in mobileconfig")
+	// QUIC is NOT supported by Apple's MDM spec and must NOT be in the profile
+	if strings.Contains(body, "<string>QUIC</string>") {
+		t.Error("QUIC protocol should NOT be present in mobileconfig (not supported by Apple MDM)")
 	}
 	
 	// Check for correct ServerURL for HTTPS
@@ -283,13 +284,114 @@ func TestHandleMobileConfig(t *testing.T) {
 	if !strings.Contains(body, expectedHTTPS) {
 		t.Errorf("Missing or incorrect ServerURL for HTTPS. Expected %s", expectedHTTPS)
 	}
-	// Check for correct ServerURL for QUIC
-	expectedQUIC := "<string>quic://dns.example.com</string>"
-	if !strings.Contains(body, expectedQUIC) {
-		t.Errorf("Missing or incorrect ServerURL for QUIC. Expected %s", expectedQUIC)
+	// QUIC ServerURL should NOT be present
+	if strings.Contains(body, "quic://") {
+		t.Error("quic:// URL should NOT be present in mobileconfig")
 	}
 	// Check that ServerAddresses (127.0.0.1) is NOT present
 	if strings.Contains(body, "<string>127.0.0.1</string>") {
 		t.Error("Mobileconfig still contains 127.0.0.1 in ServerAddresses")
+	}
+}
+
+func TestIsValidDomain(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		// Valid domains
+		{"google.com", true},
+		{"sub.domain.example.org", true},
+		{"a.bc", true},
+		{"my-site.co.uk", true},
+		{"t.co", true},
+		{"xn--e1afmapc.xn--p1ai", true}, // Punycode IDN
+
+		// Valid IPs
+		{"1.2.3.4", true},
+		{"192.168.1.1", true},
+		{"::1", true},
+
+		// Invalid
+		{"", false},
+		{"not a domain", false},
+		{"has space.com", false},
+		{".leading-dot.com", false},
+		{"trailing-dot.com.", false},
+		{"no_underscores.com", false},
+		{"javascript:alert(1)", false},
+		{"<script>xss</script>", false},
+		{"/etc/passwd", false},
+		{"just-a-word", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := isValidDomain(tt.input)
+			if got != tt.want {
+				t.Errorf("isValidDomain(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHandleRuleAddValidation(t *testing.T) {
+	config = Config{AdminPasswordHashed: "test"}
+
+	tests := []struct {
+		name       string
+		domain     string
+		ruleType   string
+		wantStatus int
+	}{
+		{"Valid domain block", "example.com", "block", http.StatusOK},
+		{"Valid domain allow", "google.com", "allow", http.StatusOK},
+		{"URL stripped to domain", "https://tracking.com/path", "block", http.StatusOK},
+		{"Empty domain", "", "block", http.StatusBadRequest},
+		{"Invalid domain", "not valid!", "block", http.StatusBadRequest},
+		{"XSS attempt", "<script>alert(1)</script>", "block", http.StatusBadRequest},
+		{"Path traversal", "../../../etc/passwd", "block", http.StatusBadRequest},
+		{"Invalid type", "example.com", "invalid", http.StatusBadRequest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(map[string]string{"domain": tt.domain, "type": tt.ruleType})
+			req := httptest.NewRequest("POST", "/api/rules/add", bytes.NewBuffer(body))
+			rr := httptest.NewRecorder()
+
+			handleRuleAdd(rr, req)
+
+			if rr.Code != tt.wantStatus {
+				t.Errorf("got status %v, want %v (body: %s)", rr.Code, tt.wantStatus, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestHandleConfigRejectsInvalidCustomRules(t *testing.T) {
+	config = Config{AdminPasswordHashed: "existing-hash"}
+
+	newConfig := Config{
+		AdminPasswordHashed: "",
+		CustomBlocked:       []string{"valid.com", "not valid!", "<script>xss</script>", "also-valid.org"},
+		CustomAllowed:       []string{"good.com", "bad domain spaces"},
+	}
+	body, _ := json.Marshal(newConfig)
+	req := httptest.NewRequest("POST", "/api/config", bytes.NewBuffer(body))
+	rr := httptest.NewRecorder()
+
+	handleConfig(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %v", rr.Code)
+	}
+
+	// Only valid domains should survive
+	if len(config.CustomBlocked) != 2 {
+		t.Errorf("expected 2 valid blocked domains, got %d: %v", len(config.CustomBlocked), config.CustomBlocked)
+	}
+	if len(config.CustomAllowed) != 1 {
+		t.Errorf("expected 1 valid allowed domain, got %d: %v", len(config.CustomAllowed), config.CustomAllowed)
 	}
 }

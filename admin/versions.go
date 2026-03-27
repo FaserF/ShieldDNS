@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -18,9 +19,48 @@ type VersionInfo struct {
 }
 
 var (
-	latestVersions VersionInfo
-	versionLock    sync.RWMutex
+	latestVersions  VersionInfo
+	versionLock     sync.RWMutex
+	coreDNSVersion  string
+	coreDNSLock     sync.RWMutex
 )
+
+func getCoreDNSVersion() string {
+	coreDNSLock.RLock()
+	if coreDNSVersion != "" {
+		defer coreDNSLock.RUnlock()
+		return coreDNSVersion
+	}
+	coreDNSLock.RUnlock()
+
+	coreDNSLock.Lock()
+	defer coreDNSLock.Unlock()
+
+	// Re-check after lock
+	if coreDNSVersion != "" {
+		return coreDNSVersion
+	}
+
+	// Try to get version from binary
+	out, err := exec.Command("coredns", "-version").Output()
+	if err != nil {
+		// Fallback to a sensible default if not found (e.g. in dev environment)
+		coreDNSVersion = "v1.14.2"
+		return coreDNSVersion
+	}
+
+	// Output format is usually: "CoreDNS-1.14.2"
+	s := strings.TrimSpace(string(out))
+	if strings.Contains(s, "CoreDNS-") {
+		coreDNSVersion = "v" + strings.TrimPrefix(s, "CoreDNS-")
+	} else if strings.Contains(s, " ") {
+		coreDNSVersion = strings.Fields(s)[1]
+	} else {
+		coreDNSVersion = s
+	}
+
+	return coreDNSVersion
+}
 
 func getLatestVersions() VersionInfo {
 	versionLock.RLock()

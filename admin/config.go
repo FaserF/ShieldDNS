@@ -240,7 +240,8 @@ func processList(list List, blockMap map[string][]string, allowMap map[string]st
 		defer file.Close()
 		reader = file
 	} else {
-		resp, err := http.Get(list.URL)
+		client := &http.Client{Timeout: 30 * time.Second}
+		resp, err := client.Get(list.URL)
 		if err != nil {
 			log.Printf("⚠️  WARNING: Could not fetch %s (%s): %v. Skipping...", list.Name, list.URL, err)
 			return

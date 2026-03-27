@@ -48,8 +48,42 @@ func initDB() {
 	}
 
 	// Migrations for existing databases
-	db.Exec("ALTER TABLE queries ADD COLUMN is_cache_hit BOOLEAN DEFAULT 0")
-	db.Exec("ALTER TABLE queries ADD COLUMN duration_ms REAL DEFAULT 0")
+	addColumnIfNotExists("queries", "is_cache_hit", "BOOLEAN DEFAULT 0")
+	addColumnIfNotExists("queries", "duration_ms", "REAL DEFAULT 0")
+}
+
+func addColumnIfNotExists(table, column, definition string) {
+	// Check if column exists
+	query := fmt.Sprintf("PRAGMA table_info(%s)", table)
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Printf("Error checking table info for %s: %v", table, err)
+		return
+	}
+	defer rows.Close()
+
+	exists := false
+	for rows.Next() {
+		var cid int
+		var name, dtype string
+		var notnull, pk int
+		var dfltValue interface{}
+		rows.Scan(&cid, &name, &dtype, &notnull, &dfltValue, &pk)
+		if name == column {
+			exists = true
+			break
+		}
+	}
+
+	if !exists {
+		alterQuery := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition)
+		_, err := db.Exec(alterQuery)
+		if err != nil {
+			log.Printf("Error adding column %s to table %s: %v", column, table, err)
+		} else {
+			log.Printf("Database Migration: Added column %s to table %s", column, table)
+		}
+	}
 }
 
 func startDBWorker() {
@@ -185,8 +219,30 @@ func initializeStatsFromDB() {
 	} else {
 		log.Printf("Error initializing history from DB: %v", err)
 	}
+	// 3. Query Types (last 24h)
+	if stats.QueryTypes == nil {
+		stats.QueryTypes = make(map[string]int64)
+	}
+	tRows, err := db.Query(`
+		SELECT type, COUNT(*) 
+		FROM queries 
+		WHERE timestamp > datetime('now', '-24 hours')
+		GROUP BY type
+	`)
+	if err == nil {
+		defer tRows.Close()
+		for tRows.Next() {
+			var qt string
+			var count int64
+			if err := tRows.Scan(&qt, &count); err == nil {
+				stats.QueryTypes[qt] = count
+			}
+		}
+	} else {
+		log.Printf("Error initializing query types from DB: %v", err)
+	}
 	
-	log.Printf("Statistics initialized from database: %d total queries, %d blocked, avg latency %.2fms", stats.TotalQueries, stats.BlockedQueries, stats.AverageLatency)
+	log.Printf("Statistics initialized from database: %d total queries, %d blocked, %v types", stats.TotalQueries, stats.BlockedQueries, stats.QueryTypes)
 }
 
 func getClientStats(ip string) (ClientStats, error) {

@@ -17,11 +17,30 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
+
+var domainRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z0-9-]{2,63}$`)
+
+// isValidDomain checks if a string is a valid domain name or IP address.
+func isValidDomain(s string) bool {
+	if s == "" {
+		return false
+	}
+	// Allow valid IP addresses
+	if net.ParseIP(s) != nil {
+		return true
+	}
+	// Check against domain regex
+	if len(s) > 253 {
+		return false
+	}
+	return domainRegex.MatchString(s)
+}
 
 var (
 	systemLogBuffer []string
@@ -254,8 +273,17 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	domain := strings.TrimSpace(req.Domain)
+	domain = strings.TrimPrefix(domain, "http://")
+	domain = strings.TrimPrefix(domain, "https://")
+	if idx := strings.Index(domain, "/"); idx != -1 {
+		domain = domain[:idx]
+	}
 	if domain == "" {
 		http.Error(w, "Domain required", http.StatusBadRequest)
+		return
+	}
+	if !isValidDomain(domain) {
+		http.Error(w, "Invalid domain format", http.StatusBadRequest)
 		return
 	}
 
@@ -659,7 +687,8 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 
 	// GeoIP for public IPs
 	if !isPrivate {
-		resp, err := http.Get("http://ip-api.com/json/" + ip)
+		client := &http.Client{Timeout: 2 * time.Second}
+		resp, err := client.Get("http://ip-api.com/json/" + ip)
 		if err == nil {
 			var geo struct {
 				Country     string `json:"country"`
@@ -909,7 +938,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.Version = Version
-	s.CoreDNSVersion = "v1.14.2" // Match Dockerfile
+	s.CoreDNSVersion = getCoreDNSVersion()
 
 	// Try to read Alpine version
 	alpineVer := "3.23"
@@ -1006,9 +1035,8 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dohUUID := genUUID(0)
-	doqUUID := genUUID(1)
-	profileUUID := genUUID(2)
-	certPayloadUUID := genUUID(3)
+	profileUUID := genUUID(1)
+	certPayloadUUID := genUUID(2)
 
 	certPayloadXML := ""
 	certReferenceXML := ""
@@ -1036,35 +1064,9 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 		certReferenceXML = fmt.Sprintf("\n\t\t\t<key>PayloadCertificateUUID</key>\n\t\t\t<string>%s</string>", certPayloadUUID)
 	}
 
-	quicPayloadXML := fmt.Sprintf(`
-		<dict>
-			<key>DNSSettings</key>
-			<dict>
-				<key>DNSProtocol</key>
-				<string>QUIC</string>
-				<key>ServerURL</key>
-				<string>quic://%[1]s</string>%[2]s
-			</dict>
-			<key>OnDemandRules</key>
-			<array>
-				<dict>
-					<key>Action</key>
-					<string>Connect</string>
-				</dict>
-			</array>
-			<key>PayloadDescription</key>
-			<string>Encrypted DNS-over-QUIC (DoQ) for ShieldDNS (%[1]s).</string>
-			<key>PayloadDisplayName</key>
-			<string>ShieldDNS DoQ (%[1]s)</string>
-			<key>PayloadIdentifier</key>
-			<string>com.shielddns.doq.%[1]s</string>
-			<key>PayloadType</key>
-			<string>com.apple.dnsSettings.managed</string>
-			<key>PayloadUUID</key>
-			<string>%[3]s</string>
-			<key>PayloadVersion</key>
-			<integer>1</integer>%[4]s
-		</dict>`, host, serverAddrsXML, doqUUID, certReferenceXML)
+	// NOTE: iOS Configuration Profiles only support DNSProtocol values "TLS" and "HTTPS".
+	// QUIC is NOT part of Apple's MDM specification and causes "internal error" on install.
+	// DoQ is supported natively via third-party apps (DNSecure, AdGuard) but not via profiles.
 
 	w.Header().Set("Content-Type", "application/x-apple-aspen-config")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=shielddns_%s.mobileconfig", host))
@@ -1102,7 +1104,7 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 			<string>%[3]s</string>
 			<key>PayloadVersion</key>
 			<integer>1</integer>%[5]s
-		</dict>%[7]s%[4]s
+		</dict>%[4]s
 	</array>
 	<key>PayloadDescription</key>
 	<string>ShieldDNS Encryption Profile (%[1]s). Enables system-wide DNS encryption for improved privacy.</string>
@@ -1129,13 +1131,13 @@ ShieldDNS will encrypt all DNS queries from this device, preventing ISPs and thi
 
 TECHNICAL DETAILS:
 - Target Server: %[1]s
-- Supported Protocols: DNS-over-HTTPS (DoH), DNS-over-QUIC (DoQ)
+- Supported Protocol: DNS-over-HTTPS (DoH)
 - Documentation: https://github.com/FaserF/ShieldDNS
 
 By proceeding, you consent to all DNS traffic being routed through this server. No personal web traffic (HTTP/HTTPS content) is decrypted; only the destination addresses are processed for filtering. You can remove this profile at any time in Settings &gt; General &gt; VPN &amp; Device Management.</string>
 	</dict>
 </dict>
-</plist>`, host, serverAddrsXML, dohUUID, certPayloadXML, certReferenceXML, profileUUID, quicPayloadXML)
+</plist>`, host, serverAddrsXML, dohUUID, certPayloadXML, certReferenceXML, profileUUID)
 
 	finalContent := []byte(mobileConfig)
 	if signEnabled {
@@ -1192,7 +1194,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			newConfig.AdminPasswordHashed = config.AdminPasswordHashed
 		}
 
-		// Sanitize Custom Rules
+		// Sanitize & Validate Custom Rules
 		sanitizeRule := func(r string) string {
 			r = strings.TrimSpace(r)
 			r = strings.TrimPrefix(r, "http://")
@@ -1205,7 +1207,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		var cleanBlocked []string
 		for _, b := range newConfig.CustomBlocked {
-			if s := sanitizeRule(b); s != "" {
+			if s := sanitizeRule(b); s != "" && isValidDomain(s) {
 				cleanBlocked = append(cleanBlocked, s)
 			}
 		}
@@ -1213,7 +1215,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		var cleanAllowed []string
 		for _, a := range newConfig.CustomAllowed {
-			if s := sanitizeRule(a); s != "" {
+			if s := sanitizeRule(a); s != "" && isValidDomain(s) {
 				cleanAllowed = append(cleanAllowed, s)
 			}
 		}

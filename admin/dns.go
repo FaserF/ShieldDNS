@@ -198,8 +198,13 @@ func equal(a, b []string) bool {
 	return true
 }
 
+type cacheEntry struct {
+	ip        string
+	expiresAt time.Time
+}
+
 var (
-	resolveCache     = make(map[string]string)
+	resolveCache     = make(map[string]cacheEntry)
 	resolveCacheLock sync.Mutex
 )
 
@@ -209,9 +214,11 @@ func resolveHost(host string) string {
 	}
 
 	resolveCacheLock.Lock()
-	if ip, ok := resolveCache[host]; ok {
-		resolveCacheLock.Unlock()
-		return ip
+	if entry, ok := resolveCache[host]; ok {
+		if time.Now().Before(entry.expiresAt) {
+			resolveCacheLock.Unlock()
+			return entry.ip
+		}
 	}
 	resolveCacheLock.Unlock()
 
@@ -233,7 +240,10 @@ func resolveHost(host string) string {
 	}
 
 	resolveCacheLock.Lock()
-	resolveCache[host] = ip
+	resolveCache[host] = cacheEntry{
+		ip:        ip,
+		expiresAt: time.Now().Add(1 * time.Hour), // 1 hour TTL
+	}
 	resolveCacheLock.Unlock()
 	return ip
 }
@@ -493,50 +503,61 @@ func startCoreDNS() {
 }
 
 func parseLogLine(line string) {
-	fields := strings.Fields(line)
+	// Final fields of the query log:
+	// ... rcode rflags size duration "UA"
 	
-	// Default CoreDNS log format fields (approx):
-	// remote - id "type class name proto size do bufsize" rcode rflags size duration
-	// But it can also have prefixes like [INFO] or timestamps.
-	// Indexing from the end is most robust:
-	// len-1: duration (e.g., 0.001s)
-	// len-2: response size (e.g., 512)
-	// len-3: rflags (e.g., qr,rd,ra or qr,aa)
-	// len-4: rcode (e.g., NOERROR)
-	// len-9: domain name (e.g., google.com.)
-	// len-11: query type (e.g., "A)
-	// len-13: remote IP:port
-
-	if len(fields) < 14 {
-		// Log lines that don't match the query log format (e.g., startup info)
-		return
-	}
-
-	// Extract User-Agent (last part between quotes)
-	userAgent := ""
-	numQuotes := strings.Count(line, "\"")
-	
-	cleanLine := line
-	if numQuotes >= 4 {
-		lastQuote := strings.LastIndex(line, "\"")
-		if lastQuote > 0 {
-			secondLastQuote := strings.LastIndex(line[:lastQuote], "\"")
-			if secondLastQuote > 0 {
-				userAgent = line[secondLastQuote+1 : lastQuote]
-				// Remove the UA part to parse the rest normally
-				cleanLine = strings.TrimSpace(line[:secondLastQuote])
-			}
+	// Robust parsing using quote positions
+	quotes := []int{}
+	for i, char := range line {
+		if char == '"' {
+			quotes = append(quotes, i)
 		}
 	}
-	fields = strings.Fields(cleanLine)
 
-	if len(fields) < 13 {
+	if len(quotes) < 2 {
+		// Not a standard query log line
 		return
 	}
 
-	durationStr := fields[len(fields)-1]
-	rflags      := fields[len(fields)-3]
+	// Part before the query
+	prefix := strings.TrimSpace(line[:quotes[0]])
+	prefixFields := strings.Fields(prefix)
+	if len(prefixFields) < 1 { return }
 	
+	// Format is typically: [METADATA] IP:PORT - ID
+	// So we look for the field that has a colon and is NOT the first field if there are many.
+	remote := prefixFields[0]
+	if len(prefixFields) >= 3 {
+		remote = prefixFields[len(prefixFields)-3]
+	} else if len(prefixFields) >= 2 && !strings.Contains(prefixFields[0], ":") {
+		remote = prefixFields[0] // fallback or specialized format
+	}
+
+	// The query itself
+	queryPart := line[quotes[0]+1 : quotes[1]]
+
+	// User-Agent and Suffix
+	userAgent := "-"
+	suffix := ""
+	if len(quotes) >= 4 {
+		// Format: ... "query" rcode rflags size duration "UA"
+		suffix = line[quotes[1]+1 : quotes[2]]
+		userAgent = line[quotes[2]+1 : quotes[3]]
+	} else {
+		// Format: ... "query" rcode rflags size duration
+		suffix = line[quotes[1]+1:]
+	}
+
+	suffixFields := strings.Fields(suffix)
+	if len(suffixFields) < 4 {
+		return
+	}
+	
+	// suffixFields should be: [rcode, rflags, size, duration]
+
+	rflags := suffixFields[1]
+	durationStr := suffixFields[3]
+
 	if !strings.HasSuffix(durationStr, "s") {
 		return
 	}
@@ -545,10 +566,12 @@ func parseLogLine(line string) {
 		return
 	}
 
-	rawType     := fields[len(fields)-11]
-	qType       := strings.TrimPrefix(rawType, "\"")
-	qDomain     := strings.TrimSuffix(fields[len(fields)-9], ".")
-	remote      := fields[len(fields)-14]
+
+	qFields := strings.Fields(queryPart)
+	if len(qFields) < 3 { return }
+	
+	qType := qFields[0]
+	qDomain := strings.TrimSuffix(qFields[2], ".")
 
 	// Extract Client IP
 	clientIP := remote
@@ -624,8 +647,8 @@ func parseLogLine(line string) {
 	logBuffer = append(logBuffer, q)
 	bufferLock.Unlock()
 
-	// Diagnostic log for debugging stats (remove in production if too chatty)
-	// AddSystemLog(fmt.Sprintf("[Debug] Query: %s, Type: %s, Latency: %.2fms, CacheHit: %v", qDomain, qType, duration, isCacheHit))
+
+	// Broadcast to SSE clients
 
 	// Broadcast to SSE clients
 	go func(query Query) {

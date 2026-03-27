@@ -15,67 +15,7 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     let apiKeysListContainer, apiKeyModal, apiKeyForm, apiKeyResult, apiKeyValue, protectionStatusLabel, toggleProtectionBtn;
     let adminDomainInput, blockIpInput;
 
-async function showAlert(message, title = 'Notification') {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('alert-modal');
-        const titleEl = document.getElementById('alert-title');
-        const messageEl = document.getElementById('alert-message');
-        const okBtn = document.getElementById('alert-ok');
-
-        titleEl.textContent = title;
-        messageEl.textContent = message;
-        modal.classList.remove('hidden');
-
-        const cleanup = () => {
-            modal.classList.add('hidden');
-            okBtn.removeEventListener('click', handleOk);
-            window.removeEventListener('keydown', handleKey);
-            resolve();
-        };
-
-        const handleOk = () => cleanup();
-        const handleKey = (e) => { if (e.key === 'Enter' || e.key === 'Escape') cleanup(); };
-
-        okBtn.addEventListener('click', handleOk, { once: true });
-        window.addEventListener('keydown', handleKey);
-        okBtn.focus();
-    });
-}
-
-async function showConfirm(message, title = 'Confirmation') {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('confirm-modal');
-        const titleEl = document.getElementById('confirm-title');
-        const messageEl = document.getElementById('confirm-message');
-        const yesBtn = document.getElementById('confirm-yes');
-        const noBtn = document.getElementById('confirm-cancel');
-
-        titleEl.textContent = title;
-        messageEl.textContent = message;
-        modal.classList.remove('hidden');
-
-        const cleanup = (result) => {
-            modal.classList.add('hidden');
-            yesBtn.removeEventListener('click', handleYes);
-            noBtn.removeEventListener('click', handleNo);
-            window.removeEventListener('keydown', handleKey);
-            resolve(result);
-        };
-
-        const handleYes = () => cleanup(true);
-        const handleNo = () => cleanup(false);
-        const handleKey = (e) => {
-            if (e.key === 'Enter') cleanup(true);
-            if (e.key === 'Escape') cleanup(false);
-        };
-
-        yesBtn.addEventListener('click', handleYes, { once: true });
-        noBtn.addEventListener('click', handleNo, { once: true });
-        window.addEventListener('keydown', handleKey);
-        yesBtn.focus();
-    });
-}
-
+// DOMContentLoaded will remain, but showAlert/showConfirm are gone
 document.addEventListener('DOMContentLoaded', () => {
     // Theme initialization
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -533,17 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    window.debounce = (func, wait) => {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    };
+
 
     const fetchQueries = async () => {
         const searchInput = document.getElementById('query-search');
@@ -646,17 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data = [1];
         }
 
-        const colorPalette = {
-            'A': '#3b82f6',      // blue
-            'AAAA': '#10b981',   // emerald
-            'HTTPS': '#8b5cf6',  // purple
-            'TXT': '#f59e0b',    // orange
-            'SRV': '#ec4899',    // pink
-            'PTR': '#06b6d4',    // cyan
-            'MX': '#ef4444',     // red
-            'ANY': '#64748b'     // slate
-        };
-        const bgColors = labels.map((l, i) => colorPalette[l] || `hsl(${(i * 137.5) % 360}, 70%, 50%)`);
+        const bgColors = labels.map((l, i) => DNS_TYPE_COLORS[l] || `hsl(${(i * 137.5) % 360}, 70%, 50%)`);
 
         if (typeChart) {
             typeChart.data.labels = labels;
@@ -1872,19 +1792,4 @@ window.removeList = async (index, type) => {
     }
 };
 
-window.copyText = async (id) => {
-    const input = document.getElementById(id);
-    try {
-        await navigator.clipboard.writeText(input.value);
-        const btn = input.nextElementSibling;
-        const originalText = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = originalText, 2000);
-    } catch (err) {
-        console.error('Failed to copy text: ', err);
-    }
-};
 
-window.exportLogs = (format) => {
-    window.location.href = `/api/export?format=${format}`;
-};
