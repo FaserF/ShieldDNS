@@ -78,11 +78,11 @@
                             <p id="status-desc">Your requests are being filtered and secured.</p>
                             <p id="dashboard-last-login" class="help"
                                 style="margin-top: 4px; font-size: 0.8rem; opacity: 0.8;"></p>
-                        <div class="status-toggle-wrapper">
-                            <button id="toggle-protection-btn" class="btn btn-primary">Disable Protection</button>
+                            <div class="status-toggle-wrapper">
+                                <button id="toggle-protection-btn" class="btn btn-primary">Disable Protection</button>
+                            </div>
                         </div>
                     </div>
-                </div>
                     <div class="connection-guide-section card">
                         <div class="chart-header">
                             <h2>Connection Guide <span class="help"
@@ -475,6 +475,17 @@
                     <h1>Settings</h1>
                 </header>
                 <form id="settings-form">
+                    <div class="checkbox-group">
+                        <div class="checkbox-text">
+                            <label>Debug Mode</label>
+                            <p class="help">Write detailed diagnostic information to the system logs.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="debug-mode-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
                     <div class="form-group">
                         <label>Upstream DNS Servers (Standard)</label>
                         <p class="help">Comma separated IP addresses (Max 5)</p>

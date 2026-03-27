@@ -73,22 +73,33 @@ func getCoreDNSVersion() string {
 
 func getLatestVersions() VersionInfo {
 	versionLock.RLock()
-	if time.Since(latestVersions.LastCheck) < 1*time.Hour && latestVersions.ShieldDNS != "" {
-		defer versionLock.RUnlock()
-		return latestVersions
-	}
+	lastCheck := latestVersions.LastCheck
+	shieldV := latestVersions.ShieldDNS
 	versionLock.RUnlock()
 
-	// Update in background or blocking? User wants reliability.
-	// We'll update synchronously if cache is old, but use a timeout.
-	updateVersions()
-	
+	// If never checked or checked >1h ago, trigger update in background
+	if time.Since(lastCheck) > 1*time.Hour || shieldV == "" {
+		go updateVersions()
+	}
+
 	versionLock.RLock()
 	defer versionLock.RUnlock()
 	return latestVersions
 }
 
 func updateVersions() {
+	// Simple lock to avoid multiple concurrent updates
+	versionLock.Lock()
+	if time.Since(latestVersions.LastCheck) < 5*time.Minute && latestVersions.ShieldDNS != "" {
+		versionLock.Unlock()
+		return
+	}
+	// Mark as checking
+	latestVersions.LastCheck = time.Now() 
+	versionLock.Unlock()
+
+	DebugLog("Checking for component updates (GitHub/Alpine)...")
+
 	var wg sync.WaitGroup
 	wg.Add(3)
 
@@ -110,9 +121,6 @@ func updateVersions() {
 
 	go func() {
 		defer wg.Done()
-		// Alpine latest stable is a bit harder, we can check their releases page or a specific tag
-		// For simplicity, we check the latest tag on their github mirror or similar.
-		// Actually, let's use a reliable way for Alpine.
 		v := fetchAlpineLatest()
 		versionLock.Lock()
 		if v != "" { latestVersions.Alpine = v }
@@ -120,9 +128,8 @@ func updateVersions() {
 	}()
 
 	wg.Wait()
-	versionLock.Lock()
-	latestVersions.LastCheck = time.Now()
-	versionLock.Unlock()
+	DebugLog(fmt.Sprintf("Update check complete. Latest: ShieldDNS=%s, CoreDNS=%s, Alpine=%s", 
+		latestVersions.ShieldDNS, latestVersions.CoreDNS, latestVersions.Alpine))
 }
 
 func fetchGitHubLatestTag(repo string) string {

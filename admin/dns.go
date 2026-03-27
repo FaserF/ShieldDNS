@@ -483,7 +483,12 @@ func startCoreDNS() {
 			scanner := bufio.NewScanner(reader)
 			for scanner.Scan() {
 				line := scanner.Text()
-				AddSystemLog("[CoreDNS] " + line)
+				configLock.RLock()
+				debug := config.DebugMode
+				configLock.RUnlock()
+				if debug {
+					AddSystemLog("[CoreDNS] " + line)
+				}
 				go parseLogLine(line)
 			}
 		}(stdout)
@@ -492,7 +497,12 @@ func startCoreDNS() {
 			scanner := bufio.NewScanner(reader)
 			for scanner.Scan() {
 				line := scanner.Text()
-				AddSystemLog("[CoreDNS-ERR] " + line)
+				configLock.RLock()
+				debug := config.DebugMode
+				configLock.RUnlock()
+				if debug {
+					AddSystemLog("[CoreDNS-ERR] " + line)
+				}
 			}
 		}(stderr)
 
@@ -517,7 +527,10 @@ func parseLogLine(line string) {
 	fields := strings.Fields(prefix)
 	
 	// Expecting: [remote, type, name, rcode, rflags, duration]
-	if len(fields) < 6 { return }
+	if len(fields) < 6 { 
+		DebugLog(fmt.Sprintf("Parsing failed: too few fields (%d) in prefix: %s", len(fields), prefix))
+		return 
+	}
 	
 	remote := fields[0]
 	qType := fields[1]
@@ -533,8 +546,11 @@ func parseLogLine(line string) {
 	}
 
 	if !strings.Contains(rflags, "qr") {
+		// Only log responses
 		return
 	}
+
+	DebugLog(fmt.Sprintf("Parsed Query: %s %s from %s (Duration: %s)", qType, qDomain, clientIP, durationStr))
 
 	// Update latest User-Agent for this IP
 	if userAgent != "" && userAgent != "-" && userAgent != "none" {
@@ -545,6 +561,11 @@ func parseLogLine(line string) {
 	if strings.HasSuffix(durationStr, "s") {
 		if d, err := time.ParseDuration(durationStr); err == nil {
 			duration = float64(d.Microseconds()) / 1000.0 // in ms
+		}
+	} else {
+		// Try as raw float (seconds)
+		if f, err := strconv.ParseFloat(durationStr, 64); err == nil {
+			duration = f * 1000.0 // convert s to ms
 		}
 	}
 
@@ -614,6 +635,8 @@ func parseLogLine(line string) {
 			case ch <- query:
 			default:
 				// If channel is full, we skip this query for this client to avoid stalling the broadcaster
+				// This might happen during massive bursts
+				// DebugLog("SSE channel full, skipping query broadcast for one client")
 			}
 		}
 	}(q)

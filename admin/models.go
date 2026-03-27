@@ -30,6 +30,7 @@ type Config struct {
 	BlockedCountries    []string          `json:"blocked_countries"`
 	ClientAliases       map[string]string `json:"client_aliases"`
 	SignMobileConfig    bool              `json:"sign_mobileconfig"`
+	DebugMode           bool              `json:"debug_mode"`
 	LastLogin           time.Time         `json:"last_login"`
 }
 

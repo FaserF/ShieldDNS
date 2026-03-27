@@ -957,17 +957,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const updateBadge = (el, current, latest) => {
                 if (!el) return;
                 
-                // Shorten very long version strings (like CoreDNS) for display
+                const normalize = (v) => {
+                    if (!v) return '';
+                    let n = v.toLowerCase().trim();
+                    if (n.startsWith('v')) n = n.substring(1);
+                    return n.split(' ')[0].split(',')[0].trim();
+                };
+
+                const currentNorm = normalize(current);
+                const latestNorm = normalize(latest);
+
                 let displayVersion = current;
                 if (current.includes(' ')) {
                     displayVersion = current.split(' ')[0];
                 }
-                if (displayVersion.includes(',')) {
-                    displayVersion = displayVersion.split(',')[0];
-                }
 
                 let html = `<span title="${current}">${displayVersion}</span>`;
-                if (latest && latest.toLowerCase() !== current.toLowerCase()) {
+                if (latest && latestNorm !== currentNorm) {
                     html += ` <span class="badge warning" style="margin-left:8px; background:#f59e0b; color:white;">UPDATE</span>`;
                 } else if (latest) {
                     html += ` <span class="badge official" style="margin-left:8px;">LATEST</span>`;
@@ -1156,8 +1162,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const serveStaleCheck = document.getElementById('serve-stale-check');
         if (serveStaleCheck) serveStaleCheck.checked = currentConfig.serve_stale;
 
-        const dnssecCheck = document.getElementById('dnssec-check');
-        if (dnssecCheck) dnssecCheck.checked = currentConfig.dnssec_enabled;
+        if (document.getElementById('dnssec-check')) document.getElementById('dnssec-check').checked = currentConfig.dnssec_enabled;
+        if (document.getElementById('sign-mobileconfig-check')) document.getElementById('sign-mobileconfig-check').checked = currentConfig.sign_mobileconfig;
+        if (document.getElementById('debug-mode-check')) document.getElementById('debug-mode-check').checked = currentConfig.debug_mode;
 
         currentConfig.lists = currentConfig.lists || [];
         listItemsContainer.innerHTML = '';
@@ -1380,6 +1387,12 @@ document.addEventListener('DOMContentLoaded', () => {
         currentConfig.sign_mobileconfig = e.target.checked;
         saveConfig();
     });
+
+    document.getElementById('debug-mode-check')?.addEventListener('change', (e) => {
+        currentConfig.debug_mode = e.target.checked;
+        saveConfig();
+    });
+
 
     // Modal logic for adding lists
     const modal = document.getElementById('modal');

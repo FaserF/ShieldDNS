@@ -401,6 +401,15 @@ func AddSystemLog(line string) {
 	}
 }
 
+func DebugLog(msg string) {
+	configLock.RLock()
+	debug := config.DebugMode
+	configLock.RUnlock()
+	if debug {
+		AddSystemLog("[DEBUG] " + msg)
+	}
+}
+
 type LogWriter struct{}
 
 func (w *LogWriter) Write(p []byte) (n int, err error) {
@@ -450,7 +459,7 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	ch := make(chan Query, 100)
+	ch := make(chan Query, 500) // Increased buffer for high query volume
 	sseLock.Lock()
 	sseClients[ch] = struct{}{}
 	sseLock.Unlock()
@@ -459,10 +468,12 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 		sseLock.Lock()
 		delete(sseClients, ch)
 		sseLock.Unlock()
+		DebugLog("SSE client disconnected")
 	}()
 
 	flusher, _ := w.(http.Flusher)
 	flusher.Flush()
+	DebugLog("SSE client connected")
 
 	// Send initial ping to keep connection alive
 	fmt.Fprintf(w, "data: {\"type\":\"ping\"}\n\n")

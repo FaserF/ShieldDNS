@@ -154,7 +154,7 @@ func saveConfigNoLock() {
 	if err := os.WriteFile(ConfigPath, data, 0644); err != nil {
 		log.Printf("⚠️ ERROR: Failed to save config to %s: %v", ConfigPath, err)
 	} else {
-		log.Printf("Disk: Config saved to %s", ConfigPath)
+		DebugLog(fmt.Sprintf("Disk: Config saved to %s", ConfigPath))
 	}
 }
 
