@@ -712,7 +712,7 @@ func getManufacturerByMAC(mac string) string {
 		return ""
 	}
 	prefix := strings.ToUpper(strings.ReplaceAll(mac[:8], ":", ""))
-	
+
 	// Small OUI database for common devices
 	ouis := map[string]string{
 		"B4FB12": "Apple",
@@ -889,11 +889,10 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build ServerAddresses XML array
-	serverIP := blockPageIP
-	if serverIP == "" {
-		serverIP = "127.0.0.1"
+	serverAddrsXML := ""
+	if blockPageIP != "" && blockPageIP != "127.0.0.1" {
+		serverAddrsXML = fmt.Sprintf("\t\t\t\t<string>%s</string>\n", blockPageIP)
 	}
-	serverAddrsXML := fmt.Sprintf("\t\t\t\t<string>%s</string>\n", serverIP)
 
 	// Certificate handling - check if self-signed
 	certFile := os.Getenv("CERT_FILE")
@@ -1085,7 +1084,15 @@ doqUUID := genUUID(2)
 		<string>SECURITY &amp; PRIVACY NOTICE:
 This profile configures your device to use ShieldDNS (%[1]s) as its encrypted DNS provider.
 
-No personal web traffic (HTTP/HTTPS content) is decrypted; only the destination addresses are processed for filtering. You can remove this profile at any time in Settings.</string>
+WHAT THIS MEANS:
+ShieldDNS will encrypt all DNS queries from this device, preventing ISPs and third parties from monitoring your web activity. It also leverages advanced blocklists to protect you from advertisements, trackers, and malicious content in real-time.
+
+TECHNICAL DETAILS:
+- Target Server: %[1]s
+- Supported Protocols: DNS-over-TLS (DoT), DNS-over-QUIC (DoQ), DNS-over-HTTPS (DoH)
+- Documentation: https://github.com/FaserF/ShieldDNS
+
+By proceeding, you consent to all DNS traffic being routed through this server. No personal web traffic (HTTP/HTTPS content) is decrypted; only the destination addresses are processed for filtering. You can remove this profile at any time in Settings &gt; General &gt; VPN &amp; Device Management.</string>
 	</dict>
 </dict>
 </plist>`, host, serverAddrsXML, dotUUID, dohUUID, doqUUID, certPayloadXML, certReferenceXML, profileUUID)
@@ -1458,11 +1465,11 @@ func handleClientAlias(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		configLock.RLock()
 		defer configLock.RUnlock()
-		
+
 		if config.ClientAliases == nil {
 			config.ClientAliases = make(map[string]string)
 		}
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(config.ClientAliases)
 		return

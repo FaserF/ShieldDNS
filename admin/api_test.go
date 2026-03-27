@@ -289,4 +289,9 @@ func TestHandleMobileConfig(t *testing.T) {
 	if strings.Count(body, expectedName) < 2 {
 		t.Errorf("ServerName %s should appear at least twice (TLS and QUIC)", expectedName)
 	}
+
+	// Check that ServerAddresses (127.0.0.1) is NOT present
+	if strings.Contains(body, "<string>127.0.0.1</string>") {
+		t.Error("Mobileconfig still contains 127.0.0.1 in ServerAddresses")
+	}
 }
