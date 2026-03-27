@@ -89,6 +89,74 @@ func TestParseLogLine_Blocked(t *testing.T) {
 	}
 }
 
+func TestParseLogLine_DefaultFormat_New(t *testing.T) {
+	bufferLock.Lock()
+	logBuffer = nil
+	bufferLock.Unlock()
+
+	// Default CoreDNS format (no User-Agent, with port)
+	parseLogLine(`127.0.0.1:35210 - 0 "A IN outlook.office365.com. tcp 50 true 65535" NOERROR qr,rd,ra 1157 0.002822855s`)
+
+	bufferLock.Lock()
+	length := len(logBuffer)
+	var q Query
+	if length > 0 {
+		q = logBuffer[0]
+	}
+	bufferLock.Unlock()
+
+	if length != 1 {
+		t.Fatalf("Expected 1 query in buffer, got %d", length)
+	}
+	if q.ClientIP != "127.0.0.1" {
+		t.Errorf("Expected ClientIP 127.0.0.1, got %s", q.ClientIP)
+	}
+	if q.Type != "A" {
+		t.Errorf("Expected Type A, got %s", q.Type)
+	}
+	if q.Domain != "outlook.office365.com" {
+		t.Errorf("Expected Domain outlook.office365.com, got %s", q.Domain)
+	}
+	if q.Status != "Allowed" {
+		t.Errorf("Expected Status Allowed, got %s", q.Status)
+	}
+	// 0.0028s = 2.8ms
+	if q.DurationMs < 2.8 || q.DurationMs > 2.9 {
+		t.Errorf("Expected Duration ~2.82ms, got %f", q.DurationMs)
+	}
+}
+
+func TestParseLogLine_WithPrefixes(t *testing.T) {
+	bufferLock.Lock()
+	logBuffer = nil
+	bufferLock.Unlock()
+
+	statsLock.Lock()
+	stats.BlockedQueries = 0
+	statsLock.Unlock()
+
+	// [INFO] prefix from docker/system logs
+	parseLogLine(`[16:23:02] [CoreDNS] [INFO] 94.31.75.54:56396 - 48996 "AAAA IN eu-office.events.data.microsoft.com. tcp 64 true 65535" NOERROR qr,rd,ra 346 0.011722143s`)
+
+	bufferLock.Lock()
+	length := len(logBuffer)
+	var q Query
+	if length > 0 {
+		q = logBuffer[0]
+	}
+	bufferLock.Unlock()
+
+	if length != 1 {
+		t.Fatalf("Expected 1 query in buffer, got %d", length)
+	}
+	if q.ClientIP != "94.31.75.54" {
+		t.Errorf("Expected ClientIP 94.31.75.54, got %s", q.ClientIP)
+	}
+	if q.Domain != "eu-office.events.data.microsoft.com" {
+		t.Errorf("Expected domain eu-office.events.data.microsoft.com, got %s", q.Domain)
+	}
+}
+
 func TestParseLogLine_ShortLine(t *testing.T) {
 	bufferLock.Lock()
 	logBuffer = nil

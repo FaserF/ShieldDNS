@@ -394,7 +394,7 @@ func updateCorefile() {
         %s
         %s
     }%s%s
-    log . '{remote} {type} {name} {rcode} {rflags} {duration} "{metadata/http/user-agent}"'
+    log . "{remote} {type} {name} {rcode} {rflags} {duration} \"{metadata/http/user-agent}\""
     errors
 }
 `, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
@@ -418,7 +418,7 @@ tls://.:853 {
         %s
         %s
     }%s%s
-    log . '{remote} {type} {name} {rcode} {rflags} {duration} "{metadata/http/user-agent}"'
+    log . "{remote} {type} {name} {rcode} {rflags} {duration} \"{metadata/http/user-agent}\""
     errors
 }
 
@@ -439,7 +439,7 @@ https://.:5553 {
         %s
         %s
     }%s%s
-    log . '{remote} {type} {name} {rcode} {rflags} {duration} "{metadata/http/user-agent}"'
+    log . "{remote} {type} {name} {rcode} {rflags} {duration} \"{metadata/http/user-agent}\""
     errors
 }
 
@@ -459,7 +459,7 @@ quic://.:853 {
         %s
         %s
     }%s%s
-    log . '{remote} {type} {name} {rcode} {rflags} {duration} "{metadata/http/user-agent}"'
+    log . "{remote} {type} {name} {rcode} {rflags} {duration} \"{metadata/http/user-agent}\""
     errors
 }
 `, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
@@ -514,31 +514,84 @@ func startCoreDNS() {
 }
 
 func parseLogLine(line string) {
-	// Simple and robust parsing for format: 
-	// {remote} {type} {name} {rcode} {rflags} {duration} "{user-agent}"
-	
+	// 1. Strip common prefixes added by CoreDNS or system logging
+	// Handle: "[INFO] ", "[DEBUG] ", "[CoreDNS] ", "[CoreDNS-ERR] ", "[16:23:02] "
+	for {
+		clean := false
+		line = strings.TrimSpace(line)
+		prefixes := []string{"[INFO]", "[DEBUG]", "[ERROR]", "[CoreDNS]", "[CoreDNS-ERR]"}
+		for _, p := range prefixes {
+			if strings.HasPrefix(line, p) {
+				line = strings.TrimSpace(strings.TrimPrefix(line, p))
+				clean = true
+			}
+		}
+		// Handle timestamp prefix like [16:23:02]
+		if len(line) > 10 && line[0] == '[' && line[9] == ']' {
+			line = strings.TrimSpace(line[10:])
+			clean = true
+		}
+		if !clean { break }
+	}
+
+	if line == "" { return }
+
+	var remote, qType, qDomain, rcode, rflags, durationStr, userAgent string
+
+	// 2. Identify Format and Parse
+	// FORMAT A (Custom): remote type name rcode rflags duration "user-agent"
+	// FORMAT B (Default): remote:port - id "query_info" rcode rflags size duration
+
 	lastQuote := strings.LastIndex(line, "\"")
 	if lastQuote <= 0 { return }
 	
 	firstQuote := strings.LastIndex(line[:lastQuote], "\"")
 	if firstQuote <= 0 { return }
 	
-	userAgent := line[firstQuote+1 : lastQuote]
+	middlePart := line[firstQuote+1 : lastQuote]
 	prefix := strings.TrimSpace(line[:firstQuote])
-	fields := strings.Fields(prefix)
+	suffix := strings.TrimSpace(line[lastQuote+1:])
 	
-	// Expecting: [remote, type, name, rcode, rflags, duration]
-	if len(fields) < 6 { 
-		DebugLog(fmt.Sprintf("Parsing failed: too few fields (%d) in prefix: %s", len(fields), prefix))
-		return 
+	pFields := strings.Fields(prefix)
+	
+	if len(pFields) >= 6 {
+		// Likely FORMAT A (Custom)
+		remote = pFields[0]
+		qType = pFields[1]
+		qDomain = strings.TrimSuffix(pFields[2], ".")
+		rcode = pFields[3]
+		rflags = pFields[4]
+		durationStr = pFields[5]
+		userAgent = middlePart
+	} else if len(pFields) >= 3 && strings.Contains(line[:firstQuote], " - ") {
+		// Likely FORMAT B (Default): remote - id "query_info" rcode rflags size duration
+		remote = pFields[0]
+		
+		// Query info is in quotes: "TYPE CLASS NAME PROTO SIZE FLAGS"
+		qFields := strings.Fields(middlePart)
+		if len(qFields) >= 3 {
+			qType = qFields[0]
+			qDomain = strings.TrimSuffix(qFields[2], ".")
+		}
+		
+		sFields := strings.Fields(suffix)
+		if len(sFields) >= 3 {
+			rcode = sFields[0]
+			rflags = sFields[1]
+			// size is sFields[2]
+			if len(sFields) >= 4 {
+				durationStr = sFields[3]
+			}
+		}
+		userAgent = "-" // Default format doesn't have User-Agent
+	} else {
+		DebugLog(fmt.Sprintf("Parsing failed: unknown format or too few fields in prefix: %s", prefix))
+		return
 	}
-	
-	remote := fields[0]
-	qType := fields[1]
-	qDomain := strings.TrimSuffix(fields[2], ".")
-	rcode := fields[3]
-	rflags := fields[4]
-	durationStr := fields[5]
+
+	if qType == "" || qDomain == "" || rcode == "" {
+		return
+	}
 
 	// Extract Client IP
 	clientIP := remote
@@ -563,7 +616,7 @@ func parseLogLine(line string) {
 		if d, err := time.ParseDuration(durationStr); err == nil {
 			duration = float64(d.Microseconds()) / 1000.0 // in ms
 		}
-	} else {
+	} else if durationStr != "" {
 		// Try as raw float (seconds)
 		if f, err := strconv.ParseFloat(durationStr, 64); err == nil {
 			duration = f * 1000.0 // convert s to ms
