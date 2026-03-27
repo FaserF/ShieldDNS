@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -914,10 +915,10 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 				<key>DNSProtocol</key>
 				<string>TLS</string>
 				<key>ServerName</key>
-				<string>%s</string>
+				<string>%[1]s</string>
 				<key>ServerAddresses</key>
 				<array>
-%s				</array>
+%[2]s				</array>
 			</dict>
 			<key>OnDemandRules</key>
 			<array>
@@ -927,15 +928,15 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 				</dict>
 			</array>
 			<key>PayloadDescription</key>
-			<string>Configures encrypted DNS-over-TLS (DoT) for ShieldDNS.</string>
+			<string>Configures encrypted DNS-over-TLS (DoT) for ShieldDNS (%[1]s). Provides robust protection against tracking and malicious domains.</string>
 			<key>PayloadDisplayName</key>
-			<string>ShieldDNS DoT</string>
+			<string>ShieldDNS DoT (%[1]s)</string>
 			<key>PayloadIdentifier</key>
-			<string>com.shielddns.dot.%s</string>
+			<string>com.shielddns.dot.%[1]s</string>
 			<key>PayloadType</key>
 			<string>com.apple.dnsSettings.managed</string>
 			<key>PayloadUUID</key>
-			<string>%s</string>
+			<string>%[3]s</string>
 			<key>PayloadVersion</key>
 			<integer>1</integer>
 		</dict>
@@ -945,10 +946,10 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 				<key>DNSProtocol</key>
 				<string>QUIC</string>
 				<key>ServerName</key>
-				<string>%s</string>
+				<string>%[1]s</string>
 				<key>ServerAddresses</key>
 				<array>
-%s				</array>
+%[2]s				</array>
 			</dict>
 			<key>OnDemandRules</key>
 			<array>
@@ -958,38 +959,49 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 				</dict>
 			</array>
 			<key>PayloadDescription</key>
-			<string>Configures encrypted DNS-over-QUIC (DoQ) for ShieldDNS.</string>
+			<string>Configures high-performance encrypted DNS-over-QUIC (DoQ) for ShieldDNS (%[1]s). Minimizes latency while maintaining maximum privacy.</string>
 			<key>PayloadDisplayName</key>
-			<string>ShieldDNS DoQ</string>
+			<string>ShieldDNS DoQ (%[1]s)</string>
 			<key>PayloadIdentifier</key>
-			<string>com.shielddns.doq.%s</string>
+			<string>com.shielddns.doq.%[1]s</string>
 			<key>PayloadType</key>
 			<string>com.apple.dnsSettings.managed</string>
 			<key>PayloadUUID</key>
-			<string>%s</string>
+			<string>%[5]s</string>
 			<key>PayloadVersion</key>
 			<integer>1</integer>
 		</dict>
 	</array>
 	<key>PayloadDisplayName</key>
-	<string>ShieldDNS Encrypted DNS</string>
+	<string>ShieldDNS Encrypted Protection (%[1]s)</string>
 	<key>PayloadIdentifier</key>
-	<string>com.shielddns.profile.%s</string>
+	<string>com.shielddns.profile.%[1]s</string>
 	<key>PayloadOrganization</key>
-	<string>ShieldDNS</string>
+	<string>ShieldDNS Open Source Project</string>
 	<key>PayloadType</key>
 	<string>Configuration</string>
 	<key>PayloadUUID</key>
-	<string>%s</string>
+	<string>%[4]s</string>
 	<key>PayloadVersion</key>
 	<integer>1</integer>
 	<key>ConsentText</key>
 	<dict>
 		<key>default</key>
-		<string>This profile configures ShieldDNS (%s) for DoT and DoQ protection.</string>
+		<string>SECURITY &amp; PRIVACY NOTICE:
+This profile configures your device to use ShieldDNS (%[1]s) as its encrypted DNS provider.
+
+WHAT THIS MEANS:
+ShieldDNS will encrypt all DNS queries from this device, preventing ISPs and third parties from monitoring your web activity. It also leverages advanced blocklists to protect you from advertisements, trackers, and malicious content in real-time.
+
+TECHNICAL DETAILS:
+- Target Server: %[1]s
+- Supported Protocols: DNS-over-TLS (DoT), DNS-over-QUIC (DoQ)
+- Documentation: https://github.com/FaserF/ShieldDNS
+
+By proceeding, you consent to all DNS traffic being routed through this server. No personal web traffic (HTTP/HTTPS content) is decrypted; only the destination addresses are processed for filtering. You can remove this profile at any time in Settings &gt; General &gt; VPN &amp; Device Management.</string>
 	</dict>
 </dict>
-</plist>`, host, serverAddrsXML, host, payloadUUID, host, serverAddrsXML, host, quicUUID, host, profileUUID, host)
+</plist>`, host, serverAddrsXML, payloadUUID, profileUUID, quicUUID)
 
 	w.Write([]byte(mobileConfig))
 }
@@ -1045,6 +1057,11 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	defer configLock.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(config)
+}
+
+func handleGetCountries(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(GetCountryList())
 }
 
 func handleRefresh(w http.ResponseWriter, r *http.Request) {
@@ -1314,27 +1331,88 @@ func handleClientStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var total, blocked int
-	// Use separate queries or a single one with conditional sum
-	row := db.QueryRow(`
-		SELECT 
-			COUNT(*), 
-			SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END)
-		FROM queries
-		WHERE client_ip = ?
-	`, clientIP)
-	
-	err := row.Scan(&total, &blocked)
+	cs, err := getClientStats(clientIP)
 	if err != nil {
-		log.Printf("Error scanning client stats: %v", err)
-		// total and blocked remain 0
+		log.Printf("Error fetching client stats: %v", err)
+		http.Error(w, "Error fetching client stats", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]int{
-		"total":   total,
-		"blocked": blocked,
-	})
+	json.NewEncoder(w).Encode(cs)
+}
+
+func handleClientTopBlocked(w http.ResponseWriter, r *http.Request) {
+	clientIP := r.URL.Query().Get("ip")
+	if clientIP == "" {
+		http.Error(w, "IP required", http.StatusBadRequest)
+		return
+	}
+
+	limit := 10
+	if lStr := r.URL.Query().Get("limit"); lStr != "" {
+		if l, err := strconv.Atoi(lStr); err == nil {
+			limit = l
+		}
+	}
+
+	results, err := getClientTopBlocked(clientIP, limit)
+	if err != nil {
+		log.Printf("Error fetching top blocked: %v", err)
+		http.Error(w, "Error fetching top blocked", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}
+
+func handleClientAlias(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		configLock.RLock()
+		defer configLock.RUnlock()
+		
+		if config.ClientAliases == nil {
+			config.ClientAliases = make(map[string]string)
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(config.ClientAliases)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		var req struct {
+			IP    string `json:"ip"`
+			Alias string `json:"alias"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+
+		if req.IP == "" {
+			http.Error(w, "IP required", http.StatusBadRequest)
+			return
+		}
+
+		configLock.Lock()
+		if config.ClientAliases == nil {
+			config.ClientAliases = make(map[string]string)
+		}
+		if req.Alias == "" {
+			delete(config.ClientAliases, req.IP)
+		} else {
+			config.ClientAliases[req.IP] = req.Alias
+		}
+		saveConfigNoLock()
+		configLock.Unlock()
+
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 }
 
 func handleReset(w http.ResponseWriter, r *http.Request) {

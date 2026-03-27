@@ -182,3 +182,98 @@ func initializeStatsFromDB() {
 	
 	log.Printf("Statistics initialized from database: %d total queries, %d blocked, avg latency %.2fms", stats.TotalQueries, stats.BlockedQueries, stats.AverageLatency)
 }
+
+func getClientStats(ip string) (ClientStats, error) {
+	var cs ClientStats
+	cs.QueryTypes = make(map[string]int64)
+	cs.Timeline = make([]HourStats, 24)
+
+	if db == nil {
+		return cs, fmt.Errorf("DB not initialized")
+	}
+
+	// 1. Total and Blocked (24h)
+	row := db.QueryRow(`
+		SELECT 
+			COUNT(*), 
+			COALESCE(SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END), 0)
+		FROM queries 
+		WHERE client_ip = ? AND timestamp > datetime('now', '-24 hours')
+	`, ip)
+	if err := row.Scan(&cs.Total, &cs.Blocked); err != nil {
+		return cs, err
+	}
+
+	// 2. Query Types (24h)
+	rows, err := db.Query(`
+		SELECT type, COUNT(*) 
+		FROM queries 
+		WHERE client_ip = ? AND timestamp > datetime('now', '-24 hours')
+		GROUP BY type
+	`, ip)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var qType string
+			var count int64
+			if err := rows.Scan(&qType, &count); err == nil {
+				cs.QueryTypes[qType] = count
+			}
+		}
+	}
+
+	// 3. Timeline (24h)
+	tRows, err := db.Query(`
+		SELECT 
+			(23 - (strftime('%H', 'now') - strftime('%H', timestamp) + 24) % 24) as hour_index,
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END), 0)
+		FROM queries
+		WHERE client_ip = ? AND timestamp > datetime('now', '-24 hours')
+		GROUP BY hour_index
+	`, ip)
+	if err == nil {
+		defer tRows.Close()
+		for tRows.Next() {
+			var idx int
+			var hTotal, hBlocked int64
+			if err := tRows.Scan(&idx, &hTotal, &hBlocked); err == nil {
+				if idx >= 0 && idx < 24 {
+					cs.Timeline[idx] = HourStats{Total: hTotal, Blocked: hBlocked}
+				}
+			}
+		}
+	}
+
+	return cs, nil
+}
+
+func getClientTopBlocked(ip string, limit int) ([]DomainCount, error) {
+	var results []DomainCount
+	if db == nil {
+		return results, fmt.Errorf("DB not initialized")
+	}
+
+	rows, err := db.Query(`
+		SELECT domain, COUNT(*) as c
+		FROM queries
+		WHERE client_ip = ? AND status = 'Blocked' AND timestamp > datetime('now', '-24 hours')
+		GROUP BY domain
+		ORDER BY c DESC
+		LIMIT ?
+	`, ip, limit)
+
+	if err != nil {
+		return results, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var dc DomainCount
+		if err := rows.Scan(&dc.Domain, &dc.Count); err == nil {
+			results = append(results, dc)
+		}
+	}
+
+	return results, nil
+}

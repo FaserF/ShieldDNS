@@ -1,6 +1,10 @@
 let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, lists: [], allowlists: [], custom_blocked: [], custom_allowed: [] };
     let trafficChart = null;
     let typeChart = null;
+    let clientAliases = {};
+    let clientChart = null;
+    let blocklistMap = {};
+    let allCountries = {};
     
     // UI Elements
     let authOverlay, setupView, loginView, listItemsContainer, allowlistItemsContainer, views;
@@ -450,6 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchQueries();
         fetchHistory();
         fetchAPIKeys();
+        fetchCountries();
         startSSE();
         setInterval(fetchStats, 10000);
         setInterval(fetchHistory, 60000); // Chart once a minute
@@ -1077,6 +1082,71 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const fetchCountries = async () => {
+        try {
+            const resp = await fetch('/api/countries');
+            if (resp.ok) {
+                allCountries = await resp.json();
+                initCountryPicker();
+            }
+        } catch (e) {
+            console.error('Failed to fetch countries', e);
+        }
+    };
+
+    const initCountryPicker = () => {
+        const searchInput = document.getElementById('country-search');
+        const dropdown = document.getElementById('country-dropdown');
+        if (!searchInput || !dropdown) return;
+
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase();
+            if (!query) {
+                dropdown.classList.add('hidden');
+                return;
+            }
+
+            const filtered = Object.entries(allCountries)
+                .filter(([code, name]) => name.toLowerCase().includes(query) || code.toLowerCase().includes(query))
+                .slice(0, 10);
+
+            if (filtered.length > 0) {
+                dropdown.innerHTML = filtered.map(([code, name]) => `
+                    <div class="dropdown-item" onclick="selectCountry('${code}')">
+                        <img src="https://flagcdn.com/w20/${code.toLowerCase()}.png" style="vertical-align: middle; margin-right: 8px; border-radius: 2px;">
+                        ${name} (${code})
+                    </div>
+                `).join('');
+                dropdown.classList.remove('hidden');
+            } else {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+    };
+
+    window.selectCountry = async (code) => {
+        if (!currentConfig.blocked_countries) currentConfig.blocked_countries = [];
+        if (!currentConfig.blocked_countries.includes(code)) {
+            currentConfig.blocked_countries.push(code);
+            await saveConfig();
+            renderConfig();
+        }
+        document.getElementById('country-search').value = '';
+        document.getElementById('country-dropdown').classList.add('hidden');
+    };
+
+    window.removeCountry = async (code) => {
+        currentConfig.blocked_countries = (currentConfig.blocked_countries || []).filter(c => c !== code);
+        await saveConfig();
+        renderConfig();
+    };
+
     const renderAPIKeys = (tokens) => {
         allTokens = tokens;
         apiKeysListContainer.innerHTML = '';
@@ -1161,6 +1231,21 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         renderCustomList(customBlockedList, currentConfig.custom_blocked, 'blocked');
         renderCustomList(customAllowedList, currentConfig.custom_allowed, 'allowed');
+
+        // Render Blocked Countries Tags
+        const tagsContainer = document.getElementById('blocked-countries-tags');
+        if (tagsContainer) {
+            tagsContainer.innerHTML = (currentConfig.blocked_countries || []).map(code => {
+                const name = allCountries[code] || code;
+                return `
+                    <div class="tag">
+                        <img src="https://flagcdn.com/w20/${code.toLowerCase()}.png" style="vertical-align: middle; border-radius: 2px;">
+                        <span>${name}</span>
+                        <span class="remove-tag" onclick="removeCountry('${code}')">&times;</span>
+                    </div>
+                `;
+            }).join('');
+        }
     };
 
     window.addCustomRule = async (type, domain) => {
@@ -1467,17 +1552,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial check
     checkAuthStatus();
+    
+    const fetchClientAliases = async () => {
+        try {
+            const resp = await fetch('/api/client/alias');
+            if (resp.ok) clientAliases = await resp.json();
+        } catch (e) {}
+    };
+    fetchClientAliases();
 
     // IP Detail Modal Listeners
     const ipModal = document.getElementById('ip-info-modal');
     document.getElementById('ip-info-close-btn')?.addEventListener('click', () => ipModal.classList.add('hidden'));
     document.getElementById('ip-info-done-btn')?.addEventListener('click', () => ipModal.classList.add('hidden'));
     document.getElementById('ip-info-view-all-btn')?.addEventListener('click', () => {
+        const title = document.getElementById('ip-info-title').textContent;
         const ip = document.getElementById('ip-info-subtitle').textContent;
         ipModal.classList.add('hidden');
         
         // Switch to queries view
-        document.querySelector('.nav-item[data-view="queries"]').click();
+        const queryNavItem = document.querySelector('.nav-item[data-view="queries"]');
+        if (queryNavItem) queryNavItem.click();
         
         // Apply filter
         const searchInput = document.getElementById('query-search');
@@ -1487,19 +1582,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    const editAliasBtn = document.getElementById('edit-alias-btn');
+    const aliasEditBox = document.getElementById('alias-edit-box');
+    const aliasInput = document.getElementById('client-alias-input');
+    const saveAliasBtn = document.getElementById('save-alias-btn');
+
+    editAliasBtn?.addEventListener('click', () => {
+        aliasEditBox.classList.toggle('hidden');
+        if (!aliasEditBox.classList.contains('hidden')) {
+            const ip = document.getElementById('ip-info-subtitle').textContent;
+            aliasInput.value = clientAliases[ip] || '';
+            aliasInput.focus();
+        }
+    });
+
+    saveAliasBtn?.addEventListener('click', async () => {
+        const ip = document.getElementById('ip-info-subtitle').textContent;
+        const alias = aliasInput.value.trim();
+        
+        try {
+            const resp = await fetch('/api/client/alias', {
+                method: 'POST',
+                body: JSON.stringify({ ip, alias })
+            });
+            if (resp.ok) {
+                clientAliases[ip] = alias;
+                document.getElementById('ip-info-title').textContent = alias || 'Client Details';
+                aliasEditBox.classList.add('hidden');
+                // Refresh top clients list if visible to show new alias
+                if (document.querySelector('.nav-item.active[data-view="dashboard"]')) {
+                    fetchStats();
+                }
+            }
+        } catch (e) {
+            console.error('Failed to save alias', e);
+        }
+    });
+
     window.showIPDetails = async (ip) => {
         if (!ip || ip === 'Unknown') return;
         
         const modal = document.getElementById('ip-info-modal');
         const title = document.getElementById('ip-info-title');
         const subtitle = document.getElementById('ip-info-subtitle');
+        const aliasBox = document.getElementById('alias-edit-box');
         
+        title.textContent = clientAliases[ip] || 'Client Details';
         subtitle.textContent = ip;
+        aliasBox.classList.add('hidden');
         modal.classList.remove('hidden');
 
         // Reset fields
         document.getElementById('ip-info-total').textContent = '...';
         document.getElementById('ip-info-blocked').textContent = '...';
+        document.getElementById('ip-info-blocked-bar').style.width = '0%';
         document.getElementById('ip-info-hostname').textContent = '...';
         document.getElementById('ip-info-type-tag').textContent = '...';
         document.getElementById('ip-info-type-tag').className = 'badge';
@@ -1509,13 +1645,21 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('ip-info-city').textContent = '-';
         document.getElementById('ip-info-flag').innerHTML = '';
         document.getElementById('ip-info-top-domains').innerHTML = '<tr><td colspan="2" class="help">Loading...</td></tr>';
+        document.getElementById('ip-info-top-blocked').innerHTML = '<tr><td colspan="2" class="help">Loading...</td></tr>';
         document.getElementById('ip-info-history').innerHTML = '<tr><td colspan="3" class="help">Loading...</td></tr>';
+
+        // Initialize/Clear Chart
+        if (clientChart) {
+            clientChart.destroy();
+            clientChart = null;
+        }
 
         try {
             // Fetch IP Info (Geo, Hostname, MAC)
             fetch(`/api/ip-info?ip=${ip}`).then(r => r.json()).then(data => {
                 const typeTag = document.getElementById('ip-info-type-tag');
                 typeTag.textContent = data.is_private ? 'Local Network' : 'Public IP';
+                typeTag.classList.remove('local', 'public');
                 typeTag.classList.add(data.is_private ? 'local' : 'public');
                 
                 document.getElementById('ip-info-hostname').textContent = data.hostname || (data.is_private ? 'Local Device' : 'Cloud/Public');
@@ -1539,24 +1683,65 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Fetch Stats
+            // Fetch Enhanced Stats (includes Timeline)
             fetch(`/api/client/stats?ip=${ip}`).then(r => r.json()).then(data => {
                 document.getElementById('ip-info-total').textContent = data.total.toLocaleString();
                 document.getElementById('ip-info-blocked').textContent = data.blocked.toLocaleString();
+                
+                const ratio = data.total > 0 ? (data.blocked / data.total) * 100 : 0;
+                document.getElementById('ip-info-blocked-bar').style.width = ratio + '%';
+
+                // Render Sparkline Timeline
+                const ctx = document.getElementById('ip-info-chart').getContext('2d');
+                clientChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: Array(24).fill(''),
+                        datasets: [{
+                            data: data.timeline.map(h => h.total),
+                            borderColor: '#5c6bc0',
+                            backgroundColor: 'rgba(92, 107, 192, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                        scales: {
+                            x: { display: false },
+                            y: { display: false, beginAtZero: true }
+                        }
+                    }
+                });
             });
 
-            // Fetch Top Domains
+            // Fetch Top Domains (Allowed)
             fetch(`/api/client/top-domains?ip=${ip}`).then(r => r.json()).then(domains => {
                 const container = document.getElementById('ip-info-top-domains');
                 container.innerHTML = (domains || []).map(d => `
                     <tr>
-                        <td>${d.domain}</td>
+                        <td class="truncate" style="max-width: 154px;">${d.domain}</td>
                         <td style="text-align:right">${d.count}</td>
                     </tr>
                 `).join('') || '<tr><td colspan="2" class="help">No data</td></tr>';
             });
 
-            // Fetch Recent History (reuse existing queries API with client_ip filter)
+            // Fetch Top Blocked Domains
+            fetch(`/api/client/top-blocked?ip=${ip}`).then(r => r.json()).then(domains => {
+                const container = document.getElementById('ip-info-top-blocked');
+                container.innerHTML = (domains || []).map(d => `
+                    <tr>
+                        <td class="truncate" style="max-width: 154px; color: var(--danger);">${d.domain}</td>
+                        <td style="text-align:right">${d.count}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="2" class="help">No blocked domains</td></tr>';
+            });
+
+            // Fetch Recent History
             fetch(`/api/queries?client_ip=${ip}&limit=20`).then(r => r.json()).then(queries => {
                 const container = document.getElementById('ip-info-history');
                 container.innerHTML = (queries || []).map(q => {

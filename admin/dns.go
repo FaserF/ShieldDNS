@@ -31,65 +31,63 @@ func checkAll() {
 	upstreams := config.Upstreams
 	dots := config.UpstreamDoT
 	smart := config.UseFastestUpstream
-	interval := config.LatencyTestInterval
 	configLock.RUnlock()
-
-	if interval < 1 { interval = 1 }
 
 	var newHealthyUpstreams []string
 	var newHealthyDoT []string
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 
-	total := len(upstreams) + len(dots)
-	if total == 0 { return }
-
-	// Calculate delay to spread checks over the interval
-	// We want to finish all checks within the interval
-	delay := time.Duration((interval * 60) / total) * time.Second
-	// Don't wait more than 30s between checks to keep it responsive if few servers
-	if delay > 30*time.Second { delay = 30 * time.Second }
-	// Don't wait less than 500ms to avoid burst
-	if delay < 500*time.Millisecond { delay = 500 * time.Millisecond }
-
-	// Check Upstreams
+	// Check Upstreams in parallel
 	for _, u := range upstreams {
-		host, port := splitAddr(u, "53")
-		ip := resolveHost(host)
-		resolvedAddr := net.JoinHostPort(ip, port)
+		wg.Add(1)
+		go func(addr string) {
+			defer wg.Done()
+			host, port := splitAddr(addr, "53")
+			ip := resolveHost(host)
+			resolvedAddr := net.JoinHostPort(ip, port)
 
-		start := time.Now()
-		if checkDNS(resolvedAddr) {
-			lat := time.Since(start)
-			latencyLock.Lock()
-			latencyMap[u] = lat
-			latencyLock.Unlock()
-			newHealthyUpstreams = append(newHealthyUpstreams, u)
-		}
-		time.Sleep(delay)
+			start := time.Now()
+			if checkDNS(resolvedAddr) {
+				lat := time.Since(start)
+				mu.Lock()
+				latencyLock.Lock()
+				latencyMap[addr] = lat
+				latencyLock.Unlock()
+				newHealthyUpstreams = append(newHealthyUpstreams, addr)
+				mu.Unlock()
+			}
+		}(u)
 	}
 
-	// Check DoT
+	// Check DoT in parallel
 	for _, u := range dots {
-		host, port := splitAddr(u, "853")
-		ip := resolveHost(host)
-		resolvedAddr := net.JoinHostPort(ip, port)
+		wg.Add(1)
+		go func(addr string) {
+			defer wg.Done()
+			host, port := splitAddr(addr, "853")
+			ip := resolveHost(host)
+			resolvedAddr := net.JoinHostPort(ip, port)
 
-		start := time.Now()
-		if checkDoT(resolvedAddr, host) {
-			lat := time.Since(start)
-			latencyLock.Lock()
-			latencyMap[u] = lat
-			latencyLock.Unlock()
-			newHealthyDoT = append(newHealthyDoT, u)
-		}
-		time.Sleep(delay)
+			start := time.Now()
+			if checkDoT(resolvedAddr, host) {
+				lat := time.Since(start)
+				mu.Lock()
+				latencyLock.Lock()
+				latencyMap[addr] = lat
+				latencyLock.Unlock()
+				newHealthyDoT = append(newHealthyDoT, addr)
+				mu.Unlock()
+			}
+		}(u)
 	}
+
+	wg.Wait()
 
 	healthLock.Lock()
 	healthyUpstreams = newHealthyUpstreams
 	healthyDoT = newHealthyDoT
 	
-	// If smart selection is enabled, sort the global healthy lists by latency
-	// so that other parts of the app (like Diagnostics API) see the correct order.
 	if smart {
 		latencyLock.RLock()
 		sort.Slice(healthyUpstreams, func(i, j int) bool {
@@ -108,10 +106,16 @@ func checkAll() {
 }
 
 func splitAddr(addr, defaultPort string) (host, port string) {
-	host = addr
+	// Strip protocol prefixes if present (e.g., tls://, https://)
+	cleanAddr := addr
+	if idx := strings.Index(addr, "://"); idx != -1 {
+		cleanAddr = addr[idx+3:]
+	}
+
+	host = cleanAddr
 	port = defaultPort
-	if strings.Contains(addr, ":") {
-		if h, p, err := net.SplitHostPort(addr); err == nil {
+	if strings.Contains(cleanAddr, ":") {
+		if h, p, err := net.SplitHostPort(cleanAddr); err == nil {
 			host = h
 			port = p
 		}
@@ -359,6 +363,8 @@ func updateCorefile() {
         }
     }
 
+    geoBlock := getGeoACLRules()
+
     corefile := fmt.Sprintf(`.:53 {
     bind 0.0.0.0
     %s
@@ -374,11 +380,11 @@ func updateCorefile() {
         health_check 10s
         %s
         %s
-    }%s
+    }%s%s
     log . 
     errors
 }
-`, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock)
+`, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
 
     // Repeat for TLS and HTTPS blocks
     corefile += fmt.Sprintf(`
@@ -397,7 +403,7 @@ tls://.:853 {
         health_check 10s
         %s
         %s
-    }%s
+    }%s%s
     log . 
     errors
 }
@@ -417,7 +423,7 @@ https://.:5553 {
         health_check 10s
         %s
         %s
-    }%s
+    }%s%s
     log . 
     errors
 }
@@ -436,11 +442,11 @@ quic://.:853 {
         health_check 10s
         %s
         %s
-    }%s
+    }%s%s
     log . 
     errors
 }
-`, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock)
+`, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
 
 	os.WriteFile(CorefilePath, []byte(corefile), 0644)
 }

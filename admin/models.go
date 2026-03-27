@@ -27,6 +27,8 @@ type Config struct {
 	DiagnosticsRefreshInterval int `json:"diagnostics_refresh_interval"`
 	ServeStale          bool     `json:"serve_stale"`
 	DNSSECEnabled       bool     `json:"dnssec_enabled"`
+	BlockedCountries    []string          `json:"blocked_countries"`
+	ClientAliases       map[string]string `json:"client_aliases"`
 }
 
 type APIKey struct {
@@ -74,6 +76,18 @@ type Query struct {
 type HourStats struct {
 	Total   int64 `json:"total"`
 	Blocked int64 `json:"blocked"`
+}
+
+type DomainCount struct {
+	Domain string `json:"domain"`
+	Count  int64  `json:"count"`
+}
+
+type ClientStats struct {
+	Total          int64            `json:"total"`
+	Blocked        int64            `json:"blocked"`
+	QueryTypes     map[string]int64 `json:"query_types"`
+	Timeline       []HourStats      `json:"timeline"` // 24 entries
 }
 
 var (

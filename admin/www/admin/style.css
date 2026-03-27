@@ -901,6 +901,72 @@ h1 {
     }
 }
 
+.tag-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.tag {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.tag:hover {
+    border-color: var(--danger);
+}
+
+.tag .remove-tag {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.tag .remove-tag:hover {
+    color: var(--danger);
+}
+
+.country-picker-wrapper {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.custom-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--sidebar-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    margin-top: 4px;
+}
+
+.dropdown-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+    background-color: var(--card-bg);
+    color: var(--accent);
+}
+
 .danger-text {
     color: var(--danger);
     background: transparent;

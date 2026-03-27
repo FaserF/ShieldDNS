@@ -16,6 +16,7 @@ func main() {
 	stats.QueryTypes = make(map[string]int64)
 	initPaths()
 	loadConfig()
+	initGeo()
 
 	// Initialize SQLite
 	initDB()
@@ -52,6 +53,7 @@ func main() {
 	http.Handle("/api/ip-info", authMiddleware(http.HandlerFunc(handleIPInfo)))
 	http.Handle("/api/presets", authMiddleware(http.HandlerFunc(handlePresets)))
 	http.Handle("/api/presets/allow", authMiddleware(http.HandlerFunc(handlePresetAllowlists)))
+	http.Handle("/api/countries", authMiddleware(http.HandlerFunc(handleGetCountries)))
 
 	// Protected API
 	http.Handle("/api/config", authMiddleware(http.HandlerFunc(handleConfig)))
@@ -62,7 +64,9 @@ func main() {
 	http.Handle("/api/top-blocked", authMiddleware(http.HandlerFunc(handleTopBlocked)))
 	http.Handle("/api/top-clients", authMiddleware(http.HandlerFunc(handleTopClients)))
 	http.Handle("/api/client/top-domains", authMiddleware(http.HandlerFunc(handleTopDomainsForClient)))
+	http.Handle("/api/client/top-blocked", authMiddleware(http.HandlerFunc(handleClientTopBlocked)))
 	http.Handle("/api/client/stats", authMiddleware(http.HandlerFunc(handleClientStats)))
+	http.Handle("/api/client/alias", authMiddleware(http.HandlerFunc(handleClientAlias)))
 	http.Handle("/api/export", authMiddleware(http.HandlerFunc(handleExport)))
 	http.Handle("/api/backup", authMiddleware(http.HandlerFunc(handleBackup)))
 	http.Handle("/api/restore", authMiddleware(http.HandlerFunc(handleRestore)))
