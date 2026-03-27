@@ -17,8 +17,8 @@ func TestParseLogLine_Structured(t *testing.T) {
 	logBuffer = nil
 	bufferLock.Unlock()
 
-	// Test allowed query in default CoreDNS format
-	parseLogLine(`[INFO] plugin/log: 127.0.0.1:46111 - 10 "A IN google.com. udp 512 false 512" NOERROR qr,rd,ra 512 0.00123s`)
+	// Test allowed query in new structured CoreDNS format (with User-Agent)
+	parseLogLine(`[INFO] plugin/log: 127.0.0.1:46111 - 10 "A IN google.com. udp 512 false 512" NOERROR qr,rd,ra 512 0.00123s "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"`)
 
 	bufferLock.Lock()
 	length := len(logBuffer)
@@ -46,6 +46,11 @@ func TestParseLogLine_Structured(t *testing.T) {
 	// 0.00123s = 1.23ms
 	if q.DurationMs < 1.2 || q.DurationMs > 1.4 {
 		t.Errorf("Expected Duration ~1.23ms, got %f", q.DurationMs)
+	}
+
+	// Check User-Agent storage
+	if ua, ok := ipToUA.Load("127.0.0.1"); !ok || ua != "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" {
+		t.Errorf("Expected User-Agent to be stored, got %v", ua)
 	}
 }
 

@@ -512,35 +512,20 @@ func parseLogLine(line string) {
 		return
 	}
 
-	// New format includes User-Agent in quotes at the end.
-	// 127.0.0.1:45321 - 12345 "A IN google.com. udp 512 false 4096" NOERROR qr,rd,ra 512 0.001s "UserAgentString/1.0"
-	
 	// Extract User-Agent (last part between quotes)
 	userAgent := ""
-	lastQuote := strings.LastIndex(line, "\"")
-	if lastQuote > 0 {
-		secondLastQuote := strings.LastIndex(line[:lastQuote], "\"")
-		if secondLastQuote > 0 {
-			userAgent = line[secondLastQuote+1 : lastQuote]
-		}
-	}
-
-	// After removing the UA part, the remaining indices match the old format but shifted.
-	// Actually, let's just use the fields relative to the UA part if needed, but the current indices
-	// are from the end of the line, so they are affected by the UA.
+	numQuotes := strings.Count(line, "\"")
 	
-	// Since we added one quoted field at the end, fields[len(fields)-1] is now the end of the UA.
-	// This makes indexing from the end tricky if the UA has spaces (though strings.Fields splits them).
-	
-	// Let's use a more robust way: find the duration and rflags first.
-	// Duration is usually the field BEFORE the last quoted string.
-	
-	// Re-parse the line without the UA part to use existing logic?
 	cleanLine := line
-	if lastQuote > 0 {
-		idx := strings.LastIndex(line[:lastQuote], "\"")
-		if idx > 0 {
-			cleanLine = strings.TrimSpace(line[:idx])
+	if numQuotes >= 4 {
+		lastQuote := strings.LastIndex(line, "\"")
+		if lastQuote > 0 {
+			secondLastQuote := strings.LastIndex(line[:lastQuote], "\"")
+			if secondLastQuote > 0 {
+				userAgent = line[secondLastQuote+1 : lastQuote]
+				// Remove the UA part to parse the rest normally
+				cleanLine = strings.TrimSpace(line[:secondLastQuote])
+			}
 		}
 	}
 	fields = strings.Fields(cleanLine)
