@@ -1664,14 +1664,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 document.getElementById('ip-info-hostname').textContent = data.hostname || (data.is_private ? 'Local Device' : 'Cloud/Public');
                 
+                let manufacturer = data.manufacturer || (data.is_private ? 'Unknown' : 'Public Provider');
+                let deviceText = manufacturer;
+                if (data.os) {
+                    deviceText = `${data.os} (${manufacturer})`;
+                }
+                
+                document.getElementById('ip-info-manufacturer').textContent = deviceText;
+                document.getElementById('ip-info-manufacturer').title = data.user_agent || '';
+
                 if (data.is_private) {
-                    document.getElementById('ip-info-manufacturer').textContent = data.manufacturer || 'Unknown Device';
-                    document.getElementById('ip-info-mac').textContent = data.mac || 'MAC not available';
+                    document.getElementById('ip-info-mac').textContent = data.mac || 'MAC Not Available';
                     document.getElementById('ip-info-country').textContent = 'Local';
                     document.getElementById('ip-info-city').textContent = 'N/A';
                     document.getElementById('ip-info-flag').innerHTML = '🏠';
                 } else {
-                    document.getElementById('ip-info-manufacturer').textContent = data.isp || 'Public Provider';
                     document.getElementById('ip-info-mac').textContent = 'N/A';
                     document.getElementById('ip-info-country').textContent = data.country || 'Unknown';
                     document.getElementById('ip-info-city').textContent = data.city || 'Unknown';

@@ -364,9 +364,11 @@ func updateCorefile() {
     }
 
     geoBlock := getGeoACLRules()
+    metadataPlugin := "    metadata"
 
     corefile := fmt.Sprintf(`.:53 {
     bind 0.0.0.0
+    %s
     %s
     health :8082
     reload 5s
@@ -381,10 +383,10 @@ func updateCorefile() {
         %s
         %s
     }%s%s
-    log . 
+    log . "{remote} - {id} \"{type} {class} {name} {proto} {size} {do} {bufsize}\" {rcode} {rflags} {size} {duration} \"{metadata/http/user-agent}\""
     errors
 }
-`, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
+`, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
 
     // Repeat for TLS and HTTPS blocks
     corefile += fmt.Sprintf(`
@@ -392,6 +394,7 @@ tls://.:853 {
     bind 0.0.0.0
     tls %s %s
     %s
+    %s
     reload 5s
     cache 3600 {
         success 10000
@@ -404,7 +407,7 @@ tls://.:853 {
         %s
         %s
     }%s%s
-    log . 
+    log . "{remote} - {id} \"{type} {class} {name} {proto} {size} {do} {bufsize}\" {rcode} {rflags} {size} {duration} \"{metadata/http/user-agent}\""
     errors
 }
 
@@ -412,24 +415,6 @@ https://.:5553 {
     bind 0.0.0.0
     tls %s %s
     %s
-    reload 5s
-    cache 3600 {
-        success 10000
-        denial 2500
-        prefetch 10 10m 10%%
-        %s
-    }
-    forward . %s {
-        health_check 10s
-        %s
-        %s
-    }%s%s
-    log . 
-    errors
-}
-
-quic://.:853 {
-    tls %s %s
     %s
     reload 5s
     cache 3600 {
@@ -443,10 +428,30 @@ quic://.:853 {
         %s
         %s
     }%s%s
-    log . 
+    log . "{remote} - {id} \"{type} {class} {name} {proto} {size} {do} {bufsize}\" {rcode} {rflags} {size} {duration} \"{metadata/http/user-agent}\""
     errors
 }
-`, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
+
+quic://.:853 {
+    tls %s %s
+    %s
+    %s
+    reload 5s
+    cache 3600 {
+        success 10000
+        denial 2500
+        prefetch 10 10m 10%%
+        %s
+    }
+    forward . %s {
+        health_check 10s
+        %s
+        %s
+    }%s%s
+    log . "{remote} - {id} \"{type} {class} {name} {proto} {size} {do} {bufsize}\" {rcode} {rflags} {size} {duration} \"{metadata/http/user-agent}\""
+    errors
+}
+`, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
 
 	os.WriteFile(CorefilePath, []byte(corefile), 0644)
 }
@@ -502,8 +507,45 @@ func parseLogLine(line string) {
 	// len-11: query type (e.g., "A)
 	// len-13: remote IP:port
 
-	if len(fields) < 13 {
+	if len(fields) < 14 {
 		// Log lines that don't match the query log format (e.g., startup info)
+		return
+	}
+
+	// New format includes User-Agent in quotes at the end.
+	// 127.0.0.1:45321 - 12345 "A IN google.com. udp 512 false 4096" NOERROR qr,rd,ra 512 0.001s "UserAgentString/1.0"
+	
+	// Extract User-Agent (last part between quotes)
+	userAgent := ""
+	lastQuote := strings.LastIndex(line, "\"")
+	if lastQuote > 0 {
+		secondLastQuote := strings.LastIndex(line[:lastQuote], "\"")
+		if secondLastQuote > 0 {
+			userAgent = line[secondLastQuote+1 : lastQuote]
+		}
+	}
+
+	// After removing the UA part, the remaining indices match the old format but shifted.
+	// Actually, let's just use the fields relative to the UA part if needed, but the current indices
+	// are from the end of the line, so they are affected by the UA.
+	
+	// Since we added one quoted field at the end, fields[len(fields)-1] is now the end of the UA.
+	// This makes indexing from the end tricky if the UA has spaces (though strings.Fields splits them).
+	
+	// Let's use a more robust way: find the duration and rflags first.
+	// Duration is usually the field BEFORE the last quoted string.
+	
+	// Re-parse the line without the UA part to use existing logic?
+	cleanLine := line
+	if lastQuote > 0 {
+		idx := strings.LastIndex(line[:lastQuote], "\"")
+		if idx > 0 {
+			cleanLine = strings.TrimSpace(line[:idx])
+		}
+	}
+	fields = strings.Fields(cleanLine)
+
+	if len(fields) < 13 {
 		return
 	}
 
@@ -527,6 +569,11 @@ func parseLogLine(line string) {
 	clientIP := remote
 	if host, _, err := net.SplitHostPort(remote); err == nil {
 		clientIP = host
+	}
+
+	// Update latest User-Agent for this IP
+	if userAgent != "" && userAgent != "-" {
+		ipToUA.Store(clientIP, userAgent)
 	}
 
 	isBlocked := strings.Contains(rflags, "qr,aa") // typical for local hosts block

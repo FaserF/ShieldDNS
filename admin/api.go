@@ -28,6 +28,9 @@ var (
 
 	// Cache for IP info to avoid redundant DNS and GeoIP lookups
 	ipInfoCache sync.Map
+
+	// Latest User-Agent per IP (populated from CoreDNS logs)
+	ipToUA sync.Map
 )
 
 type IPInfo struct {
@@ -40,6 +43,8 @@ type IPInfo struct {
 	ISP          string    `json:"isp"`
 	MAC          string    `json:"mac,omitempty"`
 	Manufacturer string    `json:"manufacturer,omitempty"`
+	OS           string    `json:"os,omitempty"`
+	UserAgent    string    `json:"user_agent,omitempty"`
 	ExpiresAt    time.Time `json:"-"`
 }
 
@@ -678,6 +683,21 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Add User-Agent and OS info if available
+	if uaVal, ok := ipToUA.Load(ip); ok {
+		ua := uaVal.(string)
+		info.UserAgent = ua
+		info.OS = detectOS(ua)
+		
+		// If it's a mobile device, we can sometimes improve the manufacturer field
+		if info.Manufacturer == "" || info.Manufacturer == "Unknown" {
+			dev := detectDevice(ua)
+			if dev != "" {
+				info.Manufacturer = dev
+			}
+		}
+	}
+
 	// Set expiration
 	if isPrivate {
 		info.ExpiresAt = time.Now().Add(1 * time.Hour)
@@ -689,6 +709,46 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(info)
+}
+
+func detectOS(ua string) string {
+	ua = strings.ToLower(ua)
+	switch {
+	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod"):
+		return "iOS"
+	case strings.Contains(ua, "android"):
+		return "Android"
+	case strings.Contains(ua, "windows nt"):
+		return "Windows"
+	case strings.Contains(ua, "macintosh") || strings.Contains(ua, "mac os x"):
+		return "macOS"
+	case strings.Contains(ua, "linux") && !strings.Contains(ua, "android"):
+		return "Linux"
+	case strings.Contains(ua, "crkey"):
+		return "Chromecast"
+	case strings.Contains(ua, "tizen"):
+		return "Tizen (Samsung TV)"
+	case strings.Contains(ua, "playstation"):
+		return "PlayStation"
+	case strings.Contains(ua, "nintendo switch"):
+		return "Nintendo Switch"
+	}
+	// DoH specific UAs
+	if strings.Contains(ua, "dnssettings") {
+		return "Apple Managed DNS"
+	}
+	return ""
+}
+
+func detectDevice(ua string) string {
+	ua = strings.ToLower(ua)
+	switch {
+	case strings.Contains(ua, "iphone"): return "iPhone"
+	case strings.Contains(ua, "ipad"):   return "iPad"
+	case strings.Contains(ua, "pixel"):  return "Google Pixel"
+	case strings.Contains(ua, "samsung") || strings.Contains(ua, "sm-"): return "Samsung Device"
+	}
+	return ""
 }
 
 func getMACByIP(ip string) string {
@@ -713,35 +773,35 @@ func getManufacturerByMAC(mac string) string {
 	}
 	prefix := strings.ToUpper(strings.ReplaceAll(mac[:8], ":", ""))
 
-	// Small OUI database for common devices
+	// Expanded OUI database
 	ouis := map[string]string{
-		"B4FB12": "Apple",
-		"0017F2": "Apple",
-		"D0034B": "Apple",
-		"F01898": "Apple",
+		"B4FB12": "Apple", "0017F2": "Apple", "D0034B": "Apple", "F01898": "Apple",
+		"04D6B8": "Apple", "1499E2": "Apple", "341298": "Apple", "404D7F": "Apple",
+		"600308": "Apple", "703560": "Apple", "8C8590": "Apple", "DC2BD4": "Apple",
+		"00166B": "Samsung", "E470B8": "Samsung", "286B35": "Samsung", "382D23": "Samsung",
+		"484377": "Samsung", "8C71F8": "Samsung", "90B686": "Samsung", "B40B44": "Samsung",
+		"702C1F": "Google", "D824BD": "Google", "1CC035": "Google", "BCD074": "Google",
+		"28D244": "Xiaomi", "649E33": "Xiaomi", "8CBEBE": "Xiaomi", "ACF7F3": "Xiaomi",
+		"00000C": "Cisco", "000142": "Cisco", "000143": "Cisco",
+		"0010FA": "Sony", "280D1C": "Sony", "3C0771": "Sony", "709E29": "Sony",
+		"001422": "Dell", "000874": "Dell", "000AF7": "Dell",
+		"001143": "HP", "000E7F": "HP", "001185": "HP",
+		"001132": "Synology", "9009DF": "Synology", "0024A5": "Synology",
+		"B827EB": "Raspberry Pi", "DCA632": "Raspberry Pi", "E45F01": "Raspberry Pi",
+		"000C29": "VMware", "080027": "VirtualBox",
 		"000420": "Slim Devices (Logitech)",
-		"000C29": "VMware",
-		"080027": "VirtualBox",
-		"B827EB": "Raspberry Pi",
-		"DCA632": "Raspberry Pi",
-		"E45F01": "Raspberry Pi",
-		"28D244": "Xiaomi",
-		"00000C": "Cisco",
-		"0010FA": "Sony",
-		"00166B": "Samsung",
-		"E470B8": "Samsung",
-		"702C1F": "Google",
-		"D824BD": "Google",
-		"001F3B": "Nintendo",
 		"00096B": "IBM",
-		"001422": "Dell",
-		"001143": "HP",
-		"001132": "Synology",
-		"9009DF": "Synology",
-		"0024A5": "Synology",
+		"001F3B": "Nintendo",
+		"C0EEFB": "OnePlus",
+		"000FB5": "Netgear",
+		"0014BF": "Linksys",
+		"0018E7": "TP-Link", "F4F26D": "TP-Link",
 	}
 
-	return ouis[prefix]
+	if m, ok := ouis[prefix]; ok {
+		return m
+	}
+	return "Unknown"
 }
 
 
@@ -888,10 +948,14 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build ServerAddresses XML array
+	// Build ServerAddresses XML block
 	serverAddrsXML := ""
 	if blockPageIP != "" && blockPageIP != "127.0.0.1" {
-		serverAddrsXML = fmt.Sprintf("\t\t\t\t<string>%s</string>\n", blockPageIP)
+		serverAddrsXML = fmt.Sprintf(`
+			<key>ServerAddresses</key>
+			<array>
+				<string>%s</string>
+			</array>`, blockPageIP)
 	}
 
 	// Certificate handling - check if self-signed
@@ -904,7 +968,6 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	var certBase64 string
 	certData, err := os.ReadFile(certFile)
 	if err != nil {
-		// Try fallback
 		certData, _ = os.ReadFile("/etc/shielddns/ssl/selfsigned.crt")
 	}
 
@@ -929,11 +992,9 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 			now&0xFFFFFFFFFFFF)
 	}
 
-	dotUUID := genUUID(0)
-	dohUUID := genUUID(1)
-doqUUID := genUUID(2)
-	profileUUID := genUUID(3)
-	certPayloadUUID := genUUID(4)
+	dohUUID := genUUID(0)
+	profileUUID := genUUID(1)
+	certPayloadUUID := genUUID(2)
 
 	certPayloadXML := ""
 	certReferenceXML := ""
@@ -945,7 +1006,7 @@ doqUUID := genUUID(2)
 			<key>PayloadContent</key>
 			<data>%s</data>
 			<key>PayloadDescription</key>
-			<string>Adds the ShieldDNS self-signed root certificate to trust encrypted DNS connections.</string>
+			<string>Trusts the ShieldDNS self-signed root certificate.</string>
 			<key>PayloadDisplayName</key>
 			<string>ShieldDNS Root Certificate</string>
 			<key>PayloadIdentifier</key>
@@ -974,43 +1035,9 @@ doqUUID := genUUID(2)
 			<key>DNSSettings</key>
 			<dict>
 				<key>DNSProtocol</key>
-				<string>TLS</string>
-				<key>ServerName</key>
-				<string>%[1]s</string>
-				<key>ServerAddresses</key>
-				<array>
-%[2]s				</array>
-			</dict>
-			<key>OnDemandRules</key>
-			<array>
-				<dict>
-					<key>Action</key>
-					<string>Connect</string>
-				</dict>
-			</array>
-			<key>PayloadDescription</key>
-			<string>Configures encrypted DNS-over-TLS (DoT) for ShieldDNS (%[1]s).</string>
-			<key>PayloadDisplayName</key>
-			<string>ShieldDNS DoT (%[1]s)</string>
-			<key>PayloadIdentifier</key>
-			<string>com.shielddns.dot.%[1]s</string>
-			<key>PayloadType</key>
-			<string>com.apple.dnsSettings.managed</string>
-			<key>PayloadUUID</key>
-			<string>%[3]s</string>
-			<key>PayloadVersion</key>
-			<integer>1</integer>%[7]s
-		</dict>
-		<dict>
-			<key>DNSSettings</key>
-			<dict>
-				<key>DNSProtocol</key>
 				<string>HTTPS</string>
 				<key>ServerURL</key>
-				<string>https://%[1]s/dns-query</string>
-				<key>ServerAddresses</key>
-				<array>
-%[2]s				</array>
+				<string>https://%[1]s/dns-query</string>%[2]s
 			</dict>
 			<key>OnDemandRules</key>
 			<array>
@@ -1020,7 +1047,7 @@ doqUUID := genUUID(2)
 				</dict>
 			</array>
 			<key>PayloadDescription</key>
-			<string>Configures encrypted DNS-over-HTTPS (DoH) for ShieldDNS (%[1]s).</string>
+			<string>Encrypted DNS-over-HTTPS (DoH) for ShieldDNS (%[1]s).</string>
 			<key>PayloadDisplayName</key>
 			<string>ShieldDNS DoH (%[1]s)</string>
 			<key>PayloadIdentifier</key>
@@ -1028,41 +1055,10 @@ doqUUID := genUUID(2)
 			<key>PayloadType</key>
 			<string>com.apple.dnsSettings.managed</string>
 			<key>PayloadUUID</key>
-			<string>%[4]s</string>
+			<string>%[3]s</string>
 			<key>PayloadVersion</key>
-			<integer>1</integer>%[7]s
-		</dict>
-		<dict>
-			<key>DNSSettings</key>
-			<dict>
-				<key>DNSProtocol</key>
-				<string>QUIC</string>
-				<key>ServerName</key>
-				<string>%[1]s</string>
-				<key>ServerAddresses</key>
-				<array>
-%[2]s				</array>
-			</dict>
-			<key>OnDemandRules</key>
-			<array>
-				<dict>
-					<key>Action</key>
-					<string>Connect</string>
-				</dict>
-			</array>
-			<key>PayloadDescription</key>
-			<string>Configures high-performance encrypted DNS-over-QUIC (DoQ) for ShieldDNS (%[1]s).</string>
-			<key>PayloadDisplayName</key>
-			<string>ShieldDNS DoQ (%[1]s)</string>
-			<key>PayloadIdentifier</key>
-			<string>com.shielddns.doq.%[1]s</string>
-			<key>PayloadType</key>
-			<string>com.apple.dnsSettings.managed</string>
-			<key>PayloadUUID</key>
-			<string>%[5]s</string>
-			<key>PayloadVersion</key>
-			<integer>1</integer>%[7]s
-		</dict>%[6]s
+			<integer>1</integer>%[5]s
+		</dict>%[4]s
 	</array>
 	<key>PayloadDescription</key>
 	<string>ShieldDNS Encryption Profile (%[1]s). Enables system-wide DNS encryption for improved privacy.</string>
@@ -1075,7 +1071,7 @@ doqUUID := genUUID(2)
 	<key>PayloadType</key>
 	<string>Configuration</string>
 	<key>PayloadUUID</key>
-	<string>%[8]s</string>
+	<string>%[6]s</string>
 	<key>PayloadVersion</key>
 	<integer>1</integer>
 	<key>ConsentText</key>
@@ -1089,13 +1085,13 @@ ShieldDNS will encrypt all DNS queries from this device, preventing ISPs and thi
 
 TECHNICAL DETAILS:
 - Target Server: %[1]s
-- Supported Protocols: DNS-over-TLS (DoT), DNS-over-QUIC (DoQ), DNS-over-HTTPS (DoH)
+- Supported Protocols: DNS-over-HTTPS (DoH)
 - Documentation: https://github.com/FaserF/ShieldDNS
 
 By proceeding, you consent to all DNS traffic being routed through this server. No personal web traffic (HTTP/HTTPS content) is decrypted; only the destination addresses are processed for filtering. You can remove this profile at any time in Settings &gt; General &gt; VPN &amp; Device Management.</string>
 	</dict>
 </dict>
-</plist>`, host, serverAddrsXML, dotUUID, dohUUID, doqUUID, certPayloadXML, certReferenceXML, profileUUID)
+</plist>`, host, serverAddrsXML, dohUUID, certPayloadXML, certReferenceXML, profileUUID)
 
 	w.Write([]byte(mobileConfig))
 }
