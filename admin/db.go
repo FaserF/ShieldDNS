@@ -16,7 +16,7 @@ var db *sql.DB
 func initDB() {
 	var err error
 	os.MkdirAll(filepath.Dir(DBPath), 0755)
-	db, err = sql.Open("sqlite", DBPath)
+	db, err = sql.Open("sqlite", DBPath+"?_busy_timeout=5000")
 	if err != nil {
 		log.Fatalf("Fatal: Could not open database: %v", err)
 	}

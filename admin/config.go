@@ -73,6 +73,9 @@ func loadConfig() {
 			config.UpstreamDoT = parts
 		}
 	}
+	if envBlockIP := os.Getenv("BLOCK_PAGE_IP"); envBlockIP != "" {
+		config.BlockPageIP = strings.TrimSpace(envBlockIP)
+	}
 
 	// 4. Prepend official lists if missing
 	ensureOfficialLists()

@@ -275,9 +275,12 @@ The preset catalog is organized by category. For most home users, the following 
 
 To verify that your devices are correctly using ShieldDNS and that filtering is active, you can visit the following built-in test URL in your browser:
 
-👉 **[https://shielddns-maleware.test](https://shielddns-maleware.test)**
+👉 **[http://shielddns-maleware.test](http://shielddns-maleware.test)**
 
 This test domain is permanently blocked at the system level regardless of which blocklists you have enabled. If ShieldDNS is working correctly, you will see the official ShieldDNS "Website Blocked" page.
+
+> [!NOTE]
+> For the block page to be reachable by network clients, you must set the **Block Page IP** to your ShieldDNS server's actual IP address in the **Settings** or via the `BLOCK_PAGE_IP` environment variable.
 
 ## 💻 Development & Testing
 

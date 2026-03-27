@@ -18,7 +18,7 @@ func TestParseLogLine_Structured(t *testing.T) {
 	bufferLock.Unlock()
 
 	// Test allowed query in new structured CoreDNS format (with User-Agent)
-	parseLogLine(`[INFO] plugin/log: 127.0.0.1:46111 - 10 "A IN google.com. udp 512 false 512" NOERROR qr,rd,ra 512 0.00123s "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"`)
+	parseLogLine(`127.0.0.1:46111 A google.com. NOERROR qr,rd,ra 0.00123s "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"`)
 
 	bufferLock.Lock()
 	length := len(logBuffer)
@@ -64,7 +64,7 @@ func TestParseLogLine_Blocked(t *testing.T) {
 	statsLock.Unlock()
 
 	// qr,aa flags = blocked (local hosts file match)
-	parseLogLine(`10.0.0.5:1234 - 11 "AAAA IN tiktok.com. udp 512 false 512" NOERROR qr,aa 512 0.05s`)
+	parseLogLine(`10.0.0.5:1234 AAAA tiktok.com. NOERROR qr,aa 0.050s "-"`)
 
 	bufferLock.Lock()
 	length := len(logBuffer)
@@ -118,7 +118,7 @@ func TestParseLogLine_SSEBroadcast(t *testing.T) {
 		sseLock.Unlock()
 	}()
 
-	parseLogLine(`192.168.1.10:4321 - 12 "A IN example.com. udp 512 false 512" NOERROR qr,rd 512 0.001s`)
+	parseLogLine(`192.168.1.10:4321 A example.com. NOERROR qr,rd 0.001s "-"`)
 
 	select {
 	case q := <-ch:

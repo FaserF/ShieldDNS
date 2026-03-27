@@ -144,7 +144,7 @@ func TestParseLogLine_DefaultFormat(t *testing.T) {
 	statsLock.Unlock()
 
 	// Test allowed query - default format
-	parseLogLine("127.0.0.1:53 - 10 \"A IN google.com. udp 512 false 512\" NOERROR qr,rd,ra 512 0.0001s")
+	parseLogLine("127.0.0.1:53 A google.com. NOERROR qr,rd,ra 0.0001s \"-\"")
 	
 	statsLock.RLock()
 	if stats.TotalQueries != 1 || stats.BlockedQueries != 0 {
@@ -153,7 +153,7 @@ func TestParseLogLine_DefaultFormat(t *testing.T) {
 	statsLock.RUnlock()
 
 	// Test blocked query (aa flag)
-	parseLogLine("127.0.0.1:53 - 11 \"A IN doubleclick.net. udp 512 false 512\" NOERROR qr,aa,rd 512 0.0001s")
+	parseLogLine("127.0.0.1:53 A doubleclick.net. NOERROR qr,aa,rd 0.0001s \"-\"")
 	
 	statsLock.RLock()
 	if stats.TotalQueries != 2 || stats.BlockedQueries != 1 {
@@ -273,8 +273,8 @@ func TestQueryTypeTracking_DefaultFormat(t *testing.T) {
 	stats.QueryTypes = make(map[string]int64)
 	statsLock.Unlock()
 
-	parseLogLine("127.0.0.1:53 - 12 \"A IN google.com. udp 512 false 512\" NOERROR qr,rd,ra 512 0.0001s")
-	parseLogLine("127.0.0.1:53 - 13 \"AAAA IN google.com. udp 512 false 512\" NOERROR qr,rd,ra 512 0.0001s")
+	parseLogLine("127.0.0.1:53 A google.com. NOERROR qr,rd,ra 0.0001s \"-\"")
+	parseLogLine("127.0.0.1:53 AAAA google.com. NOERROR qr,rd,ra 0.0001s \"-\"")
 
 	statsLock.RLock()
 	if stats.QueryTypes["A"] != 1 || stats.QueryTypes["AAAA"] != 1 {
@@ -374,7 +374,7 @@ func TestSSEBroadcasting_DefaultFormat(t *testing.T) {
 		sseLock.Unlock()
 	}()
 
-	parseLogLine("127.0.0.1:53 - 14 \"A IN broadcast.test. udp 512 false 512\" NOERROR qr,rd 512 0.0001s")
+	parseLogLine("127.0.0.1:53 A broadcast.test. NOERROR qr,rd 0.0001s \"-\"")
 
 	select {
 	case q := <-ch:

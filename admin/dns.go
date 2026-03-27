@@ -393,7 +393,7 @@ func updateCorefile() {
         %s
         %s
     }%s%s
-    log . '{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}"'
+    log . '{remote} {type} {name} {rcode} {rflags} {duration} "{metadata/http/user-agent}"'
     errors
 }
 `, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
@@ -417,7 +417,7 @@ tls://.:853 {
         %s
         %s
     }%s%s
-    log . '{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}"'
+    log . '{remote} {type} {name} {rcode} {rflags} {duration} "{metadata/http/user-agent}"'
     errors
 }
 
@@ -438,7 +438,7 @@ https://.:5553 {
         %s
         %s
     }%s%s
-    log . '{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}"'
+    log . '{remote} {type} {name} {rcode} {rflags} {duration} "{metadata/http/user-agent}"'
     errors
 }
 
@@ -458,7 +458,7 @@ quic://.:853 {
         %s
         %s
     }%s%s
-    log . '{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}"'
+    log . '{remote} {type} {name} {rcode} {rflags} {duration} "{metadata/http/user-agent}"'
     errors
 }
 `, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
@@ -484,7 +484,7 @@ func startCoreDNS() {
 			for scanner.Scan() {
 				line := scanner.Text()
 				AddSystemLog("[CoreDNS] " + line)
-				parseLogLine(line)
+				go parseLogLine(line)
 			}
 		}(stdout)
 
@@ -503,107 +503,44 @@ func startCoreDNS() {
 }
 
 func parseLogLine(line string) {
-	// Final fields of the query log:
-	// ... rcode rflags size duration "UA"
+	// Simple and robust parsing for format: 
+	// {remote} {type} {name} {rcode} {rflags} {duration} "{user-agent}"
 	
-	// Robust parsing using quote positions
-	quotes := []int{}
-	for i, char := range line {
-		if char == '"' {
-			quotes = append(quotes, i)
-		}
-	}
-
-	if len(quotes) < 2 {
-		// Not a standard query log line
-		return
-	}
-
-	// Part before the query
-	prefix := strings.TrimSpace(line[:quotes[0]])
-	prefixFields := strings.Fields(prefix)
-	if len(prefixFields) < 1 { return }
+	lastQuote := strings.LastIndex(line, "\"")
+	if lastQuote <= 0 { return }
 	
-	// Format is typically: [METADATA] IP:PORT - ID
-	// So we look for the field that has a colon and is NOT the first field if there are many.
-	remote := prefixFields[0]
-	if len(prefixFields) >= 3 {
-		remote = prefixFields[len(prefixFields)-3]
-	} else if len(prefixFields) >= 2 && !strings.Contains(prefixFields[0], ":") {
-		remote = prefixFields[0] // fallback or specialized format
-	}
-
-	// The query itself
-	queryPart := line[quotes[0]+1 : quotes[1]]
-
-	// User-Agent and Suffix
-	userAgent := "-"
-	suffix := ""
-	if len(quotes) >= 4 {
-		// Format: ... "query" rcode rflags size duration "UA"
-		suffix = line[quotes[1]+1 : quotes[2]]
-		userAgent = line[quotes[2]+1 : quotes[3]]
-	} else {
-		// Format: ... "query" rcode rflags size duration
-		suffix = line[quotes[1]+1:]
-	}
-
-	suffixFields := strings.Fields(suffix)
-	if len(suffixFields) < 4 {
-		return
-	}
+	firstQuote := strings.LastIndex(line[:lastQuote], "\"")
+	if firstQuote <= 0 { return }
 	
+	userAgent := line[firstQuote+1 : lastQuote]
+	prefix := strings.TrimSpace(line[:firstQuote])
+	fields := strings.Fields(prefix)
+	
+	// Expecting: [remote, type, name, rcode, rflags, duration]
+	if len(fields) < 6 { return }
+	
+	remote := fields[0]
+	qType := fields[1]
+	qDomain := strings.TrimSuffix(fields[2], ".")
+	rcode := fields[3]
+	rflags := fields[4]
+	durationStr := fields[5]
+
 	// Extract Client IP
 	clientIP := remote
 	if host, _, err := net.SplitHostPort(remote); err == nil {
 		clientIP = host
 	}
 
-	// Suffix analysis (handle potential misalignment)
-	var rcode, rflags, durationStr string
-	
-	// Helper to find rflags (field containing 'qr')
-	foundQR := false
-	for i, f := range suffixFields {
-		if strings.Contains(f, "qr") {
-			rflags = f
-			foundQR = true
-			if i > 0 { rcode = suffixFields[i-1] }
-			if i+2 < len(suffixFields) { durationStr = suffixFields[i+2] }
-			break
-		}
-	}
-
-	if !foundQR {
-		// Fallback for very simple logs or different formats
-		if len(suffixFields) >= 2 {
-			rcode = suffixFields[0]
-			rflags = suffixFields[1]
-			if len(suffixFields) >= 4 { durationStr = suffixFields[3] }
-		}
-	}
-
 	if !strings.Contains(rflags, "qr") {
 		return
 	}
 
-	_ = rcode // Silence unused rcode lint if needed, though it might be used later
-
-	qFields := strings.Fields(queryPart)
-	if len(qFields) < 3 { return }
-	
-	qType := qFields[0]
-	qDomain := strings.TrimSuffix(qFields[2], ".")
-
 	// Update latest User-Agent for this IP
-	if userAgent != "" && userAgent != "-" {
+	if userAgent != "" && userAgent != "-" && userAgent != "none" {
 		ipToUA.Store(clientIP, userAgent)
-		go saveClientUA(clientIP, userAgent) // Save persistently in background
 	}
 
-	isBlocked := strings.Contains(rflags, "qr,aa") // typical for local hosts block
-
-	// Extract Duration
 	duration := 0.0
 	if strings.HasSuffix(durationStr, "s") {
 		if d, err := time.ParseDuration(durationStr); err == nil {
@@ -611,9 +548,7 @@ func parseLogLine(line string) {
 		}
 	}
 
-	// Cache Hit Detection:
-	// A cache hit in CoreDNS usually results in a very low duration.
-	// We use < 5ms as a safe heuristic for memory-resident responses in various environments.
+	isBlocked := rcode == "REFUSED" || rcode == "NXDOMAIN" || strings.Contains(rflags, "qr,aa")
 	isCacheHit := !isBlocked && duration < 5.0
 
 	// Update memory stats for real-time dashboard
@@ -626,7 +561,7 @@ func parseLogLine(line string) {
 		stats.CacheHits++
 	}
 	
-	// Moving average for latency (last 100 queries for responsiveness)
+	// Moving average for latency
 	if duration > 0 {
 		if stats.AverageLatency == 0 {
 			stats.AverageLatency = duration
@@ -646,9 +581,6 @@ func parseLogLine(line string) {
 		status = "Blocked"
 	}
 
-	// Buffer for batch SQLite insert
-	// The original code had `q := Query{...}` and then `logBuffer = append(logBuffer, q)`.
-	// The change implies direct append with the literal.
 	q := Query{
 		Time:       time.Now(),
 		Domain:     qDomain,
@@ -662,9 +594,6 @@ func parseLogLine(line string) {
 	bufferLock.Lock()
 	logBuffer = append(logBuffer, q)
 	bufferLock.Unlock()
-
-
-	// Broadcast to SSE clients
 
 	// Broadcast to SSE clients
 	go func(query Query) {

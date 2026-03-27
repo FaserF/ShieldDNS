@@ -30,6 +30,10 @@ if [ -f "/data/options.json" ] && [ -n "$(command -v bashio::config)" ]; then
     DOH_PORT=$(bashio::config 'doh_port')
     FALLBACK_DNS_ENABLED=$(bashio::config 'fallback_dns')
     FALLBACK_DNS_SERVER=$(bashio::config 'fallback_dns_server')
+    BLOCK_PAGE_IP=$(bashio::config 'block_page_ip')
+
+    # Export for Go backend
+    export BLOCK_PAGE_IP
 
     # Prepend /ssl/ to cert paths if they are just filenames
     if [[ "$CERT_FILE" != /* ]]; then CERT_FILE="/ssl/$CERT_FILE"; fi
@@ -46,6 +50,8 @@ else
     DOH_PORT=${DOH_PORT:-443}
     FALLBACK_DNS_ENABLED=${FALLBACK_DNS_ENABLED:-"false"}
     FALLBACK_DNS_SERVER=${FALLBACK_DNS_SERVER:-"1.1.1.1"}
+    BLOCK_PAGE_IP=${BLOCK_PAGE_IP:-"127.0.0.1"}
+    export BLOCK_PAGE_IP
 fi
 
 # Sanitize upstreams (replace commas with spaces)
