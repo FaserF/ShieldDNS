@@ -250,3 +250,43 @@ func TestHandleQueriesWithFiltering(t *testing.T) {
 		t.Errorf("expected 200 for filtered queries, got %v", rr.Code)
 	}
 }
+func TestHandleMobileConfig(t *testing.T) {
+	config = Config{
+		BlockPageIP: "1.2.3.4",
+		AdminDomain: "dns.example.com",
+	}
+
+	req := httptest.NewRequest("GET", "/api/mobileconfig", nil)
+	rr := httptest.NewRecorder()
+
+	handleMobileConfig(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %v", rr.Code)
+	}
+
+	body := rr.Body.String()
+	
+	// Check for protocols (all three should be present now)
+	if !strings.Contains(body, "<string>TLS</string>") {
+		t.Error("Missing TLS protocol in mobileconfig")
+	}
+	if !strings.Contains(body, "<string>HTTPS</string>") {
+		t.Error("Missing HTTPS protocol in mobileconfig")
+	}
+	if !strings.Contains(body, "<string>QUIC</string>") {
+		t.Error("Missing QUIC protocol in mobileconfig")
+	}
+	
+	// Check for correct ServerURL for HTTPS
+	expectedURL := "<string>https://dns.example.com/dns-query</string>"
+	if !strings.Contains(body, expectedURL) {
+		t.Errorf("Missing or incorrect ServerURL for HTTPS. Expected %s", expectedURL)
+	}
+	
+	// Check for ServerName for TLS and QUIC
+	expectedName := "<string>dns.example.com</string>"
+	if strings.Count(body, expectedName) < 2 {
+		t.Errorf("ServerName %s should appear at least twice (TLS and QUIC)", expectedName)
+	}
+}

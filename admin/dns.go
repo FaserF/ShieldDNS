@@ -540,9 +540,9 @@ func parseLogLine(line string) {
 	}
 
 	// Cache Hit Detection:
-	// A cache hit in CoreDNS usually results in a very low duration (< 1ms).
-	// Since blocked queries (qr,aa) also have low duration, we must ensure it's not a block.
-	isCacheHit := !isBlocked && duration < 1.0
+	// A cache hit in CoreDNS usually results in a very low duration.
+	// We use < 5ms as a safe heuristic for memory-resident responses in various environments.
+	isCacheHit := !isBlocked && duration < 5.0
 
 	// Update memory stats for real-time dashboard
 	statsLock.Lock()
@@ -590,6 +590,9 @@ func parseLogLine(line string) {
 	bufferLock.Lock()
 	logBuffer = append(logBuffer, q)
 	bufferLock.Unlock()
+
+	// Diagnostic log for debugging stats (remove in production if too chatty)
+	// AddSystemLog(fmt.Sprintf("[Debug] Query: %s, Type: %s, Latency: %.2fms, CacheHit: %v", qDomain, qType, duration, isCacheHit))
 
 	// Broadcast to SSE clients
 	go func(query Query) {

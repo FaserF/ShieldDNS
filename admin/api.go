@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -874,31 +875,92 @@ func handleBlockInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
-	host := r.Host
-	if strings.Contains(host, ":") {
-		host = strings.Split(host, ":")[0]
+	configLock.RLock()
+	adminDomain := config.AdminDomain
+	blockPageIP := config.BlockPageIP
+	configLock.RUnlock()
+
+	host := adminDomain
+	if host == "" {
+		host = r.Host
+		if strings.Contains(host, ":") {
+			host = strings.Split(host, ":")[0]
+		}
 	}
 
-	// Build ServerAddresses XML array from configured upstream IPs
-	serverIP := config.BlockPageIP
+	// Build ServerAddresses XML array
+	serverIP := blockPageIP
 	if serverIP == "" {
 		serverIP = "127.0.0.1"
 	}
 	serverAddrsXML := fmt.Sprintf("\t\t\t\t<string>%s</string>\n", serverIP)
 
-	// Generate unique UUIDs per download to avoid profile conflicts
-	payloadUUID := fmt.Sprintf("%08X-%04X-%04X-%04X-%012X",
-		time.Now().UnixNano()&0xFFFFFFFF, time.Now().UnixNano()>>32&0xFFFF,
-		0x4000|(time.Now().UnixNano()>>48&0x0FFF), 0x8000|(time.Now().UnixNano()>>60&0x3FFF),
-		time.Now().UnixNano()&0xFFFFFFFFFFFF)
-	profileUUID := fmt.Sprintf("%08X-%04X-%04X-%04X-%012X",
-		(time.Now().UnixNano()+1)&0xFFFFFFFF, (time.Now().UnixNano()+1)>>32&0xFFFF,
-		0x4000|((time.Now().UnixNano()+1)>>48&0x0FFF), 0x8000|((time.Now().UnixNano()+1)>>60&0x3FFF),
-		(time.Now().UnixNano()+1)&0xFFFFFFFFFFFF)
-	quicUUID := fmt.Sprintf("%08X-%04X-%04X-%04X-%012X",
-		(time.Now().UnixNano()+2)&0xFFFFFFFF, (time.Now().UnixNano()+2)>>32&0xFFFF,
-		0x4000|((time.Now().UnixNano()+2)>>48&0x0FFF), 0x8000|((time.Now().UnixNano()+2)>>60&0x3FFF),
-		(time.Now().UnixNano()+2)&0xFFFFFFFFFFFF)
+	// Certificate handling - check if self-signed
+	certFile := os.Getenv("CERT_FILE")
+	if certFile == "" {
+		certFile = "/ssl/fullchain.pem"
+	}
+
+	isSelfSigned := false
+	var certBase64 string
+	certData, err := os.ReadFile(certFile)
+	if err != nil {
+		// Try fallback
+		certData, _ = os.ReadFile("/etc/shielddns/ssl/selfsigned.crt")
+	}
+
+	if certData != nil {
+		block, _ := pem.Decode(certData)
+		if block != nil {
+			if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+				if cert.Issuer.String() == cert.Subject.String() {
+					isSelfSigned = true
+					certBase64 = base64.StdEncoding.EncodeToString(block.Bytes)
+				}
+			}
+		}
+	}
+
+	// Generate unique UUIDs
+	genUUID := func(offset int64) string {
+		now := time.Now().UnixNano() + offset
+		return fmt.Sprintf("%08X-%04X-%04X-%04X-%012X",
+			now&0xFFFFFFFF, now>>32&0xFFFF,
+			0x4000|(now>>48&0x0FFF), 0x8000|(now>>60&0x3FFF),
+			now&0xFFFFFFFFFFFF)
+	}
+
+	dotUUID := genUUID(0)
+	dohUUID := genUUID(1)
+doqUUID := genUUID(2)
+	profileUUID := genUUID(3)
+	certPayloadUUID := genUUID(4)
+
+	certPayloadXML := ""
+	certReferenceXML := ""
+	if isSelfSigned && certBase64 != "" {
+		certPayloadXML = fmt.Sprintf(`
+		<dict>
+			<key>PayloadCertificateFileName</key>
+			<string>ShieldDNS.crt</string>
+			<key>PayloadContent</key>
+			<data>%s</data>
+			<key>PayloadDescription</key>
+			<string>Adds the ShieldDNS self-signed root certificate to trust encrypted DNS connections.</string>
+			<key>PayloadDisplayName</key>
+			<string>ShieldDNS Root Certificate</string>
+			<key>PayloadIdentifier</key>
+			<string>com.shielddns.rootcert</string>
+			<key>PayloadType</key>
+			<string>com.apple.security.root</string>
+			<key>PayloadUUID</key>
+			<string>%s</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+		</dict>`, certBase64, certPayloadUUID)
+
+		certReferenceXML = fmt.Sprintf("\n\t\t\t<key>PayloadCertificateUUID</key>\n\t\t\t<string>%s</string>", certPayloadUUID)
+	}
 
 	w.Header().Set("Content-Type", "application/x-apple-aspen-config")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=shielddns_%s.mobileconfig", host))
@@ -928,7 +990,7 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 				</dict>
 			</array>
 			<key>PayloadDescription</key>
-			<string>Configures encrypted DNS-over-TLS (DoT) for ShieldDNS (%[1]s). Provides robust protection against tracking and malicious domains.</string>
+			<string>Configures encrypted DNS-over-TLS (DoT) for ShieldDNS (%[1]s).</string>
 			<key>PayloadDisplayName</key>
 			<string>ShieldDNS DoT (%[1]s)</string>
 			<key>PayloadIdentifier</key>
@@ -938,7 +1000,38 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 			<key>PayloadUUID</key>
 			<string>%[3]s</string>
 			<key>PayloadVersion</key>
-			<integer>1</integer>
+			<integer>1</integer>%[7]s
+		</dict>
+		<dict>
+			<key>DNSSettings</key>
+			<dict>
+				<key>DNSProtocol</key>
+				<string>HTTPS</string>
+				<key>ServerURL</key>
+				<string>https://%[1]s/dns-query</string>
+				<key>ServerAddresses</key>
+				<array>
+%[2]s				</array>
+			</dict>
+			<key>OnDemandRules</key>
+			<array>
+				<dict>
+					<key>Action</key>
+					<string>Connect</string>
+				</dict>
+			</array>
+			<key>PayloadDescription</key>
+			<string>Configures encrypted DNS-over-HTTPS (DoH) for ShieldDNS (%[1]s).</string>
+			<key>PayloadDisplayName</key>
+			<string>ShieldDNS DoH (%[1]s)</string>
+			<key>PayloadIdentifier</key>
+			<string>com.shielddns.doh.%[1]s</string>
+			<key>PayloadType</key>
+			<string>com.apple.dnsSettings.managed</string>
+			<key>PayloadUUID</key>
+			<string>%[4]s</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>%[7]s
 		</dict>
 		<dict>
 			<key>DNSSettings</key>
@@ -959,7 +1052,7 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 				</dict>
 			</array>
 			<key>PayloadDescription</key>
-			<string>Configures high-performance encrypted DNS-over-QUIC (DoQ) for ShieldDNS (%[1]s). Minimizes latency while maintaining maximum privacy.</string>
+			<string>Configures high-performance encrypted DNS-over-QUIC (DoQ) for ShieldDNS (%[1]s).</string>
 			<key>PayloadDisplayName</key>
 			<string>ShieldDNS DoQ (%[1]s)</string>
 			<key>PayloadIdentifier</key>
@@ -969,19 +1062,21 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 			<key>PayloadUUID</key>
 			<string>%[5]s</string>
 			<key>PayloadVersion</key>
-			<integer>1</integer>
-		</dict>
+			<integer>1</integer>%[7]s
+		</dict>%[6]s
 	</array>
+	<key>PayloadDescription</key>
+	<string>ShieldDNS Encryption Profile (%[1]s). Enables system-wide DNS encryption for improved privacy.</string>
 	<key>PayloadDisplayName</key>
-	<string>ShieldDNS Encrypted Protection (%[1]s)</string>
+	<string>ShieldDNS Protection (%[1]s)</string>
 	<key>PayloadIdentifier</key>
 	<string>com.shielddns.profile.%[1]s</string>
 	<key>PayloadOrganization</key>
-	<string>ShieldDNS Open Source Project</string>
+	<string>ShieldDNS Project</string>
 	<key>PayloadType</key>
 	<string>Configuration</string>
 	<key>PayloadUUID</key>
-	<string>%[4]s</string>
+	<string>%[8]s</string>
 	<key>PayloadVersion</key>
 	<integer>1</integer>
 	<key>ConsentText</key>
@@ -990,18 +1085,10 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 		<string>SECURITY &amp; PRIVACY NOTICE:
 This profile configures your device to use ShieldDNS (%[1]s) as its encrypted DNS provider.
 
-WHAT THIS MEANS:
-ShieldDNS will encrypt all DNS queries from this device, preventing ISPs and third parties from monitoring your web activity. It also leverages advanced blocklists to protect you from advertisements, trackers, and malicious content in real-time.
-
-TECHNICAL DETAILS:
-- Target Server: %[1]s
-- Supported Protocols: DNS-over-TLS (DoT), DNS-over-QUIC (DoQ)
-- Documentation: https://github.com/FaserF/ShieldDNS
-
-By proceeding, you consent to all DNS traffic being routed through this server. No personal web traffic (HTTP/HTTPS content) is decrypted; only the destination addresses are processed for filtering. You can remove this profile at any time in Settings &gt; General &gt; VPN &amp; Device Management.</string>
+No personal web traffic (HTTP/HTTPS content) is decrypted; only the destination addresses are processed for filtering. You can remove this profile at any time in Settings.</string>
 	</dict>
 </dict>
-</plist>`, host, serverAddrsXML, payloadUUID, profileUUID, quicUUID)
+</plist>`, host, serverAddrsXML, dotUUID, dohUUID, doqUUID, certPayloadXML, certReferenceXML, profileUUID)
 
 	w.Write([]byte(mobileConfig))
 }

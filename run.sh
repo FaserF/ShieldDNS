@@ -64,7 +64,7 @@ if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
     FALLBACK_KEY="/etc/shielddns/ssl/selfsigned.key"
     
     if [ ! -f "$FALLBACK_CERT" ]; then
-        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
             -keyout "$FALLBACK_KEY" -out "$FALLBACK_CERT" \
             -subj "/C=DE/ST=ShieldDNS/L=ShieldDNS/O=ShieldDNS/OU=ShieldDNS/CN=shielddns.local" \
             2>/dev/null
