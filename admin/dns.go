@@ -393,7 +393,7 @@ func updateCorefile() {
         %s
         %s
     }%s%s
-    log . "{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}""
+    log . '{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}"'
     errors
 }
 `, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
@@ -417,7 +417,7 @@ tls://.:853 {
         %s
         %s
     }%s%s
-    log . "{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}""
+    log . '{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}"'
     errors
 }
 
@@ -438,7 +438,7 @@ https://.:5553 {
         %s
         %s
     }%s%s
-    log . "{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}""
+    log . '{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}"'
     errors
 }
 
@@ -458,7 +458,7 @@ quic://.:853 {
         %s
         %s
     }%s%s
-    log . "{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}""
+    log . '{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}"'
     errors
 }
 `, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
