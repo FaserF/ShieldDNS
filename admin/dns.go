@@ -393,7 +393,7 @@ func updateCorefile() {
         %s
         %s
     }%s%s
-    log . "{remote} - {id} \"{type} {class} {name} {proto} {size} {do} {bufsize}\" {rcode} {rflags} {size} {duration} \"{metadata/http/user-agent}\""
+    log . "{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}""
     errors
 }
 `, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
@@ -417,7 +417,7 @@ tls://.:853 {
         %s
         %s
     }%s%s
-    log . "{remote} - {id} \"{type} {class} {name} {proto} {size} {do} {bufsize}\" {rcode} {rflags} {size} {duration} \"{metadata/http/user-agent}\""
+    log . "{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}""
     errors
 }
 
@@ -438,7 +438,7 @@ https://.:5553 {
         %s
         %s
     }%s%s
-    log . "{remote} - {id} \"{type} {class} {name} {proto} {size} {do} {bufsize}\" {rcode} {rflags} {size} {duration} \"{metadata/http/user-agent}\""
+    log . "{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}""
     errors
 }
 
@@ -458,7 +458,7 @@ quic://.:853 {
         %s
         %s
     }%s%s
-    log . "{remote} - {id} \"{type} {class} {name} {proto} {size} {do} {bufsize}\" {rcode} {rflags} {size} {duration} \"{metadata/http/user-agent}\""
+    log . "{remote} - {id} "{type} {class} {name} {proto} {size} {do} {bufsize}" {rcode} {rflags} {size} {duration} "{metadata/http/user-agent}""
     errors
 }
 `, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
@@ -553,31 +553,47 @@ func parseLogLine(line string) {
 		return
 	}
 	
-	// suffixFields should be: [rcode, rflags, size, duration]
+	// Extract Client IP
+	clientIP := remote
+	if host, _, err := net.SplitHostPort(remote); err == nil {
+		clientIP = host
+	}
 
-	rflags := suffixFields[1]
-	durationStr := suffixFields[3]
+	// Suffix analysis (handle potential misalignment)
+	var rcode, rflags, durationStr string
+	
+	// Helper to find rflags (field containing 'qr')
+	foundQR := false
+	for i, f := range suffixFields {
+		if strings.Contains(f, "qr") {
+			rflags = f
+			foundQR = true
+			if i > 0 { rcode = suffixFields[i-1] }
+			if i+2 < len(suffixFields) { durationStr = suffixFields[i+2] }
+			break
+		}
+	}
 
-	if !strings.HasSuffix(durationStr, "s") {
-		return
+	if !foundQR {
+		// Fallback for very simple logs or different formats
+		if len(suffixFields) >= 2 {
+			rcode = suffixFields[0]
+			rflags = suffixFields[1]
+			if len(suffixFields) >= 4 { durationStr = suffixFields[3] }
+		}
 	}
 
 	if !strings.Contains(rflags, "qr") {
 		return
 	}
 
+	_ = rcode // Silence unused rcode lint if needed, though it might be used later
 
 	qFields := strings.Fields(queryPart)
 	if len(qFields) < 3 { return }
 	
 	qType := qFields[0]
 	qDomain := strings.TrimSuffix(qFields[2], ".")
-
-	// Extract Client IP
-	clientIP := remote
-	if host, _, err := net.SplitHostPort(remote); err == nil {
-		clientIP = host
-	}
 
 	// Update latest User-Agent for this IP
 	if userAgent != "" && userAgent != "-" {

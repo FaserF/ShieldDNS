@@ -13,7 +13,7 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     let queryLogItems, fullQueryLogItems, latencyList;
     let systemLogEventSource = null;
     let apiKeysListContainer, apiKeyModal, apiKeyForm, apiKeyResult, apiKeyValue, protectionStatusLabel, toggleProtectionBtn;
-    let adminDomainInput, blockIpInput;
+    let adminDomainInput, blockIpInput, tagsContainer;
 
 // DOMContentLoaded will remain, but showAlert/showConfirm are gone
 document.addEventListener('DOMContentLoaded', () => {
@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     queryLogItems = getEl('query-log-items');
     fullQueryLogItems = getEl('full-query-log-items');
     latencyList = getEl('upstream-latency-list');
+    tagsContainer = getEl('blocked-countries-tags');
 
     statsContainer = {
         total: getEl('stat-total'),
@@ -1009,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resp.ok) {
                 allCountries = await resp.json();
                 initCountryPicker();
+                renderConfig();
             }
         } catch (e) {
             console.error('Failed to fetch countries', e);

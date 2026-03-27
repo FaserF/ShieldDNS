@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,16 +12,32 @@ import (
 	"time"
 )
 
-// TestMain sets up a shared in-memory SQLite database for the entire test suite.
-// This prevents nil-pointer panics in tests like TestHandleStats that query `db`.
 func TestMain(m *testing.M) {
-	// Initialize paths globally for all tests to prevent data races
-	initPaths()
+	// Create a temporary directory for all test data to avoid writing to system paths like /etc/shielddns/
+	tmpDir, err := os.MkdirTemp("", "shielddns-test-*")
+	if err != nil {
+		fmt.Printf("Failed to create temp dir for tests: %v\n", err)
+		os.Exit(1)
+	}
 
-	// Use an in-memory SQLite DB for tests
-	DBPath = ":memory:"
+	// Redirect all global paths to the temporary directory
+	DataDir = tmpDir
+	ConfigPath = filepath.Join(tmpDir, "config.json")
+	BlocklistPath = filepath.Join(tmpDir, "blocklist.hosts")
+	AllowlistPath = filepath.Join(tmpDir, "allowlist.hosts")
+	CorefilePath = filepath.Join(tmpDir, "Corefile")
+	DBPath = ":memory:" // Use in-memory SQLite for tests
+
+	// Initialize subsystems
 	initDB()
-	os.Exit(m.Run())
+
+	// Run tests
+	exitCode := m.Run()
+
+	// Cleanup
+	os.RemoveAll(tmpDir)
+
+	os.Exit(exitCode)
 }
 
 func TestHandleStats(t *testing.T) {

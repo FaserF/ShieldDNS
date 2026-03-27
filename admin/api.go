@@ -1190,6 +1190,16 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		configLock.Lock()
+		// Preserve fields that might not be sent in a partial update
+		if len(newConfig.BlockedCountries) == 0 && len(config.BlockedCountries) > 0 {
+			newConfig.BlockedCountries = config.BlockedCountries
+		}
+		if newConfig.ClientAliases == nil && config.ClientAliases != nil {
+			newConfig.ClientAliases = config.ClientAliases
+		}
+		if newConfig.APIKeys == nil && config.APIKeys != nil {
+			newConfig.APIKeys = config.APIKeys
+		}
 		if newConfig.AdminPasswordHashed == "" {
 			newConfig.AdminPasswordHashed = config.AdminPasswordHashed
 		}
