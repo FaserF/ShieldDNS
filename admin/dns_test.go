@@ -31,8 +31,8 @@ func TestParseLogLine_Structured(t *testing.T) {
 	if length != 1 {
 		t.Fatalf("Expected 1 query in buffer, got %d", length)
 	}
-	if q.ClientIP != "127.0.0.1" {
-		t.Errorf("Expected ClientIP 127.0.0.1, got %s", q.ClientIP)
+	if q.ClientIP != "DoH Proxy" {
+		t.Errorf("Expected ClientIP DoH Proxy, got %s", q.ClientIP)
 	}
 	if q.Type != "A" {
 		t.Errorf("Expected Type A, got %s", q.Type)
@@ -49,7 +49,7 @@ func TestParseLogLine_Structured(t *testing.T) {
 	}
 
 	// Check User-Agent storage
-	if ua, ok := ipToUA.Load("127.0.0.1"); !ok || ua != "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" {
+	if ua, ok := ipToUA.Load("DoH Proxy"); !ok || ua != "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" {
 		t.Errorf("Expected User-Agent to be stored, got %v", ua)
 	}
 }
@@ -62,6 +62,10 @@ func TestParseLogLine_Blocked(t *testing.T) {
 	statsLock.Lock()
 	stats.BlockedQueries = 0
 	statsLock.Unlock()
+
+	blockAttributionLock.Lock()
+	blockAttribution["tiktok.com"] = []string{"TestBlocklist"}
+	blockAttributionLock.Unlock()
 
 	// qr,aa flags = blocked (local hosts file match)
 	parseLogLine(`10.0.0.5:1234 AAAA tiktok.com. NOERROR qr,aa 0.050s "-"`)
@@ -108,8 +112,8 @@ func TestParseLogLine_DefaultFormat_New(t *testing.T) {
 	if length != 1 {
 		t.Fatalf("Expected 1 query in buffer, got %d", length)
 	}
-	if q.ClientIP != "127.0.0.1" {
-		t.Errorf("Expected ClientIP 127.0.0.1, got %s", q.ClientIP)
+	if q.ClientIP != "DoH Proxy" {
+		t.Errorf("Expected ClientIP DoH Proxy, got %s", q.ClientIP)
 	}
 	if q.Type != "A" {
 		t.Errorf("Expected Type A, got %s", q.Type)

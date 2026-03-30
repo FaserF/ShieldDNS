@@ -209,6 +209,16 @@ var (
 	resolveCacheLock sync.Mutex
 )
 
+type querySignature struct {
+	ip   string
+	time time.Time
+}
+
+var (
+	recentQueries     = make(map[string]querySignature)
+	recentQueriesLock sync.Mutex
+)
+
 func resolveHost(host string) string {
 	if net.ParseIP(host) != nil {
 		return host
@@ -611,6 +621,44 @@ func parseLogLine(line string) {
 		return
 	}
 
+	isLocal := clientIP == "127.0.0.1" || clientIP == "::1"
+	sigKey := qDomain + "|" + qType
+
+	recentQueriesLock.Lock()
+	if sig, ok := recentQueries[sigKey]; ok {
+		if time.Since(sig.time) < 2*time.Second {
+			// If identical query within 2s and this one is local, skip it
+			if isLocal {
+				recentQueriesLock.Unlock()
+				return
+			}
+			// If not local, always log and update the signature to external
+			if !isLocal {
+				recentQueries[sigKey] = querySignature{ip: clientIP, time: time.Now()}
+			}
+		} else {
+			recentQueries[sigKey] = querySignature{ip: clientIP, time: time.Now()}
+		}
+	} else {
+		recentQueries[sigKey] = querySignature{ip: clientIP, time: time.Now()}
+	}
+
+	// Simple cleanup to prevent unbounded growth
+	if len(recentQueries) > 1000 {
+		now := time.Now()
+		for k, v := range recentQueries {
+			if now.Sub(v.time) > 10*time.Second {
+				delete(recentQueries, k)
+			}
+		}
+	}
+	recentQueriesLock.Unlock()
+
+	// Rename local IP for better UX
+	if isLocal {
+		clientIP = "DoH Proxy"
+	}
+
 	DebugLog(fmt.Sprintf("Parsed Query: %s %s from %s (Duration: %s)", qType, qDomain, clientIP, durationStr))
 
 	// Update latest User-Agent for this IP
@@ -630,7 +678,10 @@ func parseLogLine(line string) {
 		}
 	}
 
-	isBlocked := rcode == "REFUSED" || rcode == "NXDOMAIN" || strings.Contains(rflags, "qr,aa")
+	blockAttributionLock.RLock()
+	_, isBlocked := blockAttribution[qDomain]
+	blockAttributionLock.RUnlock()
+
 	isCacheHit := !isBlocked && duration < 5.0
 
 	// Update memory stats for real-time dashboard

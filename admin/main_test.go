@@ -144,13 +144,17 @@ func TestParseLogLine_DefaultFormat(t *testing.T) {
 	statsLock.Unlock()
 
 	// Test allowed query - default format
-	parseLogLine("127.0.0.1:53 A google.com. NOERROR qr,rd,ra 0.0001s \"-\"")
+	parseLogLine("127.0.0.1:53 A google-default.com. NOERROR qr,rd,ra 0.0001s \"-\"")
 	
 	statsLock.RLock()
 	if stats.TotalQueries != 1 || stats.BlockedQueries != 0 {
 		t.Errorf("expected 1 total, 0 blocked, got %v/%v", stats.TotalQueries, stats.BlockedQueries)
 	}
 	statsLock.RUnlock()
+
+	blockAttributionLock.Lock()
+	blockAttribution["doubleclick.net"] = []string{"TestList"}
+	blockAttributionLock.Unlock()
 
 	// Test blocked query (aa flag)
 	parseLogLine("127.0.0.1:53 A doubleclick.net. NOERROR qr,aa,rd 0.0001s \"-\"")
@@ -273,8 +277,8 @@ func TestQueryTypeTracking_DefaultFormat(t *testing.T) {
 	stats.QueryTypes = make(map[string]int64)
 	statsLock.Unlock()
 
-	parseLogLine("127.0.0.1:53 A google.com. NOERROR qr,rd,ra 0.0001s \"-\"")
-	parseLogLine("127.0.0.1:53 AAAA google.com. NOERROR qr,rd,ra 0.0001s \"-\"")
+	parseLogLine("127.0.0.1:53 A google-types.com. NOERROR qr,rd,ra 0.0001s \"-\"")
+	parseLogLine("127.0.0.1:53 AAAA google-types.com. NOERROR qr,rd,ra 0.0001s \"-\"")
 
 	statsLock.RLock()
 	if stats.QueryTypes["A"] != 1 || stats.QueryTypes["AAAA"] != 1 {
