@@ -393,10 +393,10 @@ func updateCorefile() {
     %s
     health :8082
     reload 5s
-    cache 3600 {
-        success 10000
-        denial 2500
-        prefetch 10 10m 10%%
+    cache 7200 {
+        success 50000
+        denial 10000
+        prefetch 3 10m 20%%
         %s
     }
     forward . %s {
@@ -417,10 +417,10 @@ tls://.:853 {
     %s
     %s
     reload 5s
-    cache 3600 {
-        success 10000
-        denial 2500
-        prefetch 10 10m 10%%
+    cache 7200 {
+        success 50000
+        denial 10000
+        prefetch 3 10m 20%%
         %s
     }
     forward . %s {
@@ -438,10 +438,10 @@ https://.:5553 {
     %s
     %s
     reload 5s
-    cache 3600 {
-        success 10000
-        denial 2500
-        prefetch 10 10m 10%%
+    cache 7200 {
+        success 50000
+        denial 10000
+        prefetch 3 10m 20%%
         %s
     }
     forward . %s {
@@ -458,10 +458,10 @@ quic://.:853 {
     %s
     %s
     reload 5s
-    cache 3600 {
-        success 10000
-        denial 2500
-        prefetch 10 10m 10%%
+    cache 7200 {
+        success 50000
+        denial 10000
+        prefetch 3 10m 20%%
         %s
     }
     forward . %s {
