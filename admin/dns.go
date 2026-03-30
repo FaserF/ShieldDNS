@@ -513,6 +513,13 @@ func startCoreDNS() {
 	}
 }
 
+func restartCoreDNS() {
+	if dnsCmd != nil && dnsCmd.Process != nil {
+		log.Println("Restarting CoreDNS to flush cache and apply updated lists...")
+		dnsCmd.Process.Kill()
+	}
+}
+
 func parseLogLine(line string) {
 	// 1. Strip common prefixes added by CoreDNS or system logging
 	// Handle: "[INFO] ", "[DEBUG] ", "[CoreDNS] ", "[CoreDNS-ERR] ", "[16:23:02] "

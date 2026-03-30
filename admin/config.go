@@ -231,6 +231,9 @@ func updateBlocklist() {
 		allowBuilder.WriteString(fmt.Sprintf("127.0.0.1 %s\n", domain)) // Or just track it
 	}
 	os.WriteFile(AllowlistPath, []byte(allowBuilder.String()), 0644)
+
+	// Restart CoreDNS to flush cache and enforce new rules immediately
+	restartCoreDNS()
 }
 
 func processList(list List, blockMap map[string][]string, allowMap map[string]struct{}) {
