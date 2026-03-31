@@ -353,24 +353,13 @@ func updateCorefile() {
 		keyFile = "/ssl/privkey.pem"
 	}
 
-	// Get filtering status
-	configLock.RLock()
-	filteringEnabled := config.FilteringEnabled
-	configLock.RUnlock()
+
 
 	hostsBlock := fmt.Sprintf(`
     hosts %s {
         reload 5s
         fallthrough
-    }`, MappingsPath)
-
-	if filteringEnabled {
-		hostsBlock += fmt.Sprintf(`
-    hosts %s {
-        reload 5s
-        fallthrough
-    }`, BlocklistPath)
-	}
+    }`, CombinedHostsPath)
 
 	tlsBlock := ""
 	if dotServerName != "" {

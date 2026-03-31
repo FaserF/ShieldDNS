@@ -155,6 +155,7 @@ var (
 	MappingsPath  = "/etc/shielddns/mappings.hosts"
 	CorefilePath  = "/etc/Corefile"
 	DBPath        = "/etc/shielddns/queries.db"
+	CombinedHostsPath = "/etc/shielddns/shielddns.hosts"
 )
 
 const CookieName = "shielddns_session"

@@ -22,6 +22,7 @@ func initPaths() {
 	AllowlistPath = filepath.Join(DataDir, "allowlist.hosts")
 	MappingsPath = filepath.Join(DataDir, "mappings.hosts")
 	DBPath = filepath.Join(DataDir, "queries.db")
+	CombinedHostsPath = filepath.Join(DataDir, "shielddns.hosts")
 
 	if cp := os.Getenv("COREFILE_PATH"); cp != "" {
 		CorefilePath = cp
@@ -261,33 +262,50 @@ func updateBlocklist(cfg *Config) {
 	blockAttribution = newBlockAttribution
 	blockAttributionLock.Unlock()
 
-	// Write Blocklist
-	var combined strings.Builder
-	ip := blockPageIP
-	if ip == "" {
-		ip = "0.0.0.0"
+	// Write Combined Hosts File for CoreDNS (Must be ONE file)
+	var combinedBuilder strings.Builder
+	combinedBuilder.WriteString("# ShieldDNS Combined Hosts File\n")
+	combinedBuilder.WriteString("# Generated at " + time.Now().Format(time.RFC3339) + "\n\n")
+
+	// 1. Custom Mappings (Highest Priority)
+	combinedBuilder.WriteString("# Custom Mappings\n")
+	for domain, ip := range customMappings {
+		combinedBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
 	}
 
-	for domain := range blockDomains {
-		combined.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
+	// 2. Blocklist
+	combinedBuilder.WriteString("\n# Blocked Domains\n")
+	ip := blockPageIP
+	if ip == "" {
+		ip = "127.0.0.1"
 	}
-	os.MkdirAll(filepath.Dir(BlocklistPath), 0755)
-	os.WriteFile(BlocklistPath, []byte(combined.String()), 0644)
-	log.Printf("Blocklist updated with %d domains", len(blockDomains))
+	for domain := range blockDomains {
+		combinedBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
+	}
+
+	os.MkdirAll(filepath.Dir(CombinedHostsPath), 0755)
+	if err := os.WriteFile(CombinedHostsPath, []byte(combinedBuilder.String()), 0644); err != nil {
+		log.Printf("⚠️ ERROR: Failed to write combined hosts to %s: %v", CombinedHostsPath, err)
+	}
+
+	// Also write individual files for backward compatibility/UI if needed
+	os.WriteFile(BlocklistPath, []byte(combinedBuilder.String()), 0644) // Reuse builder for simplicity or split if needed
 
 	// Write Allowlist for CoreDNS explicitly (optional but good for tracking)
 	var allowBuilder strings.Builder
 	for domain := range allowDomains {
-		allowBuilder.WriteString(fmt.Sprintf("127.0.0.1 %s\n", domain)) // Or just track it
+		allowBuilder.WriteString(fmt.Sprintf("127.0.0.1 %s\n", domain))
 	}
 	os.WriteFile(AllowlistPath, []byte(allowBuilder.String()), 0644)
 
-	// Write Custom Mappings
+	// Write Custom Mappings separately too
 	var mappingsBuilder strings.Builder
 	for domain, ip := range customMappings {
 		mappingsBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
 	}
 	os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
+
+	log.Printf("Blocklist updated with %d domains. Combined hosts written to %s", len(blockDomains), CombinedHostsPath)
 
 	// Persist the metadata (Entries and UpdatedAt)
 	saveConfig()
