@@ -1193,6 +1193,21 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCustomList(customBlockedList, currentConfig.custom_blocked, 'blocked');
         renderCustomList(customAllowedList, currentConfig.custom_allowed, 'allowed');
 
+        // Render Custom Mappings
+        const mappingsList = document.getElementById('custom-mappings-list');
+        if (mappingsList) {
+            const mappings = currentConfig.custom_mappings || {};
+            const keys = Object.keys(mappings);
+            mappingsList.innerHTML = keys.map(domain => `
+                <div class="preset-selection-item">
+                    <span style="flex:1">${domain}</span>
+                    <span class="badge secondary" style="font-family:monospace; margin-right: 15px;">${mappings[domain]}</span>
+                    <button class="btn danger-text" onclick="removeCustomMapping('${domain}')"><i class="fas fa-trash"></i></button>
+                </div>
+            `).join('') || '<p class="help">No custom mappings added yet.</p>';
+        }
+
+
         // Render Blocked Countries Tags
         if (tagsContainer) {
             tagsContainer.innerHTML = (currentConfig.blocked_countries || []).map(code => {
@@ -1247,11 +1262,60 @@ document.addEventListener('DOMContentLoaded', () => {
         renderConfig();
     };
 
-    window.removeCustomRule = (type, domain) => {
+    window.removeCustomRule = async (type, domain) => {
         const field = type === 'blocked' ? 'custom_blocked' : 'custom_allowed';
         currentConfig[field] = currentConfig[field].filter(d => d !== domain);
-        saveConfig();
+        await saveConfig();
         renderConfig();
+    };
+
+    window.addCustomMapping = async () => {
+        const domainInput = document.getElementById('custom-map-domain');
+        const ipInput = document.getElementById('custom-map-ip');
+        const domain = domainInput.value.trim();
+        const ip = ipInput.value.trim();
+
+        if (!domain || !ip) {
+            await showAlert('Both domain and IP address are required.');
+            return;
+        }
+
+        try {
+            const resp = await fetch('/api/rules/add', {
+                method: 'POST',
+                body: JSON.stringify({ domain, type: 'mapping', ip })
+            });
+
+            if (resp.ok) {
+                domainInput.value = '';
+                ipInput.value = '';
+                fetchConfig(); // Refresh full config to get updated mappings
+            } else {
+                const err = await resp.text();
+                await showAlert('Failed to add mapping: ' + err);
+            }
+        } catch (e) {
+            await showAlert('Connection error.');
+        }
+    };
+
+    window.removeCustomMapping = async (domain) => {
+        if (!(await showConfirm(`Are you sure you want to remove the mapping for ${domain}?`))) return;
+        
+        try {
+            const resp = await fetch('/api/rules/remove', {
+                method: 'POST',
+                body: JSON.stringify({ domain })
+            });
+
+            if (resp.ok) {
+                fetchConfig();
+            } else {
+                await showAlert('Failed to remove mapping.');
+            }
+        } catch (e) {
+            await showAlert('Connection error.');
+        }
     };
 
     const createListItem = (list, index, type) => {

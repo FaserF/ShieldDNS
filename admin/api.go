@@ -266,7 +266,8 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Domain string `json:"domain"`
-		Type   string `json:"type"` // "block" or "allow"
+		Type   string `json:"type"` // "block", "allow", "mapping"
+		IP     string `json:"ip"`   // only for "mapping"
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -323,8 +324,37 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		if !exists {
 			config.CustomAllowed = append(config.CustomAllowed, domain)
 		}
+	} else if req.Type == "mapping" {
+		ip := strings.TrimSpace(req.IP)
+		if ip == "" {
+			http.Error(w, "IP address required for mapping", http.StatusBadRequest)
+			return
+		}
+		if net.ParseIP(ip) == nil {
+			http.Error(w, "Invalid IP address format", http.StatusBadRequest)
+			return
+		}
+
+		// Remove from others
+		newBlocked := []string{}
+		for _, d := range config.CustomBlocked {
+			if d != domain { newBlocked = append(newBlocked, d) }
+		}
+		config.CustomBlocked = newBlocked
+
+		newAllowed := []string{}
+		for _, d := range config.CustomAllowed {
+			if d != domain { newAllowed = append(newAllowed, d) }
+		}
+		config.CustomAllowed = newAllowed
+
+		// Add/Update mapping
+		if config.CustomMappings == nil {
+			config.CustomMappings = make(map[string]string)
+		}
+		config.CustomMappings[domain] = ip
 	} else {
-		http.Error(w, "Type must be 'block' or 'allow'", http.StatusBadRequest)
+		http.Error(w, "Type must be 'block', 'allow' or 'mapping'", http.StatusBadRequest)
 		return
 	}
 
@@ -368,6 +398,10 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 		if d != domain { cleanAllowed = append(cleanAllowed, d) }
 	}
 	config.CustomAllowed = cleanAllowed
+
+	if config.CustomMappings != nil {
+		delete(config.CustomMappings, domain)
+	}
 
 	saveConfigNoLock()
 	go updateBlocklist() // Process rule changes asynchronously

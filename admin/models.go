@@ -16,6 +16,7 @@ type Config struct {
 	Allowlists          []List   `json:"allowlists"`
 	CustomBlocked       []string `json:"custom_blocked"`
 	CustomAllowed       []string `json:"custom_allowed"`
+	CustomMappings      map[string]string `json:"custom_mappings"`
 	SetupDone           bool     `json:"setup_done"`
 	AdminPasswordHashed string   `json:"admin_password_hashed"`
 	APIKeys             []APIKey `json:"api_keys"`
@@ -136,6 +137,7 @@ var (
 	ConfigPath    = "/etc/shielddns/config.json"
 	BlocklistPath = "/etc/shielddns/blocklist.hosts"
 	AllowlistPath = "/etc/shielddns/allowlist.hosts"
+	MappingsPath  = "/etc/shielddns/mappings.hosts"
 	CorefilePath  = "/etc/Corefile"
 	DBPath        = "/etc/shielddns/queries.db"
 )

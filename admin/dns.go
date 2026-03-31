@@ -342,9 +342,14 @@ func updateCorefile() {
     filteringEnabled := config.FilteringEnabled
     configLock.RUnlock()
 
-    hostsBlock := ""
+    hostsBlock = fmt.Sprintf(`
+    hosts %s {
+        reload 5s
+        fallthrough
+    }`, MappingsPath)
+
     if filteringEnabled {
-        hostsBlock = fmt.Sprintf(`
+        hostsBlock += fmt.Sprintf(`
     hosts %s {
         reload 5s
         fallthrough

@@ -20,6 +20,7 @@ func initPaths() {
 	ConfigPath = filepath.Join(DataDir, "config.json")
 	BlocklistPath = filepath.Join(DataDir, "blocklist.hosts")
 	AllowlistPath = filepath.Join(DataDir, "allowlist.hosts")
+	MappingsPath = filepath.Join(DataDir, "mappings.hosts")
 	DBPath = filepath.Join(DataDir, "queries.db")
 
 	if cp := os.Getenv("COREFILE_PATH"); cp != "" {
@@ -47,6 +48,7 @@ func loadConfig() {
 		ServeStale:          true,
 		DNSSECEnabled:       true,
 		SignMobileConfig:    true,
+		CustomMappings:      map[string]string{"fritz.box": "192.168.178.1"},
 	}
 
 	// 2. Load from file if exists
@@ -114,6 +116,9 @@ func loadConfig() {
 	if config.DiagnosticsRefreshInterval == 0 {
 		config.DiagnosticsRefreshInterval = 30
 	}
+	if config.CustomMappings == nil {
+		config.CustomMappings = make(map[string]string)
+	}
 	debugModeEnabled.Store(config.DebugMode)
 }
 
@@ -167,6 +172,7 @@ func updateBlocklist() {
 	allowlists := config.Allowlists
 	customBlocked := config.CustomBlocked
 	customAllowed := config.CustomAllowed
+	customMappings := config.CustomMappings
 	blockPageIP := config.BlockPageIP
 	configLock.RUnlock()
 
@@ -231,6 +237,13 @@ func updateBlocklist() {
 		allowBuilder.WriteString(fmt.Sprintf("127.0.0.1 %s\n", domain)) // Or just track it
 	}
 	os.WriteFile(AllowlistPath, []byte(allowBuilder.String()), 0644)
+
+	// Write Custom Mappings
+	var mappingsBuilder strings.Builder
+	for domain, ip := range customMappings {
+		mappingsBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
+	}
+	os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
 
 	// Restart CoreDNS to flush cache and enforce new rules immediately
 	restartCoreDNS()

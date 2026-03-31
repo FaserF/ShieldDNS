@@ -415,6 +415,16 @@
                         </div>
                         <div id="custom-allowed-list" class="minimal-list"></div>
                     </div>
+                    <div class="stat-card card" style="grid-column: 1 / -1">
+                        <h3>Local DNS Mappings</h3>
+                        <p class="help">Map domains to local IP addresses (A Records). Useful for local devices like routers.</p>
+                        <div class="form-group row" style="display:flex;gap:10px;margin-bottom:15px;align-items:center;">
+                            <input type="text" id="custom-map-domain" placeholder="Domain (e.g. fritz.box)" style="flex:1">
+                            <input type="text" id="custom-map-ip" placeholder="IP (e.g. 192.168.178.1)" style="width:200px">
+                            <button class="btn primary" onclick="addCustomMapping()">Add Mapping</button>
+                        </div>
+                        <div id="custom-mappings-list" class="minimal-list"></div>
+                    </div>
                 </div>
             </section>
 
