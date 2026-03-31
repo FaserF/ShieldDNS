@@ -158,6 +158,12 @@ func ensureOfficialLists() {
 	}
 }
 
+func saveConfig() {
+	configLock.Lock()
+	defer configLock.Unlock()
+	saveConfigNoLock()
+}
+
 func saveConfigNoLock() {
 	debugModeEnabled.Store(config.DebugMode)
 	data, _ := json.MarshalIndent(config, "", "  ")
@@ -264,7 +270,7 @@ func updateBlocklist() {
 	os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
 
 	// Persist the metadata (Entries and UpdatedAt)
-	saveConfigNoLock()
+	saveConfig()
 
 	// Restart CoreDNS to flush cache and enforce new rules immediately
 	restartCoreDNS()
