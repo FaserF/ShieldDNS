@@ -28,7 +28,7 @@ func TestProcessList_StreamingMemoryEfficiency(t *testing.T) {
 	allowMap := make(map[string]struct{})
 
 	// Should not crash and should parse correctly
-	processList(list, blockMap, allowMap)
+	processList(&list, blockMap, allowMap)
 
 	if len(blockMap) != 100 {
 		t.Errorf("expected 100 domains, got %d", len(blockMap))
@@ -60,7 +60,7 @@ func TestProcessList_AllowlistSupport(t *testing.T) {
 	blockMap := make(map[string][]string)
 	allowMap := make(map[string]struct{})
 
-	processList(list, blockMap, allowMap)
+	processList(&list, blockMap, allowMap)
 
 	if _, ok := allowMap["good-site.com"]; !ok {
 		t.Errorf("allowlist parsing failed, good-site.com not in allowMap")
