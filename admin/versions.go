@@ -55,19 +55,25 @@ func getCoreDNSVersion() string {
 	fields := strings.Fields(s)
 
 	if len(fields) > 0 {
-		first := fields[0]
-		if strings.HasPrefix(first, "CoreDNS-") {
-			coreDNSVersion = "v" + strings.TrimPrefix(first, "CoreDNS-")
-		} else if strings.HasPrefix(strings.ToLower(first), "v") {
-			coreDNSVersion = first
-		} else {
-			// Fallback: search for a field that looks like a version
-			for _, f := range fields {
-				fClean := strings.TrimRight(f, ",()")
-				if strings.HasPrefix(strings.ToLower(fClean), "v") {
-					coreDNSVersion = fClean
-					break
+		// Output can be: "CoreDNS-1.14.2", "v1.14.2", "1.14.2", etc.
+		for _, f := range fields {
+			fClean := strings.Trim(f, ",()")
+			fLower := strings.ToLower(fClean)
+			
+			// Look for something that looks like a version (starts with v or a digit or coredns)
+			// and contains at least one dot (to avoid architecture names like arm64)
+			if (strings.HasPrefix(fLower, "v") || strings.HasPrefix(fLower, "coredns-") || (len(fLower) > 0 && fLower[0] >= '0' && fLower[0] <= '9')) && 
+				strings.Contains(fLower, ".") {
+				
+				v := fClean
+				if strings.HasPrefix(fLower, "coredns-") {
+					v = v[8:]
 				}
+				if !strings.HasPrefix(strings.ToLower(v), "v") {
+					v = "v" + v
+				}
+				coreDNSVersion = v
+				break
 			}
 		}
 	}
@@ -76,9 +82,10 @@ func getCoreDNSVersion() string {
 		coreDNSVersion = s
 	}
 
-	// Final cleanup (strip architecture/OS if it leaked through in fields[0])
-	coreDNSVersion = strings.Split(coreDNSVersion, "-")[0]    // Split by hyphen (common for arch)
-	coreDNSVersion = strings.TrimRight(coreDNSVersion, ",()") // Remove trailing junk
+	// Final cleanup (remove any trailing metadata after a space or hyphen if not part of version)
+	coreDNSVersion = strings.Split(coreDNSVersion, " ")[0]
+	coreDNSVersion = strings.Split(coreDNSVersion, "-")[0]
+	coreDNSVersion = strings.TrimRight(coreDNSVersion, ",()")
 	coreDNSVersion = strings.ToLower(coreDNSVersion)
 
 	return coreDNSVersion

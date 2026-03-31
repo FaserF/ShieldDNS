@@ -145,7 +145,7 @@ func main() {
 		}
 
 		// Case 3: Root landing page (Server-Side Rendered to inject Host)
-		if r.URL.Path == "/" {
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			tmpl, err := template.ParseFiles(webRoot + "/index.html")
 			if err != nil {
 				http.Error(w, "Error loading landing page", http.StatusInternalServerError)
@@ -156,6 +156,12 @@ func main() {
 				host = strings.Split(host, ":")[0]
 			}
 			tmpl.Execute(w, struct{ Host string }{Host: host})
+			return
+		}
+
+		// Case 4: Static assets
+		if r.URL.Path == "/logo.png" {
+			http.ServeFile(w, r, webRoot+"/logo.png")
 			return
 		}
 

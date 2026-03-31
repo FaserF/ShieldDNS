@@ -184,7 +184,8 @@ func updateBlocklist() {
 	blockDomains := make(map[string]struct{})
 	allowDomains := make(map[string]struct{})
 
-	for _, list := range blocklists {
+	for i := range blocklists {
+		list := &blocklists[i]
 		if !list.Enabled {
 			continue
 		}
@@ -193,7 +194,8 @@ func updateBlocklist() {
 		AddSystemLog("✅ Processed blocklist: " + list.Name)
 	}
 
-	for _, list := range allowlists {
+	for i := range allowlists {
+		list := &allowlists[i]
 		if !list.Enabled {
 			continue
 		}
@@ -201,6 +203,12 @@ func updateBlocklist() {
 		processList(list, nil, allowDomains) // Allowlists only populate allowDomains
 		AddSystemLog("✅ Processed allowlist: " + list.Name)
 	}
+
+	// Update the config lists with the new metadata
+	configLock.Lock()
+	config.Lists = blocklists
+	config.Allowlists = allowlists
+	configLock.Unlock()
 
 	// Add Custom Rules
 	for _, d := range customBlocked {
@@ -255,11 +263,14 @@ func updateBlocklist() {
 	}
 	os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
 
+	// Persist the metadata (Entries and UpdatedAt)
+	saveConfigNoLock()
+
 	// Restart CoreDNS to flush cache and enforce new rules immediately
 	restartCoreDNS()
 }
 
-func processList(list List, blockMap map[string][]string, allowMap map[string]struct{}) {
+func processList(list *List, blockMap map[string][]string, allowMap map[string]struct{}) {
 	var reader io.Reader
 
 	if strings.HasPrefix(list.URL, "file://") {
@@ -292,6 +303,7 @@ func processList(list List, blockMap map[string][]string, allowMap map[string]st
 	buf := make([]byte, maxCapacity)
 	scanner.Buffer(buf, maxCapacity)
 
+	count := 0
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "!") {
@@ -327,6 +339,7 @@ func processList(list List, blockMap map[string][]string, allowMap map[string]st
 
 		if domain != "" {
 			domain = strings.Trim(domain, ".") // Some lists have trailing dots
+			count++
 			if isAllowlist {
 				allowMap[domain] = struct{}{}
 			} else if blockMap != nil {
@@ -344,6 +357,9 @@ func processList(list List, blockMap map[string][]string, allowMap map[string]st
 			}
 		}
 	}
+
+	list.Entries = count
+	list.UpdatedAt = time.Now()
 
 	if err := scanner.Err(); err != nil {
 		log.Printf("⚠️  WARNING: Error reading lines for %s: %v", list.Name, err)

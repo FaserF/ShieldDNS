@@ -1331,6 +1331,7 @@ func handleGetCountries(w http.ResponseWriter, r *http.Request) {
 
 func handleRefresh(w http.ResponseWriter, r *http.Request) {
 	go updateBlocklist()
+	go updateVersions()
 	w.WriteHeader(http.StatusAccepted)
 }
 

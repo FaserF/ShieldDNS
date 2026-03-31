@@ -45,11 +45,14 @@ type APIKey struct {
 }
 
 type List struct {
-	Name     string `json:"name"`
-	URL      string `json:"url"`
-	Enabled  bool   `json:"enabled"`
-	Category string `json:"category,omitempty"`
+	Name      string    `json:"name"`
+	URL       string    `json:"url"`
+	Enabled   bool      `json:"enabled"`
+	Category  string    `json:"category,omitempty"`
+	Entries   int       `json:"entries"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
+
 
 type Stats struct {
 	TotalQueries         int64            `json:"total_queries"`

@@ -95,6 +95,46 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => getEl('copy-api-key-btn').textContent = 'Copy', 2000);
     });
 
+    getEl('close-list-details-btn')?.addEventListener('click', () => getEl('list-details-modal').classList.add('hidden'));
+    getEl('close-list-details-btn-2')?.addEventListener('click', () => getEl('list-details-modal').classList.add('hidden'));
+
+    const formatDate = (dateString) => {
+        if (!dateString || dateString.startsWith('0001-01-01')) return 'Never';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return 'Never';
+            return date.toLocaleString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (e) {
+            return 'Never';
+        }
+    };
+
+    window.openListDetailsModal = (list) => {
+        console.log('Opening details for list:', list);
+        const modal = getEl('list-details-modal');
+        if (!modal) {
+            console.error('List details modal not found in DOM');
+            return;
+        }
+
+        getEl('modal-list-name').textContent = list.name || 'List Details';
+        const urlEl = getEl('modal-list-url');
+        const url = list.url || '';
+        urlEl.textContent = url || 'No URL';
+        urlEl.href = url.startsWith('file://') ? '#' : (url || '#');
+        
+        getEl('modal-list-entries').textContent = (list.entries || 0).toLocaleString();
+        getEl('modal-list-updated').textContent = formatDate(list.updated_at);
+        
+        modal.classList.remove('hidden');
+    };
+
     toggleProtectionBtn?.addEventListener('click', async () => {
         const newStatus = !currentConfig.filtering_enabled;
         try {
@@ -960,8 +1000,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!v) return '';
                     let n = v.toLowerCase().trim();
                     if (n.startsWith('v')) n = n.substring(1);
-                    // Strip suffixes like " linux/arm64" or "-linux-arm64" 
-                    return n.split(/[ \t,]/)[0].split('-')[0].trim();
+                    // Split by space, comma, tab, or hyphen (if hyphen is followed by arch info)
+                    // e.g. "1.14.2 linux/arm64" or "1.14.2-linux-arm64"
+                    let parts = n.split(/[ \t,]/);
+                    let vPart = parts[0];
+                    if (vPart.includes('-')) {
+                        // Check if the part after hyphen looks like a version or metadata
+                        let subParts = vPart.split('-');
+                        // If the first subpart is numeric-ish, it's likely the version
+                        vPart = subParts[0];
+                    }
+                    return vPart.trim();
                 };
 
                 const currentNorm = normalize(current);
@@ -969,8 +1018,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Use the normalized version for display if the original is too long/complex
                 let displayVersion = current;
-                if (current.includes(' ') || current.includes('-')) {
-                    displayVersion = current.split(/[ \t,]/)[0].split('-')[0].trim();
+                if (current.includes(' ') || current.includes(',') || current.length > 15) {
+                    displayVersion = normalize(current);
+                    if (!displayVersion.startsWith('v')) displayVersion = 'v' + displayVersion;
                 }
 
                 let html = `<span title="${current}">${displayVersion}</span>`;
@@ -1174,12 +1224,48 @@ document.addEventListener('DOMContentLoaded', () => {
             listItemsContainer.appendChild(item);
         });
 
+        // Add delegated listener for blocklists
+        if (!listItemsContainer.getAttribute('data-has-listener')) {
+            listItemsContainer.addEventListener('click', (e) => {
+                const item = e.target.closest('.list-item');
+                if (!item) return;
+                
+                // Don't trigger if a button or link was clicked
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('button') || e.target.closest('a')) {
+                    return;
+                }
+
+                const index = parseInt(item.getAttribute('data-index'));
+                const list = currentConfig.lists[index];
+                if (list) window.openListDetailsModal(list);
+            });
+            listItemsContainer.setAttribute('data-has-listener', 'true');
+        }
+
         currentConfig.allowlists = currentConfig.allowlists || [];
         allowlistItemsContainer.innerHTML = '';
         currentConfig.allowlists.forEach((list, index) => {
             const item = createListItem(list, index, 'allow');
             allowlistItemsContainer.appendChild(item);
         });
+
+        // Add delegated listener for allowlists
+        if (!allowlistItemsContainer.getAttribute('data-has-listener')) {
+            allowlistItemsContainer.addEventListener('click', (e) => {
+                const item = e.target.closest('.list-item');
+                if (!item) return;
+
+                // Don't trigger if a button or link was clicked
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('button') || e.target.closest('a')) {
+                    return;
+                }
+
+                const index = parseInt(item.getAttribute('data-index'));
+                const list = currentConfig.allowlists[index];
+                if (list) window.openListDetailsModal(list);
+            });
+            allowlistItemsContainer.setAttribute('data-has-listener', 'true');
+        }
 
         // Render Custom Rules
         const renderCustomList = (container, rules, type) => {
@@ -1322,16 +1408,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const createListItem = (list, index, type) => {
         const item = document.createElement('div');
         item.className = 'list-item';
-        const isOfficial = list.url.startsWith('file:///') || list.url.includes('FaserF/ShieldDNS');
+        item.setAttribute('data-index', index);
+        item.setAttribute('data-type', type);
+        const isOfficial = (list.url && list.url.startsWith('file:///')) || (list.url && list.url.includes('FaserF/ShieldDNS'));
         item.innerHTML = `
             <div class="list-info">
                 <h3>${list.name} ${isOfficial ? '<span class="badge official">Official</span>' : ''}</h3>
                 ${list.category ? `<span class="badge secondary" style="font-size: 0.7rem;">${list.category}</span>` : ''}
-                <p>${list.url}</p>
+                <p style="word-break: break-all; opacity: 0.7; font-size: 0.85rem; margin-top: 5px;">${list.url}</p>
             </div>
             <div class="list-actions">
-                <button class="btn secondary" onclick="toggleList(${index}, '${type}')">${list.enabled ? 'Disable' : 'Enable'}</button>
-                ${isOfficial ? '' : `<button class="btn danger" onclick="removeList(${index}, '${type}')">Remove</button>`}
+                <button class="btn btn-sm secondary" onclick="event.stopPropagation(); toggleList(${index}, '${type}')">${list.enabled ? 'Disable' : 'Enable'}</button>
+                ${isOfficial ? '' : `<button class="btn btn-sm danger" onclick="event.stopPropagation(); removeList(${index}, '${type}')"><i class="fas fa-trash"></i></button>`}
             </div>
         `;
         return item;
