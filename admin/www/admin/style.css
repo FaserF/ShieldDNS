@@ -364,14 +364,19 @@ header {
 
 .ip-link {
     color: var(--accent);
-    text-decoration: underline dotted;
-    cursor: pointer;
-    transition: color 0.2s;
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(92, 107, 192, 0.3);
+    transition: all 0.2s;
+    font-weight: 500;
 }
 
-.ip-link:hover {
-    color: var(--accent-hover);
-    text-decoration: underline;
+.ip-link:hover, .domain-link:hover {
+    color: white;
+    border-bottom-color: var(--accent);
+    background: rgba(92, 107, 192, 0.1);
+    border-radius: 4px;
+    padding: 0 4px;
+    margin: 0 -4px;
 }
 
 .separator {

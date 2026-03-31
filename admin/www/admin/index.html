@@ -1101,9 +1101,87 @@
                 </div>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 12px;">
-                <button class="btn secondary" id="ip-info-view-all-btn">View full log for this client</button>
-                <button class="btn primary" id="ip-info-done-btn">Done</button>
+        </div>
+    </div>
+
+    <!-- Domain Details Modal -->
+    <div id="domain-info-modal" class="modal hidden">
+        <div class="modal-content modal-lg" style="background: rgba(13, 15, 20, 0.98); backdrop-filter: blur(20px);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+                <div>
+                    <h2 id="domain-info-title" style="margin-bottom: 4px; font-size: 1.5rem; letter-spacing: -0.02em;">Domain Details</h2>
+                    <div id="domain-info-subtitle" style="color: var(--accent); font-family: monospace; font-size: 1rem; opacity: 0.8;">domain.com</div>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <div id="domain-status-badge" class="badge">Checking...</div>
+                    <button id="modal-domain-block-btn" class="btn btn-sm danger" style="padding: 8px 16px;">Block Domain</button>
+                    <button class="btn btn-sm secondary" id="domain-info-close-btn" style="padding: 8px;"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px;">
+                <div class="stat-card card" style="padding: 16px;">
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Total Hits (24h)</label>
+                    <div class="value" id="domain-info-total" style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0</div>
+                </div>
+                <div class="stat-card card blocked" style="padding: 16px;">
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Blocked</label>
+                    <div class="value" id="domain-info-blocked" style="font-size: 1.5rem; font-weight: 700; margin-top: 8px; color: var(--danger);">0</div>
+                </div>
+                <div class="stat-card card" style="padding: 16px;">
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Unique Clients</label>
+                    <div class="value" id="domain-info-clients" style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0</div>
+                </div>
+                <div class="stat-card card" style="padding: 16px;">
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Blocking Ratio</label>
+                    <div class="value" id="domain-info-ratio" style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0%</div>
+                </div>
+            </div>
+
+            <div class="analytics-row" style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 24px;">
+                <div class="query-log-container card" style="padding: 24px; margin-top: 0;">
+                    <h3 style="margin-bottom: 16px; font-size: 1rem; color: var(--accent); display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-users"></i> Top Clients for this Domain
+                    </h3>
+                    <div class="overflow-x">
+                        <table class="query-table" style="font-size: 0.85rem;">
+                            <thead>
+                                <tr>
+                                    <th>Client IP</th>
+                                    <th style="text-align:right">Hits</th>
+                                </tr>
+                            </thead>
+                            <tbody id="domain-info-clients-list">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="query-log-container card" style="padding: 24px; margin-top: 0;">
+                    <h3 style="margin-bottom: 16px; font-size: 1rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-history"></i> Recent Queries
+                    </h3>
+                    <div class="overflow-x">
+                        <table class="query-table" style="font-size: 0.85rem;">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Client</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="domain-info-history">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
+                <button class="btn secondary" id="domain-info-view-logs-btn">View all logs for this domain</button>
+                <button class="btn primary" id="domain-info-done-btn" style="min-width: 120px;">Done</button>
             </div>
         </div>
     </div>

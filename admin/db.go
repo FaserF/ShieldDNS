@@ -371,3 +371,62 @@ func getClientUA(ip string) string {
 	}
 	return ua
 }
+
+func getDomainStats(domain string) (DomainStats, error) {
+	var ds DomainStats
+	if db == nil {
+		return ds, fmt.Errorf("DB not initialized")
+	}
+
+	// 1. Total and Blocked (24h)
+	row := db.QueryRow(`
+		SELECT 
+			COUNT(*), 
+			COALESCE(SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END), 0)
+		FROM queries 
+		WHERE domain = ? AND timestamp > datetime('now', '-24 hours')
+	`, domain)
+	if err := row.Scan(&ds.Total, &ds.Blocked); err != nil {
+		return ds, err
+	}
+
+	// 2. Count Unique Clients (24h)
+	row = db.QueryRow(`
+		SELECT COUNT(DISTINCT client_ip)
+		FROM queries
+		WHERE domain = ? AND timestamp > datetime('now', '-24 hours')
+	`, domain)
+	row.Scan(&ds.ClientsCount)
+
+	return ds, nil
+}
+
+func getDomainClients(domain string, limit int) ([]ClientCount, error) {
+	var results []ClientCount
+	if db == nil {
+		return results, fmt.Errorf("DB not initialized")
+	}
+
+	rows, err := db.Query(`
+		SELECT client_ip, COUNT(*) as c
+		FROM queries
+		WHERE domain = ? AND timestamp > datetime('now', '-24 hours')
+		GROUP BY client_ip
+		ORDER BY c DESC
+		LIMIT ?
+	`, domain, limit)
+
+	if err != nil {
+		return results, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cc ClientCount
+		if err := rows.Scan(&cc.IP, &cc.Count); err == nil {
+			results = append(results, cc)
+		}
+	}
+
+	return results, nil
+}

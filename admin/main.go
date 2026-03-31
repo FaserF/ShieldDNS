@@ -78,6 +78,10 @@ func main() {
 	http.Handle("/api/tokens/update", authMiddleware(http.HandlerFunc(handleUpdateToken)))
 	http.Handle("/api/tokens/delete", authMiddleware(http.HandlerFunc(handleDeleteToken)))
 	
+	// Domain Details
+	http.Handle("/api/domain/stats", authMiddleware(http.HandlerFunc(handleDomainStats)))
+	http.Handle("/api/domain/clients", authMiddleware(http.HandlerFunc(handleDomainClients)))
+	
 	// Global Controls & Rules
 	http.Handle("/api/filtering/toggle", authMiddleware(http.HandlerFunc(handleToggleFiltering)))
 	http.Handle("/api/filtering/status", authMiddleware(http.HandlerFunc(handleFilteringStatus)))

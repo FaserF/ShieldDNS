@@ -95,6 +95,18 @@ type ClientStats struct {
 	Timeline       []HourStats      `json:"timeline"` // 24 entries
 }
 
+type DomainStats struct {
+	Total          int64            `json:"total"`
+	Blocked        int64            `json:"blocked"`
+	ClientsCount   int              `json:"clients_count"`
+	History        []Query          `json:"history"`
+}
+
+type ClientCount struct {
+	IP    string `json:"ip"`
+	Count int64  `json:"count"`
+}
+
 var (
 	config         Config
 	configLock     sync.RWMutex

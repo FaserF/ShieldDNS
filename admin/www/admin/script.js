@@ -522,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 row.innerHTML = `
                     <td>${time}</td>
-                    <td>${q.domain}</td>
+                    <td><span class="domain-link" onclick="showDomainDetails('${q.domain}')">${q.domain}</span></td>
                     <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')">${q.client_ip}</span></td>
                     <td class="hide-mobile">${q.type}</td>
                     <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
@@ -545,7 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         row.innerHTML = `
             <td>${time}</td>
-            <td>${q.domain}</td>
+            <td><span class="domain-link" onclick="showDomainDetails('${q.domain}')">${q.domain}</span></td>
             <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')">${q.client_ip}</span></td>
             <td class="hide-mobile">${q.type}</td>
             <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
@@ -1623,6 +1623,33 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     fetchClientAliases();
 
+    // Domain Detail Modal Listeners
+    const domainModal = document.getElementById('domain-info-modal');
+    document.getElementById('domain-info-close-btn')?.addEventListener('click', () => domainModal.classList.add('hidden'));
+    document.getElementById('domain-info-done-btn')?.addEventListener('click', () => domainModal.classList.add('hidden'));
+    document.getElementById('domain-info-view-logs-btn')?.addEventListener('click', () => {
+        const domain = document.getElementById('domain-info-subtitle').textContent;
+        domainModal.classList.add('hidden');
+        const queryNavItem = document.querySelector('.nav-item[data-view="queries"]');
+        if (queryNavItem) queryNavItem.click();
+        const searchInput = document.getElementById('query-search');
+        if (searchInput) {
+            searchInput.value = domain;
+            fetchQueries();
+        }
+    });
+
+    document.getElementById('modal-domain-block-btn')?.addEventListener('click', async () => {
+        const domain = document.getElementById('domain-info-subtitle').textContent;
+        const currentStatus = document.getElementById('domain-status-badge').textContent;
+        const isCurrentlyBlocked = currentStatus.includes('Blocked');
+        
+        const action = isCurrentlyBlocked ? 'allowed' : 'blocked';
+        await addCustomRule(action, domain);
+        // Refresh modal status after rule change
+        showDomainDetails(domain);
+    });
+
     // IP Detail Modal Listeners
     const ipModal = document.getElementById('ip-info-modal');
     document.getElementById('ip-info-close-btn')?.addEventListener('click', () => ipModal.classList.add('hidden'));
@@ -1837,6 +1864,82 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (e) {
             console.error('Failed to fetch client details', e);
+        }
+    };
+
+    window.showDomainDetails = async (domain) => {
+        if (!domain) return;
+        
+        const modal = document.getElementById('domain-info-modal');
+        const subtitle = document.getElementById('domain-info-subtitle');
+        const statusBadge = document.getElementById('domain-status-badge');
+        const blockBtn = document.getElementById('modal-domain-block-btn');
+        
+        subtitle.textContent = domain;
+        modal.classList.remove('hidden');
+
+        // Reset fields
+        document.getElementById('domain-info-total').textContent = '...';
+        document.getElementById('domain-info-blocked').textContent = '...';
+        document.getElementById('domain-info-clients').textContent = '...';
+        document.getElementById('domain-info-ratio').textContent = '...';
+        document.getElementById('domain-info-clients-list').innerHTML = '<tr><td colspan="2" class="help">Loading...</td></tr>';
+        document.getElementById('domain-info-history').innerHTML = '<tr><td colspan="3" class="help">Loading...</td></tr>';
+
+        try {
+            // Check if blocked
+            const searchResp = await fetch(`/api/search?q=${domain}`);
+            const searchData = await searchResp.json();
+            
+            if (searchData.blocked) {
+                statusBadge.textContent = 'Blocked';
+                statusBadge.className = 'badge danger';
+                blockBtn.textContent = 'Unblock Domain';
+                blockBtn.className = 'btn btn-sm success';
+            } else {
+                statusBadge.textContent = 'Allowed';
+                statusBadge.className = 'badge success';
+                blockBtn.textContent = 'Block Domain';
+                blockBtn.className = 'btn btn-sm danger';
+            }
+
+            // Fetch Domain Stats
+            fetch(`/api/domain/stats?domain=${domain}`).then(r => r.json()).then(data => {
+                document.getElementById('domain-info-total').textContent = (data.total || 0).toLocaleString();
+                document.getElementById('domain-info-blocked').textContent = (data.blocked || 0).toLocaleString();
+                document.getElementById('domain-info-clients').textContent = (data.clients_count || 0).toLocaleString();
+                const ratio = data.total > 0 ? ((data.blocked / data.total) * 100).toFixed(1) : '0';
+                document.getElementById('domain-info-ratio').textContent = `${ratio}%`;
+            });
+
+            // Fetch Top Clients
+            fetch(`/api/domain/clients?domain=${domain}`).then(r => r.json()).then(clients => {
+                const container = document.getElementById('domain-info-clients-list');
+                container.innerHTML = (clients || []).map(c => `
+                    <tr>
+                        <td><span class="ip-link" onclick="showIPDetails('${c.ip}')">${clientAliases[c.ip] || c.ip}</span></td>
+                        <td style="text-align:right">${c.count}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="2" class="help">No queries recorded.</td></tr>';
+            });
+
+            // Fetch History
+            fetch(`/api/queries?search=${domain}&limit=15`).then(r => r.json()).then(queries => {
+                const container = document.getElementById('domain-info-history');
+                container.innerHTML = (queries || []).map(q => {
+                    const time = new Date(q.time).toLocaleTimeString();
+                    return `
+                        <tr>
+                            <td>${time}</td>
+                            <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')">${clientAliases[q.client_ip] || q.client_ip}</span></td>
+                            <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
+                        </tr>
+                    `;
+                }).join('') || '<tr><td colspan="3" class="help">No recent activity.</td></tr>';
+            });
+
+        } catch (e) {
+            console.error('Failed to fetch domain details', e);
         }
     };
 
