@@ -129,27 +129,45 @@
 
                     <div class="stats-grid">
                         <div class="stat-card">
-                            <label>Total Queries (24h)</label>
+                            <label>
+                                Total Queries (24h)
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Total number of DNS requests processed in the last 24 hours. Includes both blocked and allowed queries."></i>
+                            </label>
                             <div class="value" id="stat-total">-</div>
                         </div>
                         <div class="stat-card blocked">
-                            <label>Blocked Queries</label>
+                            <label>
+                                Blocked Queries
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Queries matched against your active block-lists (ads, trackers, malware, etc.) and denied."></i>
+                            </label>
                             <div class="value" id="stat-blocked">-</div>
                         </div>
                         <div class="stat-card percentage">
-                            <label>Blocking Ratio</label>
+                            <label>
+                                Blocking Ratio
+                                <i class="fas fa-info-circle info-icon" data-tooltip="The percentage of total queries that were blocked. Shows the effectiveness of your filtering rules."></i>
+                            </label>
                             <div class="value" id="stat-ratio">- %</div>
                         </div>
                         <div class="stat-card latency">
-                            <label>Avg. Response Time</label>
+                            <label>
+                                Avg. Response Time
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Average time until the server provides an answer. Measures the duration from receiving the client query to handing back the result (including upstream latency)."></i>
+                            </label>
                             <div class="value" id="stat-latency">- ms</div>
                         </div>
                         <div class="stat-card clients">
-                            <label>Unique Clients (24h)</label>
+                            <label>
+                                Unique Clients (24h)
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Distinct client IP addresses that have queried this DNS server in the last 24 hours. Useful for monitoring active devices."></i>
+                            </label>
                             <div class="value" id="stat-clients">-</div>
                         </div>
                         <div class="stat-card cache">
-                            <label>Cache Hit Ratio</label>
+                            <label>
+                                Cache Hit Ratio
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Percentage of requests satisfied instantly from local memory cache without needing to query upstream providers."></i>
+                            </label>
                             <div class="value" id="stat-cache">- %</div>
                         </div>
                     </div>
@@ -167,21 +185,23 @@
                         <div class="chart-header">
                             <h2>Live Query Log</h2>
                         </div>
-                        <table class="query-table">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Domain</th>
-                                    <th>Client IP</th>
-                                    <th>Type</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="query-log-items">
-                                <!-- Queries will be injected here -->
-                            </tbody>
-                        </table>
+                        <div class="overflow-x">
+                            <table class="query-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Domain</th>
+                                        <th>Client IP</th>
+                                        <th class="hide-mobile">Type</th>
+                                        <th>Status</th>
+                                        <th class="hide-mobile">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="query-log-items">
+                                    <!-- Queries will be injected here -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
             </section>
 
@@ -193,7 +213,7 @@
                 <div class="analytics-grid">
                     <div class="stat-card card">
                         <h3>Top Blocked Domains</h3>
-                        <div class="card-body">
+                        <div class="card-body overflow-x">
                             <table class="query-table">
                                 <thead>
                                     <tr>
@@ -209,7 +229,7 @@
                     </div>
                     <div class="stat-card card">
                         <h3>Top Clients</h3>
-                        <div class="card-body">
+                        <div class="card-body overflow-x">
                             <table class="query-table">
                                 <thead>
                                     <tr>
@@ -265,16 +285,16 @@
                             JSON</button>
                     </div>
                 </header>
-                <div class="query-log-container card">
+                <div class="query-log-container card overflow-x">
                     <table class="query-table">
                         <thead>
                             <tr>
                                 <th>Time</th>
                                 <th>Domain</th>
                                 <th>Client IP</th>
-                                <th>Type</th>
+                                <th class="hide-mobile">Type</th>
                                 <th>Status</th>
-                                <th>Actions</th>
+                                <th class="hide-mobile">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="full-query-log-items">
@@ -372,12 +392,12 @@
                         <h3>Upstream Performance <span id="upstream-selection-method" class="help"
                                 style="font-size: 0.8rem; font-weight: 400; margin-left: 8px; opacity: 0.7;"></span>
                         </h3>
-                        <div class="card-body" style="margin-top:15px">
+                        <div class="card-body overflow-x" style="margin-top:15px">
                             <table class="query-table">
                                 <thead>
                                     <tr>
                                         <th>Upstream Server</th>
-                                        <th>Status</th>
+                                        <th class="hide-mobile">Status</th>
                                         <th style="text-align:right">Response Time</th>
                                     </tr>
                                 </thead>
@@ -401,16 +421,16 @@
                 <div class="analytics-grid">
                     <div class="stat-card card">
                         <h3>Custom Blocklist</h3>
-                        <div class="form-group row" style="display:flex;gap:10px;margin-bottom:15px">
-                            <input type="text" id="custom-block-input" placeholder="e.g. tiktok.com" style="flex:1">
+                        <div class="form-group row">
+                            <input type="text" id="custom-block-input" placeholder="e.g. tiktok.com">
                             <button class="btn secondary" onclick="addCustomRule('blocked')">Block</button>
                         </div>
                         <div id="custom-blocked-list" class="minimal-list"></div>
                     </div>
                     <div class="stat-card card">
                         <h3>Custom Allowlist</h3>
-                        <div class="form-group row" style="display:flex;gap:10px;margin-bottom:15px">
-                            <input type="text" id="custom-allow-input" placeholder="e.g. myvpn.com" style="flex:1">
+                        <div class="form-group row">
+                            <input type="text" id="custom-allow-input" placeholder="e.g. myvpn.com">
                             <button class="btn secondary" onclick="addCustomRule('allowed')">Allow</button>
                         </div>
                         <div id="custom-allowed-list" class="minimal-list"></div>
@@ -418,8 +438,8 @@
                     <div class="stat-card card" style="grid-column: 1 / -1">
                         <h3>Local DNS Mappings</h3>
                         <p class="help">Map domains to local IP addresses (A Records). Useful for local devices like routers.</p>
-                        <div class="form-group row" style="display:flex;gap:10px;margin-bottom:15px;align-items:center;">
-                            <input type="text" id="custom-map-domain" placeholder="Domain (e.g. fritz.box)" style="flex:1">
+                        <div class="form-group row">
+                            <input type="text" id="custom-map-domain" placeholder="Domain (e.g. fritz.box)">
                             <input type="text" id="custom-map-ip" placeholder="IP (e.g. 192.168.178.1)" style="width:200px">
                             <button class="btn primary" onclick="addCustomMapping()">Add Mapping</button>
                         </div>

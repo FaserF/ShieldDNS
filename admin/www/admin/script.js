@@ -524,9 +524,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${time}</td>
                     <td>${q.domain}</td>
                     <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')">${q.client_ip}</span></td>
-                    <td>${q.type}</td>
+                    <td class="hide-mobile">${q.type}</td>
                     <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
-                    <td>${actionBtn}</td>
+                    <td class="hide-mobile">${actionBtn}</td>
                 `;
                 container.appendChild(row);
             });
@@ -547,9 +547,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${time}</td>
             <td>${q.domain}</td>
             <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')">${q.client_ip}</span></td>
-            <td>${q.type}</td>
+            <td class="hide-mobile">${q.type}</td>
             <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
-            <td>${actionBtn}</td>
+            <td class="hide-mobile">${actionBtn}</td>
         `;
         return row;
     };
@@ -956,20 +956,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // About view updates
             const updateBadge = (el, current, latest) => {
                 if (!el) return;
-                
                 const normalize = (v) => {
                     if (!v) return '';
                     let n = v.toLowerCase().trim();
                     if (n.startsWith('v')) n = n.substring(1);
-                    return n.split(' ')[0].split(',')[0].trim();
+                    // Strip suffixes like " linux/arm64" or "-linux-arm64" 
+                    return n.split(/[ \t,]/)[0].split('-')[0].trim();
                 };
 
                 const currentNorm = normalize(current);
                 const latestNorm = normalize(latest);
 
+                // Use the normalized version for display if the original is too long/complex
                 let displayVersion = current;
-                if (current.includes(' ')) {
-                    displayVersion = current.split(' ')[0];
+                if (current.includes(' ') || current.includes('-')) {
+                    displayVersion = current.split(/[ \t,]/)[0].split('-')[0].trim();
                 }
 
                 let html = `<span title="${current}">${displayVersion}</span>`;

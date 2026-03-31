@@ -116,7 +116,7 @@ nav {
 
 .content {
     flex-grow: 1;
-    padding: 48px;
+    padding: 60px;
     overflow-y: auto;
 }
 
@@ -129,7 +129,7 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px;
+    margin-bottom: 40px;
     margin-top: 16px;
 }
 
@@ -216,7 +216,7 @@ header {
     }
 
     .content {
-        padding: 24px 16px;
+        padding: 32px 24px;
         width: 100%;
     }
 
@@ -270,37 +270,57 @@ header {
     .overflow-x {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        margin-bottom: 1rem;
+        width: 100%;
     }
 
     .query-table {
-        min-width: 600px;
+        min-width: 500px; /* Reduced min-width to allow more table to be seen before scroll */
+    }
+
+    .hide-mobile {
+        display: none !important;
     }
 }
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 24px;
-    margin-bottom: 48px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 32px;
+    margin-bottom: 60px;
 }
 
 .stat-card {
     background-color: var(--card-bg);
-    padding: 24px;
+    padding: 32px;
     border-radius: 16px;
     border: 1px solid var(--border);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
 }
 
 .stat-card label {
-    display: block;
+    display: flex;
+    align-items: center;
     color: var(--text-secondary);
-    font-size: 0.875rem;
-    margin-bottom: 8px;
+    font-size: 0.825rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
 }
 
 .stat-card .value {
-    font-size: 2rem;
+    font-size: 2.25rem;
     font-weight: 700;
+    line-height: 1;
 }
 
 .stat-card.blocked .value {
@@ -410,6 +430,25 @@ header {
     justify-content: space-between;
     align-items: center;
     border: 1px solid var(--border);
+    transition: all 0.2s;
+}
+
+@media (max-width: 600px) {
+    .list-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+    }
+    
+    .list-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .list-actions .btn {
+        flex: 1;
+        margin: 0;
+    }
 }
 
 .list-info h3 {
@@ -464,6 +503,23 @@ header {
     background-color: var(--sidebar-bg);
     color: white;
     padding: 12px;
+}
+
+.form-group.row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+@media (max-width: 600px) {
+    .form-group.row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-group.row input, .form-group.row button {
+        width: 100% !important;
+    }
 }
 
 .help {
@@ -607,18 +663,18 @@ header {
 }
 
 .protection-status-card {
-    background: linear-gradient(135deg, rgba(92, 107, 192, 0.2) 0%, rgba(92, 107, 192, 0.05) 100%);
-    padding: 32px;
-    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(92, 107, 192, 0.15) 0%, rgba(13, 15, 20, 0) 100%);
+    padding: 40px;
+    border-radius: 24px;
     border: 1px solid var(--border);
-    margin-bottom: 24px;
+    margin-bottom: 40px;
 }
 
 .status-header {
     display: flex;
     align-items: center;
-    gap: 24px;
-    margin-bottom: 32px;
+    gap: 32px;
+    margin-bottom: 48px;
 }
 
 .status-icon-wrapper {
@@ -646,10 +702,11 @@ header {
     color: var(--text-secondary);
 }
 
-.quick-copy-grid {
+.quick-copy-grid, .connection-guide-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 24px;
+    margin-top: 16px;
 }
 
 .copy-box label {
@@ -663,7 +720,7 @@ header {
 
 .copy-input {
     display: flex;
-    gap: 8px;
+    gap: 12px;
 }
 
 .copy-input input {
@@ -677,20 +734,10 @@ header {
     font-size: 0.875rem;
 }
 
-.copy-btn {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-    padding: 0 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s;
-}
-
 .copy-btn:hover {
     background-color: var(--accent);
     border-color: var(--accent);
+    transform: translateY(-1px);
 }
 
 .list-section {
@@ -859,7 +906,7 @@ header {
 
 .analytics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
     gap: 24px;
     margin-top: 24px;
 }
@@ -1038,6 +1085,7 @@ header {
     border-radius: 8px;
     color: var(--text-primary);
     width: 250px;
+    max-width: 100%;
     height: 38px;
     font-size: 0.9rem;
     transition: all 0.2s;
@@ -1066,7 +1114,7 @@ header {
     border-color: var(--accent);
 }
 .chart-section {
-    margin-top: 24px;
+    margin-top: 40px;
 }
 
 .chart-header {
@@ -1335,7 +1383,7 @@ input:checked + .slider:before {
     .status-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 15px;
+        gap: 20px;
     }
     .status-toggle-wrapper {
         margin-left: 0;
@@ -1343,5 +1391,75 @@ input:checked + .slider:before {
     }
     #toggle-protection-btn {
         width: 100%;
+    }
+}
+
+/* ──────────────── TOOLTIPS ──────────────── */
+
+.info-icon {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-left: 8px;
+    margin-bottom: 2px;
+    cursor: help;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+}
+
+.stat-card label:hover .info-icon {
+    opacity: 1;
+    color: var(--accent);
+}
+
+[data-tooltip] {
+    position: relative;
+    cursor: help;
+}
+
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(8px);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 400;
+    width: 220px;
+    text-align: center;
+    white-space: normal;
+    text-transform: none;
+    line-height: 1.4;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    pointer-events: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Mobile tooltip fix */
+@media (max-width: 768px) {
+    [data-tooltip]::after {
+        left: 0;
+        transform: translateY(10px);
+        width: 260px;
+        text-align: left;
+    }
+    
+    [data-tooltip]:hover::after {
+        transform: translateY(0);
     }
 }
