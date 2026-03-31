@@ -434,7 +434,9 @@ func updateCorefile() {
 	corefile += fmt.Sprintf(`
 tls://.:853 {
     bind 0.0.0.0
-    tls %s %s
+    tls %s %s {
+        alpn dot
+    }
     %s
     %s
     reload 5s
@@ -455,7 +457,9 @@ tls://.:853 {
 
 https://.:5553 {
     bind 0.0.0.0
-    tls %s %s
+    tls %s %s {
+        alpn h2 dot
+    }
     %s
     %s
     reload 5s

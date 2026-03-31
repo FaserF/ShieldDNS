@@ -1468,3 +1468,50 @@ input:checked + .slider:before {
         transform: translateY(0);
     }
 }
+
+/* ──────────────── DETAILS LINKS ──────────────── */
+
+.domain-link, .ip-link {
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+    font-weight: 500;
+    padding: 2px 4px;
+    margin: -2px -4px;
+    border-radius: 4px;
+}
+
+.domain-link:hover, .ip-link:hover {
+    background: rgba(var(--accent-rgb), 0.15);
+    color: var(--primary-light);
+    text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.3);
+}
+
+/* ──────────────── RESPONSIVE DETAILS ──────────────── */
+
+@media (max-width: 992px) {
+    .analytics-row-details {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .stats-grid-details {
+        grid-template-columns: 1fr 1fr !important;
+    }
+    
+    .modal-content.modal-lg {
+        padding: 20px !important;
+    }
+    
+    #domain-info-modal .stat-card {
+        padding: 12px !important;
+    }
+    
+    #domain-info-modal .value {
+        font-size: 1.25rem !important;
+    }
+}

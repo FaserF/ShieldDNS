@@ -1101,6 +1101,11 @@
                 </div>
             </div>
 
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+                <button class="btn secondary" id="ip-info-view-all-btn">View full log for this client</button>
+                <button class="btn primary" id="ip-info-done-btn" style="min-width: 120px;">Done</button>
+            </div>
+
         </div>
     </div>
 
@@ -1119,7 +1124,7 @@
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px;">
+            <div class="stats-grid-details" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px;">
                 <div class="stat-card card" style="padding: 16px;">
                     <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Total Hits (24h)</label>
                     <div class="value" id="domain-info-total" style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0</div>
@@ -1138,7 +1143,7 @@
                 </div>
             </div>
 
-            <div class="analytics-row" style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 24px;">
+            <div class="analytics-row-details" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
                 <div class="query-log-container card" style="padding: 24px; margin-top: 0;">
                     <h3 style="margin-bottom: 16px; font-size: 1rem; color: var(--accent); display: flex; align-items: center; gap: 8px;">
                         <i class="fas fa-users"></i> Top Clients for this Domain

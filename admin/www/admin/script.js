@@ -753,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const blocked = await blockedResp.json();
                 topBlockedContainer.innerHTML = (blocked || []).map(b => `
                     <tr>
-                        <td>${b.domain}</td>
+                        <td><span class="domain-link" onclick="showDomainDetails('${b.domain}')">${b.domain}</span></td>
                         <td class="text-right">${b.count || 0}</td>
                     </tr>
                 `).join('') || '<tr><td colspan="2">No data available</td></tr>';
@@ -1830,7 +1830,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const container = document.getElementById('ip-info-top-domains');
                 container.innerHTML = (domains || []).map(d => `
                     <tr>
-                        <td class="truncate" style="max-width: 154px;">${d.domain}</td>
+                        <td class="truncate" style="max-width: 154px;"><span class="domain-link" onclick="showDomainDetails('${d.domain}')">${d.domain}</span></td>
                         <td style="text-align:right">${d.count}</td>
                     </tr>
                 `).join('') || '<tr><td colspan="2" class="help">No data</td></tr>';
@@ -1841,7 +1841,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const container = document.getElementById('ip-info-top-blocked');
                 container.innerHTML = (domains || []).map(d => `
                     <tr>
-                        <td class="truncate" style="max-width: 154px; color: var(--danger);">${d.domain}</td>
+                        <td class="truncate" style="max-width: 154px; color: var(--danger);"><span class="domain-link" onclick="showDomainDetails('${d.domain}')">${d.domain}</span></td>
                         <td style="text-align:right">${d.count}</td>
                     </tr>
                 `).join('') || '<tr><td colspan="2" class="help">No blocked domains</td></tr>';
@@ -1855,7 +1855,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return `
                         <tr>
                             <td>${time}</td>
-                            <td class="truncate" style="max-width: 150px;" title="${q.domain}">${q.domain}</td>
+                            <td class="truncate" style="max-width: 150px;"><span class="domain-link" onclick="showDomainDetails('${q.domain}')" title="${q.domain}">${q.domain}</span></td>
                             <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
                         </tr>
                     `;
