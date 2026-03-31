@@ -124,12 +124,14 @@ func TestCustomRuleSanitization(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		newConfig := Config{
-			AdminPasswordHashed: "",
-			CustomBlocked:       []string{tc.input},
-			CustomAllowed:       []string{tc.input},
-		}
-		body, _ := json.Marshal(newConfig)
+		configLock.RLock()
+		snapshot := config.Clone()
+		configLock.RUnlock()
+
+		snapshot.CustomBlocked = []string{tc.input}
+		snapshot.CustomAllowed = []string{tc.input}
+
+		body, _ := json.Marshal(snapshot)
 		req := httptest.NewRequest("POST", "/api/config", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
@@ -155,15 +157,21 @@ func TestHandleRestore(t *testing.T) {
 	config = Config{AdminPasswordHashed: "existing-hash"}
 	configLock.Unlock()
 
-	restoredConfig := Config{
-		AdminPasswordHashed: "", // should be preserved from current config
-		CustomBlocked:       []string{"restored-domain.com"},
-	}
-	configJSON, _ := json.Marshal(restoredConfig)
-
+		// Note: handleConfig actually replaces the global config with what's in the body
+		// but it does so under a lock. Direct setup here should also be locked.
+		configLock.Lock()
+		config.CustomBlocked = []string{"restored-domain.com"}
+		configLock.Unlock()
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	part, _ := w.CreateFormFile("config", "config.json")
+	
+	configLock.RLock()
+	restoredConfigSnap := config.Clone()
+	configLock.RUnlock()
+
+	restoredConfigSnap.CustomBlocked = []string{"restored-domain.com"}
+	configJSON, _ := json.Marshal(restoredConfigSnap)
 	part.Write(configJSON)
 	w.Close()
 
@@ -387,13 +395,15 @@ func TestHandleConfigRejectsInvalidCustomRules(t *testing.T) {
 	configLock.Lock()
 	config = Config{AdminPasswordHashed: "existing-hash"}
 	configLock.Unlock()
+	
+	configLock.RLock()
+	snapshot := config.Clone()
+	configLock.RUnlock()
 
-	newConfig := Config{
-		AdminPasswordHashed: "",
-		CustomBlocked:       []string{"valid.com", "not valid!", "<script>xss</script>", "also-valid.org"},
-		CustomAllowed:       []string{"good.com", "bad domain spaces"},
-	}
-	body, _ := json.Marshal(newConfig)
+	snapshot.CustomBlocked = []string{"valid.com", "not valid!", "<script>xss</script>", "also-valid.org"}
+	snapshot.CustomAllowed = []string{"good.com", "bad domain spaces"}
+	
+	body, _ := json.Marshal(snapshot)
 	req := httptest.NewRequest("POST", "/api/config", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 

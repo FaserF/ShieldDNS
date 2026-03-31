@@ -175,16 +175,20 @@ func saveConfigNoLock() {
 	}
 }
 
-func updateBlocklist() {
+func updateBlocklist(cfg *Config) {
+	if cfg == nil {
+		configLock.RLock()
+		cfg = config.Clone()
+		configLock.RUnlock()
+	}
 	log.Println("Updating blocklists...")
-	configLock.RLock()
-	blocklists := config.Lists
-	allowlists := config.Allowlists
-	customBlocked := config.CustomBlocked
-	customAllowed := config.CustomAllowed
-	customMappings := config.CustomMappings
-	blockPageIP := config.BlockPageIP
-	configLock.RUnlock()
+
+	blocklists := cfg.Lists
+	allowlists := cfg.Allowlists
+	customBlocked := cfg.CustomBlocked
+	customAllowed := cfg.CustomAllowed
+	customMappings := cfg.CustomMappings
+	blockPageIP := cfg.BlockPageIP
 
 	newBlockAttribution := make(map[string][]string)
 	blockDomains := make(map[string]struct{})
@@ -210,10 +214,26 @@ func updateBlocklist() {
 		AddSystemLog("✅ Processed allowlist: " + list.Name)
 	}
 
-	// Update the config lists with the new metadata
+	// Update the config lists with the new metadata (Entries and UpdatedAt)
 	configLock.Lock()
-	config.Lists = blocklists
-	config.Allowlists = allowlists
+	for _, l := range blocklists {
+		for j, cl := range config.Lists {
+			if cl.URL == l.URL {
+				config.Lists[j].Entries = l.Entries
+				config.Lists[j].UpdatedAt = l.UpdatedAt
+				break
+			}
+		}
+	}
+	for _, l := range allowlists {
+		for j, cl := range config.Allowlists {
+			if cl.URL == l.URL {
+				config.Allowlists[j].Entries = l.Entries
+				config.Allowlists[j].UpdatedAt = l.UpdatedAt
+				break
+			}
+		}
+	}
 	configLock.Unlock()
 
 	// Add Custom Rules
@@ -373,9 +393,8 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 }
 
 func startBackgroundUpdater() {
-	updateBlocklist() // Initial update
-	ticker := time.NewTicker(6 * time.Hour)
+	ticker := time.NewTicker(24 * time.Hour)
 	for range ticker.C {
-		updateBlocklist()
+		go updateBlocklist(nil)
 	}
 }

@@ -375,7 +375,7 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	saveConfigNoLock()
-	go updateBlocklist() // Process rule changes asynchronously
+	go updateBlocklist(nil) // Process rule changes asynchronously
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -424,7 +424,7 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	saveConfigNoLock()
-	go updateBlocklist() // Process rule changes asynchronously
+	go updateBlocklist(nil) // Process rule changes asynchronously
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -987,7 +987,7 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 	configLock.Unlock()
 
 	updateCorefile()
-	go updateBlocklist()
+	go updateBlocklist(nil)
 
 	AddSystemLog("System Configuration Restored from uploaded file.")
 	w.WriteHeader(http.StatusOK)
@@ -1330,7 +1330,7 @@ func handleGetCountries(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleRefresh(w http.ResponseWriter, r *http.Request) {
-	go updateBlocklist()
+	go updateBlocklist(nil)
 	go updateVersions()
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -1784,7 +1784,7 @@ func handleResetLists(w http.ResponseWriter, r *http.Request) {
 	configLock.Unlock()
 
 	// Trigger background update
-	go updateBlocklist()
+	go updateBlocklist(nil)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))

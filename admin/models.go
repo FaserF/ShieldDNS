@@ -158,3 +158,70 @@ var (
 )
 
 const CookieName = "shielddns_session"
+
+func (c *Config) Clone() *Config {
+	if c == nil {
+		return nil
+	}
+	newCfg := *c
+
+	// Deep copy List slices
+	if c.Lists != nil {
+		newCfg.Lists = make([]List, len(c.Lists))
+		copy(newCfg.Lists, c.Lists)
+	}
+	if c.Allowlists != nil {
+		newCfg.Allowlists = make([]List, len(c.Allowlists))
+		copy(newCfg.Allowlists, c.Allowlists)
+	}
+
+	// Deep copy string slices
+	if c.CustomBlocked != nil {
+		newCfg.CustomBlocked = make([]string, len(c.CustomBlocked))
+		copy(newCfg.CustomBlocked, c.CustomBlocked)
+	}
+	if c.CustomAllowed != nil {
+		newCfg.CustomAllowed = make([]string, len(c.CustomAllowed))
+		copy(newCfg.CustomAllowed, c.CustomAllowed)
+	}
+	if c.Upstreams != nil {
+		newCfg.Upstreams = make([]string, len(c.Upstreams))
+		copy(newCfg.Upstreams, c.Upstreams)
+	}
+	if c.UpstreamDoT != nil {
+		newCfg.UpstreamDoT = make([]string, len(c.UpstreamDoT))
+		copy(newCfg.UpstreamDoT, c.UpstreamDoT)
+	}
+	if c.BlockedCountries != nil {
+		newCfg.BlockedCountries = make([]string, len(c.BlockedCountries))
+		copy(newCfg.BlockedCountries, c.BlockedCountries)
+	}
+
+	// Deep copy maps
+	if c.CustomMappings != nil {
+		newCfg.CustomMappings = make(map[string]string)
+		for k, v := range c.CustomMappings {
+			newCfg.CustomMappings[k] = v
+		}
+	}
+	if c.ClientAliases != nil {
+		newCfg.ClientAliases = make(map[string]string)
+		for k, v := range c.ClientAliases {
+			newCfg.ClientAliases[k] = v
+		}
+	}
+
+	// Deep copy APIKeys
+	if c.APIKeys != nil {
+		newCfg.APIKeys = make([]APIKey, len(c.APIKeys))
+		for i, k := range c.APIKeys {
+			newCfg.APIKeys[i] = k
+			if k.Permissions != nil {
+				newCfg.APIKeys[i].Permissions = make([]string, len(k.Permissions))
+				copy(newCfg.APIKeys[i].Permissions, k.Permissions)
+			}
+		}
+	}
+
+	return &newCfg
+}
