@@ -145,7 +145,7 @@ func TestParseLogLine_DefaultFormat(t *testing.T) {
 
 	// Test allowed query - default format
 	parseLogLine("127.0.0.1:53 A google-default.com. NOERROR qr,rd,ra 0.0001s \"-\"")
-	
+
 	statsLock.RLock()
 	if stats.TotalQueries != 1 || stats.BlockedQueries != 0 {
 		t.Errorf("expected 1 total, 0 blocked, got %v/%v", stats.TotalQueries, stats.BlockedQueries)
@@ -158,7 +158,7 @@ func TestParseLogLine_DefaultFormat(t *testing.T) {
 
 	// Test blocked query (aa flag)
 	parseLogLine("127.0.0.1:53 A doubleclick.net. NOERROR qr,aa,rd 0.0001s \"-\"")
-	
+
 	statsLock.RLock()
 	if stats.TotalQueries != 2 || stats.BlockedQueries != 1 {
 		t.Errorf("expected 2 total, 1 blocked, got %v/%v", stats.TotalQueries, stats.BlockedQueries)
@@ -187,10 +187,10 @@ func TestUpdateCorefile(t *testing.T) {
 	originalConfig := config
 	originalHealthy := healthyUpstreams
 	originalPath := CorefilePath
-	
+
 	tmpFile, _ := os.CreateTemp("", "Corefile")
 	CorefilePath = tmpFile.Name()
-	
+
 	defer func() {
 		configLock.Lock()
 		config = originalConfig
@@ -229,18 +229,18 @@ func TestUpdateCorefile(t *testing.T) {
 	healthLock.Lock()
 	healthyDoT = []string{"dns.google"}
 	healthLock.Unlock()
-	
+
 	updateCorefile()
 	content, _ = os.ReadFile(CorefilePath)
 	sContent := string(content)
-	
+
 	// Check for tls_servername (since dns.google is a hostname)
 	if !strings.Contains(sContent, "tls_servername dns.google") {
 		t.Errorf("corefile missing tls_servername dns.google: %s", sContent)
 	}
-	
+
 	// Check for forward line with tls://
-	// Note: updateCorefile will try to resolve dns.google. 
+	// Note: updateCorefile will try to resolve dns.google.
 	// In some test environments it might fail and return the hostname.
 	if !strings.Contains(sContent, "forward . tls://") {
 		t.Errorf("corefile missing tls forward: %s", sContent)
@@ -251,11 +251,11 @@ func TestConfigDefaults(t *testing.T) {
 	// Test loadConfig creating defaults
 	originalDir := DataDir
 	originalConfigPath := ConfigPath
-	
+
 	tmpDir, _ := os.MkdirTemp("", "shielddns-test")
 	DataDir = tmpDir
 	ConfigPath = filepath.Join(tmpDir, "config.json")
-	
+
 	defer func() {
 		DataDir = originalDir
 		ConfigPath = originalConfigPath
@@ -291,10 +291,10 @@ func TestSmartSorting(t *testing.T) {
 	// Setup
 	originalConfig := config
 	originalPath := CorefilePath
-	
+
 	tmpFile, _ := os.CreateTemp("", "Corefile-smart")
 	CorefilePath = tmpFile.Name()
-	
+
 	defer func() {
 		configLock.Lock()
 		config = originalConfig
@@ -309,19 +309,19 @@ func TestSmartSorting(t *testing.T) {
 		UseFastestUpstream: true,
 	}
 	healthyUpstreams = []string{"1.1.1.1", "8.8.8.8"}
-	
+
 	latencyLock.Lock()
 	latencyMap["1.1.1.1"] = 50 * time.Millisecond
 	latencyMap["8.8.8.8"] = 10 * time.Millisecond
 	latencyLock.Unlock()
 
 	updateCorefile()
-	
+
 	content, _ := os.ReadFile(CorefilePath)
 	// 8.8.8.8 should come before 1.1.1.1 because it has lower latency
 	idx8 := strings.Index(string(content), "8.8.8.8")
 	idx1 := strings.Index(string(content), "1.1.1.1")
-	
+
 	if idx8 == -1 || idx1 == -1 || idx8 > idx1 {
 		t.Errorf("expected 8.8.8.8 to come before 1.1.1.1 in smart mode. Content: %s", string(content))
 	}
@@ -331,11 +331,11 @@ func TestUpstreamSanitization(t *testing.T) {
 	// Setup
 	originalDir := DataDir
 	originalConfigPath := ConfigPath
-	
+
 	tmpDir, _ := os.MkdirTemp("", "shielddns-test-sanitize")
 	DataDir = tmpDir
 	ConfigPath = filepath.Join(tmpDir, "config.json")
-	
+
 	defer func() {
 		DataDir = originalDir
 		ConfigPath = originalConfigPath

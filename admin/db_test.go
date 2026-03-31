@@ -57,7 +57,7 @@ func TestAddColumnIfNotExists(t *testing.T) {
 	// 4. Add same column again (idempotency check)
 	// This should not panic or error
 	addColumnIfNotExists("test_table", "new_col", "TEXT DEFAULT 'other'")
-	
+
 	// Verify it still has the old definition (SQLite ALTER TABLE doesn't update existing columns usually)
 	// But most importantly, it shouldn't have failed.
 }

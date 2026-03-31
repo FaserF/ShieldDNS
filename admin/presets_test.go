@@ -15,7 +15,7 @@ func TestPresetsAvailability(t *testing.T) {
 
 	for _, list := range allLists {
 		t.Run(list.Name, func(t *testing.T) {
-			// Using GET instead of HEAD because some servers (like GitHub raw) 
+			// Using GET instead of HEAD because some servers (like GitHub raw)
 			// or CDNs might behave differently or block HEAD requests.
 			// Plus we only need the first byte to verify availability.
 			resp, err := client.Get(list.URL)

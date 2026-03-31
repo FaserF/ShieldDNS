@@ -36,11 +36,11 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		if token != "" {
 			hashed := hashToken(token)
-			
+
 			// 1a. Rate Limiting
 			quotaVal, _ := apiRateLimit.LoadOrStore(hashed, &apiKeyQuota{Reset: time.Now().Add(1 * time.Minute)})
 			quota := quotaVal.(*apiKeyQuota)
-			
+
 			quota.uMu.Lock()
 			if time.Now().After(quota.Reset) {
 				quota.Count = 0
@@ -256,8 +256,8 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 
 func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Current  string `json:"current"`
-		New      string `json:"new"`
+		Current string `json:"current"`
+		New     string `json:"new"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)

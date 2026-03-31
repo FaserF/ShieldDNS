@@ -44,8 +44,8 @@ func isValidDomain(s string) bool {
 }
 
 var (
-	systemLogBuffer []string
-	systemLogLock   sync.RWMutex
+	systemLogBuffer  []string
+	systemLogLock    sync.RWMutex
 	systemLogClients = make(map[chan string]struct{})
 
 	// Cache for IP info to avoid redundant DNS and GeoIP lookups
@@ -243,7 +243,9 @@ func handleToggleFiltering(w http.ResponseWriter, r *http.Request) {
 	updateCorefile()
 
 	status := "Disabled"
-	if req.Enabled { status = "Enabled" }
+	if req.Enabled {
+		status = "Enabled"
+	}
 	AddSystemLog("Global protection " + status)
 
 	w.WriteHeader(http.StatusOK)
@@ -296,14 +298,19 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		// Remove from allowed if present
 		var clean []string
 		for _, d := range config.CustomAllowed {
-			if d != domain { clean = append(clean, d) }
+			if d != domain {
+				clean = append(clean, d)
+			}
 		}
 		config.CustomAllowed = clean
 
 		// Add to blocked if not present
 		exists := false
 		for _, d := range config.CustomBlocked {
-			if d == domain { exists = true; break }
+			if d == domain {
+				exists = true
+				break
+			}
 		}
 		if !exists {
 			config.CustomBlocked = append(config.CustomBlocked, domain)
@@ -312,14 +319,19 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		// Remove from blocked if present
 		var clean []string
 		for _, d := range config.CustomBlocked {
-			if d != domain { clean = append(clean, d) }
+			if d != domain {
+				clean = append(clean, d)
+			}
 		}
 		config.CustomBlocked = clean
 
 		// Add to allowed if not present
 		exists := false
 		for _, d := range config.CustomAllowed {
-			if d == domain { exists = true; break }
+			if d == domain {
+				exists = true
+				break
+			}
 		}
 		if !exists {
 			config.CustomAllowed = append(config.CustomAllowed, domain)
@@ -338,13 +350,17 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		// Remove from others
 		newBlocked := []string{}
 		for _, d := range config.CustomBlocked {
-			if d != domain { newBlocked = append(newBlocked, d) }
+			if d != domain {
+				newBlocked = append(newBlocked, d)
+			}
 		}
 		config.CustomBlocked = newBlocked
 
 		newAllowed := []string{}
 		for _, d := range config.CustomAllowed {
-			if d != domain { newAllowed = append(newAllowed, d) }
+			if d != domain {
+				newAllowed = append(newAllowed, d)
+			}
 		}
 		config.CustomAllowed = newAllowed
 
@@ -389,13 +405,17 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 
 	var cleanBlocked []string
 	for _, d := range config.CustomBlocked {
-		if d != domain { cleanBlocked = append(cleanBlocked, d) }
+		if d != domain {
+			cleanBlocked = append(cleanBlocked, d)
+		}
 	}
 	config.CustomBlocked = cleanBlocked
 
 	var cleanAllowed []string
 	for _, d := range config.CustomAllowed {
-		if d != domain { cleanAllowed = append(cleanAllowed, d) }
+		if d != domain {
+			cleanAllowed = append(cleanAllowed, d)
+		}
 	}
 	config.CustomAllowed = cleanAllowed
 
@@ -774,7 +794,7 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 	if ua != "" && ua != "-" {
 		info.UserAgent = ua
 		info.OS = detectOS(ua)
-		
+
 		// If it's a mobile device, we can sometimes improve the manufacturer field
 		if info.Manufacturer == "" || info.Manufacturer == "Unknown" {
 			dev := detectDevice(ua)
@@ -829,10 +849,14 @@ func detectOS(ua string) string {
 func detectDevice(ua string) string {
 	ua = strings.ToLower(ua)
 	switch {
-	case strings.Contains(ua, "iphone"): return "iPhone"
-	case strings.Contains(ua, "ipad"):   return "iPad"
-	case strings.Contains(ua, "pixel"):  return "Google Pixel"
-	case strings.Contains(ua, "samsung") || strings.Contains(ua, "sm-"): return "Samsung Device"
+	case strings.Contains(ua, "iphone"):
+		return "iPhone"
+	case strings.Contains(ua, "ipad"):
+		return "iPad"
+	case strings.Contains(ua, "pixel"):
+		return "Google Pixel"
+	case strings.Contains(ua, "samsung") || strings.Contains(ua, "sm-"):
+		return "Samsung Device"
 	}
 	return ""
 }
@@ -889,7 +913,6 @@ func getManufacturerByMAC(mac string) string {
 	}
 	return "Unknown"
 }
-
 
 func handleBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/zip")
@@ -1195,9 +1218,13 @@ By proceeding, you consent to all DNS traffic being routed through this server. 
 	if signEnabled {
 		// Get cert and key files
 		certFile := os.Getenv("CERT_FILE")
-		if certFile == "" { certFile = "/ssl/fullchain.pem" }
+		if certFile == "" {
+			certFile = "/ssl/fullchain.pem"
+		}
 		keyFile := os.Getenv("KEY_FILE")
-		if keyFile == "" { keyFile = "/ssl/privkey.pem" }
+		if keyFile == "" {
+			keyFile = "/ssl/privkey.pem"
+		}
 
 		if _, err := os.Stat(certFile); err == nil {
 			if signed, err := signProfile(finalContent, certFile, keyFile); err == nil {
@@ -1523,7 +1550,9 @@ func handleTopClients(w http.ResponseWriter, r *http.Request) {
 		var client_ip string
 		var count int
 		rows.Scan(&client_ip, &count)
-		if client_ip == "" { client_ip = "Unknown" }
+		if client_ip == "" {
+			client_ip = "Unknown"
+		}
 		result = append(result, map[string]interface{}{"client_ip": client_ip, "count": count})
 	}
 	w.Header().Set("Content-Type", "application/json")

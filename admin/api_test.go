@@ -16,15 +16,15 @@ func TestAuthMiddleware(t *testing.T) {
 	config = Config{
 		APIKeys: []APIKey{
 			{
-				ID: "test-1",
-				Name: "Read Only",
-				TokenHash: hashToken("test-token-read"),
+				ID:          "test-1",
+				Name:        "Read Only",
+				TokenHash:   hashToken("test-token-read"),
 				Permissions: []string{"read:stats"},
 			},
 			{
-				ID: "test-2",
-				Name: "Full Access",
-				TokenHash: hashToken("test-token-full"),
+				ID:          "test-2",
+				Name:        "Full Access",
+				TokenHash:   hashToken("test-token-full"),
 				Permissions: []string{"read:all"},
 			},
 		},
@@ -68,9 +68,9 @@ func TestAuthMiddleware(t *testing.T) {
 
 func TestNoAPIKeysRejectsAll(t *testing.T) {
 	configLock.Lock()
-	config = Config{ APIKeys: []APIKey{} }
+	config = Config{APIKeys: []APIKey{}}
 	configLock.Unlock()
-	
+
 	handler := authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -87,19 +87,19 @@ func TestNoAPIKeysRejectsAll(t *testing.T) {
 
 func TestToggleFiltering(t *testing.T) {
 	configLock.Lock()
-	config = Config{ FilteringEnabled: true }
+	config = Config{FilteringEnabled: true}
 	configLock.Unlock()
-	
+
 	reqBody, _ := json.Marshal(map[string]bool{"enabled": false})
 	req := httptest.NewRequest("POST", "/api/filtering/toggle", bytes.NewBuffer(reqBody))
 	rr := httptest.NewRecorder()
-	
+
 	handleToggleFiltering(rr, req)
-	
+
 	if rr.Code != http.StatusOK {
 		t.Errorf("got status %v, want %d", rr.Code, http.StatusOK)
 	}
-	
+
 	if config.FilteringEnabled != false {
 		t.Error("FilteringEnabled should be false")
 	}
@@ -244,10 +244,10 @@ func TestHandleQueriesWithFiltering(t *testing.T) {
 	// We need to mock DB or at least check if it handles parameters.
 	// Since handleQueries uses a global 'db', we can't easily mock it without refactoring.
 	// However, we can check if it accepts the parameters without crashing.
-	
+
 	req := httptest.NewRequest("GET", "/api/queries?client_ip=1.2.3.4&limit=10", nil)
 	rr := httptest.NewRecorder()
-	
+
 	// This might fail if DB is not initialized, so we skip or handle if it's nil
 	if db == nil {
 		t.Skip("DB not initialized, skipping integration-style test")
@@ -278,7 +278,7 @@ func TestHandleMobileConfig(t *testing.T) {
 	}
 
 	body := rr.Body.String()
-	
+
 	// Check for protocols
 	if strings.Contains(body, "<string>TLS</string>") {
 		t.Error("TLS protocol should not be present in mobileconfig")
@@ -290,7 +290,7 @@ func TestHandleMobileConfig(t *testing.T) {
 	if strings.Contains(body, "<string>QUIC</string>") {
 		t.Error("QUIC protocol should NOT be present in mobileconfig (not supported by Apple MDM)")
 	}
-	
+
 	// Check for correct ServerURL for HTTPS
 	expectedHTTPS := "<string>https://dns.example.com/dns-query</string>"
 	if !strings.Contains(body, expectedHTTPS) {

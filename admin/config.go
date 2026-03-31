@@ -34,21 +34,21 @@ func loadConfig() {
 
 	// 1. Initialize with current defaults
 	config = Config{
-		Upstreams:           []string{"86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"},
-		UpstreamDoT:          []string{"unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"},
-		PreferEncrypted:      true,
-		FilteringEnabled:    true,
-		AdminDomain:         "shielddns.local",
-		BlockPageIP:         "127.0.0.1",
-		Lists:               DefaultPresets,
-		Allowlists:          DefaultAllowlists,
-		LatencyTestInterval: 10,
-		SmartSelectionPolicy: "fastest",
+		Upstreams:                  []string{"86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"},
+		UpstreamDoT:                []string{"unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"},
+		PreferEncrypted:            true,
+		FilteringEnabled:           true,
+		AdminDomain:                "shielddns.local",
+		BlockPageIP:                "127.0.0.1",
+		Lists:                      DefaultPresets,
+		Allowlists:                 DefaultAllowlists,
+		LatencyTestInterval:        10,
+		SmartSelectionPolicy:       "fastest",
 		DiagnosticsRefreshInterval: 30, // Default to 30s
-		ServeStale:          true,
-		DNSSECEnabled:       true,
-		SignMobileConfig:    true,
-		CustomMappings:      map[string]string{"fritz.box": "192.168.178.1"},
+		ServeStale:                 true,
+		DNSSECEnabled:              true,
+		SignMobileConfig:           true,
+		CustomMappings:             map[string]string{"fritz.box": "192.168.178.1"},
 	}
 
 	// 2. Load from file if exists
@@ -61,7 +61,7 @@ func loadConfig() {
 		log.Printf("Creating default config at %s", ConfigPath)
 		saveConfigNoLock()
 	}
-	
+
 	// 3. Check environment variables for overrides
 	if envDNS := os.Getenv("UPSTREAM_DNS"); envDNS != "" {
 		parts := strings.Fields(strings.ReplaceAll(envDNS, ",", " "))
@@ -90,8 +90,12 @@ func loadConfig() {
 		config.UpstreamDoT = []string{"unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"}
 	}
 	// Limit to max 5
-	if len(config.Upstreams) > 5 { config.Upstreams = config.Upstreams[:5] }
-	if len(config.UpstreamDoT) > 5 { config.UpstreamDoT = config.UpstreamDoT[:5] }
+	if len(config.Upstreams) > 5 {
+		config.Upstreams = config.Upstreams[:5]
+	}
+	if len(config.UpstreamDoT) > 5 {
+		config.UpstreamDoT = config.UpstreamDoT[:5]
+	}
 
 	// Sanitize upstreams strings
 	for i, u := range config.Upstreams {
@@ -132,8 +136,8 @@ func ensureOfficialLists() {
 	}
 	if !hasOfficialBlock {
 		config.Lists = append([]List{{
-			Name: "ShieldDNS Official Blocklist", 
-			URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/blocklists/default.txt", 
+			Name:    "ShieldDNS Official Blocklist",
+			URL:     "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/blocklists/default.txt",
 			Enabled: true,
 		}}, config.Lists...)
 	}
@@ -147,8 +151,8 @@ func ensureOfficialLists() {
 	}
 	if !hasOfficialWhite {
 		config.Allowlists = append([]List{{
-			Name: "ShieldDNS Official Allowlist", 
-			URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/allowlists/default.txt", 
+			Name:    "ShieldDNS Official Allowlist",
+			URL:     "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/allowlists/default.txt",
 			Enabled: true,
 		}}, config.Allowlists...)
 	}
@@ -181,14 +185,18 @@ func updateBlocklist() {
 	allowDomains := make(map[string]struct{})
 
 	for _, list := range blocklists {
-		if !list.Enabled { continue }
+		if !list.Enabled {
+			continue
+		}
 		AddSystemLog("⏬ Downloading blocklist: " + list.Name)
 		processList(list, newBlockAttribution, allowDomains)
 		AddSystemLog("✅ Processed blocklist: " + list.Name)
 	}
 
 	for _, list := range allowlists {
-		if !list.Enabled { continue }
+		if !list.Enabled {
+			continue
+		}
 		AddSystemLog("⏬ Downloading allowlist: " + list.Name)
 		processList(list, nil, allowDomains) // Allowlists only populate allowDomains
 		AddSystemLog("✅ Processed allowlist: " + list.Name)
@@ -222,8 +230,10 @@ func updateBlocklist() {
 	// Write Blocklist
 	var combined strings.Builder
 	ip := blockPageIP
-	if ip == "" { ip = "0.0.0.0" }
-	
+	if ip == "" {
+		ip = "0.0.0.0"
+	}
+
 	for domain := range blockDomains {
 		combined.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
 	}

@@ -20,10 +20,10 @@ type VersionInfo struct {
 }
 
 var (
-	latestVersions  VersionInfo
-	versionLock     sync.RWMutex
-	coreDNSVersion  string
-	coreDNSLock     sync.RWMutex
+	latestVersions VersionInfo
+	versionLock    sync.RWMutex
+	coreDNSVersion string
+	coreDNSLock    sync.RWMutex
 )
 
 func getCoreDNSVersion() string {
@@ -53,7 +53,7 @@ func getCoreDNSVersion() string {
 	// Output format is usually: "CoreDNS-1.14.2" or "v1.14.2 ..."
 	s := strings.TrimSpace(string(out))
 	fields := strings.Fields(s)
-	
+
 	if len(fields) > 0 {
 		first := fields[0]
 		if strings.HasPrefix(first, "CoreDNS-") {
@@ -71,16 +71,16 @@ func getCoreDNSVersion() string {
 			}
 		}
 	}
-	
+
 	if coreDNSVersion == "" {
 		coreDNSVersion = s
 	}
 
 	// Final cleanup (strip architecture/OS if it leaked through in fields[0])
-	coreDNSVersion = strings.Split(coreDNSVersion, "-")[0] // Split by hyphen (common for arch)
+	coreDNSVersion = strings.Split(coreDNSVersion, "-")[0]    // Split by hyphen (common for arch)
 	coreDNSVersion = strings.TrimRight(coreDNSVersion, ",()") // Remove trailing junk
 	coreDNSVersion = strings.ToLower(coreDNSVersion)
-	
+
 	return coreDNSVersion
 }
 
@@ -108,7 +108,7 @@ func updateVersions() {
 		return
 	}
 	// Mark as checking
-	latestVersions.LastCheck = time.Now() 
+	latestVersions.LastCheck = time.Now()
 	versionLock.Unlock()
 
 	DebugLog("Checking for component updates (GitHub/Alpine)...")
@@ -120,7 +120,9 @@ func updateVersions() {
 		defer wg.Done()
 		v := fetchGitHubLatestTag("FaserF/ShieldDNS")
 		versionLock.Lock()
-		if v != "" { latestVersions.ShieldDNS = v }
+		if v != "" {
+			latestVersions.ShieldDNS = v
+		}
 		versionLock.Unlock()
 	}()
 
@@ -128,7 +130,9 @@ func updateVersions() {
 		defer wg.Done()
 		v := fetchGitHubLatestTag("coredns/coredns")
 		versionLock.Lock()
-		if v != "" { latestVersions.CoreDNS = v }
+		if v != "" {
+			latestVersions.CoreDNS = v
+		}
 		versionLock.Unlock()
 	}()
 
@@ -136,12 +140,14 @@ func updateVersions() {
 		defer wg.Done()
 		v := fetchAlpineLatest()
 		versionLock.Lock()
-		if v != "" { latestVersions.Alpine = v }
+		if v != "" {
+			latestVersions.Alpine = v
+		}
 		versionLock.Unlock()
 	}()
 
 	wg.Wait()
-	DebugLog(fmt.Sprintf("Update check complete. Latest: ShieldDNS=%s, CoreDNS=%s, Alpine=%s", 
+	DebugLog(fmt.Sprintf("Update check complete. Latest: ShieldDNS=%s, CoreDNS=%s, Alpine=%s",
 		latestVersions.ShieldDNS, latestVersions.CoreDNS, latestVersions.Alpine))
 }
 
@@ -177,16 +183,16 @@ func fetchAlpineLatest() string {
 	defer resp.Body.Close()
 
 	// The file is YAML, but we can just look for the version string as a simple heuristic
-	// Example content: 
+	// Example content:
 	// - branch: v3.21
 	//   arch: x86_64
 	//   version: 3.21.3
-	
+
 	// Actually, let's just use the branch part or the first version we find.
 	// Since it's a small file, we can read it.
 	b, _ := io.ReadAll(resp.Body)
 	content := string(b)
-	
+
 	// Simple parsing for "version: X.Y.Z"
 	lines := strings.Split(content, "\n")
 	for _, line := range lines {

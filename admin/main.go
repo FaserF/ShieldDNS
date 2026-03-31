@@ -1,16 +1,16 @@
 package main
 
 import (
+	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"html/template"
 )
 
-const Version        = "v1.3.2"
+const Version = "v1.3.2"
 
 func main() {
 	stats.QueryTypes = make(map[string]int64)
@@ -71,17 +71,17 @@ func main() {
 	http.Handle("/api/backup", authMiddleware(http.HandlerFunc(handleBackup)))
 	http.Handle("/api/restore", authMiddleware(http.HandlerFunc(handleRestore)))
 	http.Handle("/api/change-password", authMiddleware(http.HandlerFunc(handleChangePassword)))
-	
+
 	// API Tokens
 	http.Handle("/api/tokens", authMiddleware(http.HandlerFunc(handleGetTokens)))
 	http.Handle("/api/tokens/create", authMiddleware(http.HandlerFunc(handleCreateToken)))
 	http.Handle("/api/tokens/update", authMiddleware(http.HandlerFunc(handleUpdateToken)))
 	http.Handle("/api/tokens/delete", authMiddleware(http.HandlerFunc(handleDeleteToken)))
-	
+
 	// Domain Details
 	http.Handle("/api/domain/stats", authMiddleware(http.HandlerFunc(handleDomainStats)))
 	http.Handle("/api/domain/clients", authMiddleware(http.HandlerFunc(handleDomainClients)))
-	
+
 	// Global Controls & Rules
 	http.Handle("/api/filtering/toggle", authMiddleware(http.HandlerFunc(handleToggleFiltering)))
 	http.Handle("/api/filtering/status", authMiddleware(http.HandlerFunc(handleFilteringStatus)))
@@ -89,10 +89,10 @@ func main() {
 	http.Handle("/api/rules/remove", authMiddleware(http.HandlerFunc(handleRuleRemove)))
 	http.Handle("/api/reset", authMiddleware(http.HandlerFunc(handleReset)))
 	http.Handle("/api/config/reset-lists", authMiddleware(http.HandlerFunc(handleResetLists)))
-	
+
 	// Public API
 	http.HandleFunc("/api/block-info", handleBlockInfo)
-	
+
 	// Health
 	http.HandleFunc("/api/health/live", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

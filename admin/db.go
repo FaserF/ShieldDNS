@@ -241,7 +241,7 @@ func initializeStatsFromDB() {
 	} else {
 		log.Printf("Error initializing query types from DB: %v", err)
 	}
-	
+
 	log.Printf("Statistics initialized from database: %d total queries, %d blocked, %v types", stats.TotalQueries, stats.BlockedQueries, stats.QueryTypes)
 }
 

@@ -65,7 +65,7 @@ func TestProcessList_AllowlistSupport(t *testing.T) {
 	if _, ok := allowMap["good-site.com"]; !ok {
 		t.Errorf("allowlist parsing failed, good-site.com not in allowMap")
 	}
-	
+
 	if _, ok := blockMap["bad-site.com"]; !ok {
 		t.Errorf("blocklist parsing failed for mixed list")
 	}
@@ -74,10 +74,10 @@ func TestProcessList_AllowlistSupport(t *testing.T) {
 func TestLoadConfig_BlockPageIPEnv(t *testing.T) {
 	t.Setenv("BLOCK_PAGE_IP", "192.168.1.100")
 	loadConfig()
-	
+
 	configLock.RLock()
 	defer configLock.RUnlock()
-	
+
 	if config.BlockPageIP != "192.168.1.100" {
 		t.Errorf("expected BlockPageIP 192.168.1.100 from ENV, got %s", config.BlockPageIP)
 	}

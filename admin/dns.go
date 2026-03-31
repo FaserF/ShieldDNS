@@ -22,7 +22,9 @@ func startHealthChecker() {
 		configLock.RLock()
 		interval := config.LatencyTestInterval
 		configLock.RUnlock()
-		if interval < 1 { interval = 1 }
+		if interval < 1 {
+			interval = 1
+		}
 		time.Sleep(time.Duration(interval) * time.Minute)
 	}
 }
@@ -88,7 +90,7 @@ func checkAll() {
 	healthLock.Lock()
 	healthyUpstreams = newHealthyUpstreams
 	healthyDoT = newHealthyDoT
-	
+
 	if smart {
 		latencyLock.RLock()
 		sort.Slice(healthyUpstreams, func(i, j int) bool {
@@ -125,8 +127,10 @@ func splitAddr(addr, defaultPort string) (host, port string) {
 }
 
 func checkDNS(addr string) bool {
-	if !strings.Contains(addr, ":") { addr += ":53" }
-	
+	if !strings.Contains(addr, ":") {
+		addr += ":53"
+	}
+
 	for i := 0; i < 3; i++ { // 3 attempts
 		if checkDNSOnce(addr) {
 			return true
@@ -140,7 +144,9 @@ func checkDNS(addr string) bool {
 
 func checkDNSOnce(addr string) bool {
 	conn, err := net.DialTimeout("udp", addr, 2*time.Second)
-	if err != nil { return false }
+	if err != nil {
+		return false
+	}
 	defer conn.Close()
 
 	// Minimal DNS query for google.com IN A
@@ -186,15 +192,21 @@ func checkDoTOnce(addr, serverName string) bool {
 		ServerName:         serverName,
 	}
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 3 * time.Second}, "tcp", addr, conf)
-	if err != nil { return false }
+	if err != nil {
+		return false
+	}
 	conn.Close()
 	return true
 }
 
 func equal(a, b []string) bool {
-	if len(a) != len(b) { return false }
+	if len(a) != len(b) {
+		return false
+	}
 	for i := range a {
-		if a[i] != b[i] { return false }
+		if a[i] != b[i] {
+			return false
+		}
 	}
 	return true
 }
@@ -275,7 +287,7 @@ func updateCorefile() {
 	copy(hDoT, healthyDoT)
 	healthLock.RUnlock()
 
-	// Sorting is already handled in checkAll for the global lists, 
+	// Sorting is already handled in checkAll for the global lists,
 	// but we do it again on local copies to be certain and safe for future changes.
 	if smart {
 		latencyLock.RLock()
@@ -301,7 +313,7 @@ func updateCorefile() {
 					port = p
 				}
 			}
-			
+
 			ip := resolveHost(host)
 			if dotServerName == "" && ip != host {
 				dotServerName = host // Use first hostname found as server name
@@ -334,65 +346,69 @@ func updateCorefile() {
 	// Get cert paths from environment (provided by run.sh)
 	certFile := os.Getenv("CERT_FILE")
 	keyFile := os.Getenv("KEY_FILE")
-	if certFile == "" { certFile = "/ssl/fullchain.pem" }
-	if keyFile == "" { keyFile = "/ssl/privkey.pem" }
+	if certFile == "" {
+		certFile = "/ssl/fullchain.pem"
+	}
+	if keyFile == "" {
+		keyFile = "/ssl/privkey.pem"
+	}
 
-    // Get filtering status
-    configLock.RLock()
-    filteringEnabled := config.FilteringEnabled
-    configLock.RUnlock()
+	// Get filtering status
+	configLock.RLock()
+	filteringEnabled := config.FilteringEnabled
+	configLock.RUnlock()
 
-    hostsBlock := fmt.Sprintf(`
+	hostsBlock := fmt.Sprintf(`
     hosts %s {
         reload 5s
         fallthrough
     }`, MappingsPath)
 
-    if filteringEnabled {
-        hostsBlock += fmt.Sprintf(`
+	if filteringEnabled {
+		hostsBlock += fmt.Sprintf(`
     hosts %s {
         reload 5s
         fallthrough
     }`, BlocklistPath)
-    }
+	}
 
-    tlsBlock := ""
-    if dotServerName != "" {
-        tlsBlock = fmt.Sprintf("    tls_servername %s", dotServerName)
-    }
+	tlsBlock := ""
+	if dotServerName != "" {
+		tlsBlock = fmt.Sprintf("    tls_servername %s", dotServerName)
+	}
 
-    dnssecBlock := ""
-    if dnssec {
-        dnssecBlock = "    dnssec"
-    }
+	dnssecBlock := ""
+	if dnssec {
+		dnssecBlock = "    dnssec"
+	}
 
-    staleBlock := ""
-    if serveStale {
-        staleBlock = "        serve_stale 1h"
-    }
+	staleBlock := ""
+	if serveStale {
+		staleBlock = "        serve_stale 1h"
+	}
 
-    policyBlock := ""
-    if smart {
-        if policy == "random" {
-            policyBlock = "        policy random"
-        } else if policy == "broadcast" {
-            policyBlock = "        policy broadcast"
-            // If broadcast and preferEncrypted, we only want to forward to DoT servers
-            if preferEncrypted && len(hDoT) > 0 {
-                upstreamStr = strings.Join(hDoT, " tls://")
-                if !strings.HasPrefix(upstreamStr, "tls://") {
-                    upstreamStr = "tls://" + upstreamStr
-                }
-            }
-        } else {
-            policyBlock = "        policy sequential"
-        }
-    }
+	policyBlock := ""
+	if smart {
+		if policy == "random" {
+			policyBlock = "        policy random"
+		} else if policy == "broadcast" {
+			policyBlock = "        policy broadcast"
+			// If broadcast and preferEncrypted, we only want to forward to DoT servers
+			if preferEncrypted && len(hDoT) > 0 {
+				upstreamStr = strings.Join(hDoT, " tls://")
+				if !strings.HasPrefix(upstreamStr, "tls://") {
+					upstreamStr = "tls://" + upstreamStr
+				}
+			}
+		} else {
+			policyBlock = "        policy sequential"
+		}
+	}
 
-    geoBlock := getGeoACLRules()
-    metadataPlugin := "    metadata"
+	geoBlock := getGeoACLRules()
+	metadataPlugin := "    metadata"
 
-    corefile := fmt.Sprintf(`.:53 {
+	corefile := fmt.Sprintf(`.:53 {
     bind 0.0.0.0
     %s
     %s
@@ -414,8 +430,8 @@ func updateCorefile() {
 }
 `, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
 
-    // Repeat for TLS and HTTPS blocks
-    corefile += fmt.Sprintf(`
+	// Repeat for TLS and HTTPS blocks
+	corefile += fmt.Sprintf(`
 tls://.:853 {
     bind 0.0.0.0
     tls %s %s
@@ -553,10 +569,14 @@ func parseLogLine(line string) {
 			line = strings.TrimSpace(line[10:])
 			clean = true
 		}
-		if !clean { break }
+		if !clean {
+			break
+		}
 	}
 
-	if line == "" { return }
+	if line == "" {
+		return
+	}
 
 	var remote, qType, qDomain, rcode, rflags, durationStr, userAgent string
 
@@ -565,17 +585,21 @@ func parseLogLine(line string) {
 	// FORMAT B (Default): remote:port - id "query_info" rcode rflags size duration
 
 	lastQuote := strings.LastIndex(line, "\"")
-	if lastQuote <= 0 { return }
-	
+	if lastQuote <= 0 {
+		return
+	}
+
 	firstQuote := strings.LastIndex(line[:lastQuote], "\"")
-	if firstQuote <= 0 { return }
-	
+	if firstQuote <= 0 {
+		return
+	}
+
 	middlePart := line[firstQuote+1 : lastQuote]
 	prefix := strings.TrimSpace(line[:firstQuote])
 	suffix := strings.TrimSpace(line[lastQuote+1:])
-	
+
 	pFields := strings.Fields(prefix)
-	
+
 	if len(pFields) >= 6 {
 		// Likely FORMAT A (Custom)
 		remote = pFields[0]
@@ -588,14 +612,14 @@ func parseLogLine(line string) {
 	} else if len(pFields) >= 3 && strings.Contains(line[:firstQuote], " - ") {
 		// Likely FORMAT B (Default): remote - id "query_info" rcode rflags size duration
 		remote = pFields[0]
-		
+
 		// Query info is in quotes: "TYPE CLASS NAME PROTO SIZE FLAGS"
 		qFields := strings.Fields(middlePart)
 		if len(qFields) >= 3 {
 			qType = qFields[0]
 			qDomain = strings.TrimSuffix(qFields[2], ".")
 		}
-		
+
 		sFields := strings.Fields(suffix)
 		if len(sFields) >= 3 {
 			rcode = sFields[0]
@@ -698,7 +722,7 @@ func parseLogLine(line string) {
 	if isCacheHit {
 		stats.CacheHits++
 	}
-	
+
 	// Moving average for latency
 	if duration > 0 {
 		if stats.AverageLatency == 0 {

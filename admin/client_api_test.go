@@ -1,14 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	_ "modernc.org/sqlite"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
-	"database/sql"
-	"os"
-	_ "modernc.org/sqlite"
 )
 
 func TestClientAPI(t *testing.T) {
@@ -38,7 +38,7 @@ func TestClientAPI(t *testing.T) {
 
 	// Insert test data
 	testIP := "10.0.0.5"
-	queries := []struct{domain, status, ip string}{
+	queries := []struct{ domain, status, ip string }{
 		{"google.com", "Allowed", testIP},
 		{"google.com", "Allowed", testIP},
 		{"malware.com", "Blocked", testIP},

@@ -27,7 +27,7 @@ func initGeo() {
 func syncCountryIPs(countryCode string) error {
 	countryCode = strings.ToLower(countryCode)
 	url := fmt.Sprintf("http://www.ipdeny.com/ipblocks/data/aggregated/%s-aggregated.zone", countryCode)
-	
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -63,7 +63,7 @@ func getGeoACLRules() string {
 	for _, cc := range countries {
 		cc = strings.ToLower(cc)
 		path := filepath.Join(geoCacheDir, cc+".zone")
-		
+
 		// If file doesn't exist, try to sync it once
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			if err := syncCountryIPs(cc); err != nil {
@@ -76,7 +76,7 @@ func getGeoACLRules() string {
 		if err != nil {
 			continue
 		}
-		
+
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			cidr := strings.TrimSpace(scanner.Text())
