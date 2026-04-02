@@ -229,8 +229,8 @@ header {
     }
 
     .stats-grid {
-        grid-template-columns: 1fr;
-        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
     }
 
     .protection-status-card {
@@ -243,6 +243,15 @@ header {
 
     .chart-container, .card {
         padding: 16px;
+        margin-bottom: 24px;
+    }
+
+    .connection-guide-section {
+        margin-bottom: 32px !important;
+    }
+
+    .stats-grid {
+        margin-bottom: 32px;
     }
 
     .settings-section {
@@ -278,7 +287,8 @@ header {
         -webkit-overflow-scrolling: touch;
         margin-bottom: 1rem;
         width: 100%;
-        max-width: calc(100vw - 32px);
+        max-width: 100%;
+        display: block;
     }
 
     .query-table {
@@ -1053,14 +1063,19 @@ header {
 }
 .quick-copy-grid, .connection-guide-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 16px;
     margin-top: 16px;
+}
+@media (max-width: 480px) {
+    .quick-copy-grid, .connection-guide-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .analytics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 24px;
     margin-top: 24px;
 }
@@ -1127,7 +1142,9 @@ header {
         text-align: left;
         max-width: 100%;
         color: var(--text-primary);
-        font-size: 0.8rem; /* Smaller font for long values on mobile */
+        font-size: 0.8rem;
+        word-break: break-all;
+        justify-content: flex-start;
     }
 }
 
