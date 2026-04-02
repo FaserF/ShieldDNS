@@ -276,26 +276,32 @@
             </h2>
             <div class="setup-item">
                 <label>Android (Private DNS)</label>
-                <div class="hostname-box" style="padding-right: 8px;">
-                    <span id="hostname-text">{{.Host}}</span>
-                    <button class="copy-btn" data-copy="{{.Host}}" title="Copy to clipboard">
-                        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                        <span>Copy</span>
-                    </button>
-                </div>
-                <p style="font-size:0.8rem; color: var(--text-secondary); margin-top: 8px">
-                    <strong>1.</strong> Settings &rarr; <strong>2.</strong> Network &rarr; <strong>3.</strong> Private DNS &rarr; <strong>4.</strong> Hostname<br>
-                    <em>Note: For ultra-fast <strong>DNS-over-QUIC</strong>, use [Google Intra] or [AdGuard] with <code>quic://{{.Host}}:853</code>.</em>
-                </p>
-                <div class="qr-section" id="android-qr-section" style="margin-bottom: 12px;">
-                    <img src="/api/qr?data=https://{{.Host}}" alt="QR Code for {{.Host}}" width="120" height="120" style="border-radius: 8px; background: #fff; padding: 6px;">
-                    <div class="qr-label">
-                        <strong>Quick Setup via QR Code</strong><br>
-                        Scan this QR code with your Android phone to open this guide directly and access the settings shortcut.
+                <div id="android-setup-container" class="hidden">
+                    <div class="qr-section" id="android-qr-section" style="margin-bottom: 12px;">
+                        <img src="/api/qr?data=https://{{.Host}}" alt="QR Code for Guided Setup" width="120" height="120" style="border-radius: 8px; background: #fff; padding: 6px;">
+                        <div class="qr-label">
+                            <strong>Interactive Guided Setup</strong><br>
+                            Scan this QR code with your Android phone to open this guide directly on your device.
+                        </div>
+                    </div>
+                    <div id="android-settings-shortcut" style="margin-bottom: 20px;">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <button id="android-all-in-one-btn" class="btn-download" style="background: #10b981; width: 100%; text-align: center; margin-top: 0; border: none; cursor: pointer; font-family: inherit;">Set Up ShieldDNS (Copy & Open Settings)</button>
+                            <p id="android-fallback-hint" style="font-size: 0.7rem; color: var(--text-secondary); text-align: center; margin-top: 4px; display: none;">
+                                <i class="fas fa-info-circle"></i> Hostname copied! If Settings didn't open: Go to <strong>Settings > Connection > More > Private DNS</strong>
+                            </p>
+                        </div>
                     </div>
                 </div>
-                <div id="android-settings-shortcut" class="hidden" style="margin-bottom: 20px;">
-                    <a href="intent:#Intent;action=android.settings.PRIVATE_DNS_SETTINGS;end" class="btn-download" style="background: #10b981; width: 100%; text-align: center; margin-top: 0;">Open Private DNS Settings (Android 10+)</a>
+                <!-- Desktop/Other Android fallback -->
+                <div id="android-manual-setup" class="setup-item">
+                    <div class="hostname-box" style="padding-right: 8px;">
+                        <span id="hostname-text">{{.Host}}</span>
+                        <button class="copy-btn" data-copy="{{.Host}}" title="Copy to clipboard">
+                            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                            <span>Copy</span>
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="setup-item">
@@ -382,8 +388,36 @@
     <script>
         // Detection for Android shortcut
         if (/Android/i.test(navigator.userAgent)) {
-            const androidShortcut = document.getElementById('android-settings-shortcut');
-            if (androidShortcut) androidShortcut.classList.remove('hidden');
+            const androidSetup = document.getElementById('android-setup-container');
+            const androidManual = document.getElementById('android-manual-setup');
+            if (androidSetup) {
+                androidSetup.classList.remove('hidden');
+                if (androidManual) androidManual.classList.add('hidden');
+                
+                const btn = document.getElementById('android-all-in-one-btn');
+                if (btn) {
+                    btn.addEventListener('click', async () => {
+                        const host = '{{.Host}}';
+                        try {
+                            if (navigator.clipboard) {
+                                await navigator.clipboard.writeText(host);
+                                btn.textContent = 'Copied! Opening Settings...';
+                                setTimeout(() => {
+                                    window.location.href = 'intent:#Intent;action=android.settings.NETWORK_OPERATOR_SETTINGS;end';
+                                }, 300);
+                            }
+                        } catch (err) {
+                            console.error('Copy failed', err);
+                            window.location.href = 'intent:#Intent;action=android.settings.NETWORK_OPERATOR_SETTINGS;end';
+                        }
+                        
+                        setTimeout(() => {
+                            document.getElementById('android-fallback-hint').style.display = 'block';
+                            btn.textContent = 'Set Up ShieldDNS (Copy & Open Settings)';
+                        }, 2000);
+                    });
+                }
+            }
         }
 
         document.querySelectorAll('.copy-btn').forEach(btn => {

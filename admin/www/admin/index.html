@@ -124,7 +124,10 @@
                             </div>
                         </div>
                         <div id="android-settings-shortcut" class="hidden" style="margin-top: 16px;">
-                            <a href="intent:#Intent;action=android.settings.PRIVATE_DNS_SETTINGS;end" class="btn primary full-width" style="background: #10b981; text-align: center; text-decoration: none; display: block; border-radius: 8px; padding: 12px; font-weight: 600; color: white;">Open Private DNS Settings (Android 10+)</a>
+                            <button id="android-all-in-one-btn" class="btn primary full-width" style="background: #10b981; text-align: center; text-decoration: none; display: block; border-radius: 8px; padding: 12px; font-weight: 600; color: white; width: 100%; border: none; cursor: pointer; font-family: inherit;">Set Up ShieldDNS (Copy & Open Settings)</button>
+                            <p id="android-fallback-hint" style="font-size: 0.7rem; color: var(--text-secondary); text-align: center; margin-top: 8px; display: none;">
+                                <i class="fas fa-info-circle"></i> Hostname copied! If Settings didn't open: Go to <strong>Settings > Connection > More > Private DNS</strong>
+                            </p>
                         </div>
                     </div>
 
@@ -1257,7 +1260,32 @@
         // Detection for Android shortcut in Dashboard
         if (/Android/i.test(navigator.userAgent)) {
             const androidShortcut = document.getElementById('android-settings-shortcut');
-            if (androidShortcut) androidShortcut.classList.remove('hidden');
+            if (androidShortcut) {
+                androidShortcut.classList.remove('hidden');
+                const btn = document.getElementById('android-all-in-one-btn');
+                if (btn) {
+                    btn.addEventListener('click', async () => {
+                        const host = document.getElementById('guide-dot-host').value;
+                        try {
+                            if (navigator.clipboard) {
+                                await navigator.clipboard.writeText(host);
+                                btn.textContent = 'Copied! Opening Settings...';
+                                setTimeout(() => {
+                                    window.location.href = 'intent:#Intent;action=android.settings.NETWORK_OPERATOR_SETTINGS;end';
+                                }, 300);
+                            }
+                        } catch (err) {
+                            console.error('Copy failed', err);
+                            window.location.href = 'intent:#Intent;action=android.settings.NETWORK_OPERATOR_SETTINGS;end';
+                        }
+                        
+                        setTimeout(() => {
+                            document.getElementById('android-fallback-hint').style.display = 'block';
+                            btn.textContent = 'Set Up ShieldDNS (Copy & Open Settings)';
+                        }, 2000);
+                    });
+                }
+            }
         }
     </script>
 </body>
