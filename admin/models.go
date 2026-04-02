@@ -53,7 +53,6 @@ type List struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-
 type Stats struct {
 	TotalQueries         int64            `json:"total_queries"`
 	BlockedQueries       int64            `json:"blocked_queries"`
@@ -149,13 +148,13 @@ var (
 )
 
 var (
-	DataDir       = "/etc/shielddns"
-	ConfigPath    = "/etc/shielddns/config.json"
-	BlocklistPath = "/etc/shielddns/blocklist.hosts"
-	AllowlistPath = "/etc/shielddns/allowlist.hosts"
-	MappingsPath  = "/etc/shielddns/mappings.hosts"
-	CorefilePath  = "/etc/Corefile"
-	DBPath        = "/etc/shielddns/queries.db"
+	DataDir           = "/etc/shielddns"
+	ConfigPath        = "/etc/shielddns/config.json"
+	BlocklistPath     = "/etc/shielddns/blocklist.hosts"
+	AllowlistPath     = "/etc/shielddns/allowlist.hosts"
+	MappingsPath      = "/etc/shielddns/mappings.hosts"
+	CorefilePath      = "/etc/Corefile"
+	DBPath            = "/etc/shielddns/queries.db"
 	CombinedHostsPath = "/etc/shielddns/shielddns.hosts"
 )
 

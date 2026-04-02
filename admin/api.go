@@ -27,7 +27,6 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 )
 
-
 var domainRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z0-9-]{2,63}$`)
 
 // isValidDomain checks if a string is a valid domain name or IP address.

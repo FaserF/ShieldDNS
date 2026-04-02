@@ -157,15 +157,15 @@ func TestHandleRestore(t *testing.T) {
 	config = Config{AdminPasswordHashed: "existing-hash"}
 	configLock.Unlock()
 
-		// Note: handleConfig actually replaces the global config with what's in the body
-		// but it does so under a lock. Direct setup here should also be locked.
-		configLock.Lock()
-		config.CustomBlocked = []string{"restored-domain.com"}
-		configLock.Unlock()
+	// Note: handleConfig actually replaces the global config with what's in the body
+	// but it does so under a lock. Direct setup here should also be locked.
+	configLock.Lock()
+	config.CustomBlocked = []string{"restored-domain.com"}
+	configLock.Unlock()
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	part, _ := w.CreateFormFile("config", "config.json")
-	
+
 	configLock.RLock()
 	restoredConfigSnap := config.Clone()
 	configLock.RUnlock()
@@ -395,14 +395,14 @@ func TestHandleConfigRejectsInvalidCustomRules(t *testing.T) {
 	configLock.Lock()
 	config = Config{AdminPasswordHashed: "existing-hash"}
 	configLock.Unlock()
-	
+
 	configLock.RLock()
 	snapshot := config.Clone()
 	configLock.RUnlock()
 
 	snapshot.CustomBlocked = []string{"valid.com", "not valid!", "<script>xss</script>", "also-valid.org"}
 	snapshot.CustomAllowed = []string{"good.com", "bad domain spaces"}
-	
+
 	body, _ := json.Marshal(snapshot)
 	req := httptest.NewRequest("POST", "/api/config", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()

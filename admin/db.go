@@ -104,7 +104,7 @@ func startDBWorker() {
 				log.Printf("Error purging old queries: %v", err)
 			} else {
 				log.Printf("Database maintenance: Queries older than %d days purged.", days)
-                
+
 				// Reclaim space
 				_, err = db.Exec("VACUUM")
 				if err != nil {

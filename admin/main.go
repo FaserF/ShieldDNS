@@ -10,7 +10,7 @@ import (
 	"syscall"
 )
 
-const Version        = "v1.3.3"
+const Version = "v1.3.3"
 
 func main() {
 	stats.QueryTypes = make(map[string]int64)

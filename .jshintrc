@@ -1,0 +1,22 @@
+{ 
+  "esversion": 11, 
+  "browser": true, 
+  "undef": true, 
+  "devel": true, 
+  "unused": false, 
+  "scripturl": true,
+  "latedef": false,
+  "globals": {
+    "Chart": false,
+    "EventSource": false,
+    "showAlert": false,
+    "showConfirm": false,
+    "nextSetupStep": false,
+    "DNS_TYPE_COLORS": false,
+    "applyRecommendedFilters": false,
+    "addCustomRule": false,
+    "showDomainDetails": false,
+    "saveConfig": false,
+    "renderConfig": false
+  }
+}

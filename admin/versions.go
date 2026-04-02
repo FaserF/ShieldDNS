@@ -59,12 +59,12 @@ func getCoreDNSVersion() string {
 		for _, f := range fields {
 			fClean := strings.Trim(f, ",()")
 			fLower := strings.ToLower(fClean)
-			
+
 			// Look for something that looks like a version (starts with v or a digit or coredns)
 			// and contains at least one dot (to avoid architecture names like arm64)
-			if (strings.HasPrefix(fLower, "v") || strings.HasPrefix(fLower, "coredns-") || (len(fLower) > 0 && fLower[0] >= '0' && fLower[0] <= '9')) && 
+			if (strings.HasPrefix(fLower, "v") || strings.HasPrefix(fLower, "coredns-") || (len(fLower) > 0 && fLower[0] >= '0' && fLower[0] <= '9')) &&
 				strings.Contains(fLower, ".") {
-				
+
 				v := fClean
 				if strings.HasPrefix(fLower, "coredns-") {
 					v = v[8:]

@@ -16,7 +16,30 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     let apiKeysListContainer, apiKeyModal, apiKeyForm, apiKeyResult, apiKeyValue, protectionStatusLabel, toggleProtectionBtn;
     let adminDomainInput, blockIpInput, tagsContainer;
 
-// DOMContentLoaded will remain, but showAlert/showConfirm are gone
+    // Re-implemented alert and confirm functions after recent accidental removal
+    window.showAlert = (msg) => {
+        return new Promise(resolve => {
+            const modal = document.getElementById('alert-modal');
+            const msgEl = document.getElementById('alert-message');
+            const okBtn = document.getElementById('alert-ok');
+            if (modal && msgEl && okBtn) {
+                msgEl.textContent = msg;
+                modal.classList.remove('hidden');
+                okBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    resolve();
+                };
+            } else {
+                alert(msg);
+                resolve();
+            }
+        });
+    };
+
+    window.showConfirm = (msg) => {
+        return new Promise(resolve => resolve(window.confirm(msg)));
+    };
+
 document.addEventListener('DOMContentLoaded', () => {
     // Theme initialization
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -557,9 +580,9 @@ document.addEventListener('DOMContentLoaded', () => {
             data.forEach(q => {
                 const row = document.createElement('tr');
                 const time = new Date(q.time).toLocaleTimeString();
-                const actionBtn = q.status === 'Allowed' 
-                    ? `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')">Block</button>`
-                    : `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')">Allow</button>`;
+                const actionBtn = q.status === 'Allowed' ?
+                    `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')">Block</button>` :
+                    `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')">Allow</button>`;
                 
                 const clientDisplay = q.client_alias ? `${q.client_alias} (${q.client_ip})` : q.client_ip;
                 
@@ -582,9 +605,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const createQueryRow = (q) => {
         const row = document.createElement('tr');
         const time = new Date(q.time || Date.now()).toLocaleTimeString();
-        const actionBtn = q.status === 'Allowed' 
-            ? `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')">Block</button>`
-            : `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')">Allow</button>`;
+        const actionBtn = q.status === 'Allowed' ?
+            `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')">Block</button>` :
+            `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')">Allow</button>`;
 
         const clientDisplay = q.client_alias ? `${q.client_alias} (${q.client_ip})` : q.client_ip;
 

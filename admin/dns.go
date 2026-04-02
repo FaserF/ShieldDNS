@@ -353,8 +353,6 @@ func updateCorefile() {
 		keyFile = "/ssl/privkey.pem"
 	}
 
-
-
 	hostsBlock := fmt.Sprintf(`
     hosts %s {
         reload 5s
