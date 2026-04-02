@@ -227,6 +227,33 @@
             height: 14px;
             fill: currentColor;
         }
+        .qr-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 14px;
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .qr-section canvas {
+            border-radius: 8px;
+            background: #fff;
+            padding: 6px;
+            flex-shrink: 0;
+        }
+
+        .qr-section .qr-label {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .qr-section .qr-label strong {
+            color: var(--text-primary);
+        }
     </style>
 </head>
 
@@ -260,6 +287,13 @@
                     <strong>1.</strong> Settings &rarr; <strong>2.</strong> Network &rarr; <strong>3.</strong> Private DNS &rarr; <strong>4.</strong> Hostname<br>
                     <em>Note: For ultra-fast <strong>DNS-over-QUIC</strong>, use [Google Intra] or [AdGuard] with <code>quic://{{.Host}}:853</code>.</em>
                 </p>
+                <div class="qr-section" id="android-qr-section">
+                    <img src="/api/qr?data={{.Host}}" alt="QR Code for {{.Host}}" width="120" height="120" style="border-radius: 8px; background: #fff; padding: 6px;">
+                    <div class="qr-label">
+                        <strong>Quick Setup via QR Code</strong><br>
+                        Scan this QR code with your Android camera to copy the hostname for Private DNS.
+                    </div>
+                </div>
             </div>
             <div class="setup-item">
                 <label>iOS (iPhone/iPad)</label>
@@ -340,7 +374,6 @@
                 navigator.clipboard.writeText(text).then(() => {
                     const span = this.querySelector('span');
                     const originalText = span ? span.textContent : '';
-                    const originalIcon = this.innerHTML;
                     
                     this.classList.add('success');
                     if (span) span.textContent = 'Copied!';

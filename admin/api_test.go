@@ -471,3 +471,38 @@ func TestHandleClientAlias(t *testing.T) {
 		t.Error("POST delete: alias should have been removed")
 	}
 }
+
+func TestHandleQR(t *testing.T) {
+	// Valid request
+	req := httptest.NewRequest("GET", "/api/qr?data=dns.example.com", nil)
+	rr := httptest.NewRecorder()
+	handleQR(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %v", rr.Code)
+	}
+	ct := rr.Header().Get("Content-Type")
+	if ct != "image/png" {
+		t.Errorf("expected image/png, got %s", ct)
+	}
+	if rr.Body.Len() < 100 {
+		t.Error("QR PNG body too small")
+	}
+
+	// Missing data
+	req = httptest.NewRequest("GET", "/api/qr", nil)
+	rr = httptest.NewRecorder()
+	handleQR(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing data, got %v", rr.Code)
+	}
+
+	// Data too long
+	longData := strings.Repeat("a", 501)
+	req = httptest.NewRequest("GET", "/api/qr?data="+longData, nil)
+	rr = httptest.NewRecorder()
+	handleQR(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for too-long data, got %v", rr.Code)
+	}
+}

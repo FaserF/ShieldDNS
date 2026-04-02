@@ -23,7 +23,10 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	qrcode "github.com/skip2/go-qrcode"
 )
+
 
 var domainRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z0-9-]{2,63}$`)
 
@@ -1048,6 +1051,28 @@ func handleBlockInfo(w http.ResponseWriter, r *http.Request) {
 		"domain": domain,
 		"lists":  lists,
 	})
+}
+
+func handleQR(w http.ResponseWriter, r *http.Request) {
+	data := r.URL.Query().Get("data")
+	if data == "" {
+		http.Error(w, "data parameter required", http.StatusBadRequest)
+		return
+	}
+	if len(data) > 500 {
+		http.Error(w, "data too long", http.StatusBadRequest)
+		return
+	}
+
+	png, err := qrcode.Encode(data, qrcode.Medium, 256)
+	if err != nil {
+		http.Error(w, "Failed to generate QR code", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(png)
 }
 
 func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
