@@ -244,6 +244,9 @@ header {
     .chart-container, .card {
         padding: 16px;
         margin-bottom: 24px;
+        min-width: 0;
+        width: 100%;
+        overflow-x: hidden;
     }
 
     .connection-guide-section {
@@ -289,6 +292,7 @@ header {
         width: 100%;
         max-width: 100%;
         display: block;
+        min-width: 0;
     }
 
     .query-table {
@@ -840,6 +844,20 @@ header {
     border-radius: 8px;
     border: 1px solid var(--border);
     overflow: hidden;
+    min-width: 0;
+}
+
+@media (max-width: 450px) {
+    .copy-input {
+        flex-direction: column;
+    }
+    
+    .copy-btn {
+        border-left: none !important;
+        border-top: 1px solid var(--border);
+        padding: 12px !important;
+        width: 100%;
+    }
 }
 
 .copy-input input {
@@ -1078,6 +1096,13 @@ header {
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 24px;
     margin-top: 24px;
+    min-width: 0;
+}
+
+@media (max-width: 400px) {
+    .analytics-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .analytics-grid .card {
@@ -1137,7 +1162,6 @@ header {
         gap: 6px;
         padding: 10px 0;
     }
-    
     .diag-item span:last-child {
         text-align: left;
         max-width: 100%;
@@ -1146,6 +1170,29 @@ header {
         word-break: break-all;
         justify-content: flex-start;
     }
+}
+
+/* Analytics Specific Table Overrides */
+.analytics-grid .query-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.analytics-grid .query-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.analytics-grid .query-table td:first-child, 
+.analytics-grid .query-table th:first-child {
+    width: 75%;
+}
+
+.analytics-grid .query-table td:last-child, 
+.analytics-grid .query-table th:last-child {
+    text-align: right;
+    width: 25%;
 }
 
 .tag-container {
