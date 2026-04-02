@@ -314,11 +314,15 @@ func reloadRulesFast() {
 	cfg := config.Clone()
 	configLock.RUnlock()
 
+	reloadRulesFastNoLock(cfg)
+}
+
+func reloadRulesFastNoLock(cfg *Config) {
 	// We start with a copy of current attribution IF it exists, otherwise full update required
 	blockAttributionLock.RLock()
 	if blockAttribution == nil {
 		blockAttributionLock.RUnlock()
-		go updateBlocklist(nil)
+		go updateBlocklist(cfg)
 		return
 	}
 

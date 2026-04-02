@@ -375,7 +375,7 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	saveConfigNoLock()
-	reloadRulesFast()
+	reloadRulesFastNoLock(config.Clone())
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -424,7 +424,7 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	saveConfigNoLock()
-	reloadRulesFast()
+	reloadRulesFastNoLock(config.Clone())
 
 	w.WriteHeader(http.StatusOK)
 }
