@@ -3,6 +3,7 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     let typeChart = null;
     let clientAliases = {};
     let clientChart = null;
+    let latencyChart = null;
     let blocklistMap = {};
     let allCountries = {};
     
@@ -927,6 +928,60 @@ document.addEventListener('DOMContentLoaded', () => {
                             </tr>
                         `;
                     }).join('');
+                }
+            }
+
+            // Upstream Latency Chart
+            const latencyCtx = document.getElementById('latency-chart')?.getContext('2d');
+            if (latencyCtx && data.upstream_health && data.upstream_health.length > 0) {
+                const healthyUpstreams = data.upstream_health.filter(h => h.status === 'up');
+                const labels = healthyUpstreams.map(h => h.server.replace('tls://', '').replace(':853', '').replace(':53', ''));
+                const latencies = healthyUpstreams.map(h => h.latency_ms);
+                const colors = healthyUpstreams.map(h => h.is_preferred ? '#5c6bc0' : 'rgba(148, 163, 184, 0.6)');
+
+                if (latencyChart) {
+                    latencyChart.data.labels = labels;
+                    latencyChart.data.datasets[0].data = latencies;
+                    latencyChart.data.datasets[0].backgroundColor = colors;
+                    latencyChart.update();
+                } else {
+                    latencyChart = new Chart(latencyCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Latency (ms)',
+                                data: latencies,
+                                backgroundColor: colors,
+                                borderRadius: 6,
+                                maxBarThickness: 40
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            indexAxis: 'y',
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (ctx) => `${ctx.parsed.x.toFixed(1)} ms`
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(255,255,255,0.05)' },
+                                    ticks: { color: '#94a3b8', callback: v => v + ' ms' }
+                                },
+                                y: {
+                                    grid: { display: false },
+                                    ticks: { color: '#94a3b8', font: { size: 11 } }
+                                }
+                            }
+                        }
+                    });
                 }
             }
 
