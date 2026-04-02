@@ -36,6 +36,7 @@ func initDB() {
 		CREATE INDEX IF NOT EXISTS idx_timestamp ON queries(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_status ON queries(status);
 		CREATE INDEX IF NOT EXISTS idx_client ON queries(client_ip);
+		CREATE INDEX IF NOT EXISTS idx_domain ON queries(domain);
 		CREATE TABLE IF NOT EXISTS clients (
 			ip TEXT PRIMARY KEY,
 			user_agent TEXT,
@@ -103,6 +104,14 @@ func startDBWorker() {
 				log.Printf("Error purging old queries: %v", err)
 			} else {
 				log.Printf("Database maintenance: Queries older than %d days purged.", days)
+                
+				// Reclaim space
+				_, err = db.Exec("VACUUM")
+				if err != nil {
+					log.Printf("Error running database VACUUM: %v", err)
+				} else {
+					log.Printf("Database maintenance: VACUUM completed successfully.")
+				}
 			}
 		}
 	}
