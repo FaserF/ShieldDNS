@@ -9,7 +9,7 @@ It features a premium **Admin Dashboard** with persistent SQLite-backed analytic
 ## 🚀 Key Features
 
 - 🔒 **Secure DNS**: Native support for **DNS-over-TLS (DoT)** (port 853), **DNS-over-HTTPS (DoH)** (port 443), and **DNS-over-QUIC (DoQ)** — zero extra setup needed.
-- 📊 **Persistent Analytics**: SQLite-backed query history and advanced analytics (Top Blocked Domains, Top Clients).
+- 📊 **Persistent Analytics**: SQLite-backed query history and advanced analytics (Top Blocked Domains, Top Clients, Client Aliasing).
 - 🏳️ **Custom Rules**: Instantly allow or block individual domains via the Admin UI. Input is auto-sanitized — paste a full URL if you like!
 - 🛡️ **DNS Filtering**: Integrated engine for blocklists with automatic updates and deduplication.
 - 🔌 **Protection Kill-Switch**: Instantly disable all filtering via the dashboard or API.
@@ -169,10 +169,11 @@ ShieldDNS now stores your query history in a persistent SQLite database:
 - **Query History**: View the last 100 queries or search through historical data.
 - **Top Blocked Domains**: identify the most aggressive trackers on your network.
 - **Top Clients**: See which devices are generating the most traffic.
+- **Client Aliasing**: Assign friendly names to IPs for easier identification across all views.
 - **Hourly Trends**: 24-hour traffic visualization shows you exactly when your network is most active.
 - **Live Logs**: Zero-latency query streaming via Server-Sent Events (SSE).
 - **Client IP Diagnostics**: Interactive query logs where clicking an IP reveals GeoIP location, Reverse DNS hostname, and a client-specific query history preview.
-- **Cache Hit Ratio**: Real-time diagnostic tracker showing the percentage of queries served from the local cache.
+- **Cache Hit Ratio & Upstream Performance**: Real-time diagnostic trackers showing local cache efficiency and a live upstream latency chart.
 
 ### 🏳️ Custom Rules
 Immediately take control of your network without managing external lists:
@@ -186,7 +187,7 @@ Immediately take control of your network without managing external lists:
 - **Prefetching**: ShieldDNS proactively refreshes popular records before they expire.
 - **Upstream Probing**: Background health checks every 30 seconds ensure you only use healthy upstreams.
 - **Smart Selection**: Optionally reorder upstreams dynamically to always use the lowest-latency provider.
-- **Data Retention**: Configurable history purging (e.g., 7, 30, 90 days) for privacy and disk management.
+- **Data Retention & Maintenance**: Configurable history purging (e.g., 7, 30, 90 days) augmented with automated background SQL VACUUM tasks to maintain database performance and optimize disk space.
 - **System Backups**: One-click `.zip` backup of configuration and query history.
 - **Config Restore**: Upload a `config.json` directly from the Settings page to instantly restore a previous configuration.
 - **Dark & Light Mode**: Toggle the UI theme — preference is saved locally.
@@ -198,7 +199,7 @@ Immediately take control of your network without managing external lists:
 ## 📱 Client Configuration
 
 ### DoT (DNS-over-TLS) & DoQ (DNS-over-QUIC) - Port 853
-- **Android**: Go to **Settings > Network > Private DNS** and enter your domain (e.g., `dns.example.com`). Modern Android versions will automatically attempt DoT first. For DoQ, use a supporting app like *Nebulo* or *Personal DNS Filter*.
+- **Android**: Scan the QR code on the public landing page, or manually go to **Settings > Network > Private DNS** and enter your domain (e.g., `dns.example.com`). Modern Android versions will automatically attempt DoT first. For DoQ, use a supporting app like *Nebulo* or *Personal DNS Filter*.
 - **iOS/macOS**: Download the `.mobileconfig` from your ShieldDNS dashboard. It implements both DoT and DoH. For native DoQ, ensure you are on iOS 17+.
 
 ### ⚡ Setup DNS-over-QUIC (DoQ)
