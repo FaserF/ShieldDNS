@@ -70,15 +70,16 @@ type Stats struct {
 }
 
 type Query struct {
-	ID         int64     `json:"id,omitempty"`
-	Time       time.Time `json:"time"`
-	Domain     string    `json:"domain"`
-	Type       string    `json:"type"`
-	Status     string    `json:"status"`
-	ClientIP   string    `json:"client_ip"`
-	UserAgent  string    `json:"user_agent,omitempty"`
-	IsCacheHit bool      `json:"is_cache_hit"`
-	DurationMs float64   `json:"duration_ms"`
+	ID          int64     `json:"id,omitempty"`
+	Time        time.Time `json:"time"`
+	Domain      string    `json:"domain"`
+	Type        string    `json:"type"`
+	Status      string    `json:"status"`
+	ClientIP    string    `json:"client_ip"`
+	ClientAlias string    `json:"client_alias,omitempty"`
+	UserAgent   string    `json:"user_agent,omitempty"`
+	IsCacheHit  bool      `json:"is_cache_hit"`
+	DurationMs  float64   `json:"duration_ms"`
 }
 
 type HourStats struct {

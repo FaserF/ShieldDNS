@@ -1384,12 +1384,19 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
+	configLock.RLock()
+	aliases := config.ClientAliases
+	configLock.RUnlock()
+
 	queries := make([]Query, 0)
 	for rows.Next() {
 		var q Query
 		var ts string
 		rows.Scan(&ts, &q.Domain, &q.Type, &q.Status, &q.ClientIP)
 		q.Time, _ = time.Parse(time.RFC3339, ts)
+		if aliases != nil {
+			q.ClientAlias = aliases[q.ClientIP]
+		}
 		queries = append(queries, q)
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -1546,6 +1553,10 @@ func handleTopClients(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
+	configLock.RLock()
+	aliases := config.ClientAliases
+	configLock.RUnlock()
+
 	result := make([]map[string]interface{}, 0)
 	for rows.Next() {
 		var client_ip string
@@ -1554,7 +1565,15 @@ func handleTopClients(w http.ResponseWriter, r *http.Request) {
 		if client_ip == "" {
 			client_ip = "Unknown"
 		}
-		result = append(result, map[string]interface{}{"client_ip": client_ip, "count": count})
+		alias := ""
+		if aliases != nil {
+			alias = aliases[client_ip]
+		}
+		result = append(result, map[string]interface{}{
+			"client_ip":    client_ip,
+			"client_alias": alias,
+			"count":        count,
+		})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)

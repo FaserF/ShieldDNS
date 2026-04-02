@@ -560,10 +560,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')">Block</button>`
                     : `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')">Allow</button>`;
                 
+                const clientDisplay = q.client_alias ? `${q.client_alias} (${q.client_ip})` : q.client_ip;
+                
                 row.innerHTML = `
                     <td>${time}</td>
-                    <td><span class="domain-link" onclick="showDomainDetails('${q.domain}')">${q.domain}</span></td>
-                    <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')">${q.client_ip}</span></td>
+                    <td><span class="domain-link" onclick="showDomainDetails('${q.domain}')" title="${q.domain}">${q.domain}</span></td>
+                    <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')" title="${q.client_ip}">${clientDisplay}</span></td>
                     <td class="hide-mobile">${q.type}</td>
                     <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
                     <td class="hide-mobile">${actionBtn}</td>
@@ -583,10 +585,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')">Block</button>`
             : `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')">Allow</button>`;
 
+        const clientDisplay = q.client_alias ? `${q.client_alias} (${q.client_ip})` : q.client_ip;
+
         row.innerHTML = `
             <td>${time}</td>
-            <td><span class="domain-link" onclick="showDomainDetails('${q.domain}')">${q.domain}</span></td>
-            <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')">${q.client_ip}</span></td>
+            <td><span class="domain-link" onclick="showDomainDetails('${q.domain}')" title="${q.domain}">${q.domain}</span></td>
+            <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')" title="${q.client_ip}">${clientDisplay}</span></td>
             <td class="hide-mobile">${q.type}</td>
             <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
             <td class="hide-mobile">${actionBtn}</td>
@@ -800,12 +804,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (clientsResp.ok && topClientsContainer) {
                 const clients = await clientsResp.json();
-                topClientsContainer.innerHTML = (clients || []).map(c => `
-                    <tr>
-                        <td><span class="ip-link" onclick="showIPDetails('${c.client_ip}')">${c.client_ip}</span></td>
-                        <td class="text-right">${c.count || 0}</td>
-                    </tr>
-                `).join('') || '<tr><td colspan="2">No data available</td></tr>';
+                topClientsContainer.innerHTML = (clients || []).map(c => {
+                    const display = c.client_alias ? `${c.client_alias} (${c.client_ip})` : c.client_ip;
+                    return `
+                        <tr>
+                            <td><span class="ip-link" onclick="showIPDetails('${c.client_ip}')">${display}</span></td>
+                            <td class="text-right">${c.count || 0}</td>
+                        </tr>
+                    `;
+                }).join('') || '<tr><td colspan="2">No data available</td></tr>';
             }
         } catch (e) {
             console.error('Failed to fetch analytics', e);

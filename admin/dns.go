@@ -732,14 +732,19 @@ func parseLogLine(line string) {
 		status = "Blocked"
 	}
 
+	configLock.RLock()
+	alias := config.ClientAliases[clientIP]
+	configLock.RUnlock()
+
 	q := Query{
-		Time:       time.Now(),
-		Domain:     qDomain,
-		Type:       qType,
-		Status:     status,
-		ClientIP:   clientIP,
-		IsCacheHit: isCacheHit,
-		DurationMs: duration,
+		Time:        time.Now(),
+		Domain:      qDomain,
+		Type:        qType,
+		Status:      status,
+		ClientIP:    clientIP,
+		ClientAlias: alias,
+		IsCacheHit:  isCacheHit,
+		DurationMs:  duration,
 	}
 
 	bufferLock.Lock()

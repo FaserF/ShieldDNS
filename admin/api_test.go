@@ -421,3 +421,53 @@ func TestHandleConfigRejectsInvalidCustomRules(t *testing.T) {
 		t.Errorf("expected 1 valid allowed domain, got %d: %v", len(config.CustomAllowed), config.CustomAllowed)
 	}
 }
+
+func TestHandleClientAlias(t *testing.T) {
+	configLock.Lock()
+	config = Config{
+		ClientAliases: map[string]string{
+			"1.1.1.1": "Cloudflare",
+		},
+	}
+	configLock.Unlock()
+
+	// Test GET
+	req := httptest.NewRequest("GET", "/api/client/alias", nil)
+	rr := httptest.NewRecorder()
+	handleClientAlias(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("GET: expected 200, got %v", rr.Code)
+	}
+	var aliases map[string]string
+	json.NewDecoder(rr.Body).Decode(&aliases)
+	if aliases["1.1.1.1"] != "Cloudflare" {
+		t.Errorf("GET: expected alias 'Cloudflare', got %q", aliases["1.1.1.1"])
+	}
+
+	// Test POST (Set)
+	body, _ := json.Marshal(map[string]string{"ip": "2.2.2.2", "alias": "Google"})
+	req = httptest.NewRequest("POST", "/api/client/alias", bytes.NewBuffer(body))
+	rr = httptest.NewRecorder()
+	handleClientAlias(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("POST set: expected 200, got %v", rr.Code)
+	}
+	if config.ClientAliases["2.2.2.2"] != "Google" {
+		t.Errorf("POST set: expected alias 'Google', got %q", config.ClientAliases["2.2.2.2"])
+	}
+
+	// Test POST (Delete)
+	body, _ = json.Marshal(map[string]string{"ip": "1.1.1.1", "alias": ""})
+	req = httptest.NewRequest("POST", "/api/client/alias", bytes.NewBuffer(body))
+	rr = httptest.NewRecorder()
+	handleClientAlias(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("POST delete: expected 200, got %v", rr.Code)
+	}
+	if _, ok := config.ClientAliases["1.1.1.1"]; ok {
+		t.Error("POST delete: alias should have been removed")
+	}
+}
