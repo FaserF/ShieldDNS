@@ -128,13 +128,17 @@ jobs:
               const browser = await chromium.launch();
               const page = await browser.newPage();
               const viewports = [{ width: 320, height: 568 }, { width: 375, height: 667 }, { width: 1200, height: 800 }];
+              
+              console.log('Navigating to Admin UI...');
+              // Navigate once at the beginning
+              await page.goto('http://localhost:8080/admin/index.html', { waitUntil: 'load', timeout: 60000 });
+              
               let failed = false;
               for (const vp of viewports) {
                   console.log(`Checking viewport: ${vp.width}x${vp.height}`);
                   await page.setViewportSize(vp);
-                  // Append ?test=1 to load dev tools, though we can skip if we verify overflow directly
-                  await page.goto('http://localhost:8080/admin/index.html');
-                  await page.waitForLoadState('networkidle');
+                  // Brief settle time for responsive layout to adjust
+                  await new Promise(r => setTimeout(r, 500));
                   
                   const isOverflowing = await page.evaluate(() => {
                       return document.documentElement.scrollWidth > document.documentElement.clientWidth;
