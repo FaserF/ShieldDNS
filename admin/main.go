@@ -159,7 +159,13 @@ func main() {
 			if strings.Contains(host, ":") {
 				host = strings.Split(host, ":")[0]
 			}
-			tmpl.Execute(w, struct{ Host string }{Host: host})
+			configLock.RLock()
+			signEnabled := config.SignMobileConfig
+			configLock.RUnlock()
+			tmpl.Execute(w, struct {
+				Host        string
+				SignEnabled bool
+			}{Host: host, SignEnabled: signEnabled})
 			return
 		}
 

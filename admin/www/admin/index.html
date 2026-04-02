@@ -123,6 +123,9 @@
                                 </div>
                             </div>
                         </div>
+                        <div id="android-settings-shortcut" class="hidden" style="margin-top: 16px;">
+                            <a href="intent:#Intent;action=android.settings.PRIVATE_DNS_SETTINGS;end" class="btn primary full-width" style="background: #10b981; text-align: center; text-decoration: none; display: block; border-radius: 8px; padding: 12px; font-weight: 600; color: white;">Open Private DNS Settings (Android 10+)</a>
+                        </div>
                     </div>
 
                     <div class="stats-grid">
@@ -1248,6 +1251,13 @@
                     .then(reg => console.log('Service Worker registered', reg))
                     .catch(err => console.error('Service Worker registration failed', err));
             });
+        }
+    </script>
+    <script>
+        // Detection for Android shortcut in Dashboard
+        if (/Android/i.test(navigator.userAgent)) {
+            const androidShortcut = document.getElementById('android-settings-shortcut');
+            if (androidShortcut) androidShortcut.classList.remove('hidden');
         }
     </script>
 </body>

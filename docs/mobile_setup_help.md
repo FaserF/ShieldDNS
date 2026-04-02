@@ -7,7 +7,10 @@ This guide provides detailed instructions and addresses common questions for set
 When you download the ShieldDNS configuration profile on iOS, you might see a warning that the profile is **"Not Signed"**.
 
 ### Why is it not signed?
-To provide you with a personalized experience, ShieldDNS generates this configuration profile **on the fly** for your specific domain name. Signing a profile requires a certificate from a trusted authority (like Apple), which is not feasible for dynamically generated local profiles since each installation uses a different domain.
+To provide you with a personalized experience, ShieldDNS generates this configuration profile **on the fly** for your specific domain name. Signing a profile requires a certificate from a trusted authority (like Apple). 
+
+> [!TIP]
+> **Verified Profiles**: If your ShieldDNS administrator has enabled **"Signed Mobile Profiles"** in the settings, the profile will be signed with the server's SSL certificate. In this case, your device will show a **"Verified"** (Green Checkmark) status during installation instead of a warning.
 
 ### Is it safe?
 **Yes.** Since you are the owner of this ShieldDNS server (or trust its administrator), it is perfectly safe to install. This profile only contains the DNS settings (DoT - DNS over TLS) to point your device to this server. It does not install any other software or monitor your other traffic.

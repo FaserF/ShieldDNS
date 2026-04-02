@@ -287,12 +287,15 @@
                     <strong>1.</strong> Settings &rarr; <strong>2.</strong> Network &rarr; <strong>3.</strong> Private DNS &rarr; <strong>4.</strong> Hostname<br>
                     <em>Note: For ultra-fast <strong>DNS-over-QUIC</strong>, use [Google Intra] or [AdGuard] with <code>quic://{{.Host}}:853</code>.</em>
                 </p>
-                <div class="qr-section" id="android-qr-section">
-                    <img src="/api/qr?data={{.Host}}" alt="QR Code for {{.Host}}" width="120" height="120" style="border-radius: 8px; background: #fff; padding: 6px;">
+                <div class="qr-section" id="android-qr-section" style="margin-bottom: 12px;">
+                    <img src="/api/qr?data=https://{{.Host}}" alt="QR Code for {{.Host}}" width="120" height="120" style="border-radius: 8px; background: #fff; padding: 6px;">
                     <div class="qr-label">
                         <strong>Quick Setup via QR Code</strong><br>
-                        Scan this QR code with your Android camera to copy the hostname for Private DNS.
+                        Scan this QR code with your Android phone to open this guide directly and access the settings shortcut.
                     </div>
+                </div>
+                <div id="android-settings-shortcut" class="hidden" style="margin-bottom: 20px;">
+                    <a href="intent:#Intent;action=android.settings.PRIVATE_DNS_SETTINGS;end" class="btn-download" style="background: #10b981; width: 100%; text-align: center; margin-top: 0;">Open Private DNS Settings (Android 10+)</a>
                 </div>
             </div>
             <div class="setup-item">
@@ -302,9 +305,18 @@
                     <strong>1.</strong> Download &rarr; <strong>2.</strong> Settings &rarr; <strong>3.</strong> Profile Downloaded &rarr; <strong>4.</strong> Install<br>
                     <em>Note: iOS 17+ users can enable <strong>native DNS-over-QUIC</strong> in Settings after installation.</em>
                 </p>
+                {{if not .SignEnabled}}
                 <p style="font-size:0.7rem; color: #ef4444; margin-top: 6px; opacity: 0.8;">
                     * You can safely ignore the "Not Signed" warning.
                 </p>
+                {{end}}
+                <div class="qr-section" id="ios-qr-section">
+                    <img src="/api/qr?data=https://{{.Host}}/api/mobileconfig" alt="iOS QR Setup" width="120" height="120" style="border-radius: 8px; background: #fff; padding: 6px;">
+                    <div class="qr-label">
+                        <strong>Quick Setup via QR Code</strong><br>
+                        Scan this QR code with your iPhone or iPad camera to start the profile installation automatically.
+                    </div>
+                </div>
             </div>
 
             <details style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px;">
@@ -319,7 +331,7 @@
                         <strong>1.</strong> Click the <strong>Download Config Profile</strong> button above.<br>
                         <strong>2.</strong> Open <strong>System Settings &rarr; Privacy &amp; Security &rarr; Profiles</strong>.<br>
                         <strong>3.</strong> Double-click the downloaded ShieldDNS profile and click <strong>Install</strong>.<br>
-                        <em>Note: The "Not Signed" warning is normal for auto-generated profiles.</em>
+                        {{if not .SignEnabled}}<em>Note: The "Not Signed" warning is normal for auto-generated profiles.</em>{{end}}
                     </p>
 
                     <h3 style="color: var(--text-primary); margin-bottom: 8px; font-size: 0.95rem;">Windows 11 (Native DoH)</h3>
@@ -368,6 +380,12 @@
     </div>
 
     <script>
+        // Detection for Android shortcut
+        if (/Android/i.test(navigator.userAgent)) {
+            const androidShortcut = document.getElementById('android-settings-shortcut');
+            if (androidShortcut) androidShortcut.classList.remove('hidden');
+        }
+
         document.querySelectorAll('.copy-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const text = this.dataset.copy;
