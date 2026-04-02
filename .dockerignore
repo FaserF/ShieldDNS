@@ -1,0 +1,43 @@
+# Version Control
+.git
+.github
+.gitignore
+.dockerignore
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Testing & CI
+tests/
+# UI Test scripts (excluded from production image)
+admin/www/admin/mobile_test.js
+admin/www/admin/layout_test.js
+
+# Go Build Output
+admin/shielddns-admin
+admin/*.exe
+admin/*.test
+admin/shielddns-admin-test.exe
+admin/shielddns_test.exe
+admin/test_build.exe
+
+# Go Test Source
+admin/*_test.go
+
+# Temp Files & Logs
+admin/*.txt
+admin/*.log
+admin/log.txt
+admin/build_err.txt
+
+# OS Specific
+.DS_Store
+Thumbs.db
+
+# Dev Environment
+node_modules/
+npm-debug.log
+.vscode/
+.idea/

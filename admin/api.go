@@ -375,7 +375,7 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	saveConfigNoLock()
-	go updateBlocklist(nil) // Process rule changes asynchronously
+	reloadRulesFast()
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -424,7 +424,7 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	saveConfigNoLock()
-	go updateBlocklist(nil) // Process rule changes asynchronously
+	reloadRulesFast()
 
 	w.WriteHeader(http.StatusOK)
 }

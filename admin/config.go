@@ -49,7 +49,7 @@ func loadConfig() {
 		ServeStale:                 true,
 		DNSSECEnabled:              true,
 		SignMobileConfig:           true,
-		CustomMappings:             map[string]string{"fritz.box": "192.168.178.1"},
+		CustomMappings:             map[string]string{"fritz.box": "192.168.178.1", "openwrt.lan": "192.168.1.1", "router.miwifi.com": "192.168.31.1"},
 	}
 
 	// 2. Load from file if exists
@@ -192,7 +192,6 @@ func updateBlocklist(cfg *Config) {
 	blockPageIP := cfg.BlockPageIP
 
 	newBlockAttribution := make(map[string][]string)
-	blockDomains := make(map[string]struct{})
 	allowDomains := make(map[string]struct{})
 
 	for i := range blocklists {
@@ -245,73 +244,109 @@ func updateBlocklist(cfg *Config) {
 		allowDomains[d] = struct{}{}
 	}
 
+	saveConfig()
+	applyCurrentRules(newBlockAttribution, allowDomains, customMappings, blockPageIP)
+}
+
+func applyCurrentRules(attribution map[string][]string, allowSet map[string]struct{}, mappings map[string]string, blockIP string) {
 	// Remove allowlisted domains from attribution and populate blockDomains for .hosts file
-	for d := range allowDomains {
-		delete(newBlockAttribution, d)
+	blockDomains := make(map[string]struct{})
+	for d := range allowSet {
+		delete(attribution, d)
 	}
 
 	// Always enforce blocking for the built-in test domain regardless of allowlists
-	newBlockAttribution["shielddns-maleware.test"] = []string{"ShieldDNS Built-in Test Domain"}
+	attribution["shielddns-maleware.test"] = []string{"ShieldDNS Built-in Test Domain"}
 
-	for d := range newBlockAttribution {
+	for d := range attribution {
 		blockDomains[d] = struct{}{}
 	}
 
 	// Update global attribution map
 	blockAttributionLock.Lock()
-	blockAttribution = newBlockAttribution
+	blockAttribution = attribution
 	blockAttributionLock.Unlock()
 
-	// Write Combined Hosts File for CoreDNS (Must be ONE file)
+	// Write Combined Hosts File for CoreDNS
 	var combinedBuilder strings.Builder
 	combinedBuilder.WriteString("# ShieldDNS Combined Hosts File\n")
 	combinedBuilder.WriteString("# Generated at " + time.Now().Format(time.RFC3339) + "\n\n")
 
 	// 1. Custom Mappings (Highest Priority)
 	combinedBuilder.WriteString("# Custom Mappings\n")
-	for domain, ip := range customMappings {
+	for domain, ip := range mappings {
 		combinedBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
 	}
 
 	// 2. Blocklist
 	combinedBuilder.WriteString("\n# Blocked Domains\n")
-	ip := blockPageIP
-	if ip == "" {
-		ip = "127.0.0.1"
+	if blockIP == "" {
+		blockIP = "127.0.0.1"
 	}
 	for domain := range blockDomains {
-		combinedBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
+		combinedBuilder.WriteString(fmt.Sprintf("%s %s\n", blockIP, domain))
 	}
 
 	os.MkdirAll(filepath.Dir(CombinedHostsPath), 0755)
-	if err := os.WriteFile(CombinedHostsPath, []byte(combinedBuilder.String()), 0644); err != nil {
-		log.Printf("⚠️ ERROR: Failed to write combined hosts to %s: %v", CombinedHostsPath, err)
-	}
+	os.WriteFile(CombinedHostsPath, []byte(combinedBuilder.String()), 0644)
+	os.WriteFile(BlocklistPath, []byte(combinedBuilder.String()), 0644)
 
-	// Also write individual files for backward compatibility/UI if needed
-	os.WriteFile(BlocklistPath, []byte(combinedBuilder.String()), 0644) // Reuse builder for simplicity or split if needed
-
-	// Write Allowlist for CoreDNS explicitly (optional but good for tracking)
+	// Write Allowlist for tracking
 	var allowBuilder strings.Builder
-	for domain := range allowDomains {
+	for domain := range allowSet {
 		allowBuilder.WriteString(fmt.Sprintf("127.0.0.1 %s\n", domain))
 	}
 	os.WriteFile(AllowlistPath, []byte(allowBuilder.String()), 0644)
 
 	// Write Custom Mappings separately too
 	var mappingsBuilder strings.Builder
-	for domain, ip := range customMappings {
+	for domain, ip := range mappings {
 		mappingsBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
 	}
 	os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
 
-	log.Printf("Blocklist updated with %d domains. Combined hosts written to %s", len(blockDomains), CombinedHostsPath)
-
-	// Persist the metadata (Entries and UpdatedAt)
-	saveConfig()
-
-	// Restart CoreDNS to flush cache and enforce new rules immediately
+	log.Printf("Rules updated. Combined hosts written to %s. Restarting CoreDNS...", CombinedHostsPath)
 	restartCoreDNS()
+}
+
+func reloadRulesFast() {
+	configLock.RLock()
+	cfg := config.Clone()
+	configLock.RUnlock()
+
+	// We start with a copy of current attribution IF it exists, otherwise full update required
+	blockAttributionLock.RLock()
+	if blockAttribution == nil {
+		blockAttributionLock.RUnlock()
+		go updateBlocklist(nil)
+		return
+	}
+
+	// Filter out existing "Custom Blocklist" entries as we will re-apply them from current config
+	newAttribution := make(map[string][]string)
+	for d, lists := range blockAttribution {
+		var filtered []string
+		for _, l := range lists {
+			if l != "Custom Blocklist" && l != "ShieldDNS Built-in Test Domain" {
+				filtered = append(filtered, l)
+			}
+		}
+		if len(filtered) > 0 {
+			newAttribution[d] = filtered
+		}
+	}
+	blockAttributionLock.RUnlock()
+
+	allowDomains := make(map[string]struct{})
+	// RE-APPLY CURRENT CUSTOM RULES
+	for _, d := range cfg.CustomBlocked {
+		newAttribution[d] = append(newAttribution[d], "Custom Blocklist")
+	}
+	for _, d := range cfg.CustomAllowed {
+		allowDomains[d] = struct{}{}
+	}
+
+	applyCurrentRules(newAttribution, allowDomains, cfg.CustomMappings, cfg.BlockPageIP)
 }
 
 func processList(list *List, blockMap map[string][]string, allowMap map[string]struct{}) {

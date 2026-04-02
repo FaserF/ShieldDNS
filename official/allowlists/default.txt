@@ -4,3 +4,10 @@
 @@||gstatic.com^
 @@||googleusercontent.com^
 @@||googleapis.com^
+@@||us-central1-gcp.api.snapchat.com^
+@@||gcp.api.snapchat.com^
+@@||app-analytics-v2.snapchat.com^
+@@||usc1-gcp-v62.api.snapchat.com^
+@@||us-east1-aws.api.snapchat.com^
+@@||api.github.com^
+@@||emmikochteinfach.de^

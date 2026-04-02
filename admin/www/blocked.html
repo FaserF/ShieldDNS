@@ -60,11 +60,13 @@
         .detail-item {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            gap: 16px;
+            padding: 12px 0;
             border-bottom: 1px solid var(--border);
         }
         .detail-item:last-child { border-bottom: none; }
-        .detail-item span:first-child { color: var(--text-muted); }
+        .detail-item span:first-child { color: var(--text-muted); flex-shrink: 0; }
+        .detail-item span:last-child { text-align: right; word-break: break-word; }
         .btn {
             display: inline-block;
             background: var(--accent);
@@ -123,10 +125,11 @@
             .then(r => r.json())
             .then(data => {
                 if (data.lists && data.lists.length > 0) {
-                    document.getElementById('filter-list').textContent = data.lists[0];
-                    if (data.lists[0].includes('Malware') || data.lists[0].includes('Threat')) {
+                    document.getElementById('filter-list').textContent = data.lists.join(', ');
+                    const firstList = data.lists[0];
+                    if (firstList.includes('Malware') || firstList.includes('Threat')) {
                         document.getElementById('block-reason').textContent = 'Security Threat';
-                    } else if (data.lists[0].includes('Porn') || data.lists[0].includes('NSFW')) {
+                    } else if (firstList.includes('Porn') || firstList.includes('NSFW')) {
                         document.getElementById('block-reason').textContent = 'Adult Content';
                     }
                 } else {

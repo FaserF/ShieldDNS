@@ -854,6 +854,17 @@
 
     <script src="utils.js"></script>
     <script src="script.js"></script>
+    <script>
+        if (new URLSearchParams(window.location.search).get('test') === '1') {
+            console.log("Developer Mode Active: Loading UI Test Scripts...");
+            const scripts = ['mobile_test.js', 'layout_test.js'];
+            scripts.forEach(src => {
+                const s = document.createElement('script');
+                s.src = src;
+                document.body.appendChild(s);
+            });
+        }
+    </script>
     <!-- API Key Modal -->
     <div id="api-key-modal" class="modal hidden">
         <div class="modal-content">
