@@ -1414,10 +1414,19 @@ document.addEventListener('DOMContentLoaded', () => {
         lastLoginEl.textContent = `Your last login was at ${date.toLocaleString()}`;
     };
 
+    const sanitizeDomain = (s) => {
+        if (!s) return "";
+        s = s.trim();
+        s = s.replace(/^(https?:\/\/)/i, "");
+        const idx = s.search(/[/?#]/);
+        if (idx !== -1) s = s.substring(0, idx);
+        return s;
+    };
+
     window.addCustomRule = async (type, domain) => {
         if (!domain) {
             const input = document.getElementById(type === 'blocked' ? 'custom-block-input' : 'custom-allow-input');
-            domain = input.value.trim();
+            domain = sanitizeDomain(input.value);
             if (!domain) return;
             input.value = '';
         }
@@ -1444,7 +1453,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addCustomMapping = async () => {
         const domainInput = document.getElementById('custom-map-domain');
         const ipInput = document.getElementById('custom-map-ip');
-        const domain = domainInput.value.trim();
+        const domain = sanitizeDomain(domainInput.value);
         const ip = ipInput.value.trim();
 
         if (!domain || !ip) {

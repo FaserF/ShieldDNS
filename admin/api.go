@@ -281,8 +281,10 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	domain := strings.TrimSpace(req.Domain)
 	domain = strings.TrimPrefix(domain, "http://")
 	domain = strings.TrimPrefix(domain, "https://")
-	if idx := strings.Index(domain, "/"); idx != -1 {
-		domain = domain[:idx]
+	for _, sep := range []string{"/", "?", "#"} {
+		if idx := strings.Index(domain, sep); idx != -1 {
+			domain = domain[:idx]
+		}
 	}
 	if domain == "" {
 		http.Error(w, "Domain required", http.StatusBadRequest)
@@ -1312,8 +1314,10 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			r = strings.TrimSpace(r)
 			r = strings.TrimPrefix(r, "http://")
 			r = strings.TrimPrefix(r, "https://")
-			if idx := strings.Index(r, "/"); idx != -1 {
-				r = r[:idx]
+			for _, sep := range []string{"/", "?", "#"} {
+				if idx := strings.Index(r, sep); idx != -1 {
+					r = r[:idx]
+				}
 			}
 			return r
 		}
