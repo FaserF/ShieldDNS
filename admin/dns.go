@@ -395,7 +395,20 @@ func updateCorefile() {
 	geoBlock := getGeoACLRules()
 	metadataPlugin := "    metadata"
 
-	corefile := fmt.Sprintf(`.:53 {
+	dnsPort := os.Getenv("DNS_PORT")
+	if dnsPort == "" {
+		dnsPort = "53"
+	}
+	dotPort := os.Getenv("DOT_PORT")
+	if dotPort == "" {
+		dotPort = "853"
+	}
+	internalDOHPort := os.Getenv("INTERNAL_DOH_PORT")
+	if internalDOHPort == "" {
+		internalDOHPort = "5553"
+	}
+
+	corefile := fmt.Sprintf(`.:%s {
     bind 0.0.0.0
     %s
     %s
@@ -419,7 +432,7 @@ func updateCorefile() {
 
 	// Repeat for TLS and HTTPS blocks
 	corefile += fmt.Sprintf(`
-tls://.:853 {
+tls://.:%s {
     bind 0.0.0.0
     tls %s %s
     %s
@@ -440,7 +453,7 @@ tls://.:853 {
     errors
 }
 
-https://.:5553 {
+https://.:%s {
     bind 0.0.0.0
     tls %s %s
     %s
@@ -461,7 +474,7 @@ https://.:5553 {
     errors
 }
 
-quic://.:853 {
+quic://.:%s {
     tls %s %s
     %s
     %s
@@ -480,7 +493,7 @@ quic://.:853 {
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
     errors
 }
-`, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
+`, dotPort, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, internalDOHPort, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, dotPort, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
 
 	os.WriteFile(CorefilePath, []byte(corefile), 0644)
 }
