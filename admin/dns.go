@@ -428,7 +428,7 @@ func updateCorefile() {
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
     errors
 }
-`, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
+`, dnsPort, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
 
 	// Repeat for TLS and HTTPS blocks
 	corefile += fmt.Sprintf(`
