@@ -7,12 +7,8 @@
     "docker:pinDigests",
     "helpers:pinGitHubActionDigests"
   ],
+  "automerge": true,
   "packageRules": [
-    {
-      "matchUpdateTypes": ["minor", "patch"],
-      "matchCurrentVersion": "!/^0\\./",
-      "automerge": true
-    },
     {
       "matchManagers": ["gomod"],
       "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
