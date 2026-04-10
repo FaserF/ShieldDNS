@@ -53,8 +53,10 @@ func syncCountryIPs(countryCode string) error {
 // combining both geo-blocked countries and manually blocked client IPs.
 func getGeoACLRules() string {
 	configLock.RLock()
-	countries := config.BlockedCountries
-	blockedClients := config.BlockedClients
+	countries := make([]string, len(config.BlockedCountries))
+	copy(countries, config.BlockedCountries)
+	blockedClients := make([]string, len(config.BlockedClients))
+	copy(blockedClients, config.BlockedClients)
 	configLock.RUnlock()
 
 	var rules []string

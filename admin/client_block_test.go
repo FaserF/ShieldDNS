@@ -32,12 +32,12 @@ func TestHandleClientBlock(t *testing.T) {
 			t.Errorf("GET: expected 200, got %v", rr.Code)
 		}
 
-		var clients []string
+		var clients map[string]BlockedClientInfo
 		if err := json.NewDecoder(rr.Body).Decode(&clients); err != nil {
 			t.Fatalf("GET: failed to decode response: %v", err)
 		}
-		if len(clients) != 1 || clients[0] != "10.0.0.5" {
-			t.Errorf("GET: expected [10.0.0.5], got %v", clients)
+		if len(clients) != 1 || clients["10.0.0.5"].Reason == "" {
+			t.Errorf("GET: expected map with [10.0.0.5], got %v", clients)
 		}
 	})
 

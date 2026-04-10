@@ -307,10 +307,12 @@ func TestSmartSorting(t *testing.T) {
 		tmpFile.Close()
 	}()
 
+	configLock.Lock()
 	config = Config{
 		Upstreams:          []string{"1.1.1.1", "8.8.8.8"},
 		UseFastestUpstream: true,
 	}
+	configLock.Unlock()
 	healthyUpstreams = []string{"1.1.1.1", "8.8.8.8"}
 
 	latencyLock.Lock()
