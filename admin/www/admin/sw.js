@@ -1,3 +1,4 @@
+/* jshint worker: true */
 const CACHE_NAME = 'shielddns-admin-v1';
 const ASSETS = [
     '/admin/',
@@ -9,6 +10,10 @@ const ASSETS = [
     '/logo.png',
     '/favicon.ico'
 ];
+
+/**
+ * ShieldDNS Service Worker
+ */
 
 // Install event - Cache static assets
 self.addEventListener('install', (event) => {

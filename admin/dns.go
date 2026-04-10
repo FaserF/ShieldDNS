@@ -168,10 +168,12 @@ func checkDNSOnce(addr string) bool {
 	}
 
 	resp := make([]byte, 512)
-	if _, err := conn.Read(resp); err != nil {
+	n, err := conn.Read(resp)
+	if err != nil || n < 2 {
 		return false
 	}
-	return true
+	// Verify Transaction ID (first 2 bytes)
+	return resp[0] == 0x12 && resp[1] == 0x34
 }
 
 func checkDoT(addr, serverName string) bool {

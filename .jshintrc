@@ -9,10 +9,10 @@
   "globals": {
     "Chart": false,
     "EventSource": false,
+    "caches": false,
     "showAlert": false,
     "showConfirm": false,
     "nextSetupStep": false,
-    "DNS_TYPE_COLORS": false,
     "applyRecommendedFilters": false,
     "addCustomRule": false,
     "showDomainDetails": false,

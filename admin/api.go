@@ -80,7 +80,10 @@ func hashToken(token string) string {
 
 func generateToken() string {
 	b := make([]byte, 32)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback for very rare cases if rand.Read fails
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
 	return fmt.Sprintf("%x", b)
 }
 
@@ -759,18 +762,19 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		client := &http.Client{Timeout: 2 * time.Second}
 		resp, err := client.Get("http://ip-api.com/json/" + ip)
 		if err == nil {
+			defer resp.Body.Close()
 			var geo struct {
 				Country     string `json:"country"`
 				CountryCode string `json:"countryCode"`
 				City        string `json:"city"`
 				Org         string `json:"org"`
 			}
-			json.NewDecoder(resp.Body).Decode(&geo)
-			resp.Body.Close()
-			info.Country = geo.Country
-			info.CountryCode = geo.CountryCode
-			info.City = geo.City
-			info.ISP = geo.Org
+			if err := json.NewDecoder(resp.Body).Decode(&geo); err == nil {
+				info.Country = geo.Country
+				info.CountryCode = geo.CountryCode
+				info.City = geo.City
+				info.ISP = geo.Org
+			}
 		}
 	}
 

@@ -177,6 +177,14 @@ header {
     height: 24px;
 }
 
+.mobile-logo.clickable:hover {
+    opacity: 0.8;
+}
+
+.mobile-logo.clickable:active {
+    transform: scale(0.98);
+}
+
 .sidebar-overlay {
     display: none;
     position: fixed;
@@ -220,6 +228,7 @@ header {
     .content {
         padding: 24px 16px;
         width: 100%;
+        overflow-x: hidden;
     }
 
     header {
@@ -229,7 +238,7 @@ header {
     }
 
     .stats-grid {
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
         gap: 12px;
     }
 

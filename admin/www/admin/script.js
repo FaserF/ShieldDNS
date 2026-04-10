@@ -640,10 +640,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update Full Query Log
             if (fullQueryLogItems) {
-                const fullRow = row.cloneNode(true);
-                fullQueryLogItems.prepend(fullRow);
-                if (fullQueryLogItems.children.length > 500) {
-                    fullQueryLogItems.lastElementChild.remove();
+                const searchInput = document.getElementById('query-search');
+                const filterStatus = document.getElementById('query-filter-status');
+                const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+                const statusFilter = filterStatus ? filterStatus.value : '';
+
+                const matchesSearch = !searchTerm || query.domain.toLowerCase().includes(searchTerm);
+                const matchesStatus = !statusFilter || query.status === statusFilter;
+
+                if (matchesSearch && matchesStatus) {
+                    const fullRow = row.cloneNode(true);
+                    fullQueryLogItems.prepend(fullRow);
+                    if (fullQueryLogItems.children.length > 500) {
+                        fullQueryLogItems.lastElementChild.remove();
+                    }
                 }
             }
         };
@@ -665,7 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data = [1];
         }
 
-        const bgColors = labels.map((l, i) => DNS_TYPE_COLORS[l] || `hsl(${(i * 137.5) % 360}, 70%, 50%)`);
+        const bgColors = labels.map((l, i) => (window.DNS_TYPE_COLORS || {})[l] || `hsl(${(i * 137.5) % 360}, 70%, 50%)`);
 
         if (typeChart) {
             typeChart.data.labels = labels;
@@ -844,40 +854,44 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Navigation logic
+    const handleViewSwitch = (targetView, e) => {
+        if (!targetView) return;
+        if (e) e.preventDefault();
+
+        navItems.forEach(i => i.classList.remove('active'));
+        const activeNav = Array.from(navItems).find(i => i.dataset.view === targetView);
+        if (activeNav) activeNav.classList.add('active');
+        
+        views.forEach(v => v.classList.add('hidden'));
+        const viewEl = document.getElementById(targetView);
+        if (viewEl) viewEl.classList.remove('hidden');
+
+        if (targetView === 'queries') fetchQueries();
+        else if (targetView === 'analytics') fetchAnalytics();
+        else if (targetView === 'system-logs') startSystemLogStream();
+        else if (targetView === 'diagnostics') {
+            fetchDiagnostics();
+            startDiagTimer();
+        }
+        else if (targetView === 'lists') { fetchPresets(); fetchAllowlistPresets(); }
+        else if (targetView === 'settings') fetchConfig();
+        else if (targetView === 'about') fetchStats();
+        
+        if (targetView !== 'diagnostics') stopDiagTimer();
+        if (targetView !== 'system-logs') stopSystemLogStream();
+
+        // Auto-close sidebar on mobile after selection
+        if (sidebar.classList.contains('open')) {
+            toggleSidebar();
+        }
+    };
+
     navItems.forEach(item => {
-        item.addEventListener('click', (e) => {
-            const targetView = item.dataset.view;
-            if (!targetView) return;
-
-            e.preventDefault();
-
-            navItems.forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-            
-            views.forEach(v => v.classList.add('hidden'));
-            const viewEl = document.getElementById(targetView);
-            if (viewEl) viewEl.classList.remove('hidden');
-
-            if (targetView === 'queries') fetchQueries();
-            else if (targetView === 'analytics') fetchAnalytics();
-            else if (targetView === 'system-logs') startSystemLogStream();
-            else if (targetView === 'diagnostics') {
-                fetchDiagnostics();
-                startDiagTimer();
-            }
-            else if (targetView === 'lists') { fetchPresets(); fetchAllowlistPresets(); }
-            else if (targetView === 'settings') fetchConfig();
-            else if (targetView === 'about') fetchStats();
-            
-            if (targetView !== 'diagnostics') stopDiagTimer();
-            if (targetView !== 'system-logs') stopSystemLogStream();
-
-            // Auto-close sidebar on mobile after selection
-            if (sidebar.classList.contains('open')) {
-                toggleSidebar();
-            }
-        });
+        item.addEventListener('click', (e) => handleViewSwitch(item.dataset.view, e));
     });
+
+    const mobileLogoTrigger = document.getElementById('mobile-logo-trigger');
+    mobileLogoTrigger?.addEventListener('click', (e) => handleViewSwitch('dashboard', e));
 
     let diagnosticsInterval;
     const startDiagTimer = () => {
