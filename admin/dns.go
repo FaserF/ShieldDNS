@@ -713,6 +713,28 @@ func parseLogLine(line string) {
 	_, isBlocked := blockAttribution[qDomain]
 	blockAttributionLock.RUnlock()
 
+	status := "Allowed"
+	if isBlocked {
+		status = "Blocked"
+	}
+
+	// ACL / Client / Geo Blocking check
+	// CoreDNS acl plugin returns REFUSED for blocked clients/CIDRs
+	if rcode == "REFUSED" {
+		isBlocked = true
+		status = "Blocked (Geo Block)"
+
+		// Check if it was a specifically blocked client IP
+		configLock.RLock()
+		for _, bip := range config.BlockedClients {
+			if bip == clientIP {
+				status = "Blocked (Client IP)"
+				break
+			}
+		}
+		configLock.RUnlock()
+	}
+
 	isCacheHit := !isBlocked && duration < 5.0
 
 	// Update memory stats for real-time dashboard
@@ -739,11 +761,6 @@ func parseLogLine(line string) {
 	}
 	stats.QueryTypes[qType]++
 	statsLock.Unlock()
-
-	status := "Allowed"
-	if isBlocked {
-		status = "Blocked"
-	}
 
 	configLock.RLock()
 	alias := config.ClientAliases[clientIP]
