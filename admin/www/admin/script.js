@@ -550,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchQueries = async () => {
         const searchInput = document.getElementById('query-search');
         const filterStatus = document.getElementById('query-filter-status');
-        const search = searchInput ? searchInput.value : '';
+        const search = searchInput ? searchInput.value.trim() : '';
         const status = filterStatus ? filterStatus.value : '';
 
         try {
@@ -642,10 +642,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fullQueryLogItems) {
                 const searchInput = document.getElementById('query-search');
                 const filterStatus = document.getElementById('query-filter-status');
-                const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+                
+                // Always trim the search term to avoid missing matches due to trailing spaces
+                const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
                 const statusFilter = filterStatus ? filterStatus.value : '';
 
-                const matchesSearch = !searchTerm || query.domain.toLowerCase().includes(searchTerm);
+                // Defensive domain check
+                const domain = (query.domain || '').toLowerCase();
+                const matchesSearch = !searchTerm || domain.includes(searchTerm);
                 const matchesStatus = !statusFilter || query.status === statusFilter;
 
                 if (matchesSearch && matchesStatus) {
