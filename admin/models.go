@@ -33,6 +33,7 @@ type Config struct {
 	SignMobileConfig           bool              `json:"sign_mobileconfig"`
 	DebugMode                  bool              `json:"debug_mode"`
 	LastLogin                  time.Time         `json:"last_login"`
+	PreviousLogin              time.Time         `json:"previous_login"`
 }
 
 type APIKey struct {

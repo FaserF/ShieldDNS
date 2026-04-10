@@ -1417,12 +1417,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderLastLogin = () => {
         const lastLoginEl = document.getElementById('dashboard-last-login');
-        if (!lastLoginEl || !currentConfig.last_login) {
+        // Show the *previous* login (the one before the current session),
+        // since last_login is always "just now" and not useful.
+        if (!lastLoginEl || !currentConfig.previous_login) {
             if (lastLoginEl) lastLoginEl.style.display = 'none';
             return;
         }
 
-        const date = new Date(currentConfig.last_login);
+        const date = new Date(currentConfig.previous_login);
         if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
             lastLoginEl.style.display = 'none';
             return;

@@ -232,8 +232,11 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	// Record last login
+	// Record last login: shift current LastLogin to PreviousLogin, then update
 	configLock.Lock()
+	if !config.LastLogin.IsZero() {
+		config.PreviousLogin = config.LastLogin
+	}
 	config.LastLogin = time.Now()
 	saveConfigNoLock()
 	configLock.Unlock()
