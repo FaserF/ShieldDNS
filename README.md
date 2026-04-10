@@ -203,7 +203,7 @@ The engine uses sliding-window tracking in-memory (cleaned up efficiently via ba
 1. **Domain Flood**: A single client requests the exact same domain ≥ 120 times in 60 seconds (`auto:domain_flood`).
 2. **Rate Limit**: A single client requests ≥ 1000 total DNS queries in 60 seconds (`auto:rate_limit`).
 3. **NXDOMAIN Flood (DGA Bots)**: A client triggers ≥ 300 NXDOMAIN (Domain Not Found) responses in 60 seconds, indicative of malware searching for randomized domains (`auto:nxdomain_flood`).
-4. **TLD Scan**: A client heavily queries a single uncommon Top Level Domain (e.g., ≥ 100 requests in 5 minutes, representing ≥ 90% of their total traffic) (`auto:tld_scan`).
+4. **TLD Scan**: A client heavily queries a single uncommon Top Level Domain (e.g., ≥ 1000 requests in 5 minutes, representing ≥ 90% of their total traffic) (`auto:tld_scan`).
 
 When a threshold is exceeded, the client IP is instantly blocked, and a warning badge (e.g., `Automatically blocked: auto:domain_flood`) will appear in the **Client Details** UI. 
 

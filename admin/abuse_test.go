@@ -79,10 +79,11 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 	abuseMu.Unlock()
 
 	ip := "5.5.5.5"
-	domain := "random-dga-domain.com"
 	
 	// Send 299 queries (threshold is 300)
 	for i := 0; i < 299; i++ {
+		// Use unique domains to avoid triggering Single Domain Flood logic (120 queries/domain)
+		domain := fmt.Sprintf("random-dga-%d.com", i)
 		analyzeQuery(ip, domain, "NXDOMAIN")
 	}
 
@@ -93,7 +94,7 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 	configLock.RUnlock()
 
 	// 300th query should trigger block
-	analyzeQuery(ip, domain, "NXDOMAIN")
+	analyzeQuery(ip, "random-dga-300.com", "NXDOMAIN")
 	time.Sleep(10 * time.Millisecond)
 
 	configLock.RLock()

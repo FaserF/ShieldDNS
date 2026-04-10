@@ -25,17 +25,17 @@ func analyzeQuery(clientIP, domain, status string) {
 	configLock.RLock()
 	enabled := config.AbuseDetectionEnabled
 	disabledList := config.BlockedClients
-	configLock.RUnlock()
-
-	if !enabled {
-		return
-	}
-
-	// Do not analyze if client is already blocked
+	isBlocked := false
 	for _, blockedIP := range disabledList {
 		if blockedIP == clientIP {
-			return
+			isBlocked = true
+			break
 		}
+	}
+	configLock.RUnlock()
+
+	if !enabled || isBlocked {
+		return
 	}
 
 	now := time.Now()
@@ -78,7 +78,7 @@ func analyzeQuery(clientIP, domain, status string) {
 		}
 	}
 
-	// --- 4. Special TLD Scan (>= 100 queries targeting one TLD, and that TLD covers >= 90% of total queries in 5 min) ---
+	// --- 4. Special TLD Scan (>= 1000 queries targeting one TLD, and that TLD covers >= 90% of total queries in 5 min) ---
 	tld := extractTLD(domain)
 	if tld != "" {
 		counters.tldCounts[tld] = append(counters.tldCounts[tld], now)
@@ -91,7 +91,7 @@ func analyzeQuery(clientIP, domain, status string) {
 			total5m += len(times)
 		}
 		
-		if len(counters.tldCounts[tld]) >= 100 && float64(len(counters.tldCounts[tld]))/float64(total5m) >= 0.90 {
+		if len(counters.tldCounts[tld]) >= 1000 && float64(len(counters.tldCounts[tld]))/float64(total5m) >= 0.90 {
 			go blockClientAuto(clientIP, "auto:tld_scan")
 			return
 		}
