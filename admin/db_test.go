@@ -1,3 +1,5 @@
+// Category: Database Tests
+// Tests for SQLite database migration and initialization handling.
 package main
 
 import (

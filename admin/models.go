@@ -28,13 +28,21 @@ type Config struct {
 	DiagnosticsRefreshInterval int               `json:"diagnostics_refresh_interval"`
 	ServeStale                 bool              `json:"serve_stale"`
 	DNSSECEnabled              bool              `json:"dnssec_enabled"`
-	BlockedCountries           []string          `json:"blocked_countries"`
-	BlockedClients             []string          `json:"blocked_clients"`
-	ClientAliases              map[string]string `json:"client_aliases"`
+	BlockedCountries           []string                     `json:"blocked_countries"`
+	BlockedClients             []string                     `json:"blocked_clients"`
+	BlockedClientsInfo         map[string]BlockedClientInfo `json:"blocked_clients_info"`
+	AbuseDetectionEnabled      bool                         `json:"abuse_detection_enabled"`
+	ClientAliases              map[string]string            `json:"client_aliases"`
 	SignMobileConfig           bool              `json:"sign_mobileconfig"`
 	DebugMode                  bool              `json:"debug_mode"`
 	LastLogin                  time.Time         `json:"last_login"`
 	PreviousLogin              time.Time         `json:"previous_login"`
+}
+
+type BlockedClientInfo struct {
+	Reason    string    `json:"reason"`
+	BlockedAt time.Time `json:"blocked_at"`
+	Auto      bool      `json:"auto"`
 }
 
 type APIKey struct {
@@ -209,6 +217,12 @@ func (c *Config) Clone() *Config {
 		newCfg.CustomMappings = make(map[string]string)
 		for k, v := range c.CustomMappings {
 			newCfg.CustomMappings[k] = v
+		}
+	}
+	if c.BlockedClientsInfo != nil {
+		newCfg.BlockedClientsInfo = make(map[string]BlockedClientInfo)
+		for k, v := range c.BlockedClientsInfo {
+			newCfg.BlockedClientsInfo[k] = v
 		}
 	}
 	if c.ClientAliases != nil {

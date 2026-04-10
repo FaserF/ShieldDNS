@@ -32,6 +32,7 @@ func main() {
 	go startHealthChecker()
 	go startDBWorker()
 	go startLogWorker()
+	go startAbuseCleanup()
 
 	// Ensure Corefile is generated with correct settings before starting CoreDNS
 	updateCorefile()

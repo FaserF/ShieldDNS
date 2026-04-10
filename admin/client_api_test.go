@@ -1,3 +1,5 @@
+// Category: Client API Tests
+// Tests for querying client-specific statistics and top domains from the database.
 package main
 
 import (

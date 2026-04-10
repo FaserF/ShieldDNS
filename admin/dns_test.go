@@ -1,3 +1,6 @@
+// Category: DNS Log Parser Tests
+// Tests for CoreDNS log parsing logic, including structured and default format
+// parsing, SSE broadcasting, and block attribution.
 package main
 
 import (

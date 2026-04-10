@@ -1306,6 +1306,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if len(newConfig.BlockedClients) == 0 && len(config.BlockedClients) > 0 {
 			newConfig.BlockedClients = config.BlockedClients
 		}
+		if newConfig.BlockedClientsInfo == nil && config.BlockedClientsInfo != nil {
+			newConfig.BlockedClientsInfo = config.BlockedClientsInfo
+		}
 		if newConfig.ClientAliases == nil && config.ClientAliases != nil {
 			newConfig.ClientAliases = config.ClientAliases
 		}
@@ -1743,11 +1746,23 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 		configLock.RLock()
 		defer configLock.RUnlock()
 		w.Header().Set("Content-Type", "application/json")
-		clients := config.BlockedClients
-		if clients == nil {
-			clients = []string{}
+		
+		info := config.BlockedClientsInfo
+		if info == nil {
+			info = make(map[string]BlockedClientInfo)
+			// Retrofit any clients in BlockedClients that don't have info
+			for _, ip := range config.BlockedClients {
+				info[ip] = BlockedClientInfo{Reason: "manual", BlockedAt: time.Now(), Auto: false}
+			}
+		} else {
+			// Ensure all blocked clients are represented
+			for _, ip := range config.BlockedClients {
+				if _, ok := info[ip]; !ok {
+					info[ip] = BlockedClientInfo{Reason: "manual", BlockedAt: time.Now(), Auto: false}
+				}
+			}
 		}
-		json.NewEncoder(w).Encode(clients)
+		json.NewEncoder(w).Encode(info)
 		return
 	}
 
@@ -1784,6 +1799,14 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 			if !found {
 				config.BlockedClients = append(config.BlockedClients, ip)
 			}
+			if config.BlockedClientsInfo == nil {
+				config.BlockedClientsInfo = make(map[string]BlockedClientInfo)
+			}
+			config.BlockedClientsInfo[ip] = BlockedClientInfo{
+				Reason:    "manual",
+				BlockedAt: time.Now(),
+				Auto:      false,
+			}
 		} else {
 			// Remove the IP
 			updated := config.BlockedClients[:0]
@@ -1793,6 +1816,9 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			config.BlockedClients = updated
+			if config.BlockedClientsInfo != nil {
+				delete(config.BlockedClientsInfo, ip)
+			}
 		}
 
 		saveConfigNoLock()

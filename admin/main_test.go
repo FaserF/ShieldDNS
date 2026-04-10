@@ -1,3 +1,6 @@
+// Category: Main Setup + Stats Tests
+// Foundational tests including test harness bootstrapping (TestMain),
+// search APIs, stats processing, corefile generation, and generic utilities.
 package main
 
 import (

@@ -1,3 +1,6 @@
+// Category: API Handler Tests
+// Tests for HTTP handler functions: auth middleware, config API, rules API,
+// client alias management, QR code generation and restore endpoints.
 package main
 
 import (

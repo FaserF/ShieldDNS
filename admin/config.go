@@ -49,6 +49,7 @@ func loadConfig() {
 		ServeStale:                 true,
 		DNSSECEnabled:              true,
 		SignMobileConfig:           true,
+		AbuseDetectionEnabled:      true,
 		CustomMappings:             map[string]string{"fritz.box": "192.168.178.1", "openwrt.lan": "192.168.1.1", "router.miwifi.com": "192.168.31.1"},
 	}
 

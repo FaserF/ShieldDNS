@@ -22,8 +22,9 @@ It features a premium **Admin Dashboard** with persistent SQLite-backed analytic
 - 🔄 **Config Backup & Restore**: One-click backup download and in-browser JSON configuration restore.
 - ⚡ **1-Click Allow / Block**: Directly allow or block any domain from the live Query Log table.
 - 🔍 **Client IP Diagnostics**: Clickable Client IPs in logs with detailed GeoIP, Reverse DNS, and history preview.
-- 🚫 **Client IP Blocking**: Block any client IP from using your DNS server directly from the Client Details view — no config file editing required.
-- 🧹 **Optimized Default Lists**: Ships with a single, curated default (HaGeZi Multi Normal) for maximum protection with minimal RAM usage on any hardware — including Raspberry Pi.
+- 🚫 **Client IP Blocking**: Block any client IP from using your DNS server directly from the Client Details view.
+- 🤖 **Abuse Detection Engine**: Automatically detects and blocks clients exhibiting malicious behaviors (e.g., Domain Floods, Rate Limit abuse, NXDOMAIN floods by DGA bots).
+- 🧹 **Optimized Default Lists**: Ships with a single, curated default (HaGeZi Multi Normal) for maximum protection with minimal RAM usage on any hardware.
 
 ## ❤️ Support This Project
 
@@ -188,25 +189,25 @@ ShieldDNS allows you to permanently block any individual client IP address from 
 
 **Technical details:**
 - Blocked IPs are stored in `config.json` under `blocked_clients` and survive container restarts.
-- Enforcement is handled by CoreDNS's built-in `acl` plugin using `block net <IP>` directives — the same mechanism used for country/geo blocking.
-- Multiple blocked IPs are combined into a single ACL block, so there is no performance penalty for blocking many clients.
+- The `blocked_clients_info` field tracks the exact timestamp and context (e.g., manual vs auto-blocked).
+- Enforcement is handled by CoreDNS's built-in `acl` plugin using `block net <IP>` directives.
+- Multiple blocked IPs are combined into a single ACL block, so there is no performance penalty.
 - Blocking is applied across all protocols simultaneously (DNS/TCP, DoT, DoH, DoQ).
 
-**API:**
-```http
-# List all currently blocked client IPs
-GET /api/client/block
+### 🤖 Abuse Detection Engine (Auto-Blocking)
 
-# Block a client IP
-POST /api/client/block
-Content-Type: application/json
-{ "ip": "192.168.1.100", "action": "block" }
+ShieldDNS monitors traffic in real-time to detect anomalous patterns and automatically blocks misbehaving clients or bots. This protects your DNS server from being used in amplification attacks or being overwhelmed by infected devices.
 
-# Unblock a client IP
-POST /api/client/block
-Content-Type: application/json
-{ "ip": "192.168.1.100", "action": "unblock" }
-```
+**How it works:**
+The engine uses sliding-window tracking in-memory (cleaned up efficiently via background routines) to measure traffic against four thresholds:
+1. **Domain Flood**: A single client requests the exact same domain ≥ 120 times in 60 seconds (`auto:domain_flood`).
+2. **Rate Limit**: A single client requests ≥ 1000 total DNS queries in 60 seconds (`auto:rate_limit`).
+3. **NXDOMAIN Flood (DGA Bots)**: A client triggers ≥ 300 NXDOMAIN (Domain Not Found) responses in 60 seconds, indicative of malware searching for randomized domains (`auto:nxdomain_flood`).
+4. **TLD Scan**: A client heavily queries a single uncommon Top Level Domain (e.g., ≥ 100 requests in 5 minutes, representing ≥ 90% of their total traffic) (`auto:tld_scan`).
+
+When a threshold is exceeded, the client IP is instantly blocked, and a warning badge (e.g., `Automatically blocked: auto:domain_flood`) will appear in the **Client Details** UI. 
+
+*This feature is **ON** by default but can be disabled via the Settings toggle.*
 
 ### 🏳️ Custom Rules
 Immediately take control of your network without managing external lists:

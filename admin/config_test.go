@@ -1,3 +1,6 @@
+// Category: Configuration Tests
+// Tests for loading configuration, blocklist downloading, parsing adblock/hosts
+// formats, and handling config environments.
 package main
 
 import (

@@ -1314,10 +1314,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (diagRefreshInput) diagRefreshInput.value = currentConfig.diagnostics_refresh_interval || 600;
 
         const serveStaleCheck = document.getElementById('serve-stale-check');
-        if (serveStaleCheck) serveStaleCheck.checked = currentConfig.serve_stale;
-
+        if (document.getElementById('serve-stale-check')) document.getElementById('serve-stale-check').checked = currentConfig.serve_stale;
         if (document.getElementById('dnssec-check')) document.getElementById('dnssec-check').checked = currentConfig.dnssec_enabled;
         if (document.getElementById('sign-mobileconfig-check')) document.getElementById('sign-mobileconfig-check').checked = currentConfig.sign_mobileconfig;
+        if (document.getElementById('abuse-detection-check')) document.getElementById('abuse-detection-check').checked = currentConfig.abuse_detection_enabled !== false; // defaults to true
         if (document.getElementById('debug-mode-check')) document.getElementById('debug-mode-check').checked = currentConfig.debug_mode;
 
         currentConfig.lists = currentConfig.lists || [];
@@ -1540,15 +1540,30 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveConfig = async () => {
-        const upstreams = upstreamsInput.value.split(',').map(s => s.trim()).filter(s => s);
-        const dots = dotUpstreamsInput.value.split(',').map(s => s.trim()).filter(s => s);
-        
-        currentConfig.upstreams = upstreams;
-        currentConfig.upstream_dot = dots;
-        currentConfig.prefer_encrypted = preferEncryptedCheck.checked;
-        currentConfig.sign_mobileconfig = signMobileConfigCheck?.checked || false;
-        currentConfig.admin_domain = adminDomainInput?.value.trim() || '';
-        currentConfig.block_page_ip = blockIpInput?.value.trim() || '';
+        const configForm = document.getElementById('settings-form');
+        if (configForm) {
+            const upstreamsSplit = upstreamsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+            const upstreamsDoT = dotUpstreamsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+
+            const newConfig = {
+                ...currentConfig,
+                upstreams: upstreamsSplit,
+                upstream_dot: upstreamsDoT,
+                prefer_encrypted: preferEncryptedCheck.checked,
+                sign_mobileconfig: signMobileConfigCheck ? signMobileConfigCheck.checked : true,
+                admin_domain: adminDomainInput ? adminDomainInput.value.trim() : currentConfig.admin_domain,
+                block_page_ip: blockIpInput ? blockIpInput.value.trim() : currentConfig.block_page_ip,
+                use_fastest_upstream: document.getElementById('smart-upstream-check') ? document.getElementById('smart-upstream-check').checked : currentConfig.use_fastest_upstream,
+                retention_days: parseInt(document.getElementById('retention-input') ? document.getElementById('retention-input').value : currentConfig.retention_days),
+                latency_test_interval: parseInt(document.getElementById('latency-interval-input') ? document.getElementById('latency-interval-input').value : currentConfig.latency_test_interval),
+                smart_selection_policy: document.getElementById('smart-selection-policy-input') ? document.getElementById('smart-selection-policy-input').value : currentConfig.smart_selection_policy,
+                diagnostics_refresh_interval: parseInt(document.getElementById('diagnostics-interval-input') ? document.getElementById('diagnostics-interval-input').value : currentConfig.diagnostics_refresh_interval),
+                serve_stale: document.getElementById('serve-stale-check') ? document.getElementById('serve-stale-check').checked : currentConfig.serve_stale,
+                dnssec_enabled: document.getElementById('dnssec-check') ? document.getElementById('dnssec-check').checked : currentConfig.dnssec_enabled,
+                abuse_detection_enabled: document.getElementById('abuse-detection-check') ? document.getElementById('abuse-detection-check').checked : (currentConfig.abuse_detection_enabled !== false)
+            };
+            currentConfig = newConfig;
+        }
 
         await fetch('/api/config', {
             method: 'POST',
@@ -1923,33 +1938,86 @@ document.addEventListener('DOMContentLoaded', () => {
         aliasBox.classList.add('hidden');
         modal.classList.remove('hidden');
 
-        // Update block/unblock buttons
+        let isBlocked = false;
+        let blockReason = "";
+        let isAutoBlocked = false;
+
+        try {
+            const blockRes = await fetch('/api/client/block');
+            if (blockRes.ok) {
+                const blockedInfoMap = await blockRes.json();
+                if (blockedInfoMap && blockedInfoMap[ip]) {
+                    isBlocked = true;
+                    blockReason = blockedInfoMap[ip].reason;
+                    isAutoBlocked = blockedInfoMap[ip].auto;
+                }
+            }
+        } catch (e) { console.error("Could not fetch block status", e); }
+
         const blockBtn = document.getElementById('ip-block-btn');
         const unblockBtn = document.getElementById('ip-unblock-btn');
-        const isBlocked = (currentConfig.blocked_clients || []).includes(ip);
-        blockBtn.style.display = isBlocked ? 'none' : '';
-        unblockBtn.style.display = isBlocked ? '' : 'none';
+        const reasonBadge = document.getElementById('ip-info-abuse-reason-badge');
 
-        // Wire up block/unblock actions (replace handlers each time modal opens)
+        if (isBlocked) {
+            blockBtn.style.display = 'none';
+            unblockBtn.style.display = 'inline-block';
+            reasonBadge.style.display = 'inline-block';
+            
+            if (isAutoBlocked) {
+                reasonBadge.className = 'badge danger mt-1';
+                reasonBadge.innerText = 'Automatically blocked: ' + blockReason;
+            } else {
+                reasonBadge.className = 'badge secondary mt-1';
+                reasonBadge.innerText = 'Blocked manually';
+            }
+        } else {
+            blockBtn.style.display = 'inline-block';
+            unblockBtn.style.display = 'none';
+            reasonBadge.style.display = 'none';
+        }
+
         blockBtn.onclick = async () => {
-            await fetch('/api/client/block', {
+            if (!(await showConfirm(`Block client ${ip} from using the DNS server?`))) return;
+            blockBtn.disabled = true;
+            
+            const res = await fetch('/api/client/block', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ip, action: 'block' })
             });
-            currentConfig.blocked_clients = [...(currentConfig.blocked_clients || []), ip];
-            blockBtn.style.display = 'none';
-            unblockBtn.style.display = '';
-            await showAlert(`${ip} has been blocked from using the DNS server.`);
+
+            if (res.ok) {
+                blockBtn.style.display = 'none';
+                unblockBtn.style.display = 'inline-block';
+                reasonBadge.style.display = 'inline-block';
+                reasonBadge.className = 'badge secondary mt-1';
+                reasonBadge.innerText = 'Blocked manually';
+                
+                await fetchConfig();
+            } else {
+                await showAlert('Failed to block client');
+            }
+            blockBtn.disabled = false;
         };
+
         unblockBtn.onclick = async () => {
-            await fetch('/api/client/block', {
+            unblockBtn.disabled = true;
+            const res = await fetch('/api/client/block', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ip, action: 'unblock' })
             });
-            currentConfig.blocked_clients = (currentConfig.blocked_clients || []).filter(c => c !== ip);
-            unblockBtn.style.display = 'none';
-            blockBtn.style.display = '';
-            await showAlert(`${ip} has been unblocked.`);
+
+            if (res.ok) {
+                blockBtn.style.display = 'inline-block';
+                unblockBtn.style.display = 'none';
+                reasonBadge.style.display = 'none';
+                
+                await fetchConfig();
+            } else {
+                await showAlert('Failed to unblock client');
+            }
+            unblockBtn.disabled = false;
         };
 
         // Reset fields

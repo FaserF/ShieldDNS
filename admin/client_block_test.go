@@ -1,3 +1,6 @@
+// Category: Client Blocking Tests
+// Tests for blocking/unblocking individual client IPs, preventing config state loss,
+// and merging client blocks into GeoIP ACL boundaries.
 package main
 
 import (

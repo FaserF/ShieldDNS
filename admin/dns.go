@@ -764,6 +764,9 @@ func parseLogLine(line string) {
 	logBuffer = append(logBuffer, q)
 	bufferLock.Unlock()
 
+	// Feed query to Abuse Detection Engine
+	go analyzeQuery(clientIP, qDomain, status)
+
 	// Broadcast to SSE clients
 	go func(query Query) {
 		sseLock.Lock()

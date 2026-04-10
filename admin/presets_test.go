@@ -1,3 +1,5 @@
+// Category: Integration Tests (External)
+// Checks external web URLs and CDN lists configured by default are still accessible.
 package main
 
 import (

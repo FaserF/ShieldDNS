@@ -573,6 +573,16 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="form-group checkbox-group">
+                        <div class="checkbox-text">
+                            <label>Abuse Detection Engine (Auto-Blocking)</label>
+                            <p class="help">Automatically block clients abusing the server with floods or DGA bots.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="abuse-detection-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <button type="submit" class="btn primary">Save Config</button>
                 </form>
 
@@ -1044,6 +1054,9 @@
                         <button class="btn btn-sm primary" id="save-alias-btn">Save</button>
                     </div>
                     <p id="ip-info-subtitle" class="help" style="margin-top: 2px;"></p>
+                    <div id="ip-info-abuse-reason-badge" class="badge danger mt-1" style="display: none; padding: 4px 8px; font-size: 0.75rem;">
+                        <!-- Abuse reason text injected here -->
+                    </div>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <button id="ip-block-btn" class="btn btn-sm danger" style="padding: 6px 14px; display: none;">
