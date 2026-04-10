@@ -11,3 +11,5 @@
 @@||us-east1-aws.api.snapchat.com^
 @@||api.github.com^
 @@||emmikochteinfach.de^
+@@||api.ipify.org^
+@@||fabiseitz.de^

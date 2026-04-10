@@ -4,3 +4,4 @@
 ||google-analytics.com^
 ||analytics.google.com^
 ||example-malware-site.com^
+||get947615.host55s.cfd^
