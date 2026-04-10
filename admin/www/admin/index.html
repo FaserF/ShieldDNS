@@ -731,6 +731,15 @@
                 </div>
 
                 <div class="settings-section">
+                    <h2>Full System Refresh 🔄</h2>
+                    <p class="help">Perform a total refresh of all system components. This will re-download all enabled filter lists, reload all custom rules (IP/Geo), and restart the CoreDNS server to apply changes and flush its cache.</p>
+                    <div class="alert warning" style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 0.85rem;">
+                        <strong>Note:</strong> This process usually takes a few seconds. DNS resolution will be briefly interrupted during the restart.
+                    </div>
+                    <button type="button" class="btn secondary" id="full-system-refresh-btn"><i class="fas fa-sync"></i> Trigger Full System Refresh</button>
+                </div>
+
+                <div class="settings-section">
                     <button id="logout-btn" class="btn danger">Logout</button>
                 </div>
             </section>

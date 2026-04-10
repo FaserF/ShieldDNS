@@ -64,6 +64,7 @@ func main() {
 	http.Handle("/api/config", authMiddleware(http.HandlerFunc(handleConfig)))
 	http.Handle("/api/refresh", authMiddleware(http.HandlerFunc(handleRefresh)))
 	http.Handle("/api/queries", authMiddleware(http.HandlerFunc(handleQueries)))
+	http.Handle("/api/system/full-reload", authMiddleware(http.HandlerFunc(handleFullReload)))
 	http.Handle("/api/history", authMiddleware(http.HandlerFunc(handleHistory)))
 	http.Handle("/api/search", authMiddleware(http.HandlerFunc(handleSearch)))
 	http.Handle("/api/top-blocked", authMiddleware(http.HandlerFunc(handleTopBlocked)))

@@ -1373,6 +1373,27 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func handleFullReload(w http.ResponseWriter, r *http.Request) {
+	AddSystemLog("🔄 Full system refresh initiated by user.")
+
+	// We run this in a goroutine because blacklists update can take a while,
+	// and we don't want the frontend to timeout.
+	go func() {
+		// 1. Reload all blocklists (Synchronously within this goroutine)
+		updateBlocklist(nil)
+
+		// 2. Ensure Corefile is up to date with any newly fetched dynamic content/config
+		updateCorefile()
+
+		// 3. Restart CoreDNS to flush cache and apply everything
+		restartCoreDNS()
+
+		AddSystemLog("✨ Full system refresh completed successfully.")
+	}()
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func handlePresets(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(DefaultPresets)

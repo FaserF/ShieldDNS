@@ -1714,6 +1714,21 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = '/api/backup';
     });
 
+    document.getElementById('full-system-refresh-btn')?.addEventListener('click', async () => {
+        if (await showConfirm('Are you sure you want to perform a full system refresh? This will re-download all blocklists and restart the DNS server.')) {
+            try {
+                const resp = await fetch('/api/system/full-reload', { method: 'POST' });
+                if (resp.ok) {
+                    await showAlert('Full system refresh initiated. Please check the System Logs for progress.');
+                } else {
+                    await showAlert('Failed to initiate full refresh');
+                }
+            } catch (e) {
+                await showAlert('Error: ' + e.message);
+            }
+        }
+    });
+
     const restoreFileInput = document.getElementById('restore-file-input');
     if (restoreFileInput) {
         restoreFileInput.addEventListener('change', async (e) => {
