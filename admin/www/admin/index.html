@@ -713,6 +713,24 @@
                 </div>
 
                 <div class="settings-section">
+                    <h2>Client IP Blocking 🚫</h2>
+                    <p class="help">Manually block specific client IP addresses or view automatically blocked clients.</p>
+                    <div class="form-group" style="position: relative;">
+                        <label>Block New Client IP</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="manual-client-block-input" placeholder="e.g. 192.168.1.50" style="flex:1;">
+                            <button type="button" class="btn primary" id="manual-client-block-btn">Block IP</button>
+                        </div>
+                    </div>
+                    <div class="form-group mt-3">
+                        <label>Currently Blocked Clients</label>
+                        <div id="settings-blocked-clients-list" class="tag-container mt-2">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
                     <button id="logout-btn" class="btn danger">Logout</button>
                 </div>
             </section>

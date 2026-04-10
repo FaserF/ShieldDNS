@@ -35,11 +35,6 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
             }
         });
     };
-
-    window.showConfirm = (msg) => {
-        return new Promise(resolve => resolve(window.confirm(msg)));
-    };
-
 document.addEventListener('DOMContentLoaded', () => {
     // Theme initialization
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -1254,6 +1249,31 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('country-dropdown').classList.add('hidden');
     };
 
+    const manualClientBlockBtn = document.getElementById('manual-client-block-btn');
+    const manualClientBlockInput = document.getElementById('manual-client-block-input');
+    if (manualClientBlockBtn && manualClientBlockInput) {
+        manualClientBlockBtn.addEventListener('click', async () => {
+            const ip = manualClientBlockInput.value.trim();
+            if (!ip) return;
+            
+            const res = await fetch('/api/client/block', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip, action: 'block' })
+            });
+
+            if (res.ok) {
+                manualClientBlockInput.value = '';
+                await renderBlockedClientsSettings();
+            } else {
+                await showAlert('Failed to block IP.');
+            }
+        });
+    }
+
+    async function loadGeoSettings() {
+    }
+
     window.removeCountry = async (code) => {
         currentConfig.blocked_countries = (currentConfig.blocked_countries || []).filter(c => c !== code);
         await saveConfig();
@@ -1290,6 +1310,75 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderConfig = () => {
+        async function loadSettings() {
+            if (!currentConfig) return;
+            
+            upstreamsInput.value = (currentConfig.upstreams || []).join('\n');
+            dotUpstreamsInput.value = (currentConfig.upstream_dot || []).join('\n');
+            preferEncryptedCheck.checked = currentConfig.prefer_encrypted || false;
+            signMobileConfigCheck.checked = currentConfig.sign_mobileconfig || false;
+            document.getElementById('block-ip-input').value = currentConfig.block_page_ip || '';
+            document.getElementById('abuse-detection-check').checked = currentConfig.abuse_detection_enabled !== false;
+            
+            await loadGeoSettings();
+            await renderBlockedClientsSettings();
+        }
+
+        window.renderBlockedClientsSettings = async () => {
+            const container = document.getElementById('settings-blocked-clients-list');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            try {
+                const resp = await fetch('/api/client/block');
+                if (resp.ok) {
+                    const blocksMap = await resp.json();
+                    
+                    if (!blocksMap || Object.keys(blocksMap).length === 0) {
+                        container.innerHTML = '<em>No clients currently blocked.</em>';
+                        return;
+                    }
+
+                    for (const [ip, info] of Object.entries(blocksMap)) {
+                        const tag = document.createElement('div');
+                        tag.className = 'tag';
+                        tag.style = 'display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; font-size: 14px; margin-bottom: 5px;';
+                        
+                        const textSpan = document.createElement('span');
+                        let reasonText = (info.reason && info.reason !== 'manual') ? ` (Auto: ${info.reason})` : '';
+                        textSpan.textContent = `${ip}${reasonText}`;
+                        if (info.auto) textSpan.style.color = 'var(--danger)';
+
+                        const removeBtn = document.createElement('i');
+                        removeBtn.className = 'fas fa-times remove';
+                        removeBtn.style = 'margin-left: 10px; cursor: pointer; color: var(--text-muted);';
+                        removeBtn.title = 'Unblock IP';
+                        
+                        removeBtn.onclick = async () => {
+                            if (await showConfirm(`Unblock client ${ip}?`)) {
+                                const unbRes = await fetch('/api/client/block', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ ip, action: 'unblock' })
+                                });
+                                if (unbRes.ok) {
+                                    await renderBlockedClientsSettings();
+                                } else {
+                                    await showAlert('Failed to unblock client.');
+                                }
+                            }
+                        };
+
+                        tag.appendChild(textSpan);
+                        tag.appendChild(removeBtn);
+                        container.appendChild(tag);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load blocked clients settings", e);
+            }
+        };
+
         upstreamsInput.value = currentConfig.upstreams.join(', ');
         dotUpstreamsInput.value = (currentConfig.upstream_dot || []).join(', ');
         preferEncryptedCheck.checked = currentConfig.prefer_encrypted;
