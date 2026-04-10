@@ -1923,6 +1923,35 @@ document.addEventListener('DOMContentLoaded', () => {
         aliasBox.classList.add('hidden');
         modal.classList.remove('hidden');
 
+        // Update block/unblock buttons
+        const blockBtn = document.getElementById('ip-block-btn');
+        const unblockBtn = document.getElementById('ip-unblock-btn');
+        const isBlocked = (currentConfig.blocked_clients || []).includes(ip);
+        blockBtn.style.display = isBlocked ? 'none' : '';
+        unblockBtn.style.display = isBlocked ? '' : 'none';
+
+        // Wire up block/unblock actions (replace handlers each time modal opens)
+        blockBtn.onclick = async () => {
+            await fetch('/api/client/block', {
+                method: 'POST',
+                body: JSON.stringify({ ip, action: 'block' })
+            });
+            currentConfig.blocked_clients = [...(currentConfig.blocked_clients || []), ip];
+            blockBtn.style.display = 'none';
+            unblockBtn.style.display = '';
+            await showAlert(`${ip} has been blocked from using the DNS server.`);
+        };
+        unblockBtn.onclick = async () => {
+            await fetch('/api/client/block', {
+                method: 'POST',
+                body: JSON.stringify({ ip, action: 'unblock' })
+            });
+            currentConfig.blocked_clients = (currentConfig.blocked_clients || []).filter(c => c !== ip);
+            unblockBtn.style.display = 'none';
+            blockBtn.style.display = '';
+            await showAlert(`${ip} has been unblocked.`);
+        };
+
         // Reset fields
         document.getElementById('ip-info-total').textContent = '...';
         document.getElementById('ip-info-blocked').textContent = '...';

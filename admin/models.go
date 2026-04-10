@@ -29,6 +29,7 @@ type Config struct {
 	ServeStale                 bool              `json:"serve_stale"`
 	DNSSECEnabled              bool              `json:"dnssec_enabled"`
 	BlockedCountries           []string          `json:"blocked_countries"`
+	BlockedClients             []string          `json:"blocked_clients"`
 	ClientAliases              map[string]string `json:"client_aliases"`
 	SignMobileConfig           bool              `json:"sign_mobileconfig"`
 	DebugMode                  bool              `json:"debug_mode"`
@@ -197,6 +198,10 @@ func (c *Config) Clone() *Config {
 	if c.BlockedCountries != nil {
 		newCfg.BlockedCountries = make([]string, len(c.BlockedCountries))
 		copy(newCfg.BlockedCountries, c.BlockedCountries)
+	}
+	if c.BlockedClients != nil {
+		newCfg.BlockedClients = make([]string, len(c.BlockedClients))
+		copy(newCfg.BlockedClients, c.BlockedClients)
 	}
 
 	// Deep copy maps

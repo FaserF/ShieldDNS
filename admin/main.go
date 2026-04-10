@@ -71,6 +71,7 @@ func main() {
 	http.Handle("/api/client/top-blocked", authMiddleware(http.HandlerFunc(handleClientTopBlocked)))
 	http.Handle("/api/client/stats", authMiddleware(http.HandlerFunc(handleClientStats)))
 	http.Handle("/api/client/alias", authMiddleware(http.HandlerFunc(handleClientAlias)))
+	http.Handle("/api/client/block", authMiddleware(http.HandlerFunc(handleClientBlock)))
 	http.Handle("/api/export", authMiddleware(http.HandlerFunc(handleExport)))
 	http.Handle("/api/backup", authMiddleware(http.HandlerFunc(handleBackup)))
 	http.Handle("/api/restore", authMiddleware(http.HandlerFunc(handleRestore)))

@@ -1303,6 +1303,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if len(newConfig.BlockedCountries) == 0 && len(config.BlockedCountries) > 0 {
 			newConfig.BlockedCountries = config.BlockedCountries
 		}
+		if len(newConfig.BlockedClients) == 0 && len(config.BlockedClients) > 0 {
+			newConfig.BlockedClients = config.BlockedClients
+		}
 		if newConfig.ClientAliases == nil && config.ClientAliases != nil {
 			newConfig.ClientAliases = config.ClientAliases
 		}
@@ -1726,6 +1729,77 @@ func handleClientAlias(w http.ResponseWriter, r *http.Request) {
 		}
 		saveConfigNoLock()
 		configLock.Unlock()
+
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+}
+
+// handleClientBlock blocks or unblocks a specific client IP from using the DNS server.
+func handleClientBlock(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		configLock.RLock()
+		defer configLock.RUnlock()
+		w.Header().Set("Content-Type", "application/json")
+		clients := config.BlockedClients
+		if clients == nil {
+			clients = []string{}
+		}
+		json.NewEncoder(w).Encode(clients)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		var req struct {
+			IP     string `json:"ip"`
+			Action string `json:"action"` // "block" or "unblock"
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+
+		ip := strings.TrimSpace(req.IP)
+		if ip == "" {
+			http.Error(w, "IP required", http.StatusBadRequest)
+			return
+		}
+
+		configLock.Lock()
+		if config.BlockedClients == nil {
+			config.BlockedClients = []string{}
+		}
+
+		if req.Action == "block" {
+			// Add if not already present
+			found := false
+			for _, c := range config.BlockedClients {
+				if c == ip {
+					found = true
+					break
+				}
+			}
+			if !found {
+				config.BlockedClients = append(config.BlockedClients, ip)
+			}
+		} else {
+			// Remove the IP
+			updated := config.BlockedClients[:0]
+			for _, c := range config.BlockedClients {
+				if c != ip {
+					updated = append(updated, c)
+				}
+			}
+			config.BlockedClients = updated
+		}
+
+		saveConfigNoLock()
+		configLock.Unlock()
+
+		// Apply to CoreDNS immediately
+		go updateCorefile()
 
 		w.WriteHeader(http.StatusOK)
 		return

@@ -50,16 +50,16 @@ func syncCountryIPs(countryCode string) error {
 }
 
 // getGeoACLRules generates the 'acl' block content for CoreDNS
+// combining both geo-blocked countries and manually blocked client IPs.
 func getGeoACLRules() string {
 	configLock.RLock()
 	countries := config.BlockedCountries
+	blockedClients := config.BlockedClients
 	configLock.RUnlock()
 
-	if len(countries) == 0 {
-		return ""
-	}
-
 	var rules []string
+
+	// Add country-based CIDRs
 	for _, cc := range countries {
 		cc = strings.ToLower(cc)
 		path := filepath.Join(geoCacheDir, cc+".zone")
@@ -87,12 +87,19 @@ func getGeoACLRules() string {
 		file.Close()
 	}
 
+	// Add manually blocked client IPs
+	for _, ip := range blockedClients {
+		ip = strings.TrimSpace(ip)
+		if ip != "" {
+			rules = append(rules, ip)
+		}
+	}
+
 	if len(rules) == 0 {
 		return ""
 	}
 
-	// Join all CIDRs into an acl block
-	// We'll return it formatted for the Corefile
+	// Join all CIDRs/IPs into an acl block
 	return fmt.Sprintf("\n    acl {\n        block net %s\n    }", strings.Join(rules, " "))
 }
 

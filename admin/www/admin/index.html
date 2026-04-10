@@ -1045,7 +1045,15 @@
                     </div>
                     <p id="ip-info-subtitle" class="help" style="margin-top: 2px;"></p>
                 </div>
-                <button class="btn btn-sm secondary" id="ip-info-close-btn">&times;</button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="ip-block-btn" class="btn btn-sm danger" style="padding: 6px 14px; display: none;">
+                        <i class="fas fa-ban"></i> Block Client
+                    </button>
+                    <button id="ip-unblock-btn" class="btn btn-sm secondary" style="padding: 6px 14px; display: none;">
+                        <i class="fas fa-check-circle"></i> Unblock Client
+                    </button>
+                    <button class="btn btn-sm secondary" id="ip-info-close-btn">&times;</button>
+                </div>
             </div>
 
             <div class="analytics-grid"

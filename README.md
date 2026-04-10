@@ -22,6 +22,7 @@ It features a premium **Admin Dashboard** with persistent SQLite-backed analytic
 - 🔄 **Config Backup & Restore**: One-click backup download and in-browser JSON configuration restore.
 - ⚡ **1-Click Allow / Block**: Directly allow or block any domain from the live Query Log table.
 - 🔍 **Client IP Diagnostics**: Clickable Client IPs in logs with detailed GeoIP, Reverse DNS, and history preview.
+- 🚫 **Client IP Blocking**: Block any client IP from using your DNS server directly from the Client Details view — no config file editing required.
 - 🧹 **Optimized Default Lists**: Ships with a single, curated default (HaGeZi Multi Normal) for maximum protection with minimal RAM usage on any hardware — including Raspberry Pi.
 
 ## ❤️ Support This Project
@@ -175,6 +176,38 @@ ShieldDNS now stores your query history in a persistent SQLite database:
 - **Client IP Diagnostics**: Interactive query logs where clicking an IP reveals GeoIP location, Reverse DNS hostname, and a client-specific query history preview.
 - **Cache Hit Ratio & Upstream Performance**: Real-time diagnostic trackers showing local cache efficiency and a live upstream latency chart.
 
+### 🚫 Client IP Blocking
+
+ShieldDNS allows you to permanently block any individual client IP address from using your DNS server — directly from the Admin UI, without editing any configuration files.
+
+**How it works:**
+1. In the **Query Log** or **Top Clients** view, click on any client IP to open the **Client Details** modal.
+2. In the modal header, click **🚫 Block Client** to immediately prevent that IP from receiving DNS responses.
+3. The IP is added to the `blocked_clients` list in your configuration and takes effect instantly via a CoreDNS ACL rule update.
+4. To reverse the action, re-open the same Client Details modal and click **✅ Unblock Client**.
+
+**Technical details:**
+- Blocked IPs are stored in `config.json` under `blocked_clients` and survive container restarts.
+- Enforcement is handled by CoreDNS's built-in `acl` plugin using `block net <IP>` directives — the same mechanism used for country/geo blocking.
+- Multiple blocked IPs are combined into a single ACL block, so there is no performance penalty for blocking many clients.
+- Blocking is applied across all protocols simultaneously (DNS/TCP, DoT, DoH, DoQ).
+
+**API:**
+```http
+# List all currently blocked client IPs
+GET /api/client/block
+
+# Block a client IP
+POST /api/client/block
+Content-Type: application/json
+{ "ip": "192.168.1.100", "action": "block" }
+
+# Unblock a client IP
+POST /api/client/block
+Content-Type: application/json
+{ "ip": "192.168.1.100", "action": "unblock" }
+```
+
 ### 🏳️ Custom Rules
 Immediately take control of your network without managing external lists:
 - **Custom Blocklist**: Instantly block any domain (e.g., `tiktok.com`). Paste a full URL — it's auto-sanitized to a clean domain.
@@ -303,6 +336,7 @@ go test ./... -run TestProcessList_StreamingMemoryEfficiency -v
 | Blocklist streaming parser | `config_test.go` | AdBlock/hosts/dnsmasq/allowlist formats, streaming line-by-line download |
 | CoreDNS log parser | `dns_test.go` | Structured log format, blocked detection, SSE broadcast, latency parsing |
 | API handlers | `main_test.go`, `api_test.go` | Stats, search, history, auth, token management |
+| Client IP Blocking | `client_block_test.go` | Block/unblock lifecycle, idempotency, config preservation, ACL rule generation |
 | Upstream health & smart sorting | `main_test.go` | Latency-based upstream ordering, Corefile generation |
 | Presets integrity | `presets_test.go` | Default preset list availability |
 
