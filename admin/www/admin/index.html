@@ -276,7 +276,7 @@
                         <div class="search-box">
                             <i class="fas fa-search"></i>
                             <input type="text" id="query-search" placeholder="Search domain..."
-                                oninput="debounce(fetchQueries, 500)()">
+                                oninput="fetchQueries()">
                         </div>
                         <select id="query-filter-status" class="select-filter" onchange="fetchQueries()">
                             <option value="">All Traffic</option>
@@ -1018,6 +1018,18 @@
             <p id="alert-message" style="margin-bottom: 24px; color: var(--text-secondary);"></p>
             <div class="modal-actions" style="justify-content: center;">
                 <button class="btn primary full-width" id="alert-ok">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="confirm-modal" class="modal hidden" style="z-index: 10002;">
+        <div class="modal-content" style="max-width: 450px;">
+            <h2 id="confirm-title" style="margin-bottom: 12px; text-align: center;">Confirmation</h2>
+            <p id="confirm-message" style="margin-bottom: 24px; color: var(--text-secondary); text-align: center;"></p>
+            <div class="modal-actions" style="display: flex; gap: 12px;">
+                <button class="btn secondary full-width" id="confirm-cancel">Cancel</button>
+                <button class="btn primary full-width" id="confirm-yes">Confirm</button>
             </div>
         </div>
     </div>

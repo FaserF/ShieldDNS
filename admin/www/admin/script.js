@@ -6,6 +6,8 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     let latencyChart = null;
     let blocklistMap = {};
     let allCountries = {};
+    let searchTimeout = null;
+    let activeFetchId = 0;
     
     // UI Elements
     let authOverlay, setupView, loginView, listItemsContainer, allowlistItemsContainer, views;
@@ -542,26 +544,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    const fetchQueries = async () => {
+    const fetchQueries = async (immediate = false) => {
         const searchInput = document.getElementById('query-search');
         const filterStatus = document.getElementById('query-filter-status');
         const search = searchInput ? searchInput.value.trim() : '';
         const status = filterStatus ? filterStatus.value : '';
 
-        try {
-            const resp = await fetch(`/api/queries?search=${encodeURIComponent(search)}&status=${status}`);
-            if (resp.status === 403) {
-                const text = await resp.text();
-                if (text.includes('Setup required') || text.includes('SETUP_REQUIRED')) {
-                    checkAuthStatus();
-                    return;
+        const executeFetch = async () => {
+            // Increment fetch ID to handle race conditions
+            const fetchId = ++activeFetchId;
+
+            // Show searching state
+            const fullContainer = document.getElementById('full-query-log-items');
+            if (fullContainer) {
+                fullContainer.innerHTML = '<tr><td colspan="6" class="help"><i class="fas fa-spinner fa-spin"></i> Searching most recent 2000 entries...</td></tr>';
+            }
+
+            try {
+                const resp = await fetch(`/api/queries?search=${encodeURIComponent(search)}&status=${status}`);
+                if (resp.status === 403) {
+                    const text = await resp.text();
+                    if (text.includes('Setup required') || text.includes('SETUP_REQUIRED')) {
+                        checkAuthStatus();
+                        return;
+                    }
+                }
+                if (resp.status === 401) return;
+                
+                const queries = await resp.json();
+                
+                // Only render if this is still the most recent fetch
+                if (fetchId === activeFetchId) {
+                    renderQueries(queries);
+                }
+            } catch (e) {
+                console.error('Failed to fetch queries', e);
+                if (fetchId === activeFetchId && fullContainer) {
+                    fullContainer.innerHTML = '<tr><td colspan="6" class="help danger">Failed to load queries</td></tr>';
                 }
             }
-            if (resp.status === 401) return;
-            const queries = await resp.json();
-            renderQueries(queries);
-        } catch (e) {
-            console.error('Failed to fetch queries', e);
+        };
+
+        if (immediate) {
+            clearTimeout(searchTimeout);
+            await executeFetch();
+        } else {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(executeFetch, 500);
         }
     };
 
@@ -572,6 +601,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const populate = (container, data) => {
             if (!container) return;
             container.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = '<tr><td colspan="6" class="help">No queries found matching your filters.</td></tr>';
+                return;
+            }
+
             data.forEach(q => {
                 const row = document.createElement('tr');
                 const time = new Date(q.time).toLocaleTimeString();
@@ -638,18 +673,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const searchInput = document.getElementById('query-search');
                 const filterStatus = document.getElementById('query-filter-status');
                 
-                // Always trim the search term to avoid missing matches due to trailing spaces
                 const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
                 const statusFilter = filterStatus ? filterStatus.value : '';
 
-                // Defensive domain check
                 const domain = (query.domain || '').toLowerCase();
-                const matchesSearch = !searchTerm || domain.includes(searchTerm);
+                const clientIp = (query.client_ip || '');
+                const matchesSearch = !searchTerm || domain.includes(searchTerm) || clientIp.includes(searchTerm);
                 const matchesStatus = !statusFilter || query.status === statusFilter;
 
                 if (matchesSearch && matchesStatus) {
                     const fullRow = row.cloneNode(true);
+                    
+                    // If we are currently "Searching...", we prepend to avoid wiping it out immediately,
+                    // but renderQueries will eventually clear the "Searching..." row anyway.
+                    // The race condition is mostly mitigated by the backend speedup.
                     fullQueryLogItems.prepend(fullRow);
+                    
                     if (fullQueryLogItems.children.length > 500) {
                         fullQueryLogItems.lastElementChild.remove();
                     }
@@ -1309,75 +1348,64 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const renderConfig = () => {
-        async function loadSettings() {
-            if (!currentConfig) return;
-            
-            upstreamsInput.value = (currentConfig.upstreams || []).join('\n');
-            dotUpstreamsInput.value = (currentConfig.upstream_dot || []).join('\n');
-            preferEncryptedCheck.checked = currentConfig.prefer_encrypted || false;
-            signMobileConfigCheck.checked = currentConfig.sign_mobileconfig || false;
-            document.getElementById('block-ip-input').value = currentConfig.block_page_ip || '';
-            document.getElementById('abuse-detection-check').checked = currentConfig.abuse_detection_enabled !== false;
-            
-            await loadGeoSettings();
-            await renderBlockedClientsSettings();
-        }
-
-        window.renderBlockedClientsSettings = async () => {
-            const container = document.getElementById('settings-blocked-clients-list');
-            if (!container) return;
-            container.innerHTML = '';
-            
-            try {
-                const resp = await fetch('/api/client/block');
-                if (resp.ok) {
-                    const blocksMap = await resp.json();
-                    
-                    if (!blocksMap || Object.keys(blocksMap).length === 0) {
-                        container.innerHTML = '<em>No clients currently blocked.</em>';
-                        return;
-                    }
-
-                    for (const [ip, info] of Object.entries(blocksMap)) {
-                        const tag = document.createElement('div');
-                        tag.className = 'tag';
-                        tag.style = 'display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; font-size: 14px; margin-bottom: 5px;';
-                        
-                        const textSpan = document.createElement('span');
-                        let reasonText = (info.reason && info.reason !== 'manual') ? ` (Auto: ${info.reason})` : '';
-                        textSpan.textContent = `${ip}${reasonText}`;
-                        if (info.auto) textSpan.style.color = 'var(--danger)';
-
-                        const removeBtn = document.createElement('i');
-                        removeBtn.className = 'fas fa-times remove';
-                        removeBtn.style = 'margin-left: 10px; cursor: pointer; color: var(--text-muted);';
-                        removeBtn.title = 'Unblock IP';
-                        
-                        removeBtn.onclick = async () => {
-                            if (await showConfirm(`Unblock client ${ip}?`)) {
-                                const unbRes = await fetch('/api/client/block', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ ip, action: 'unblock' })
-                                });
-                                if (unbRes.ok) {
-                                    await renderBlockedClientsSettings();
-                                } else {
-                                    await showAlert('Failed to unblock client.');
-                                }
-                            }
-                        };
-
-                        tag.appendChild(textSpan);
-                        tag.appendChild(removeBtn);
-                        container.appendChild(tag);
-                    }
+    window.renderBlockedClientsSettings = async () => {
+        const container = document.getElementById('settings-blocked-clients-list');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        try {
+            const resp = await fetch('/api/client/block');
+            if (resp.ok) {
+                const blocksMap = await resp.json();
+                
+                if (!blocksMap || Object.keys(blocksMap).length === 0) {
+                    container.innerHTML = '<em>No clients currently blocked.</em>';
+                    return;
                 }
-            } catch (e) {
-                console.error("Failed to load blocked clients settings", e);
+
+                for (const [ip, info] of Object.entries(blocksMap)) {
+                    const tag = document.createElement('div');
+                    tag.className = 'tag';
+                    tag.style = 'display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; font-size: 14px; margin-bottom: 5px;';
+                    
+                    const textSpan = document.createElement('span');
+                    let reasonText = (info.reason && info.reason !== 'manual') ? ` (Auto: ${info.reason})` : '';
+                    textSpan.textContent = `${ip}${reasonText}`;
+                    if (info.auto) textSpan.style.color = 'var(--danger)';
+
+                    const removeBtn = document.createElement('i');
+                    removeBtn.className = 'fas fa-times remove';
+                    removeBtn.style = 'margin-left: 10px; cursor: pointer; color: var(--text-muted);';
+                    removeBtn.title = 'Unblock IP';
+                    
+                    removeBtn.onclick = async () => {
+                        if (await showConfirm(`Unblock client ${ip}?`)) {
+                            const unbRes = await fetch('/api/client/block', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ ip, action: 'unblock' })
+                            });
+                            if (unbRes.ok) {
+                                await renderBlockedClientsSettings();
+                            } else {
+                                await showAlert('Failed to unblock client.');
+                            }
+                        }
+                    };
+
+                    tag.appendChild(textSpan);
+                    tag.appendChild(removeBtn);
+                    container.appendChild(tag);
+                }
             }
-        };
+        } catch (e) {
+            console.error("Failed to load blocked clients settings", e);
+        }
+    };
+
+    const renderConfig = () => {
+        loadGeoSettings();
+        renderBlockedClientsSettings();
 
         upstreamsInput.value = currentConfig.upstreams.join(', ');
         dotUpstreamsInput.value = (currentConfig.upstream_dot || []).join(', ');

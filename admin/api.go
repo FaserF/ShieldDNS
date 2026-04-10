@@ -1396,12 +1396,14 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	query := "SELECT timestamp, domain, type, status, client_ip FROM queries WHERE 1=1"
+	// To ensure high performance, we only search within the last 2000 entries if no other strict filters are applied.
+	// This prevents full table scans on domain LIKE '%...%' which are unavoidable in SQLite without FTS.
+	query := "SELECT timestamp, domain, type, status, client_ip FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) WHERE 1=1"
 	var args []interface{}
 
 	if search != "" {
-		query += " AND domain LIKE ?"
-		args = append(args, "%"+search+"%")
+		query += " AND (domain LIKE ? OR client_ip LIKE ?)"
+		args = append(args, "%"+search+"%", "%"+search+"%")
 	}
 	if statusFilter != "" {
 		query += " AND status = ?"
