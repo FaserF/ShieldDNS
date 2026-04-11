@@ -1,7 +1,7 @@
 /**
  * UI Module - Specific renderers and state management for lists, config, and settings
  */
-import * as helpers from './ui_helpers.js';
+import * as helpers from './helpers.js';
 
 export const renderAPIKeys = (tokens, allTokens, apiKeysListContainer, editAPIKey, deleteAPIKey) => {
     if (!apiKeysListContainer) return;

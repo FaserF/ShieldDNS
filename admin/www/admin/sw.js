@@ -1,5 +1,5 @@
 /* jshint worker: true */
-const CACHE_NAME = 'shielddns-admin-v4';
+const CACHE_NAME = 'shielddns-admin-v8';
 const ASSETS = [
     '/admin/',
     '/admin/index.html',
@@ -7,11 +7,17 @@ const ASSETS = [
     '/admin/js/app.js',
     '/admin/utils.js',
     '/admin/manifest.json',
-    '/admin/js/modules/api.js',
-    '/admin/js/modules/ui_helpers.js',
-    '/admin/js/modules/charts.js',
-    '/admin/js/modules/scroller.js',
-    '/admin/js/modules/ui.js'
+    '/admin/js/services/api.js',
+    '/admin/js/services/fetch.js',
+    '/admin/js/ui/helpers.js',
+    '/admin/js/ui/charts.js',
+    '/admin/js/ui/scroller.js',
+    '/admin/js/ui/ui.js',
+    '/admin/js/ui/renderers.js',
+    '/admin/js/ui/events.js',
+    '/admin/js/core/state.js',
+    '/admin/js/core/auth.js',
+    '/admin/js/core/navigation.js'
 ];
 
 /**

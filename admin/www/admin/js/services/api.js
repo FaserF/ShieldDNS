@@ -42,5 +42,17 @@ export const endpoints = {
     presets: '/api/presets',
     allowlistPresets: '/api/presets/allow',
     countries: '/api/countries',
-    authStatus: '/api/auth-status'
+    authStatus: '/api/auth-status',
+    topBlocked: '/api/top-blocked',
+    topClients: '/api/top-clients',
+    diagnostics: '/api/diagnostics',
+    systemLogs: '/api/system-logs',
+    refresh: '/api/refresh',
+    toggleFiltering: '/api/filtering/toggle',
+    addRule: '/api/rules/add',
+    removeRule: '/api/rules/remove',
+    fullReload: '/api/system/full-reload',
+    reset: '/api/reset',
+    clientBlock: '/api/client/block',
+    clientAlias: '/api/client/alias'
 };

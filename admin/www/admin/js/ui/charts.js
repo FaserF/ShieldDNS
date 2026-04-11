@@ -1,7 +1,7 @@
 /**
  * Charts Module - Handles ShieldDNS visualizations and interactivity
  */
-import { createGradient } from './ui_helpers.js';
+import { createGradient } from './helpers.js';
 
 let trafficChart = null;
 let typeChart = null;
