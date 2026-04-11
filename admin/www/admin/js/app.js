@@ -41,6 +41,14 @@ const uiRefs = {
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initNavigation();
+    
+    // Attach Setup/Auth listeners globally
+    getEl('setup-finish-btn')?.addEventListener('click', finishSetup);
+    getEl('login-confirm-btn')?.addEventListener('click', handleLogin);
+    getEl('login-password')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleLogin();
+    });
+
     checkAuthStatus();
 });
 
@@ -106,6 +114,13 @@ function showView(viewId) {
     uiRefs.authOverlay.classList.remove('hidden');
     uiRefs.setupView.classList.toggle('hidden', viewId !== 'setup');
     uiRefs.loginView.classList.toggle('hidden', viewId !== 'login');
+
+    if (viewId === 'setup') {
+        const domainInput = getEl('setup-admin-domain');
+        if (domainInput && !domainInput.value) {
+            domainInput.value = window.location.hostname;
+        }
+    }
 }
 
 /**
@@ -119,13 +134,6 @@ function initializeApp() {
     // Auto-refresh loops
     setInterval(fetchStats, 10000);
     setInterval(fetchHistory, 60000);
-
-    // Attach Setup/Auth listeners
-    getEl('setup-finish-btn')?.addEventListener('click', finishSetup);
-    getEl('login-confirm-btn')?.addEventListener('click', handleLogin);
-    getEl('login-password')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleLogin();
-    });
 }
 
 async function refreshAll() {

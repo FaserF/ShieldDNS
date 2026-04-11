@@ -840,9 +840,10 @@ header {
     box-shadow: 0 15px 35px -10px hsla(0, 72%, 60%, 0.5);
 }
 
-.status-icon-wrapper svg {
-    width: 32px;
-    height: 32px;
+.status-icon-wrapper svg, .status-icon-wrapper img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
 }
 
 .status-text h2 {
