@@ -15,11 +15,20 @@ export async function apiFetch(endpoint, options = {}) {
         throw new Error('UNAUTHORIZED');
     }
     
-    if (!response.ok) {
-        throw new Error(`API Error: ${response.statusText}`);
+    if (response.status === 204) {
+        return {};
     }
     
-    return response.json();
+    const text = await response.text();
+    if (!text) {
+        return {};
+    }
+    
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        throw new Error(`Invalid JSON response: ${text.substring(0, 100)}`);
+    }
 }
 
 export const endpoints = {

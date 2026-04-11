@@ -496,7 +496,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		saveConfigNoLock()
 		configLock.Unlock()
 		updateCorefile()
-		w.WriteHeader(http.StatusOK)
+		
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(config)
 		return
 	}
 
@@ -524,7 +526,8 @@ func handleFullReload(w http.ResponseWriter, r *http.Request) {
 		slog.Info("Full system refresh completed successfully")
 	}()
 
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 func handleReset(w http.ResponseWriter, r *http.Request) {
@@ -561,8 +564,8 @@ func handleReset(w http.ResponseWriter, r *http.Request) {
 	stats = Stats{Version: Version}
 	statsLock.Unlock()
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "reset", "message": "Success. System is restarting."})
 
 	// Graceful exit after response
 	go func() {

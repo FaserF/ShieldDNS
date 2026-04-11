@@ -179,7 +179,9 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 	config.AdminPasswordHashed = string(hash)
 	saveConfigNoLock()
 	slog.Info("Admin setup completed", "ip", strings.Split(r.RemoteAddr, ":")[0])
-	w.WriteHeader(http.StatusOK)
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -247,7 +249,9 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	configLock.Unlock()
 
 	slog.Info("Admin logged in", "ip", ip)
-	w.WriteHeader(http.StatusOK)
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {
