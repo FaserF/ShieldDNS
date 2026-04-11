@@ -66,6 +66,7 @@ ShieldDNS is a modern, lightweight alternative to established solutions like AdG
 | **DoQ (QUIC)** | Native ✅ | Native ✅ | ❌ |
 | **Performance** | Ultra-High (Go/WAL) | High | Moderate (dnsmasq) |
 | **Analytics** | SQLite (WAL/Batching) | Internal (Local) | FTL (C/Stats) |
+| **Observability** | Enhanced (RAM, CPU, Uptime, DB Size) ✅ | Standard | Standard |
 | **Hardening** | AEAD-only Ciphers  | Standard | Upstream Dependent |
 | **Home Assistant** | [HA App Available](https://github.com/FaserF/hassio-addons/tree/master/ShieldDNS) | HA App Available | HA App Available |
 

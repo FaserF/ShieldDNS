@@ -46,6 +46,43 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	s.LatestCoreDNSVersion = latest.CoreDNS
 	s.LatestAlpineVersion = latest.Alpine
 
+	// Calculate DB size
+	if info, err := os.Stat(DBPath); err == nil {
+		s.DBSizeMB = float64(info.Size()) / (1024 * 1024)
+	}
+
+	// System Stats
+	sysStats := make(map[string]interface{})
+	fillCPUStats(sysStats)
+	fillRAMStats(sysStats)
+	fillUptimeStats(sysStats)
+
+	if val, ok := sysStats["ram_used_mb"]; ok {
+		s.RAMUsedMB = float64(val.(int64))
+	}
+	if val, ok := sysStats["ram_total_mb"]; ok {
+		s.RAMTotalMB = float64(val.(int64))
+	}
+	if val, ok := sysStats["uptime_seconds"]; ok {
+		s.UptimeSeconds = val.(int64)
+	}
+	if val, ok := sysStats["cpu_percent"]; ok {
+		// Note: stats_linux.go doesn't currently provide cpu_percent, but we can add it or just use load
+		s.CPUUsage = val.(float64)
+	} else if val, ok := sysStats["cpu_load"]; ok {
+		load := val.([]string)
+		if len(load) > 0 {
+			if f, err := strconv.ParseFloat(load[0], 64); err == nil {
+				s.CPUUsage = f
+			}
+		}
+	}
+
+	// Abuse Detection Stats
+	configLock.RLock()
+	s.NumAutoBlocked = len(config.BlockedClientsInfo)
+	configLock.RUnlock()
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s)
 }
