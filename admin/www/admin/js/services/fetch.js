@@ -95,11 +95,12 @@ export async function fetchPresets() {
             container.appendChild(catHeader);
 
             grouped[cat].forEach(preset => {
+                const isAdded = (state.currentConfig.lists || []).some(l => l.url === preset.url);
                 const card = document.createElement('div');
                 card.className = 'preset-card';
                 card.innerHTML = `
                     <div class="preset-info"><h3>${preset.name}</h3></div>
-                    <button class="btn btn-sm secondary" onclick="addPreset('${preset.name}', '${preset.url}', event)">Add</button>
+                    <button class="btn btn-sm ${isAdded ? 'secondary' : 'primary'}" ${isAdded ? 'disabled' : ''} onclick="addPreset('${preset.name}', '${preset.url}', event)">${isAdded ? 'Added ✓' : 'Add'}</button>
                 `;
                 container.appendChild(card);
             });

@@ -224,6 +224,40 @@ func handleGetCountries(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleRefresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost && r.ContentLength > 0 {
+		var req struct {
+			Action string `json:"action"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			if req.Action == "recommended" {
+				configLock.Lock()
+				// Add DefaultPresets to config.Lists if they don't exist
+				for _, rec := range DefaultPresets {
+					exists := false
+					for _, l := range config.Lists {
+						if l.URL == rec.URL {
+							exists = true
+							break
+						}
+					}
+					if !exists {
+						config.Lists = append(config.Lists, List{
+							Name:    rec.Name,
+							URL:     rec.URL,
+							Enabled: true,
+						})
+					}
+				}
+				saveConfigNoLock()
+				configLock.Unlock()
+				go updateBlocklist(nil)
+				updateCorefile()
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+		}
+	}
+
 	go updateBlocklist(nil)
 	go updateVersions()
 	w.WriteHeader(http.StatusAccepted)
