@@ -277,6 +277,66 @@ export function initEvents(fetchConfig) {
         }
     });
 
+    // Geo-Blocking Search Setup
+    const countrySearch = getEl('country-search');
+    const countryDropdown = getEl('country-dropdown');
+    
+    if (countrySearch && countryDropdown) {
+        countrySearch.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            if (!val) {
+                countryDropdown.classList.add('hidden');
+                return;
+            }
+            // state.allCountries is loaded via fetchCountries()
+            if (!state.allCountries) return;
+            
+            const matches = Object.entries(state.allCountries).filter(([code, name]) => 
+                name.toLowerCase().includes(val) || code.toLowerCase().includes(val)
+            ).slice(0, 10);
+            
+            if (matches.length > 0) {
+                countryDropdown.innerHTML = matches.map(([code, name]) => `
+                    <div class="dropdown-item" data-code="${code}" style="padding: 10px; cursor: pointer; display: flex; align-items: center; border-bottom: 1px solid var(--border);">
+                        <img src="https://flagcdn.com/w20/${code.toLowerCase()}.png" alt="${code}" style="margin-right: 12px;">
+                        <span>${name} (${code})</span>
+                    </div>
+                `).join('');
+                countryDropdown.classList.remove('hidden');
+            } else {
+                countryDropdown.classList.add('hidden');
+            }
+        });
+
+        countryDropdown.addEventListener('mousedown', async (e) => {
+            e.preventDefault(); // Prevent input onblur if it exists
+            const item = e.target.closest('.dropdown-item');
+            if (!item) return;
+            const code = item.dataset.code;
+            countrySearch.value = '';
+            countryDropdown.classList.add('hidden');
+            
+            if (!state.currentConfig.blocked_countries) state.currentConfig.blocked_countries = [];
+            if (!state.currentConfig.blocked_countries.includes(code)) {
+                state.currentConfig.blocked_countries.push(code);
+                try {
+                    await saveConfig(fetchConfig);
+                } catch (err) {
+                    helpers.showAlert('Failed to add country geo-block');
+                }
+            } else {
+                helpers.showToast('Country is already blocked', 'info');
+            }
+        });
+
+        // Hide dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (e.target !== countrySearch && !countryDropdown.contains(e.target)) {
+                countryDropdown.classList.add('hidden');
+            }
+        });
+    }
+
     getEl('backup-btn')?.addEventListener('click', async () => {
         try {
             const token = localStorage.getItem('api_token');
