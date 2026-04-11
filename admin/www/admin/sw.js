@@ -1,5 +1,5 @@
 /* jshint worker: true */
-const CACHE_NAME = 'shielddns-admin-v3';
+const CACHE_NAME = 'shielddns-admin-v4';
 const ASSETS = [
     '/admin/',
     '/admin/index.html',

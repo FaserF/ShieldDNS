@@ -161,7 +161,7 @@ function initNavigation() {
             item.classList.add('active');
             
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-            getEl(`${target}-view`)?.classList.remove('hidden');
+            getEl(target)?.classList.remove('hidden');
             
             if (window.innerWidth < 992) {
                 document.querySelector('.sidebar').classList.remove('open');
@@ -447,15 +447,149 @@ window.showDomainDetails = showDomainDetails;
 window.showIPDetails = showIPDetails;
 window.editAPIKey = editAPIKey;
 window.deleteAPIKey = deleteAPIKey;
-window.addCustomRule = (action, domain) => {
-    console.log(`Adding ${action} rule for ${domain}`);
-    // implementation...
+window.clearSystemLogs = () => {
+    const term = getEl('system-log-terminal');
+    if (term) term.innerHTML = '';
+};
+
+window.addCustomRule = async (action) => {
+    const type = action === 'blocked' ? 'block' : 'allow';
+    const inputId = action === 'blocked' ? 'custom-block-input' : 'custom-allow-input';
+    const domain = getEl(inputId)?.value.trim();
+    
+    if (!domain) return;
+    
+    try {
+        await api.apiFetch('/api/rules/add', {
+            method: 'POST',
+            body: JSON.stringify({ domain, type })
+        });
+        getEl(inputId).value = '';
+        helpers.showAlert(`${domain} added to ${action} list.`, 'Success');
+        fetchConfig(); // Reload config
+    } catch (e) {
+        helpers.showAlert(`Failed to add rule: ${e.message}`, 'Error');
+    }
+};
+
+window.addCustomMapping = async () => {
+    const domain = getEl('custom-map-domain')?.value.trim();
+    const ip = getEl('custom-map-ip')?.value.trim();
+    
+    if (!domain || !ip) return helpers.showAlert('Both Domain and IP are required.');
+    
+    try {
+        await api.apiFetch('/api/rules/add', {
+            method: 'POST',
+            body: JSON.stringify({ domain, ip, type: 'mapping' })
+        });
+        getEl('custom-map-domain').value = '';
+        getEl('custom-map-ip').value = '';
+        helpers.showAlert(`Mapping ${domain} -> ${ip} added.`, 'Success');
+        fetchConfig(); // Reload config
+    } catch (e) {
+        helpers.showAlert(`Failed to add mapping: ${e.message}`, 'Error');
+    }
+};
+
+window.removeCustomRule = async (domain) => {
+    if (!await helpers.showConfirm(`Are you sure you want to remove the rule for ${domain}?`)) return;
+    try {
+        await api.apiFetch('/api/rules/remove', {
+            method: 'POST',
+            body: JSON.stringify({ domain })
+        });
+        fetchConfig();
+    } catch (e) {
+        helpers.showAlert(`Failed to remove rule: ${e.message}`, 'Error');
+    }
 };
 
 /**
  * Fetch Other Resources
  */
-async function fetchConfig() { try { currentConfig = await api.apiFetch(api.endpoints.config); } catch(e) {} }
+async function fetchConfig() {
+    try {
+        currentConfig = await api.apiFetch(api.endpoints.config);
+        renderConfig(currentConfig);
+    } catch(e) { console.error('Config fetch failed', e); }
+}
+
+function renderConfig(cfg) {
+    const domain = cfg.admin_domain || window.location.hostname;
+
+    // Connection Guide
+    const dotHost = getEl('guide-dot-host');
+    const dotUrl = getEl('guide-dot-url');
+    const dohUrl = getEl('guide-doh-url');
+    const doqUrl = getEl('guide-doq-url');
+    if (dotHost) dotHost.value = domain;
+    if (dotUrl) dotUrl.value = `tls://${domain}`;
+    if (dohUrl) dohUrl.value = `https://${domain}/dns-query`;
+    if (doqUrl) doqUrl.value = `quic://${domain}`;
+
+    // Last Login
+    const lastLoginEl = getEl('dashboard-last-login');
+    if (lastLoginEl && cfg.previous_login) {
+        const prev = new Date(cfg.previous_login);
+        if (prev.getTime() > 0) {
+            lastLoginEl.textContent = `Last login: ${prev.toLocaleString()}`;
+        }
+    }
+
+    // Populate Settings form if visible
+    const upstreamsInput = getEl('upstreams-input');
+    if (upstreamsInput) upstreamsInput.value = (cfg.upstreams || []).join(', ');
+    const dotInput = getEl('dot-upstreams-input');
+    if (dotInput) dotInput.value = (cfg.upstream_dot || []).join(', ');
+    const adminDomainInput = getEl('admin-domain-input');
+    if (adminDomainInput) adminDomainInput.value = cfg.admin_domain || '';
+    const blockIpInput = getEl('block-ip-input');
+    if (blockIpInput) blockIpInput.value = cfg.block_page_ip || '';
+    const preferEncCheck = getEl('prefer-encrypted-check');
+    if (preferEncCheck) preferEncCheck.checked = !!cfg.prefer_encrypted;
+    const debugCheck = getEl('debug-mode-check');
+    if (debugCheck) debugCheck.checked = !!cfg.debug_mode;
+    const signCheck = getEl('sign-mobileconfig-check');
+    if (signCheck) signCheck.checked = !!cfg.sign_mobileconfig;
+    const abuseCheck = getEl('abuse-detection-check');
+    if (abuseCheck) abuseCheck.checked = !!cfg.abuse_detection_enabled;
+
+    // Render Custom Rules Lists
+    const blockList = getEl('custom-blocked-list');
+    if (blockList) {
+        blockList.innerHTML = '';
+        (cfg.custom_blocked || []).forEach(domain => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `<span>${domain}</span><button class="btn danger sm" onclick="removeCustomRule('${domain}')"><i class="fas fa-trash"></i></button>`;
+            blockList.appendChild(div);
+        });
+    }
+
+    const allowList = getEl('custom-allowed-list');
+    if (allowList) {
+        allowList.innerHTML = '';
+        (cfg.custom_allowed || []).forEach(domain => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `<span>${domain}</span><button class="btn danger sm" onclick="removeCustomRule('${domain}')"><i class="fas fa-trash"></i></button>`;
+            allowList.appendChild(div);
+        });
+    }
+
+    const mappingsList = getEl('custom-mappings-list');
+    if (mappingsList && cfg.custom_mappings) {
+        mappingsList.innerHTML = '';
+        Object.entries(cfg.custom_mappings).forEach(([domain, ip]) => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `<span>${domain} &rarr; ${ip}</span><button class="btn danger sm" onclick="removeCustomRule('${domain}')"><i class="fas fa-trash"></i></button>`;
+            mappingsList.appendChild(div);
+        });
+    }
+}
+
 async function fetchAPIKeys() { try { allTokens = await api.apiFetch(api.endpoints.tokens); ui.renderAPIKeys(allTokens, allTokens, getEl('api-keys-list'), editAPIKey, deleteAPIKey); } catch(e) {} }
 async function fetchCountries() { try { allCountries = await api.apiFetch(api.endpoints.countries); } catch(e) {} }
 
