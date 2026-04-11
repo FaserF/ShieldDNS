@@ -1840,3 +1840,29 @@ input:checked + .slider:before {
     position: relative;
     filter: drop-shadow(0 4px 6px hsla(0,0%,0%,0.2));
 }
+
+/* Phase 4: Frontend Polish - Interactivity & Visuals */
+.pulse-dot {
+    width: 10px;
+    height: 10px;
+    background-color: var(--success);
+    border-radius: 50%;
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0.4);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+.chart-wrapper canvas {
+    cursor: pointer;
+}
