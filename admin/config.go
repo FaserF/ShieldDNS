@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -60,7 +60,7 @@ func loadConfig() {
 		// If a key is missing in JSON, the default value from above remains
 		json.Unmarshal(file, &config)
 	} else {
-		log.Printf("Creating default config at %s", ConfigPath)
+		slog.Info("Creating default config", "path", ConfigPath)
 		saveConfigNoLock()
 	}
 
@@ -171,9 +171,9 @@ func saveConfigNoLock() {
 	data, _ := json.MarshalIndent(config, "", "  ")
 	os.MkdirAll(filepath.Dir(ConfigPath), 0755)
 	if err := os.WriteFile(ConfigPath, data, 0644); err != nil {
-		log.Printf("⚠️ ERROR: Failed to save config to %s: %v", ConfigPath, err)
+		slog.Error("Failed to save config", "path", ConfigPath, "error", err)
 	} else {
-		DebugLog(fmt.Sprintf("Disk: Config saved to %s", ConfigPath))
+		slog.Debug("Config saved", "path", ConfigPath)
 	}
 }
 
@@ -183,7 +183,7 @@ func updateBlocklist(cfg *Config) {
 		cfg = config.Clone()
 		configLock.RUnlock()
 	}
-	log.Println("Updating blocklists...")
+	slog.Info("Updating blocklists")
 
 	blocklists := cfg.Lists
 	allowlists := cfg.Allowlists
@@ -200,9 +200,8 @@ func updateBlocklist(cfg *Config) {
 		if !list.Enabled {
 			continue
 		}
-		AddSystemLog("⏬ Downloading blocklist: " + list.Name)
+		slog.Info("Processing blocklist", "name", list.Name)
 		processList(list, newBlockAttribution, allowDomains)
-		AddSystemLog("✅ Processed blocklist: " + list.Name)
 	}
 
 	for i := range allowlists {
@@ -210,9 +209,8 @@ func updateBlocklist(cfg *Config) {
 		if !list.Enabled {
 			continue
 		}
-		AddSystemLog("⏬ Downloading allowlist: " + list.Name)
+		slog.Info("Processing allowlist", "name", list.Name)
 		processList(list, nil, allowDomains) // Allowlists only populate allowDomains
-		AddSystemLog("✅ Processed allowlist: " + list.Name)
 	}
 
 	// Update the config lists with the new metadata (Entries and UpdatedAt)
@@ -306,7 +304,7 @@ func applyCurrentRules(attribution map[string][]string, allowSet map[string]stru
 	}
 	os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
 
-	log.Printf("Rules updated. Combined hosts written to %s. Restarting CoreDNS...", CombinedHostsPath)
+	slog.Info("Rules updated", "host_file", CombinedHostsPath, "count", len(attribution))
 	restartCoreDNS()
 }
 
@@ -361,7 +359,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		path := strings.TrimPrefix(list.URL, "file://")
 		file, err := os.Open(path)
 		if err != nil {
-			log.Printf("⚠️  WARNING: Could not open %s: %v. Skipping...", list.Name, err)
+			slog.Warn("Could not open local list file", "name", list.Name, "path", path, "error", err)
 			return
 		}
 		defer file.Close()
@@ -370,12 +368,12 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		client := &http.Client{Timeout: 30 * time.Second}
 		resp, err := client.Get(list.URL)
 		if err != nil {
-			log.Printf("⚠️  WARNING: Could not fetch %s (%s): %v. Skipping...", list.Name, list.URL, err)
+			slog.Warn("Could not fetch remote list", "name", list.Name, "url", list.URL, "error", err)
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			log.Printf("⚠️  WARNING: %s returned status %d. Skipping...", list.Name, resp.StatusCode)
+			slog.Warn("Remote list returned non-OK status", "name", list.Name, "status", resp.StatusCode)
 			return
 		}
 		reader = resp.Body
@@ -446,7 +444,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 	list.UpdatedAt = time.Now()
 
 	if err := scanner.Err(); err != nil {
-		log.Printf("⚠️  WARNING: Error reading lines for %s: %v", list.Name, err)
+		slog.Error("Error reading lines for list", "name", list.Name, "error", err)
 	}
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -59,6 +60,8 @@ func handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	saveConfigNoLock()
 	configLock.Unlock()
 
+	slog.Info("New API token created", "name", req.Name, "id", newToken.ID)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"token": rawToken,
@@ -84,6 +87,7 @@ func handleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	}
 	config.APIKeys = newKeys
 	saveConfigNoLock()
+	slog.Info("API token deleted", "id", id)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -106,6 +110,7 @@ func handleUpdateToken(w http.ResponseWriter, r *http.Request) {
 			config.APIKeys[i].Name = req.Name
 			config.APIKeys[i].Permissions = req.Permissions
 			saveConfigNoLock()
+			slog.Info("API token updated", "id", req.ID, "name", req.Name)
 			w.WriteHeader(http.StatusOK)
 			return
 		}

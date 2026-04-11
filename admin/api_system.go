@@ -3,16 +3,18 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/pem"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -23,7 +25,11 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func AddSystemLog(line string) {
-	line = fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), line)
+	// Add timestamp for UI display if not present
+	if !strings.HasPrefix(line, "[") {
+		line = fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), line)
+	}
+	
 	systemLogLock.Lock()
 	systemLogBuffer = append(systemLogBuffer, line)
 	if len(systemLogBuffer) > 500 {
@@ -48,8 +54,44 @@ var debugModeEnabled atomic.Bool
 
 func DebugLog(msg string) {
 	if debugModeEnabled.Load() {
-		AddSystemLog("[DEBUG] " + msg)
+		slog.Debug(msg)
 	}
+}
+
+// SlogUIHandler is a custom slog.Handler that writes JSON to a writer 
+// and plain text to the ShieldDNS UI system log buffer.
+type SlogUIHandler struct {
+	jsonHandler slog.Handler
+}
+
+func NewSlogUIHandler(w io.Writer, opts *slog.HandlerOptions) *SlogUIHandler {
+	return &SlogUIHandler{
+		jsonHandler: slog.NewJSONHandler(w, opts),
+	}
+}
+
+func (h *SlogUIHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.jsonHandler.Enabled(ctx, level)
+}
+
+func (h *SlogUIHandler) Handle(ctx context.Context, r slog.Record) error {
+	// 1. Send to System UI Log (Human Readable)
+	levelStr := ""
+	if r.Level != slog.LevelInfo {
+		levelStr = "[" + r.Level.String() + "] "
+	}
+	AddSystemLog(levelStr + r.Message)
+
+	// 2. Pass to JSON Handler (Machine Readable)
+	return h.jsonHandler.Handle(ctx, r)
+}
+
+func (h *SlogUIHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &SlogUIHandler{jsonHandler: h.jsonHandler.WithAttrs(attrs)}
+}
+
+func (h *SlogUIHandler) WithGroup(name string) slog.Handler {
+	return &SlogUIHandler{jsonHandler: h.jsonHandler.WithGroup(name)}
 }
 
 type LogWriter struct{}
@@ -57,9 +99,9 @@ type LogWriter struct{}
 func (w *LogWriter) Write(p []byte) (n int, err error) {
 	msg := strings.TrimSpace(string(p))
 	if msg != "" {
-		AddSystemLog(msg)
+		slog.Info(msg)
 	}
-	return os.Stdout.Write(p)
+	return len(p), nil
 }
 
 func handleSystemLogs(w http.ResponseWriter, r *http.Request) {
@@ -343,6 +385,7 @@ func handleBackup(w http.ResponseWriter, r *http.Request) {
 		io.Copy(writer, file)
 		file.Close()
 	}
+	slog.Info("System backup downloaded")
 }
 
 func handleRestore(w http.ResponseWriter, r *http.Request) {
@@ -381,7 +424,7 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 	updateCorefile()
 	go updateBlocklist(nil)
 
-	AddSystemLog("System Configuration Restored from uploaded file.")
+	slog.Info("System Configuration Restored from uploaded file")
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -411,6 +454,15 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		if newConfig.AdminPasswordHashed == "" {
 			newConfig.AdminPasswordHashed = config.AdminPasswordHashed
+		}
+		if newConfig.LastLogin.IsZero() {
+			newConfig.LastLogin = config.LastLogin
+		}
+		if newConfig.PreviousLogin.IsZero() {
+			newConfig.PreviousLogin = config.PreviousLogin
+		}
+		if !newConfig.SetupDone && config.SetupDone {
+			newConfig.SetupDone = config.SetupDone
 		}
 
 		// Sanitize & Validate Custom Rules
@@ -457,7 +509,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFullReload(w http.ResponseWriter, r *http.Request) {
-	AddSystemLog("🔄 Full system refresh initiated by user.")
+	slog.Info("Full system refresh initiated by user")
 
 	// We run this in a goroutine because blacklists update can take a while,
 	// and we don't want the frontend to timeout.
@@ -471,7 +523,7 @@ func handleFullReload(w http.ResponseWriter, r *http.Request) {
 		// 3. Restart CoreDNS to flush cache and apply everything
 		restartCoreDNS()
 
-		AddSystemLog("✨ Full system refresh completed successfully.")
+		slog.Info("Full system refresh completed successfully")
 	}()
 
 	w.WriteHeader(http.StatusOK)
@@ -486,7 +538,7 @@ func handleReset(w http.ResponseWriter, r *http.Request) {
 	configLock.Lock()
 	defer configLock.Unlock()
 
-	log.Println("!!! SYSTEM RESET TRIGGERED !!!")
+	slog.Warn("SYSTEM RESET TRIGGERED")
 
 	// 1. Close DB
 	if db != nil {
@@ -498,7 +550,7 @@ func handleReset(w http.ResponseWriter, r *http.Request) {
 	files := []string{ConfigPath, DBPath, BlocklistPath, AllowlistPath}
 	for _, f := range files {
 		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
-			log.Printf("Failed to remove %s: %v", f, err)
+			slog.Error("Failed to remove file during reset", "path", f, "error", err)
 		}
 	}
 
@@ -517,7 +569,7 @@ func handleReset(w http.ResponseWriter, r *http.Request) {
 	// Graceful exit after response
 	go func() {
 		time.Sleep(1 * time.Second)
-		log.Println("System Reset complete. Exiting for restart.")
+		slog.Warn("System Reset complete. Exiting for restart.")
 		os.Exit(0)
 	}()
 }

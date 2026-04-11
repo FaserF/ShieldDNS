@@ -2,10 +2,11 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -498,13 +499,13 @@ func updateCorefile() {
 
 	tmpl, err := template.New("corefile").Parse(CorefileTemplate)
 	if err != nil {
-		log.Printf("Error parsing Corefile template: %v", err)
+		slog.Error("Error parsing Corefile template", "error", err)
 		return
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		log.Printf("Error executing Corefile template: %v", err)
+		slog.Error("Error executing Corefile template", "error", err)
 		return
 	}
 
@@ -513,13 +514,13 @@ func updateCorefile() {
 
 func startCoreDNS() {
 	for {
-		log.Println("Starting CoreDNS...")
+		slog.Info("Starting CoreDNS")
 		dnsCmd = exec.Command("coredns", "-conf", CorefilePath)
 		stdout, _ := dnsCmd.StdoutPipe()
 		stderr, _ := dnsCmd.StderrPipe()
 
 		if err := dnsCmd.Start(); err != nil {
-			log.Printf("Error starting CoreDNS: %v", err)
+			slog.Error("Error starting CoreDNS", "error", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
@@ -532,7 +533,7 @@ func startCoreDNS() {
 				debug := config.DebugMode
 				configLock.RUnlock()
 				if debug {
-					AddSystemLog("[CoreDNS] " + line)
+					slog.Info(line, "source", "coredns")
 				}
 				go parseLogLine(line)
 			}
@@ -546,20 +547,20 @@ func startCoreDNS() {
 				debug := config.DebugMode
 				configLock.RUnlock()
 				if debug {
-					AddSystemLog("[CoreDNS-ERR] " + line)
+					slog.Error(line, "source", "coredns-err")
 				}
 			}
 		}(stderr)
 
 		dnsCmd.Wait()
-		log.Println("CoreDNS exited. Restarting...")
+		slog.Warn("CoreDNS exited. Restarting...")
 		time.Sleep(1 * time.Second)
 	}
 }
 
 func restartCoreDNS() {
 	if dnsCmd != nil && dnsCmd.Process != nil {
-		log.Println("Restarting CoreDNS to flush cache and apply updated lists...")
+		slog.Info("Restarting CoreDNS to flush cache and apply updated lists")
 		dnsCmd.Process.Kill()
 	}
 }
@@ -644,7 +645,7 @@ func parseLogLine(line string) {
 		}
 		userAgent = "-" // Default format doesn't have User-Agent
 	} else {
-		DebugLog(fmt.Sprintf("Parsing failed: unknown format or too few fields in prefix: %s", prefix))
+		slog.Debug("Parsing failed: unknown format or too few fields in prefix", "prefix", prefix)
 		return
 	}
 
@@ -701,7 +702,7 @@ func parseLogLine(line string) {
 		clientIP = "DoH Proxy"
 	}
 
-	DebugLog(fmt.Sprintf("Parsed Query: %s %s from %s (Duration: %s)", qType, qDomain, clientIP, durationStr))
+	slog.Debug("Parsed Query", "type", qType, "domain", qDomain, "client", clientIP, "duration", durationStr)
 
 	// Update latest User-Agent for this IP
 	if userAgent != "" && userAgent != "-" && userAgent != "none" {

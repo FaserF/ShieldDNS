@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -32,7 +33,7 @@ func handleToggleFiltering(w http.ResponseWriter, r *http.Request) {
 	if req.Enabled {
 		status = "Enabled"
 	}
-	AddSystemLog("Global protection " + status)
+	slog.Info("Global protection status changed", "status", status)
 
 	w.WriteHeader(http.StatusOK)
 }

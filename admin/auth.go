@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -177,6 +178,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 	}
 	config.AdminPasswordHashed = string(hash)
 	saveConfigNoLock()
+	slog.Info("Admin setup completed", "ip", strings.Split(r.RemoteAddr, ":")[0])
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -212,6 +214,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		failureLock.Unlock()
 
 		http.Error(w, "Invalid password", http.StatusUnauthorized)
+		slog.Warn("Failed login attempt", "ip", ip)
 		return
 	}
 
@@ -243,6 +246,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	saveConfigNoLock()
 	configLock.Unlock()
 
+	slog.Info("Admin logged in", "ip", ip)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -295,6 +299,7 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	sessionToken = ""
 	sessionLock.Unlock()
 
+	slog.Info("Admin password changed", "ip", strings.Split(r.RemoteAddr, ":")[0])
 	w.WriteHeader(http.StatusOK)
 }
 

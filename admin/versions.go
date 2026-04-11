@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -118,7 +118,7 @@ func updateVersions() {
 	latestVersions.LastCheck = time.Now()
 	versionLock.Unlock()
 
-	DebugLog("Checking for component updates (GitHub/Alpine)...")
+	slog.Debug("Checking for component updates (GitHub/Alpine)")
 
 	var wg sync.WaitGroup
 	wg.Add(3)
@@ -154,15 +154,17 @@ func updateVersions() {
 	}()
 
 	wg.Wait()
-	DebugLog(fmt.Sprintf("Update check complete. Latest: ShieldDNS=%s, CoreDNS=%s, Alpine=%s",
-		latestVersions.ShieldDNS, latestVersions.CoreDNS, latestVersions.Alpine))
+	slog.Info("Update check complete",
+		"ShieldDNS", latestVersions.ShieldDNS,
+		"CoreDNS", latestVersions.CoreDNS,
+		"Alpine", latestVersions.Alpine)
 }
 
 func fetchGitHubLatestTag(repo string) string {
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get("https://api.github.com/repos/" + repo + "/releases/latest")
 	if err != nil {
-		log.Printf("Error fetching latest version for %s: %v", repo, err)
+		slog.Error("Error fetching latest version", "repo", repo, "error", err)
 		return ""
 	}
 	defer resp.Body.Close()

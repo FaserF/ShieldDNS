@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -69,7 +69,7 @@ func getGeoACLRules() string {
 		// If file doesn't exist, try to sync it once
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			if err := syncCountryIPs(cc); err != nil {
-				log.Printf("[Geo] Failed to sync %s: %v", cc, err)
+				slog.Error("Failed to sync country IPs", "country", cc, "error", err)
 				continue
 			}
 		}

@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -85,7 +85,7 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
-		log.Printf("Error querying queries: %v", err)
+		slog.Error("Error querying history/logs", "query", query, "error", err)
 		http.Error(w, "Error querying database", http.StatusInternalServerError)
 		return
 	}
@@ -254,7 +254,7 @@ func handleClientStats(w http.ResponseWriter, r *http.Request) {
 
 	cs, err := getClientStats(clientIP)
 	if err != nil {
-		log.Printf("Error fetching client stats: %v", err)
+		slog.Error("Error fetching client stats", "ip", clientIP, "error", err)
 		http.Error(w, "Error fetching client stats", http.StatusInternalServerError)
 		return
 	}
@@ -279,7 +279,7 @@ func handleClientTopBlocked(w http.ResponseWriter, r *http.Request) {
 
 	results, err := getClientTopBlocked(clientIP, limit)
 	if err != nil {
-		log.Printf("Error fetching top blocked: %v", err)
+		slog.Error("Error fetching top blocked for client", "ip", clientIP, "error", err)
 		http.Error(w, "Error fetching top blocked", http.StatusInternalServerError)
 		return
 	}
@@ -438,7 +438,7 @@ func handleDomainStats(w http.ResponseWriter, r *http.Request) {
 
 	ds, err := getDomainStats(domain)
 	if err != nil {
-		log.Printf("Error fetching domain stats: %v", err)
+		slog.Error("Error fetching domain stats", "domain", domain, "error", err)
 		http.Error(w, "Error fetching domain stats", http.StatusInternalServerError)
 		return
 	}
@@ -463,7 +463,7 @@ func handleDomainClients(w http.ResponseWriter, r *http.Request) {
 
 	results, err := getDomainClients(domain, limit)
 	if err != nil {
-		log.Printf("Error fetching domain clients: %v", err)
+		slog.Error("Error fetching domain clients", "domain", domain, "error", err)
 		http.Error(w, "Error fetching domain clients", http.StatusInternalServerError)
 		return
 	}

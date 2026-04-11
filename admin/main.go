@@ -3,6 +3,7 @@ package main
 import (
 	"html/template"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +14,24 @@ import (
 const Version        = "v1.5.0"
 
 func main() {
+	// Initialize Structured Logging
+	handlerOpts := &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}
+	if os.Getenv("DEBUG") == "true" {
+		handlerOpts.Level = slog.LevelDebug
+		debugModeEnabled.Store(true)
+	}
+
+	uiHandler := NewSlogUIHandler(os.Stdout, handlerOpts)
+	slog.SetDefault(slog.New(uiHandler))
+
+	// Bridge legacy standard log usage into slog
+	log.SetOutput(&LogWriter{})
+	log.SetFlags(0) // slog handles timestamps
+
+	slog.Info("ShieldDNS Backend starting", "version", Version)
+
 	stats.QueryTypes = make(map[string]int64)
 	initPaths()
 	loadConfig()
@@ -39,9 +58,6 @@ func main() {
 
 	// Start CoreDNS management
 	go startCoreDNS()
-
-	// Logging
-	log.SetOutput(&LogWriter{})
 
 	// Auth API
 	http.HandleFunc("/api/auth-status", handleAuthStatus)

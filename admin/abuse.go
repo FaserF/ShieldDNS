@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -129,7 +129,7 @@ func extractTLD(domain string) string {
 }
 
 func blockClientAuto(ip, reason string) {
-	log.Printf("⚠️ Abuse Detection triggered for %s: %s", ip, reason)
+	slog.Warn("Abuse Detection triggered", "ip", ip, "reason", reason)
 
 	configLock.Lock()
 	if config.BlockedClients == nil {

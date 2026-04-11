@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -16,13 +16,19 @@ var db *sql.DB
 func initDB() {
 	var err error
 	os.MkdirAll(filepath.Dir(DBPath), 0755)
-	db, err = sql.Open("sqlite", DBPath+"?_busy_timeout=5000")
+	db, err = sql.Open("sqlite", DBPath+"?_busy_timeout=10000")
 	if err != nil {
-		log.Fatalf("Fatal: Could not open database: %v", err)
+		slog.Error("Could not open database", "path", DBPath, "error", err)
+		os.Exit(1)
 	}
 
 	_, err = db.Exec(`
 		PRAGMA journal_mode=WAL;
+		PRAGMA synchronous=NORMAL;
+		PRAGMA cache_size=-64000;
+		PRAGMA temp_store=MEMORY;
+		PRAGMA busy_timeout=10000;
+		PRAGMA auto_vacuum=INCREMENTAL;
 		CREATE TABLE IF NOT EXISTS queries (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			timestamp DATETIME,
@@ -45,7 +51,8 @@ func initDB() {
 		CREATE INDEX IF NOT EXISTS idx_clients_ip ON clients(ip);
 	`)
 	if err != nil {
-		log.Fatalf("Fatal: Could not initialize database schema: %v", err)
+		slog.Error("Could not initialize database schema", "error", err)
+		os.Exit(1)
 	}
 
 	// Migrations for existing databases
@@ -58,7 +65,7 @@ func addColumnIfNotExists(table, column, definition string) {
 	query := fmt.Sprintf("PRAGMA table_info(%s)", table)
 	rows, err := db.Query(query)
 	if err != nil {
-		log.Printf("Error checking table info for %s: %v", table, err)
+		slog.Error("Error checking table info", "table", table, "error", err)
 		return
 	}
 	defer rows.Close()
@@ -80,9 +87,9 @@ func addColumnIfNotExists(table, column, definition string) {
 		alterQuery := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition)
 		_, err := db.Exec(alterQuery)
 		if err != nil {
-			log.Printf("Error adding column %s to table %s: %v", column, table, err)
+			slog.Error("Error adding column", "table", table, "column", column, "error", err)
 		} else {
-			log.Printf("Database Migration: Added column %s to table %s", column, table)
+			slog.Info("Database Migration: Added column", "table", table, "column", column)
 		}
 	}
 }
@@ -108,9 +115,9 @@ func startDBWorker() {
 				// Reclaim space
 				_, err = db.Exec("VACUUM")
 				if err != nil {
-					log.Printf("Error running database VACUUM: %v", err)
+					slog.Error("Error running internal database VACUUM", "error", err)
 				} else {
-					log.Printf("Database maintenance: VACUUM completed successfully.")
+					slog.Debug("Database maintenance: VACUUM completed")
 				}
 			}
 		}
@@ -145,13 +152,13 @@ func startLogWorker() {
 func flushLogs(toFlush []Query) {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("Error starting log transaction: %v", err)
+		slog.Error("Error starting log transaction", "error", err)
 		return
 	}
 
 	stmt, err := tx.Prepare("INSERT INTO queries (timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
-		log.Printf("Error preparing log statement: %v", err)
+		slog.Error("Error preparing log statement", "error", err)
 		tx.Rollback()
 		return
 	}
@@ -160,12 +167,12 @@ func flushLogs(toFlush []Query) {
 	for _, q := range toFlush {
 		_, err = stmt.Exec(q.Time.Format(time.RFC3339), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs)
 		if err != nil {
-			log.Printf("Error executing log statement: %v", err)
+			slog.Error("Error executing log statement", "domain", q.Domain, "error", err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		log.Printf("Error committing log transaction: %v", err)
+		slog.Error("Error committing log transaction", "error", err)
 	}
 }
 
@@ -226,7 +233,7 @@ func initializeStatsFromDB() {
 			}
 		}
 	} else {
-		log.Printf("Error initializing history from DB: %v", err)
+		slog.Error("Error initializing history from DB", "error", err)
 	}
 	// 3. Query Types (last 24h)
 	if stats.QueryTypes == nil {
@@ -248,10 +255,10 @@ func initializeStatsFromDB() {
 			}
 		}
 	} else {
-		log.Printf("Error initializing query types from DB: %v", err)
+		slog.Error("Error initializing query types from DB", "error", err)
 	}
 
-	log.Printf("Statistics initialized from database: %d total queries, %d blocked, %v types", stats.TotalQueries, stats.BlockedQueries, stats.QueryTypes)
+	slog.Info("Statistics initialized from database", "total", stats.TotalQueries, "blocked", stats.BlockedQueries)
 }
 
 func getClientStats(ip string) (ClientStats, error) {
@@ -362,7 +369,7 @@ func saveClientUA(ip, ua string) {
 			last_seen = datetime('now')
 	`, ip, ua)
 	if err != nil {
-		log.Printf("Error saving client UA: %v", err)
+		slog.Error("Error saving client UA", "ip", ip, "error", err)
 	}
 }
 
@@ -374,7 +381,7 @@ func getClientUA(ip string) string {
 	err := db.QueryRow("SELECT user_agent FROM clients WHERE ip = ?", ip).Scan(&ua)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("Error getting client UA: %v", err)
+			slog.Error("Error getting client UA", "ip", ip, "error", err)
 		}
 		return ""
 	}

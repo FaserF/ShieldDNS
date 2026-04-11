@@ -13,7 +13,7 @@ It features a **State-of-the-art Premium Admin Dashboard** with a modern Glassmo
 - 🏳️ **Custom Rules**: Instantly allow or block individual domains via the Admin UI. Input is auto-sanitized — paste a full URL if you like!
 - 🛡️ **DNS Filtering**: Integrated engine for blocklists with automatic updates and deduplication.
 - 🔌 **Protection Kill-Switch**: Instantly disable all filtering via the dashboard or API.
-- ⚡ **Optimized Performance**: Intelligent caching, prefetching, and **Serve Stale** support for instant responses even when upstreams are slow.
+- ⚡ **Optimized Performance**: Intelligent caching, prefetching, and **advanced SQLite PRAGMAs** (WAL, Normal Sync, Memory TempStore) for high-load durability.
 - 🔐 **Secure Admin**: Mandatory password protection (bcrypt) for the Admin UI on port 443.
 - 📱 **Modern Protocols**: Perfect for Android Private DNS and standard system-wide filtering (iOS `.mobileconfig` with DoT/DoH/DoQ support).
 - ⚡ **Live Monitoring**: Real-time query log updates via Server-Sent Events (SSE).
@@ -25,14 +25,17 @@ It features a **State-of-the-art Premium Admin Dashboard** with a modern Glassmo
 - 🚫 **Client IP Blocking**: Block any client IP from using your DNS server directly from the Client Details view.
 - 🤖 **Abuse Detection Engine**: Automatically detects and blocks clients exhibiting malicious behaviors (e.g., Domain Floods, Rate Limit abuse, NXDOMAIN floods by DGA bots).
 - 🧹 **Optimized Default Lists**: Ships with a single, curated default (HaGeZi Multi Normal) for maximum protection with minimal RAM usage on any hardware.
+- 📜 **Performant Query Logs**: Virtual scrolling implementation allows silky-smooth browsing through thousands of query entries without DOM lag.
+- 🪵 **Structured Logging**: Native `log/slog` integration provides machine-readable JSON logs for Docker/Loki while maintaining human-friendly Admin UI logs via a custom handler bridge.
 
 ## 🏗️ Technical Architecture
 
 ShieldDNS is designed for high performance and long-term maintainability:
 - **CoreDNS Integration**: Powered by a robust, CNCF-hosted DNS engine.
 - **Template-based Configuration**: CoreDNS `Corefile` generation uses Go `text/template` for flexibility and safety.
-- **Modular Backend**: The API logic is separated into specialized components (`api_stats.go`, `api_rules.go`, `api_tokens.go`, `api_system.go`, `api_utils.go`) to ensure a clean codebase.
-- **Performance-first Design**: Uses SQLite WAL-mode and batching for high-speed logging and analytics.
+- **Modular Backend**: The API logic is separated into specialized components (`api_stats.go`, `api_rules.go`, `api_tokens.go`, `api_system.go`, `api_utils.go`) to ensure a clean, maintainable codebase.
+- **Enterprise-Grade Logging**: Uses structured JSON logging (`log/slog`) for observability, allowing seamless integration with modern logging stacks like Grafana Loki or ELK.
+- **SQLite Optimization**: Tuned for extreme DNS loads using `synchronous=NORMAL`, `cache_size=-64000`, and `journal_mode=WAL` to prevent database locking bottlenecks.
 
 ## ❤️ Support This Project
 
