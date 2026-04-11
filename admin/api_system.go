@@ -205,7 +205,7 @@ func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		// Fallback for self-signed if default fails or file missing
-		fallbackPath := "/etc/shielddns/ssl/selfsigned.crt"
+		fallbackPath := filepath.Join(DataDir, "ssl", "selfsigned.crt")
 		if data, err = os.ReadFile(fallbackPath); err == nil {
 			block, _ = pem.Decode(data)
 			if block != nil {

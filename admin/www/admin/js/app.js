@@ -117,6 +117,13 @@ function initializeApp() {
     // Auto-refresh loops
     setInterval(fetchStats, 10000);
     setInterval(fetchHistory, 60000);
+
+    // Attach Setup/Auth listeners
+    getEl('setup-finish-btn')?.addEventListener('click', finishSetup);
+    getEl('login-confirm-btn')?.addEventListener('click', handleLogin);
+    getEl('login-password')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleLogin();
+    });
 }
 
 async function refreshAll() {
@@ -293,7 +300,137 @@ function startSSE() {
     };
 }
 
+/**
+ * Setup Wizard Logic
+ */
+async function nextSetupStep(step) {
+    // Hide all panes
+    document.querySelectorAll('.setup-pane').forEach(p => p.classList.add('hidden'));
+    const targetPane = document.getElementById(`setup-pane-${step}`);
+    if (targetPane) targetPane.classList.remove('hidden');
+    
+    // Update step indicators
+    document.querySelectorAll('.w-step').forEach(s => s.classList.remove('active'));
+    document.getElementById(`w-step-${step}`)?.classList.add('active');
+
+    // If reaching step 3 (Blocklists), load presets to choose from
+    if (step === 3) {
+        await loadSetupPresets();
+    }
+}
+
+async function loadSetupPresets() {
+    const container = document.getElementById('setup-presets');
+    if (!container || container.children.length > 0) return;
+    
+    try {
+        const presets = await api.apiFetch(api.endpoints.presets);
+        container.innerHTML = '';
+        // Show first 6 popular presets as sensible defaults
+        presets.slice(0, 6).forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'preset-item-minimal';
+            div.style.display = 'flex';
+            div.style.alignItems = 'center';
+            div.style.gap = '10px';
+            div.style.marginBottom = '8px';
+            div.innerHTML = `
+                <input type="checkbox" id="setup-preset-${p.name}" data-url="${p.url}" data-name="${p.name}" checked>
+                <label for="setup-preset-${p.name}" style="cursor:pointer;">${p.name} <span class="help" style="font-size:0.7rem; opacity:0.6;">(${p.category || 'General'})</span></label>
+            `;
+            container.appendChild(div);
+        });
+    } catch (e) {
+        console.error('Failed to load setup presets', e);
+    }
+}
+
+async function finishSetup() {
+    const pwd = document.getElementById('setup-password').value;
+    const confirm = document.getElementById('setup-confirm').value;
+    
+    if (pwd.length < 12) {
+        helpers.showAlert('Password must be at least 12 characters long');
+        return;
+    }
+    if (pwd !== confirm) {
+        helpers.showAlert('Passwords do not match');
+        return;
+    }
+    
+    const finishBtn = document.getElementById('setup-finish-btn');
+    const originalText = finishBtn.innerHTML;
+    finishBtn.disabled = true;
+    finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finalizing...';
+    
+    try {
+        // 1. Initial Setup (Password)
+        await api.apiFetch('/api/setup', {
+            method: 'POST',
+            body: JSON.stringify({ password: pwd })
+        });
+        
+        // 2. Immediate Login to authorize further config
+        await api.apiFetch('/api/login', {
+            method: 'POST',
+            body: JSON.stringify({ password: pwd })
+        });
+        
+        // 3. Save Wizard Selections (Upstreams & Blocklists)
+        const upstreams = document.getElementById('setup-upstreams').value.split(',').map(s => s.trim()).filter(s => s);
+        const dotUpstreams = document.getElementById('setup-dot-upstreams').value.split(',').map(s => s.trim()).filter(s => s);
+        const adminDomain = document.getElementById('setup-admin-domain').value.trim() || 'shielddns.local';
+        const preferEncrypted = document.getElementById('setup-prefer-encrypted').checked;
+        
+        const selectedLists = [];
+        document.querySelectorAll('#setup-presets input:checked').forEach(input => {
+            selectedLists.push({
+                name: input.getAttribute('data-name'),
+                url: input.getAttribute('data-url'),
+                enabled: true
+            });
+        });
+
+        // Use standard config endpoint to save wizard state
+        await api.apiFetch(api.endpoints.config, {
+            method: 'POST',
+            body: JSON.stringify({
+                upstreams,
+                upstream_dot: dotUpstreams,
+                admin_domain: adminDomain,
+                prefer_encrypted: preferEncrypted,
+                lists: selectedLists,
+                setup_done: true
+            })
+        });
+        
+        await helpers.showAlert('Setup completed! ShieldDNS is now active and securing your devices.', 'Success');
+        window.location.reload(); 
+        
+    } catch (e) {
+        helpers.showAlert('Setup failed: ' + e.message);
+        finishBtn.disabled = false;
+        finishBtn.innerHTML = originalText;
+    }
+}
+
+async function handleLogin() {
+    const pwd = document.getElementById('login-password').value;
+    if (!pwd) return;
+
+    try {
+        await api.apiFetch('/api/login', {
+            method: 'POST',
+            body: JSON.stringify({ password: pwd })
+        });
+        window.location.reload();
+    } catch (e) {
+        helpers.showAlert('Login failed: ' + e.message);
+    }
+}
+
 // Global window exposed functions for transition
+window.nextSetupStep = nextSetupStep;
 window.fetchQueries = fetchQueries;
 window.refreshAll = refreshAll;
 window.showDomainDetails = showDomainDetails;

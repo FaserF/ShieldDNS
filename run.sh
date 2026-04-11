@@ -34,6 +34,7 @@ if [ -f "/data/options.json" ] && [ -n "$(command -v bashio::config)" ]; then
 
     # Export for Go backend
     export BLOCK_PAGE_IP
+    export DATA_DIR="/data"
 
     # Prepend /ssl/ to cert paths if they are just filenames
     if [[ "$CERT_FILE" != /* ]]; then CERT_FILE="/ssl/$CERT_FILE"; fi
@@ -65,9 +66,9 @@ if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
     echo "⚠️  WARNING: SSL Certificates not found at ${CERT_FILE} or ${KEY_FILE}!"
     echo "⚙️  Generating self-signed fallback certificate..."
     
-    mkdir -p /etc/shielddns/ssl
-    FALLBACK_CERT="/etc/shielddns/ssl/selfsigned.crt"
-    FALLBACK_KEY="/etc/shielddns/ssl/selfsigned.key"
+    mkdir -p "${DATA_DIR:-/etc/shielddns}/ssl"
+    FALLBACK_CERT="${DATA_DIR:-/etc/shielddns}/ssl/selfsigned.crt"
+    FALLBACK_KEY="${DATA_DIR:-/etc/shielddns}/ssl/selfsigned.key"
     
     if [ ! -f "$FALLBACK_CERT" ]; then
         openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \

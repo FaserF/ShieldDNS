@@ -832,6 +832,11 @@
                         <input type="text" id="setup-dot-upstreams"
                             value="unfiltered.joindns4.eu, dns.quad9.net, one.one.one.one, dns.google">
                     </div>
+                    <div class="form-group">
+                        <label>Admin Domain (for Block Page)</label>
+                        <p class="help">e.g. dns.mydomain.de. Blocked requests will redirect here.</p>
+                        <input type="text" id="setup-admin-domain" placeholder="shielddns.local">
+                    </div>
                     <div class="form-group checkbox-group">
                         <input type="checkbox" id="setup-prefer-encrypted" checked>
                         <label for="setup-prefer-encrypted">Prefer Encrypted Upstreams</label>
@@ -899,7 +904,6 @@
     </div>
 
     <script src="utils.js"></script>
-    <script src="script.js"></script>
     <script>
         if (new URLSearchParams(window.location.search).get('test') === '1') {
             console.log("Developer Mode Active: Loading UI Test Scripts...");

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -301,6 +302,20 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 				if cert.Issuer.String() == cert.Subject.String() {
 					isSelfSigned = true
 					certBase64 = base64.StdEncoding.EncodeToString(block.Bytes)
+				}
+			}
+		}
+	} else {
+		// Try fallback from DataDir
+		fallbackPath := filepath.Join(DataDir, "ssl", "selfsigned.crt")
+		if certData, err = os.ReadFile(fallbackPath); err == nil {
+			block, _ := pem.Decode(certData)
+			if block != nil {
+				if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+					if cert.Issuer.String() == cert.Subject.String() {
+						isSelfSigned = true
+						certBase64 = base64.StdEncoding.EncodeToString(block.Bytes)
+					}
 				}
 			}
 		}
