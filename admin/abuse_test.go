@@ -44,8 +44,22 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 	// 120th query should trigger block
 	analyzeQuery(ip, domain, "NOERROR")
 
-	// Wait briefly for goroutine to finish (blockClientAuto runs in goroutine inside analyzeQuery? No, blockClientAuto is asynchronous if we called `go blockClientAuto`, wait, let me check abuse.go: yes `go blockClientAuto`)
-	time.Sleep(10 * time.Millisecond)
+	// Wait for background goroutine to update config
+	for i := 0; i < 20; i++ {
+		configLock.RLock()
+		found := false
+		for _, c := range config.BlockedClients {
+			if c == ip {
+				found = true
+				break
+			}
+		}
+		configLock.RUnlock()
+		if found {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 
 	configLock.RLock()
 	blocked = false
@@ -96,7 +110,17 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 
 	// 300th query should trigger block
 	analyzeQuery(ip, "random-dga-300.com", "NXDOMAIN")
-	time.Sleep(10 * time.Millisecond)
+
+	// Wait for background goroutine to update config
+	for i := 0; i < 20; i++ {
+		configLock.RLock()
+		_, found := config.BlockedClientsInfo[ip]
+		configLock.RUnlock()
+		if found {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 
 	configLock.RLock()
 	info, hasInfo := config.BlockedClientsInfo[ip]

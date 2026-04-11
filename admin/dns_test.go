@@ -256,6 +256,16 @@ func TestUpdateCorefileTemplate(t *testing.T) {
 		configLock.Unlock()
 	}()
 
+	// Mock healthy upstreams
+	healthLock.Lock()
+	healthyUpstreams = []string{"1.1.1.1"}
+	healthLock.Unlock()
+	defer func() {
+		healthLock.Lock()
+		healthyUpstreams = nil
+		healthLock.Unlock()
+	}()
+
 	// 4. Run update
 	updateCorefile()
 
