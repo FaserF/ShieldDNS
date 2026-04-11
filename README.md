@@ -168,9 +168,16 @@ ShieldDNS uses a Role-Based Access Control model. Tokens can be restricted to:
 - `write:filtering`: Toggle the global protection/filtering engine.
 - `read:all`: Grant all read-only permissions above.
 
-### Health Endpoints
+### Health & Metrics Endpoints
 - `/api/health/live`: Public endpoint for container liveness checks (No authentication required).
 - `/api/health/ready`: System readiness check (Requires `read:system` permission).
+- `/api/metrics`: Prometheus-compatible metrics (Requires `read:metrics` permission).
+    - `shielddns_queries_total`: Total DNS queries (status, type).
+    - `shielddns_cache_hits_total`: Total cache hits.
+    - `shielddns_query_duration_seconds`: Response latency histogram.
+    - `shielddns_active_clients_count`: Unique clients (24h).
+    - `shielddns_db_size_bytes`: SQLite database size.
+    - `shielddns_abuse_blocked_total`: Auto-blocking events.
 
 > [!IMPORTANT]
 > **Security Guard Policy**: If no API keys are defined in the Settings, all token-based authentication attempts are rejected by default.

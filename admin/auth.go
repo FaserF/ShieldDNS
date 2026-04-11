@@ -332,6 +332,8 @@ func getRequiredPermission(r *http.Request) string {
 	switch {
 	case strings.HasPrefix(path, "/api/stats"), strings.HasPrefix(path, "/api/history"), strings.HasPrefix(path, "/api/health"):
 		return "read:stats"
+	case strings.HasPrefix(path, "/api/metrics"):
+		return "read:metrics"
 	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-blocked"), strings.HasPrefix(path, "/api/top-clients"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"):
 		return "read:logs"
 	case strings.HasPrefix(path, "/api/system-logs"), strings.HasPrefix(path, "/api/diagnostics"), strings.HasPrefix(path, "/api/backup"):

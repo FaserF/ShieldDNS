@@ -40,6 +40,7 @@ func main() {
 	// Initialize SQLite
 	initDB()
 	initializeStatsFromDB()
+	initMetrics()
 
 	// Run initial blocklist update synchronously before starting CoreDNS
 	updateBlocklist(nil)
@@ -76,6 +77,7 @@ func main() {
 	http.Handle("/api/presets/allow", authMiddleware(http.HandlerFunc(handlePresetAllowlists)))
 	http.Handle("/api/countries", authMiddleware(http.HandlerFunc(handleGetCountries)))
 	http.Handle("/api/clients", authMiddleware(http.HandlerFunc(handleGetAllClients)))
+	http.Handle("/api/metrics", authMiddleware(http.HandlerFunc(handleMetrics)))
 
 	// Protected API
 	http.Handle("/api/config", authMiddleware(http.HandlerFunc(handleConfig)))

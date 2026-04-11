@@ -4,7 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"crypto/pem"
+	"encoding/pem"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"

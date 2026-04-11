@@ -155,6 +155,7 @@ func blockClientAuto(ip, reason string) {
 	}
 
 	saveConfigNoLock()
+	RecordAbuseBlock()
 	configLock.Unlock()
 
 	go updateCorefile() // Instantly apply ACL update

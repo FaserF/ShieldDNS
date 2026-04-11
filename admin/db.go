@@ -169,6 +169,8 @@ func flushLogs(toFlush []Query) {
 		if err != nil {
 			slog.Error("Error executing log statement", "domain", q.Domain, "error", err)
 		}
+		// Record Prometheus Metrics
+		RecordQuery(q)
 	}
 
 	if err := tx.Commit(); err != nil {
