@@ -53,32 +53,39 @@ func loadConfig() {
 		CustomMappings:             map[string]string{"fritz.box": "192.168.178.1", "openwrt.lan": "192.168.1.1", "router.miwifi.com": "192.168.31.1"},
 	}
 
-	// 2. Load from file if exists
+	isNew := false
 	file, err := os.ReadFile(ConfigPath)
 	if err == nil {
 		// This will overwrite defaults with values from file
-		// If a key is missing in JSON, the default value from above remains
 		json.Unmarshal(file, &config)
 	} else {
+		isNew = true
 		slog.Info("Creating default config", "path", ConfigPath)
-		saveConfigNoLock()
 	}
 
-	// 3. Check environment variables for overrides
-	if envDNS := os.Getenv("UPSTREAM_DNS"); envDNS != "" {
-		parts := strings.Fields(strings.ReplaceAll(envDNS, ",", " "))
-		if len(parts) > 0 {
-			config.Upstreams = parts
+	// 3. Check environment variables for overrides ONLY on initial setup
+	// This ensures that settings configured via the UI remain persistent across restarts.
+	if isNew {
+		if envDNS := os.Getenv("UPSTREAM_DNS"); envDNS != "" {
+			parts := strings.Fields(strings.ReplaceAll(envDNS, ",", " "))
+			if len(parts) > 0 {
+				config.Upstreams = parts
+			}
+		}
+		if envDoT := os.Getenv("UPSTREAM_DOT"); envDoT != "" {
+			parts := strings.Fields(strings.ReplaceAll(envDoT, ",", " "))
+			if len(parts) > 0 {
+				config.UpstreamDoT = parts
+			}
+		}
+		if envBlockIP := os.Getenv("BLOCK_PAGE_IP"); envBlockIP != "" {
+			config.BlockPageIP = strings.TrimSpace(envBlockIP)
 		}
 	}
-	if envDoT := os.Getenv("UPSTREAM_DOT"); envDoT != "" {
-		parts := strings.Fields(strings.ReplaceAll(envDoT, ",", " "))
-		if len(parts) > 0 {
-			config.UpstreamDoT = parts
-		}
-	}
-	if envBlockIP := os.Getenv("BLOCK_PAGE_IP"); envBlockIP != "" {
-		config.BlockPageIP = strings.TrimSpace(envBlockIP)
+
+	// If it was newly created, save the config immediately after env overrides
+	if isNew {
+		saveConfigNoLock()
 	}
 
 	// 4. Prepend official lists if missing

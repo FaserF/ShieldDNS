@@ -184,7 +184,7 @@ func TestParseLogLine_ShortLine(t *testing.T) {
 }
 
 func TestParseLogLine_SSEBroadcast(t *testing.T) {
-	ch := make(chan Query, 1)
+	ch := make(chan Query, 10)
 	sseLock.Lock()
 	sseClients[ch] = struct{}{}
 	sseLock.Unlock()
@@ -197,13 +197,18 @@ func TestParseLogLine_SSEBroadcast(t *testing.T) {
 
 	parseLogLine(`192.168.1.10:4321 A example.com. NOERROR qr,rd 0.001s "-"`)
 
-	select {
-	case q := <-ch:
-		if q.Domain != "example.com" {
-			t.Errorf("expected example.com in SSE broadcast, got %s", q.Domain)
+	timeout := time.After(1 * time.Second)
+	found := false
+	for !found {
+		select {
+		case q := <-ch:
+			if q.Domain == "example.com" {
+				found = true
+			}
+		case <-timeout:
+			t.Error("timed out waiting for SSE broadcast of example.com")
+			return
 		}
-	case <-time.After(1 * time.Second):
-		t.Error("timed out waiting for SSE broadcast")
 	}
 }
 
