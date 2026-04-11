@@ -17,6 +17,11 @@ on:
         required: false
         default: false
         type: boolean
+      prerelease:
+        description: 'Mark as Pre-release'
+        required: false
+        default: false
+        type: boolean
 
 env:
   REGISTRY: ghcr.io
@@ -149,6 +154,6 @@ jobs:
           name: Release v${{ env.NEW_VERSION }}
           body_path: CHANGELOG_BODY.md
           draft: false
-          prerelease: false
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -41,6 +41,9 @@ export const endpoints = {
     queries: '/api/queries',
     events: '/api/events',
     tokens: '/api/tokens',
+    createToken: '/api/tokens/create',
+    updateToken: '/api/tokens/update',
+    deleteToken: '/api/tokens/delete',
     presets: '/api/presets',
     allowlistPresets: '/api/presets/allow',
     countries: '/api/countries',
@@ -56,5 +59,14 @@ export const endpoints = {
     fullReload: '/api/system/full-reload',
     reset: '/api/reset',
     clientBlock: '/api/client/block',
-    clientAlias: '/api/client/alias'
+    clientAlias: '/api/client/alias',
+    clientStats: '/api/client/stats',
+    clientTopDomains: '/api/client/top-domains',
+    clientTopBlocked: '/api/client/top-blocked',
+    domainStats: '/api/domain/stats',
+    domainClients: '/api/domain/clients',
+    changePassword: '/api/change-password',
+    backup: '/api/backup',
+    restore: '/api/restore',
+    blockInfo: '/api/block-info'
 };

@@ -8,7 +8,7 @@ export const state = {
     cachedQueries: [],
     activeFetchId: 0,
     fullQueryScroller: null,
-    systemLogEventSource: null,
+    queryEventSource: null,
     allCountries: {},
     diagnosticsInterval: null,
     systemLogStream: null

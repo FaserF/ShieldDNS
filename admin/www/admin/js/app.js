@@ -2,7 +2,7 @@
  * ShieldDNS Main Application Entry Point
  * Refactored into a modular structure for improved maintainability.
  */
-import { state, uiRefs, getEl } from './core/state.js';
+import { state, uiRefs, getEl, updateUIRefs } from './core/state.js';
 import * as auth from './core/auth.js';
 import * as nav from './core/navigation.js';
 import * as fetchService from './services/fetch.js';
@@ -32,6 +32,11 @@ document.addEventListener('DOMContentLoaded', () => {
  * App Initialization
  */
 function initializeApp() {
+    // 0. Ensure UI references are captured
+    auth.updateUIRefs();
+    initTheme();
+    initModals();
+    
     // 1. Init Navigation with view-specific handlers
     nav.initNavigation({
         'queries': () => fetchService.fetchQueries(),
@@ -39,7 +44,7 @@ function initializeApp() {
         'system-logs': () => nav.startSystemLogStream(),
         'diagnostics': () => { fetchService.fetchDiagnostics(); nav.startDiagTimer(() => fetchService.fetchDiagnostics()); },
         'lists': () => { fetchService.fetchPresets(); fetchService.fetchAllowlistPresets(); },
-        'settings': () => fetchService.fetchConfig(),
+        'settings': () => { fetchService.fetchConfig(); fetchService.fetchAPIKeys(); },
         'dashboard': () => fetchService.fetchStats()
     });
 
@@ -105,8 +110,8 @@ function initTheme() {
 window.nextSetupStep = auth.nextSetupStep;
 window.fetchQueries = fetchService.fetchQueries;
 window.refreshAll = refreshAll;
-window.showDomainDetails = (domain) => { /* logic to open modal */ console.log('Domain Details:', domain); };
-window.showIPDetails = (ip) => { /* logic to open modal */ console.log('IP Details:', ip); };
+window.showDomainDetails = (domain) => fetchService.fetchDomainDetails(domain);
+window.showIPDetails = (ip) => fetchService.fetchIPDetails(ip);
 
 window.addPreset = async (name, url, event) => {
     if (state.currentConfig.lists.some(l => l.url === url)) return helpers.showToast('List already added', 'info');
@@ -143,6 +148,145 @@ window.addAllowPreset = async (name, url, event) => {
         fetchService.fetchAllowlistPresets(); // Refresh UI
     }
 };
+
+/**
+ * Modal Management
+ */
+function initModals() {
+    // Shared closing logic for all modals
+    const closeModals = () => {
+        document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+    };
+
+    // Close buttons by ID
+    const closeSelectors = [
+        'modal-cancel', 'ip-info-close-btn', 'ip-info-close-btn-bottom', 'ip-info-done-btn',
+        'domain-info-close-btn', 'domain-info-close-btn-bottom', 'close-list-details-btn',
+        'close-list-details-btn-2'
+    ];
+    
+    closeSelectors.forEach(id => getEl(id)?.addEventListener('click', closeModals));
+
+    // IP Info UI logic
+    getEl('edit-alias-btn')?.addEventListener('click', () => {
+        getEl('alias-edit-box').classList.toggle('hidden');
+        getEl('client-alias-input').value = getEl('ip-info-title').textContent === getEl('ip-info-subtitle').textContent ? '' : getEl('ip-info-title').textContent;
+    });
+
+    getEl('save-alias-btn')?.addEventListener('click', async () => {
+        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
+        const alias = getEl('client-alias-input').value.trim();
+        const btn = getEl('save-alias-btn');
+        
+        helpers.setBtnLoading(btn, true, '');
+        try {
+            await api.apiFetch(api.endpoints.clientAlias, {
+                method: 'POST',
+                body: JSON.stringify({ ip, alias })
+            });
+            helpers.showToast('Alias updated');
+            getEl('ip-info-title').textContent = alias || ip;
+            getEl('alias-edit-box').classList.add('hidden');
+            fetchService.fetchConfig();
+        } catch (e) {
+            helpers.showAlert('Failed to update alias: ' + e.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    });
+
+    getEl('ip-block-btn')?.addEventListener('click', async () => {
+        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
+        if (!await helpers.showConfirm(`Block client ${ip}?`)) return;
+        try {
+            await api.apiFetch(api.endpoints.clientBlock, { method: 'POST', body: JSON.stringify({ ip, action: 'block' }) });
+            helpers.showToast('Client blocked');
+            closeModals();
+            fetchService.fetchConfig();
+        } catch (e) { helpers.showAlert('Block failed: ' + e.message); }
+    });
+
+    getEl('ip-unblock-btn')?.addEventListener('click', async () => {
+        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
+        try {
+            await api.apiFetch(api.endpoints.clientBlock, { method: 'POST', body: JSON.stringify({ ip, action: 'unblock' }) });
+            helpers.showToast('Client unblocked');
+            closeModals();
+            fetchService.fetchConfig();
+        } catch (e) { helpers.showAlert('Unblock failed: ' + e.message); }
+    });
+
+    getEl('domain-block-btn')?.addEventListener('click', async () => {
+        const domain = getEl('domain-info-title').textContent;
+        if (!domain || !await helpers.showConfirm(`Block domain ${domain}?`)) return;
+        try {
+            await api.apiFetch(api.endpoints.addRule, { method: 'POST', body: JSON.stringify({ domain, action: 'block' }) });
+            helpers.showToast(`${domain} blocked`);
+            closeModals();
+            fetchService.fetchConfig();
+        } catch (e) { helpers.showAlert('Block failed: ' + e.message); }
+    });
+
+    getEl('domain-allow-btn')?.addEventListener('click', async () => {
+        const domain = getEl('domain-info-title').textContent;
+        try {
+            await api.apiFetch(api.endpoints.addRule, { method: 'POST', body: JSON.stringify({ domain, action: 'allow' }) });
+            helpers.showToast(`${domain} allowed`);
+            closeModals();
+            fetchService.fetchConfig();
+        } catch (e) { helpers.showAlert('Allow failed: ' + e.message); }
+    });
+
+    getEl('ip-info-view-all-btn')?.addEventListener('click', () => {
+        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
+        closeModals();
+        
+        // Use navigateTo from nav module
+        import('./ui/navigation.js').then(nav => {
+            nav.navigateTo('queries');
+            setTimeout(() => {
+                const searchInput = getEl('query-search');
+                if (searchInput) {
+                    searchInput.value = ip;
+                    searchInput.dispatchEvent(new Event('input'));
+                }
+            }, 100);
+        });
+    });
+}
+
+window.openListDetailsModal = (type, idx) => {
+    const list = type === 'block' ? state.currentConfig.lists[idx] : state.currentConfig.allowlists[idx];
+    if (!list) return;
+
+    getEl('modal-list-name').textContent = list.name;
+    getEl('modal-list-url').textContent = list.url;
+    getEl('modal-list-url').href = list.url;
+    getEl('modal-list-entries').textContent = (list.entries || 0).toLocaleString();
+    getEl('modal-list-updated').textContent = list.last_updated ? new Date(list.last_updated).toLocaleString() : 'Never';
+    
+    getEl('list-details-modal').classList.remove('hidden');
+};
+
+window.removeList = async (idx, type, event) => {
+    if (!await helpers.showConfirm(`Remove this ${type}list?`)) return;
+    
+    const btn = event?.currentTarget;
+    helpers.setBtnLoading(btn, true, '');
+
+    if (type === 'block') state.currentConfig.lists.splice(idx, 1);
+    else state.currentConfig.allowlists.splice(idx, 1);
+    
+    try {
+        await api.apiFetch(api.endpoints.config, { method: 'POST', body: JSON.stringify(state.currentConfig) });
+        helpers.showToast('List removed');
+        fetchService.fetchConfig();
+    } catch(e) { 
+        helpers.setBtnLoading(btn, false);
+        helpers.showAlert('Failed to remove list: ' + e.message); 
+    }
+};
+
 
 window.addCustomRule = async (action, domainArg, event) => {
     const type = action === 'blocked' ? 'block' : 'allow';

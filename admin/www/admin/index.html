@@ -584,8 +584,15 @@
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <button type="submit" class="btn primary">Save Config</button>
-                </form>
+                    
+                 </form>
+
+                 <div class="settings-save-footer">
+                     <div class="save-status help" id="settings-save-status" style="margin-right: auto; font-size: 0.85rem; opacity: 0.7;">
+                         All changes must be saved to take effect.
+                     </div>
+                     <button type="button" class="btn primary" onclick="document.getElementById('settings-form').requestSubmit()">Save Configuration</button>
+                 </div>
 
                 <hr class="separator">
 
@@ -969,9 +976,9 @@
             </div>
             <div id="api-key-result" class="hidden">
                 <p>New API Key generated successfully! <strong>Copy it now, you won't see it again.</strong></p>
-                <div class="token-display">
-                    <code id="api-key-value"></code>
-                    <button id="copy-api-key-btn" class="btn btn-sm secondary">Copy</button>
+                <div class="token-display" style="background: var(--bg-body); padding: 15px; border-radius: 8px; border: 1px dashed var(--border); margin: 15px 0; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                    <code id="api-key-value" style="font-family: monospace; color: var(--accent); font-size: 1.1rem; word-break: break-all;">-</code>
+                    <button id="copy-api-key-btn" class="btn btn-sm secondary" style="width: auto;">Copy to Clipboard</button>
                 </div>
                 <div class="modal-actions">
                     <button id="close-api-key-modal-btn" class="btn primary">Done</button>
@@ -1241,7 +1248,8 @@
                 </div>
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <div id="domain-status-badge" class="badge">Checking...</div>
-                    <button id="modal-domain-block-btn" class="btn btn-sm danger" style="padding: 8px 16px;">Block Domain</button>
+                    <button id="domain-block-btn" class="btn btn-sm danger" style="padding: 8px 16px;">Block Domain</button>
+                    <button id="domain-allow-btn" class="btn btn-sm secondary" style="padding: 8px 16px;">Allow Domain</button>
                     <button class="btn btn-sm secondary" id="domain-info-close-btn" style="padding: 8px;"><i class="fas fa-times"></i></button>
                 </div>
             </div>

@@ -92,7 +92,7 @@ export function initEvents(fetchConfig) {
     getEl('save-api-key-btn')?.addEventListener('click', async (e) => {
         const btn = e.target;
         const name = getEl('api-key-name').value.trim();
-        if (!name) return helpers.showAlert('Please enter a name for the API key');
+        if (!name) return helpers.showToast('Please enter a name for the API key', 'info');
 
         const perms = [];
         if (getEl('perm-stats').checked) perms.push('read:stats');
@@ -102,14 +102,22 @@ export function initEvents(fetchConfig) {
 
         helpers.setBtnLoading(btn, true, 'Generating...');
         try {
-            const res = await api.apiFetch(api.endpoints.tokens, {
+            const res = await api.apiFetch(api.endpoints.createToken, {
                 method: 'POST',
                 body: JSON.stringify({ name, permissions: perms })
             });
-            getEl('api-key-form').classList.add('hidden');
-            getEl('api-key-result').classList.remove('hidden');
-            getEl('api-key-value').textContent = res.token;
-            helpers.showToast('API Key generated!');
+            
+            // The backend returns { token: "...", id: "..." } or similar
+            if (res.token) {
+                getEl('api-key-form').classList.add('hidden');
+                getEl('api-key-result').classList.remove('hidden');
+                getEl('api-key-value').textContent = res.token;
+                helpers.showToast('API Key generated!');
+                // Wait a bit then refresh list
+                setTimeout(fetchConfig, 500); 
+            } else {
+                throw new Error('No token returned from server');
+            }
         } catch (err) {
             helpers.showAlert('Failed to generate API Key: ' + err.message);
         } finally {
@@ -196,9 +204,141 @@ export function initEvents(fetchConfig) {
         try {
             await api.apiFetch(api.endpoints.reset, { method: 'POST', body: JSON.stringify({ scope: 'lists' }) });
             helpers.showToast('Lists restored to defaults');
-            fetchConfig();
+            // Force immediate reload to update UI
+            setTimeout(fetchConfig, 800);
         } catch (err) {
             helpers.showAlert('Failed to reset lists: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    });
+
+    // Window hooks for dynamic elements
+    window.deleteAPIKey = async (id, event) => {
+        if (!await helpers.showConfirm('Delete this API key forever?')) return;
+        const btn = event.currentTarget;
+        helpers.setBtnLoading(btn, true, '');
+        try {
+            await api.apiFetch(api.endpoints.deleteToken, { 
+                method: 'POST', 
+                body: JSON.stringify({ id }) 
+            });
+            helpers.showToast('API Key deleted');
+            setTimeout(fetchConfig, 500);
+        } catch (err) {
+            helpers.showAlert('Failed to delete token: ' + err.message);
+            helpers.setBtnLoading(btn, false);
+        }
+    };
+
+    window.unblockClient = async (ip) => {
+        if (!await helpers.showConfirm(`Unblock client ${ip}?`)) return;
+        try {
+            await api.apiFetch(api.endpoints.clientBlock, {
+                method: 'POST',
+                body: JSON.stringify({ ip, action: 'unblock' })
+            });
+            helpers.showToast(`Client ${ip} unblocked`);
+            setTimeout(fetchConfig, 500);
+        } catch (err) {
+            helpers.showAlert('Failed to unblock client: ' + err.message);
+        }
+    };
+
+    window.addCustomRule = async (type, domain) => {
+        const action = type === 'blocked' ? 'block' : 'allow';
+        try {
+            await api.apiFetch(api.endpoints.addRule, {
+                method: 'POST',
+                body: JSON.stringify({ domain, action })
+            });
+            helpers.showToast(`${domain} added to ${type} list`);
+            setTimeout(fetchConfig, 500);
+        } catch (err) {
+            helpers.showAlert('Failed to add rule: ' + err.message);
+        }
+    };
+
+    // Maintenance Handlers
+    getEl('manual-client-block-btn')?.addEventListener('click', async () => {
+        const ip = getEl('manual-client-block-input').value.trim();
+        if (!ip) return helpers.showToast('Please enter an IP address', 'info');
+        
+        try {
+            await api.apiFetch(api.endpoints.clientBlock, {
+                method: 'POST',
+                body: JSON.stringify({ ip, action: 'block' })
+            });
+            helpers.showToast(`Client ${ip} blocked`);
+            getEl('manual-client-block-input').value = '';
+            setTimeout(fetchConfig, 500);
+        } catch (err) {
+            helpers.showAlert('Failed to block client: ' + err.message);
+        }
+    });
+
+    getEl('backup-btn')?.addEventListener('click', async () => {
+        try {
+            const token = localStorage.getItem('api_token');
+            window.location.href = `${api.endpoints.backup}?token=${token}`;
+        } catch (err) {
+            helpers.showAlert('Backup failed: ' + err.message);
+        }
+    });
+
+    getEl('restore-file-input')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        helpers.showToast('Restoring configuration...', 'info');
+        try {
+            await api.apiFetch(api.endpoints.restore, {
+                method: 'POST',
+                body: formData
+            });
+            helpers.showToast('Configuration restored successfully! System is restarting...');
+            setTimeout(() => window.location.reload(), 2000);
+        } catch (err) {
+            helpers.showAlert('Restore failed: ' + err.message);
+        }
+    });
+
+    getEl('reset-system-btn')?.addEventListener('click', async () => {
+        if (!await helpers.showConfirm('FACTORY RESET: This will wipe your configuration and password. The system will revert to setup mode. Are you absolutely sure?')) return;
+        
+        try {
+            await api.apiFetch(api.endpoints.reset, { 
+                method: 'POST', 
+                body: JSON.stringify({ scope: 'all' }) 
+            });
+            helpers.showToast('Factory reset successful. Redirecting to setup...');
+            setTimeout(() => window.location.reload(), 2000);
+        } catch (err) {
+            helpers.showAlert('Factory reset failed: ' + err.message);
+        }
+    });
+
+    getEl('password-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const current = getEl('current-password').value;
+        const newPass = getEl('new-password').value;
+        
+        if (newPass.length < 12) return helpers.showAlert('New password must be at least 12 characters');
+
+        const btn = e.target.querySelector('button[type="submit"]');
+        helpers.setBtnLoading(btn, true, 'Updating...');
+        try {
+            await api.apiFetch(api.endpoints.changePassword, {
+                method: 'POST',
+                body: JSON.stringify({ current_password: current, new_password: newPass })
+            });
+            helpers.showToast('Password updated successfully');
+            e.target.reset();
+        } catch (err) {
+            helpers.showAlert('Failed to update password: ' + err.message);
         } finally {
             helpers.setBtnLoading(btn, false);
         }

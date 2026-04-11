@@ -548,7 +548,7 @@ func handleReset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Delete files
-	files := []string{ConfigPath, DBPath, BlocklistPath, AllowlistPath}
+	files := []string{ConfigPath, DBPath, DBPath + "-wal", DBPath + "-shm", BlocklistPath, AllowlistPath}
 	for _, f := range files {
 		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
 			slog.Error("Failed to remove file during reset", "path", f, "error", err)

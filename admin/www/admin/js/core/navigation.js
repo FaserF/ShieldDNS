@@ -67,16 +67,27 @@ export function stopSystemLogStream() {
 }
 
 export function startSSE(createQueryRow, updateDashboardFeed, scroller) {
-    if (state.systemLogEventSource) state.systemLogEventSource.close();
-    state.systemLogEventSource = new EventSource(api.endpoints.events);
-    state.systemLogEventSource.onmessage = (event) => {
-        const query = JSON.parse(event.data);
-        if (query.type === 'ping') return;
-        
-        updateDashboardFeed(query);
-        
-        if (scroller) {
-            scroller.prepend(query);
+    if (state.queryEventSource) state.queryEventSource.close();
+    
+    state.queryEventSource = new EventSource(api.endpoints.events);
+    
+    state.queryEventSource.onmessage = (event) => {
+        try {
+            const query = JSON.parse(event.data);
+            if (query.type === 'ping') return;
+            
+            updateDashboardFeed(query);
+            
+            if (scroller) {
+                scroller.prepend(query);
+            }
+        } catch (err) {
+            console.error('SSE JSON parse error:', err, event.data);
         }
+    };
+
+    state.queryEventSource.onerror = (err) => {
+        console.warn('SSE Connection lost. Reconnecting...', err);
+        // EventSource automatically reconnects, but we might want to log it
     };
 }

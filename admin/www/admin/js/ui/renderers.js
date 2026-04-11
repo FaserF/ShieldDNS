@@ -42,7 +42,6 @@ export function renderQueries(queries) {
 
 export function createQueryRow(q) {
     const row = document.createElement('tr');
-    row.className = 'virtual-row';
     const time = new Date(q.time).toLocaleTimeString();
     const actionBtn = q.status === 'Blocked' ?
         `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')" title="Whitelist Domain">Allow</button>` :
@@ -169,6 +168,17 @@ export function renderConfig(cfg) {
             </div>
         `).join('');
     }
+
+    // Blocked Clients in Settings
+    const blockedClientsList = getEl('settings-blocked-clients-list');
+    if (blockedClientsList) {
+        blockedClientsList.innerHTML = (cfg.blocked_clients || []).map(ip => `
+            <div class="tag danger">
+                <span>${ip}</span>
+                <span class="remove-tag" onclick="unblockClient('${ip}')">&times;</span>
+            </div>
+        `).join('') || '<p class="help">No clients are currently blocked.</p>';
+    }
 }
 
 export function renderAnalytics(blocked, clients) {
@@ -195,6 +205,35 @@ export function renderAnalytics(blocked, clients) {
 }
 
 export function renderDiagnostics(d) {
+    if (getEl('diag-cpu-load')) getEl('diag-cpu-load').textContent = d.cpu_load ? d.cpu_load.map(n => n.toFixed(2)).join(', ') : '0.00, 0.00, 0.00';
+    if (getEl('diag-cpu-model')) getEl('diag-cpu-model').textContent = d.cpu_model || 'Unknown CPU';
+    
+    if (d.ram) {
+        const used = (d.ram.used / 1024).toFixed(0);
+        const total = (d.ram.total / 1024).toFixed(0);
+        const pct = (d.ram.used / d.ram.total * 100).toFixed(1);
+        if (getEl('diag-ram-usage')) getEl('diag-ram-usage').textContent = `${used} / ${total} MB (${pct}%)`;
+        const bar = getEl('diag-ram-bar');
+        if (bar) bar.style.width = pct + '%';
+    }
+    
+    if (d.disk) {
+        const used = (d.disk.used / 1024 / 1024 / 1024).toFixed(1);
+        const total = (d.disk.total / 1024 / 1024 / 1024).toFixed(1);
+        const pct = (d.disk.used / d.disk.total * 100).toFixed(1);
+        if (getEl('diag-disk-usage')) getEl('diag-disk-usage').textContent = `${used} / ${total} GB (${pct}%)`;
+        const bar = getEl('diag-disk-bar');
+        if (bar) bar.style.width = pct + '%';
+    }
+
+    if (getEl('diag-uptime')) {
+        const up = d.uptime_seconds || 0;
+        const h = Math.floor(up / 3600);
+        const m = Math.floor((up % 3600) / 60);
+        const s = up % 60;
+        getEl('diag-uptime').textContent = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+
     const certInfo = getEl('cert-info-content');
     if (certInfo) {
         if (!d.certificate || !d.certificate.valid) {
@@ -238,3 +277,99 @@ export function renderDiagnostics(d) {
          }).join('') || '<tr><td colspan="3" class="help">No upstreams configured.</td></tr>';
     }
 }
+
+export function renderAPIKeys(keys) {
+    const list = getEl('api-keys-list');
+    if (!list) return;
+    
+    list.innerHTML = (keys || []).map(key => `
+        <tr>
+            <td>${key.name}</td>
+            <td>${(key.permissions || []).map(p => `<span class="badge secondary" style="font-size:0.7rem; margin-right:4px;">${p}</span>`).join('') || '-'}</td>
+            <td class="help" style="font-size:0.75rem;">${new Date(key.created_at).toLocaleDateString()}</td>
+            <td class="help" style="font-size:0.75rem;">${key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never'}</td>
+            <td>
+                <button class="btn btn-sm danger" onclick="window.deleteAPIKey('${key.id}', event)"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('') || '<tr><td colspan="5" class="help">No API keys generated.</td></tr>';
+}
+
+
+export function renderIPDetails(ip, stats, topDomains, topBlocked) {
+    getEl('ip-info-title').textContent = stats.alias || ip;
+    getEl('ip-info-subtitle').textContent = stats.alias ? ip : '';
+    getEl('ip-info-total').textContent = stats.total_queries?.toLocaleString() || '0';
+    getEl('ip-info-blocked').textContent = stats.blocked_queries?.toLocaleString() || '0';
+    
+    const pct = stats.total_queries > 0 ? (stats.blocked_queries / stats.total_queries * 100) : 0;
+    getEl('ip-info-blocked-bar').style.width = pct + '%';
+    
+    getEl('ip-info-hostname').textContent = stats.hostname || '-';
+    getEl('ip-info-manufacturer').textContent = stats.manufacturer || '-';
+    
+    getEl('ip-info-top-domains').innerHTML = (topDomains || []).map(d => `
+        <tr>
+            <td style="word-break: break-all;">${d.domain}</td>
+            <td style="text-align:right">${d.count}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="2">No data</td></tr>';
+    
+    getEl('ip-info-top-blocked').innerHTML = (topBlocked || []).map(d => `
+        <tr>
+            <td style="word-break: break-all;">${d.domain}</td>
+            <td style="text-align:right">${d.count}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="2">No data</td></tr>';
+
+    // Show/Hide block buttons
+    const isBlocked = (state.currentConfig.blocked_clients || []).includes(ip);
+    getEl('ip-block-btn').style.display = isBlocked ? 'none' : 'block';
+    getEl('ip-unblock-btn').style.display = isBlocked ? 'block' : 'none';
+    
+    getEl('ip-info-modal').classList.remove('hidden');
+}
+
+export function renderDomainDetails(domain, stats, clients, blockInfo) {
+    getEl('domain-info-title').textContent = domain;
+    getEl('domain-info-total').textContent = stats.total_queries?.toLocaleString() || '0';
+    getEl('domain-info-category').textContent = stats.category || 'General';
+    
+    const blockRate = stats.total_queries > 0 ? (stats.blocked_queries / stats.total_queries * 100) : 0;
+    getEl('domain-info-block-rate').textContent = blockRate.toFixed(1) + '%';
+    
+    // Status Badge and Block Info
+    const badge = getEl('domain-status-badge');
+    const isCustomBlocked = (state.currentConfig.custom_blocked || []).includes(domain);
+    const isListBlocked = blockInfo.lists && blockInfo.lists.length > 0;
+    
+    if (isCustomBlocked) {
+        badge.textContent = 'Blocked (Custom)';
+        badge.className = 'badge danger';
+    } else if (isListBlocked) {
+        badge.textContent = `Blocked by ${blockInfo.lists.length} list(s)`;
+        badge.className = 'badge danger';
+        getEl('domain-info-subtitle').textContent = blockInfo.lists.join(', ');
+    } else {
+        badge.textContent = 'Allowed';
+        badge.className = 'badge success';
+        getEl('domain-info-subtitle').textContent = domain;
+    }
+
+    getEl('domain-info-clients').innerHTML = (clients || []).map(c => `
+        <tr>
+            <td><a href="#" onclick="showIPDetails('${c.ip}'); return false;" style="color: var(--accent);">${c.ip}</a></td>
+            <td>${c.alias || '-'}</td>
+            <td style="text-align:right">${c.count}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="3">No data</td></tr>';
+
+    getEl('domain-block-btn').style.display = isCustomBlocked ? 'none' : 'block';
+    getEl('domain-allow-btn').style.display = isCustomBlocked ? 'block' : 'none';
+
+    getEl('domain-info-modal').classList.remove('hidden');
+}
+
+
+
+

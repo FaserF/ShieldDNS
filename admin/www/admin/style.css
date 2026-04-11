@@ -1881,3 +1881,36 @@ input:checked + .slider:before {
 .text-right { text-align: right; }
 .text-left { text-align: left; }
 .text-center { text-align: center; }
+/* Sticky Save Bar */
+.settings-save-footer {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    z-index: 100;
+    margin: 0 -24px -24px -24px; /* Offset parent padding */
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.settings-save-footer .btn {
+    min-width: 150px;
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+@media (max-width: 768px) {
+    .settings-save-footer {
+        padding: 12px 16px;
+        margin: 0 -16px -16px -16px;
+    }
+    .settings-save-footer .btn {
+        width: 100%;
+    }
+}

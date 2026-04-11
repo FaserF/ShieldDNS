@@ -155,9 +155,7 @@ export async function fetchAPIKeys() {
     try {
         const keys = await api.apiFetch(api.endpoints.tokens);
         state.allTokens = keys;
-        // This renderer expects specific arguments, might need adaptation
-        // For now, assume it's exposed or imported
-        // ui.renderAPIKeys(keys, keys, getEl('api-keys-list'), window.editAPIKey, window.deleteAPIKey);
+        render.renderAPIKeys(keys);
     } catch(e) { console.error('API Keys fetch failed', e); }
 }
 
@@ -166,3 +164,32 @@ export async function fetchCountries() {
         state.allCountries = await api.apiFetch(api.endpoints.countries);
     } catch(e) { console.error('Countries fetch failed', e); }
 }
+
+export async function fetchIPDetails(ip) {
+    try {
+        const [stats, topDomains, topBlocked] = await Promise.all([
+            api.apiFetch(`${api.endpoints.clientStats}?ip=${ip}`),
+            api.apiFetch(`${api.endpoints.clientTopDomains}?ip=${ip}`),
+            api.apiFetch(`${api.endpoints.clientTopBlocked}?ip=${ip}`)
+        ]);
+        render.renderIPDetails(ip, stats, topDomains, topBlocked);
+    } catch (e) {
+        console.error('IP details fetch failed', e);
+        helpers.showAlert('Failed to fetch IP details: ' + e.message);
+    }
+}
+
+export async function fetchDomainDetails(domain) {
+    try {
+        const [stats, clients, blockInfo] = await Promise.all([
+            api.apiFetch(`${api.endpoints.domainStats}?domain=${domain}`),
+            api.apiFetch(`${api.endpoints.domainClients}?domain=${domain}`),
+            api.apiFetch(`${api.endpoints.blockInfo}?domain=${domain}`)
+        ]);
+        render.renderDomainDetails(domain, stats, clients, blockInfo);
+    } catch (e) {
+        console.error('Domain details fetch failed', e);
+        helpers.showAlert('Failed to fetch domain details: ' + e.message);
+    }
+}
+
