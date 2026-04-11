@@ -379,6 +379,152 @@ ShieldDNS has full first-class Home Assistant support:
 - **Official HA Integration** (expose ShieldDNS stats and controls as sensors/services in Home Assistant):
   👉 [ha-shielddns](https://github.com/FaserF/ha-shielddns)
 
+---
+
+### 🤖 Advanced Home Assistant Automations
+
+Maximize your network control with these advanced automation examples.
+
+<details>
+<summary><b>⏱️ Temporary Device Bypass (1-Hour Unblock)</b></summary>
+
+Automatically unblock a device for 1 hour (e.g., to bypass filtering for a specific task) and then restore the block.
+
+```yaml
+alias: "ShieldDNS: Temporary Device Bypass"
+description: "Unblocks a client IP for 1 hour"
+trigger:
+  - platform: state
+    entity_id: input_boolean.bypass_gaming_pc
+    to: "on"
+action:
+  - service: shielddns.block_client
+    data:
+      ip: "192.168.1.50"
+      block: false
+  - delay: "01:00:00"
+  - service: shielddns.block_client
+    data:
+      ip: "192.168.1.50"
+      block: true
+  - service: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.bypass_gaming_pc
+```
+</details>
+
+<details>
+<summary><b>🚨 Security Alert: High Block Rate</b></summary>
+
+Receive a notification if more than 40% of queries in your network are being blocked, which could indicate a malware infection or an aggressive tracker.
+
+```yaml
+alias: "ShieldDNS: High Block-Rate Warning"
+trigger:
+  - platform: template
+    value_template: >
+      {% set blocked = states('sensor.shielddns_blocked_queries') | float(0) %}
+      {% set total = states('sensor.shielddns_total_queries') | float(1) %}
+      {{ (blocked / total) > 0.4 }}
+    for: "00:05:00"
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "🛡️ ShieldDNS Security Alert"
+      message: "High block rate detected (>40%)! Check the query logs for suspicious activity."
+      data:
+        clickAction: "/config/devices/dashboard"
+```
+</details>
+
+<details>
+<summary><b>🌙 Night-time Child Protection (Scheduled Blocking)</b></summary>
+
+Automatically block access for a child's tablet or console during night hours.
+
+```yaml
+alias: "ShieldDNS: Night-time Console Block"
+trigger:
+  - platform: time
+    at: "20:00:00"
+    id: "night"
+  - platform: time
+    at: "08:00:00"
+    id: "morning"
+action:
+  - service: shielddns.block_client
+    data:
+      ip: "192.168.1.135"
+      block: "{{ trigger.id == 'night' }}"
+```
+</details>
+
+<details>
+<summary><b>🔄 Automatic Update Notifications</b></summary>
+
+Stay informed when a new version of ShieldDNS or CoreDNS is released.
+
+```yaml
+alias: "ShieldDNS: Release Notification"
+trigger:
+  - platform: state
+    entity_id: 
+      - update.shielddns_update
+      - update.coredns_update
+    from: "off"
+    to: "on"
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "🚀 Update Available: {{ state_attr(trigger.entity_id, 'friendly_name') }}"
+      message: "A new version ({{ state_attr(trigger.entity_id, 'latest_version') }}) is available. Current: {{ state_attr(trigger.entity_id, 'installed_version') }}"
+```
+</details>
+
+<details>
+<summary><b>📺 Dynamic Streaming Bypass</b></summary>
+
+Instantly disable global filtering when the TV is turned on (to prevent False Positives during movie night) and re-enable it when the TV is off.
+
+```yaml
+alias: "ShieldDNS: Streaming Protection Toggle"
+trigger:
+  - platform: state
+    entity_id: media_player.living_room_tv
+    to: "playing"
+    id: "disable"
+  - platform: state
+    entity_id: media_player.living_room_tv
+    to: "off"
+    id: "enable"
+action:
+  - service: switch.turn_{{ 'off' if trigger.id == 'disable' else 'on' }}
+    target:
+      entity_id: switch.shielddns_protection
+```
+</details>
+
+<details>
+<summary><b>☁️ Dynamic Upstream Switching (Guest Mode)</b></summary>
+
+Switch the entire network to a "Kids-Safe" DNS provider when the guest Wi-Fi is active by allowing specific domains or toggling protection.
+
+```yaml
+alias: "ShieldDNS: Switch to Strict Mode"
+trigger:
+  - platform: state
+    entity_id: binary_sensor.guest_wifi_active
+    to: "on"
+action:
+  - service: shielddns.block_domain
+    data:
+      domain: "tiktok.com"
+  - service: shielddns.block_domain
+    data:
+      domain: "roblox.com"
+```
+</details>
+
 ## 🙏 Acknowledgements
 
 ShieldDNS stands on the shoulders of giants. We would like to express our profound gratitude to the following projects:
