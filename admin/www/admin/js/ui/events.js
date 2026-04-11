@@ -364,10 +364,10 @@ export async function saveConfig(fetchConfig) {
         abuse_detection_enabled: getEl('abuse-detection-check')?.checked,
         dnssec_enabled: getEl('dnssec-check')?.checked,
         serve_stale: getEl('serve-stale-check')?.checked,
-        smart_upstream_enabled: getEl('smart-upstream-check')?.checked,
+        use_fastest_upstream: getEl('smart-upstream-check')?.checked,
         smart_selection_policy: getEl('smart-selection-policy-input')?.value || 'fastest',
-        latency_check_interval: parseInt(getEl('latency-interval-input')?.value) || 10,
-        diagnostics_interval: parseInt(getEl('diagnostics-interval-input')?.value) || 600,
+        latency_test_interval: parseInt(getEl('latency-interval-input')?.value) || 10,
+        diagnostics_refresh_interval: parseInt(getEl('diagnostics-interval-input')?.value) || 600,
         retention_days: parseInt(getEl('retention-input')?.value) || 30,
     };
 

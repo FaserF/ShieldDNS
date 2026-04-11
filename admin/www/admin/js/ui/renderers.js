@@ -99,10 +99,10 @@ export function renderConfig(cfg) {
     if (getEl('abuse-detection-check')) getEl('abuse-detection-check').checked = !!cfg.abuse_detection_enabled;
     if (getEl('dnssec-check')) getEl('dnssec-check').checked = !!cfg.dnssec_enabled;
     if (getEl('serve-stale-check')) getEl('serve-stale-check').checked = !!cfg.serve_stale;
-    if (getEl('smart-upstream-check')) getEl('smart-upstream-check').checked = !!cfg.smart_upstream_enabled;
+    if (getEl('smart-upstream-check')) getEl('smart-upstream-check').checked = !!cfg.use_fastest_upstream;
     if (getEl('smart-selection-policy-input')) getEl('smart-selection-policy-input').value = cfg.smart_selection_policy || 'fastest';
-    if (getEl('latency-interval-input')) getEl('latency-interval-input').value = cfg.latency_check_interval || 10;
-    if (getEl('diagnostics-interval-input')) getEl('diagnostics-interval-input').value = cfg.diagnostics_interval || 600;
+    if (getEl('latency-interval-input')) getEl('latency-interval-input').value = cfg.latency_test_interval || 10;
+    if (getEl('diagnostics-interval-input')) getEl('diagnostics-interval-input').value = cfg.diagnostics_refresh_interval || 600;
     if (getEl('retention-input')) getEl('retention-input').value = cfg.retention_days || 30;
 
     // Custom Rules
@@ -255,7 +255,7 @@ export function renderDiagnostics(d) {
     const selectionMethodEl = getEl('upstream-selection-method');
     
     if (selectionMethodEl && d.upstream_health) {
-        const method = state.currentConfig?.smart_upstream_enabled ? 
+        const method = state.currentConfig?.use_fastest_upstream ? 
             `Smart Selection (${state.currentConfig.smart_selection_policy})` : 'Static Priority';
         selectionMethodEl.textContent = `— ${method}`;
     }
