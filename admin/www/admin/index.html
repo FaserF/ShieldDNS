@@ -587,14 +587,6 @@
                     
                  </form>
 
-                 <div class="settings-save-footer">
-                     <div class="save-status help" id="settings-save-status" style="margin-right: auto; font-size: 0.85rem; opacity: 0.7;">
-                         All changes must be saved to take effect.
-                     </div>
-                     <button type="button" class="btn primary" onclick="document.getElementById('settings-form').requestSubmit()">Save Configuration</button>
-                 </div>
-
-                <hr class="separator">
 
                 <div class="settings-section">
                     <h2>Security</h2>
@@ -750,6 +742,13 @@
                 <div class="settings-section">
                     <button id="logout-btn" class="btn danger">Logout</button>
                 </div>
+
+                 <div class="settings-save-footer">
+                     <div class="save-status help" id="settings-save-status" style="margin-right: auto; font-size: 0.85rem; opacity: 0.7;">
+                         All changes must be saved. Reboot (via Full System Refresh) might be required for some CoreDNS modifications.
+                     </div>
+                     <button type="button" class="btn primary" onclick="document.getElementById('settings-form').requestSubmit()">Save Configuration</button>
+                 </div>
             </section>
 
             <!-- About View -->
