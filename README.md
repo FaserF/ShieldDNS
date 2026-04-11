@@ -70,6 +70,13 @@ ShieldDNS is a modern, lightweight alternative to established solutions like AdG
 | **Hardening** | AEAD-only Ciphers  | Standard | Upstream Dependent |
 | **Home Assistant** | [HA App Available](https://github.com/FaserF/hassio-addons/tree/master/ShieldDNS) | HA App Available | HA App Available |
 
+### 🛠️ API Extension for Integration
+ShieldDNS now provides specialized endpoints for high-level monitoring and device management:
+- **`GET /api/stats`**: Now includes `uptime_seconds`, `db_size_mb`, `ram_used_mb`, `cpu_usage`, and `unique_clients`.
+- **`GET /api/clients`**: Returns a comprehensive list of all discovered devices with their aliases, last-seen timestamps, and current block status.
+- **`POST /api/client/alias`**: Dynamically set friendly names for specific IP addresses.
+- **`POST /api/client/block`**: Instantly toggle local filtering/blocking for individual clients.
+
 ### 🛠️ Pros and Cons
 
 #### **ShieldDNS**
