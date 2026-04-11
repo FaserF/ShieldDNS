@@ -74,9 +74,9 @@ func main() {
 	http.Handle("/api/events", authMiddleware(http.HandlerFunc(handleEvents)))
 	http.Handle("/api/diagnostics", authMiddleware(http.HandlerFunc(handleDiagnostics)))
 	http.Handle("/api/ip-info", authMiddleware(http.HandlerFunc(handleIPInfo)))
-	http.Handle("/api/presets", authMiddleware(http.HandlerFunc(handlePresets)))
-	http.Handle("/api/presets/allow", authMiddleware(http.HandlerFunc(handlePresetAllowlists)))
-	http.Handle("/api/countries", authMiddleware(http.HandlerFunc(handleGetCountries)))
+	http.HandleFunc("/api/presets", handlePresets)
+	http.HandleFunc("/api/presets/allow", handlePresetAllowlists)
+	http.HandleFunc("/api/countries", handleGetCountries)
 	http.Handle("/api/clients", authMiddleware(http.HandlerFunc(handleGetAllClients)))
 	http.Handle("/api/metrics", authMiddleware(http.HandlerFunc(handleMetrics)))
 
@@ -155,21 +155,21 @@ func main() {
 		adminDomain := config.AdminDomain
 		configLock.RUnlock()
 
-		// Case 1: Special block page route (publicly accessible)
-		if r.URL.Path == "/blocked" {
+		// Case 1: Special block/stop page route (publicly accessible)
+		if r.URL.Path == "/blocked" || r.URL.Path == "/stopped" {
 			http.ServeFile(w, r, webRoot+"/blocked.html")
 			return
 		}
-
-		// Case 2: Redirection for blocked domains
-		// If the requested Host doesn't match our AdminDomain and isn't a local address, redirect to block page
-		if adminDomain != "" && r.Host != adminDomain && !strings.HasPrefix(r.Host, "127.0.0.1") && !strings.HasPrefix(r.Host, "localhost") {
-			// We redirect to the official HTTPS block page on the admin domain
-			// This avoids SSL certificate errors for the landing page itself
-			target := "https://" + adminDomain + "/blocked?domain=" + r.Host
-			http.Redirect(w, r, target, http.StatusFound)
-			return
-		}
+ 
+ 		// Case 2: Redirection for blocked domains
+ 		// If the requested Host doesn't match our AdminDomain and isn't a local address, redirect to block page
+ 		if adminDomain != "" && r.Host != adminDomain && !strings.HasPrefix(r.Host, "127.0.0.1") && !strings.HasPrefix(r.Host, "localhost") {
+ 			// We redirect to the official HTTPS block page on the admin domain
+ 			// This avoids SSL certificate errors for the landing page itself
+ 			target := "https://" + adminDomain + "/stopped?domain=" + r.Host
+ 			http.Redirect(w, r, target, http.StatusFound)
+ 			return
+ 		}
 
 		// Case 3: Root landing page (Server-Side Rendered to inject Host)
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {

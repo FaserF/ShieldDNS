@@ -4,11 +4,14 @@ const ASSETS = [
     '/admin/',
     '/admin/index.html',
     '/admin/style.css',
-    '/admin/script.js',
+    '/admin/js/app.js',
     '/admin/utils.js',
     '/admin/manifest.json',
-    '/logo.png',
-    '/favicon.ico'
+    '/admin/js/modules/api.js',
+    '/admin/js/modules/ui_helpers.js',
+    '/admin/js/modules/charts.js',
+    '/admin/js/modules/scroller.js',
+    '/admin/js/modules/ui.js'
 ];
 
 /**
