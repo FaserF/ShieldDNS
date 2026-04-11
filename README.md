@@ -4,7 +4,7 @@
 
 **ShieldDNS** is a high-performance, hardened, privacy-focused DNS solution supporting **DNS-over-TLS (DoT)**, **DNS-over-HTTPS (DoH)**, **DNS-over-QUIC (DoQ)** and standard DNS.
 
-It features a premium **Admin Dashboard** with persistent SQLite-backed analytics, custom rule management, and a powerful **Filtering Engine** compatible with AdGuard, Pi-hole, and uBlock origin lists.
+It features a **State-of-the-art Premium Admin Dashboard** with a modern Glassmorphism-design, persistent SQLite-backed analytics, and a powerful **Filtering Engine**.
 
 ## 🚀 Key Features
 

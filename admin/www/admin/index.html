@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0d0f14">
+    <meta name="theme-color" content="#0a0b0e">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ShieldDNS">
@@ -34,10 +34,9 @@
 
     <div class="app-container">
         <aside class="sidebar">
-            <a href="/" class="logo"
-                style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; margin-bottom: 32px;">
+            <a href="/" class="logo">
                 <img src="/logo.png?v=2" alt="ShieldDNS">
-                <span style="font-weight: 700; font-size: 1.25rem;">ShieldDNS</span>
+                <span>ShieldDNS</span>
             </a>
             <nav>
                 <a href="#" class="nav-item active" data-view="dashboard">Dashboard</a>
@@ -49,7 +48,7 @@
                 <a href="#" class="nav-item" data-view="lists">Filtering Lists</a>
                 <a href="#" class="nav-item" data-view="settings">Settings</a>
                 <a href="#" class="nav-item" data-view="about">About</a>
-                <a href="#" id="nav-logout-btn" class="nav-item" style="color: #ef4444; margin-top: auto;">Logout</a>
+                <a href="#" id="nav-logout-btn" class="nav-item nav-logout">Logout</a>
             </nav>
             <div class="status-indicator">
                 <div class="pulse"></div>
@@ -74,8 +73,8 @@
 
                 <div class="protection-status-card">
                     <div class="status-header">
-                        <div class="status-icon-wrapper protected" id="status-icon" style="background: transparent;">
-                            <img src="/logo.png?v=2" alt="ShieldDNS Logo" style="width: 64px; height: 64px; object-fit: contain;">
+                        <div class="status-icon-wrapper protected" id="status-icon">
+                            <img src="/logo.png?v=2" alt="ShieldDNS Logo">
                         </div>
                         <div class="status-text">
                             <h2 id="status-title">ShieldDNS is Active</h2>
