@@ -2,10 +2,10 @@ package main
 
 import (
 	"bytes"
-	"crypto/pem"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"log/slog"
 	"net"
@@ -435,8 +435,7 @@ By proceeding, you consent to all DNS traffic being routed through this server. 
 		if _, err := os.Stat(certFile); err == nil {
 			if signed, err := signProfile(finalContent, certFile, keyFile); err == nil {
 				finalContent = signed
-			} else {
-				log.Printf("⚠️ Error signing profile: %v", err)
+				slog.Warn("Error signing profile", "error", err)
 			}
 		}
 	}

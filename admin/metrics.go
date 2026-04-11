@@ -1,11 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
-	"os"
-	"sync/atomic"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

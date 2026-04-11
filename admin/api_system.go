@@ -2,17 +2,15 @@ package main
 
 import (
 	"archive/zip"
-	"bytes"
 	"context"
-	"encoding/pem"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"

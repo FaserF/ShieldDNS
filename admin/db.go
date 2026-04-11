@@ -114,9 +114,9 @@ func startDBWorker() {
 		if db != nil {
 			_, err := db.Exec("DELETE FROM queries WHERE timestamp < datetime('now', ?)", fmt.Sprintf("-%d days", days))
 			if err != nil {
-				log.Printf("Error purging old queries: %v", err)
+				slog.Error("Error purging old queries", "error", err)
 			} else {
-				log.Printf("Database maintenance: Queries older than %d days purged.", days)
+				slog.Info("Database maintenance complete", "days_purged", days)
 
 				// Reclaim space
 				_, err = db.Exec("VACUUM")
