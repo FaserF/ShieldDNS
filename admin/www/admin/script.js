@@ -1,4 +1,3 @@
-let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, lists: [], allowlists: [], custom_blocked: [], custom_allowed: [] };
     let trafficChart = null;
     let typeChart = null;
     let clientAliases = {};
@@ -8,6 +7,76 @@ let currentConfig = { upstreams: [], upstream_dot: [], prefer_encrypted: true, l
     let allCountries = {};
     let searchTimeout = null;
     let activeFetchId = 0;
+    let fullQueryScroller = null;
+    let cachedQueries = [];
+
+    // Virtual Scroller Class
+    class VirtualScroller {
+        constructor(containerId, rowHeight, renderRow) {
+            this.tbody = document.getElementById(containerId);
+            this.container = this.tbody.parentElement.parentElement; // .card-body.overflow-x or similar
+            this.rowHeight = rowHeight;
+            this.renderRow = renderRow;
+            this.data = [];
+            this.buffer = 5;
+
+            // Make tbody block to support height and positioning
+            this.tbody.style.display = 'block';
+            this.tbody.style.position = 'relative';
+            this.tbody.style.width = '100%';
+
+            this.container.addEventListener('scroll', () => this.render());
+        }
+
+        setData(data) {
+            this.data = data || [];
+            this.tbody.style.height = `${this.data.length * this.rowHeight}px`;
+            this.render();
+        }
+
+        prepend(item) {
+            this.data.unshift(item);
+            if (this.data.length > 2000) this.data.pop();
+            this.tbody.style.height = `${this.data.length * this.rowHeight}px`;
+            this.render();
+        }
+
+        render() {
+            const scrollTop = this.container.scrollTop;
+            const containerHeight = this.container.clientHeight;
+            
+            // Adjust for table header if necessary, but here the container is the scroller
+            const startIndex = Math.max(0, Math.floor(scrollTop / this.rowHeight) - this.buffer);
+            const endIndex = Math.min(this.data.length, Math.floor((scrollTop + containerHeight) / this.rowHeight) + this.buffer);
+
+            // Optimization: Minimal DOM updates
+            const fragment = document.createDocumentFragment();
+            for (let i = startIndex; i < endIndex; i++) {
+                const item = this.data[i];
+                if (!item) continue;
+                const row = this.renderRow(item);
+                row.style.position = 'absolute';
+                row.style.top = '0';
+                row.style.left = '0';
+                row.style.width = '100%';
+                row.style.height = `${this.rowHeight}px`;
+                row.style.transform = `translateY(${i * this.rowHeight}px)`;
+                row.style.display = 'flex'; // Use flex for row columns to align properly in block tbody
+                row.style.alignItems = 'center';
+                fragment.appendChild(row);
+            }
+            this.tbody.innerHTML = '';
+            this.tbody.appendChild(fragment);
+        }
+    }
+
+    // Chart Helper: Create Gradient
+    const createGradient = (ctx, color) => {
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, color.replace('1)', '0.4)'));
+        gradient.addColorStop(1, color.replace('1)', '0)'));
+        return gradient;
+    };
     
     // UI Elements
     let authOverlay, setupView, loginView, listItemsContainer, allowlistItemsContainer, views;
@@ -489,7 +558,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderChart = (data) => {
-        const ctx = document.getElementById('traffic-chart').getContext('2d');
+        const canvas = document.getElementById('traffic-chart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
         const labels = Array.from({ length: 24 }, (_, i) => {
             const h = (new Date().getHours() - 23 + i + 24) % 24;
             return `${h}:00`;
@@ -497,6 +568,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const totals = data.map(d => d.total);
         const blocked = data.map(d => d.blocked);
+
+        const totalColor = 'rgba(92, 107, 192, 1)';
+        const blockedColor = 'rgba(239, 68, 68, 1)';
 
         if (trafficChart) {
             trafficChart.data.datasets[0].data = totals;
@@ -513,30 +587,75 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                         label: 'Total Queries',
                         data: totals,
-                        borderColor: '#5c6bc0',
-                        backgroundColor: 'rgba(92, 107, 192, 0.1)',
+                        borderColor: totalColor,
+                        backgroundColor: createGradient(ctx, totalColor),
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: totalColor,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
                     },
                     {
                         label: 'Blocked',
                         data: blocked,
-                        borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderColor: blockedColor,
+                        backgroundColor: createGradient(ctx, blockedColor),
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointBackgroundColor: blockedColor,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
                 plugins: {
-                    legend: { display: false }
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'end',
+                        labels: {
+                            boxWidth: 8,
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            color: '#94a3b8',
+                            font: { size: 12, weight: '500' }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#cbd5e1',
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: true,
+                        callbacks: {
+                            label: (context) => ` ${context.dataset.label}: ${context.parsed.y.toLocaleString()}`
+                        }
+                    }
                 },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
-                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    y: { 
+                        beginAtZero: true, 
+                        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }, 
+                        ticks: { color: '#64748b', font: { size: 11 } } 
+                    },
+                    x: { 
+                        grid: { display: false }, 
+                        ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 0 } 
+                    }
                 }
             }
         });
@@ -596,40 +715,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderQueries = (queries) => {
         const dashContainer = document.getElementById('query-log-items');
-        const fullContainer = document.getElementById('full-query-log-items');
+        
+        // Initialize Full Log Scroller if not exists
+        if (!fullQueryScroller && document.getElementById('full-query-log-items')) {
+            fullQueryScroller = new VirtualScroller('full-query-log-items', 48, createQueryRow);
+        }
 
-        const populate = (container, data) => {
+        const populateDash = (container, data) => {
             if (!container) return;
             container.innerHTML = '';
             
             if (!data || data.length === 0) {
-                container.innerHTML = '<tr><td colspan="6" class="help">No queries found matching your filters.</td></tr>';
+                container.innerHTML = '<tr><td colspan="6" class="help">No queries found.</td></tr>';
                 return;
             }
 
             data.forEach(q => {
-                const row = document.createElement('tr');
-                const time = new Date(q.time).toLocaleTimeString();
-                const actionBtn = q.status === 'Allowed' ?
-                    `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')">Block</button>` :
-                    `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')">Allow</button>`;
-                
-                const clientDisplay = q.client_alias ? `${q.client_alias} (${q.client_ip})` : q.client_ip;
-                
-                row.innerHTML = `
-                    <td>${time}</td>
-                    <td><span class="domain-link" onclick="showDomainDetails('${q.domain}')" title="${q.domain}">${q.domain}</span></td>
-                    <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')" title="${q.client_ip}">${clientDisplay}</span></td>
-                    <td class="hide-mobile">${q.type}</td>
-                    <td><span class="status-badge ${q.status.toLowerCase()}">${q.status}</span></td>
-                    <td class="hide-mobile">${actionBtn}</td>
-                `;
-                container.appendChild(row);
+                container.appendChild(createQueryRow(q));
             });
         };
 
-        populate(dashContainer, (queries || []).slice(0, 10));
-        populate(fullContainer, queries || []);
+        populateDash(dashContainer, (queries || []).slice(0, 10));
+        
+        if (fullQueryScroller) {
+            cachedQueries = queries || [];
+            fullQueryScroller.setData(cachedQueries);
+        }
     };
 
     const createQueryRow = (q) => {
@@ -658,18 +769,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const query = JSON.parse(event.data);
             if (query.type === 'ping') return;
             
-            const row = createQueryRow(query);
-            
             // Update Dashboard Live Log
             if (queryLogItems) {
+                const row = createQueryRow(query);
                 queryLogItems.prepend(row);
                 if (queryLogItems.children.length > 15) {
                     queryLogItems.lastElementChild.remove();
                 }
             }
 
-            // Update Full Query Log
-            if (fullQueryLogItems) {
+            // Update Full Query Log via Scroller
+            if (fullQueryScroller) {
                 const searchInput = document.getElementById('query-search');
                 const filterStatus = document.getElementById('query-filter-status');
                 
@@ -682,16 +792,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const matchesStatus = !statusFilter || query.status === statusFilter;
 
                 if (matchesSearch && matchesStatus) {
-                    const fullRow = row.cloneNode(true);
-                    
-                    // If we are currently "Searching...", we prepend to avoid wiping it out immediately,
-                    // but renderQueries will eventually clear the "Searching..." row anyway.
-                    // The race condition is mostly mitigated by the backend speedup.
-                    fullQueryLogItems.prepend(fullRow);
-                    
-                    if (fullQueryLogItems.children.length > 500) {
-                        fullQueryLogItems.lastElementChild.remove();
-                    }
+                    fullQueryScroller.prepend(query);
                 }
             }
         };
@@ -713,7 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data = [1];
         }
 
-        const bgColors = labels.map((l, i) => (window.DNS_TYPE_COLORS || {})[l] || `hsl(${(i * 137.5) % 360}, 70%, 50%)`);
+        const bgColors = labels.map((l, i) => (window.DNS_TYPE_COLORS || {})[l] || `hsla(${(i * 137.5) % 360}, 65%, 60%, 0.85)`);
 
         if (typeChart) {
             typeChart.data.labels = labels;
@@ -730,16 +831,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [{
                     data: data,
                     backgroundColor: bgColors,
-                    borderWidth: 0
+                    hoverOffset: 15,
+                    borderWidth: 0,
+                    borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                cutout: '72%',
                 plugins: {
                     legend: {
                         position: 'bottom',
-                        labels: { color: '#94a3b8', boxWidth: 10, font: { size: 10 } }
+                        labels: { 
+                            color: '#94a3b8', 
+                            boxWidth: 8, 
+                            padding: 15,
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            font: { size: 11, weight: '500' } 
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: (context) => ` ${context.label}: ${context.parsed.toLocaleString()} queries`
+                        }
                     }
                 }
             }
@@ -1012,7 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const healthyUpstreams = data.upstream_health.filter(h => h.status === 'up');
                 const labels = healthyUpstreams.map(h => h.server.replace('tls://', '').replace(':853', '').replace(':53', ''));
                 const latencies = healthyUpstreams.map(h => h.latency_ms);
-                const colors = healthyUpstreams.map(h => h.is_preferred ? '#5c6bc0' : 'rgba(148, 163, 184, 0.6)');
+                const colors = healthyUpstreams.map(h => h.is_preferred ? 'rgba(92, 107, 192, 0.8)' : 'rgba(148, 163, 184, 0.4)');
 
                 if (latencyChart) {
                     latencyChart.data.labels = labels;
@@ -1028,8 +1147,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 label: 'Latency (ms)',
                                 data: latencies,
                                 backgroundColor: colors,
-                                borderRadius: 6,
-                                maxBarThickness: 40
+                                borderRadius: 8,
+                                maxBarThickness: 32,
+                                borderWidth: 0
                             }]
                         },
                         options: {
@@ -1039,20 +1159,23 @@ document.addEventListener('DOMContentLoaded', () => {
                             plugins: {
                                 legend: { display: false },
                                 tooltip: {
+                                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                    padding: 10,
+                                    cornerRadius: 6,
                                     callbacks: {
-                                        label: (ctx) => `${ctx.parsed.x.toFixed(1)} ms`
+                                        label: (ctx) => `  ${ctx.parsed.x.toFixed(1)} ms`
                                     }
                                 }
                             },
                             scales: {
                                 x: {
                                     beginAtZero: true,
-                                    grid: { color: 'rgba(255,255,255,0.05)' },
-                                    ticks: { color: '#94a3b8', callback: v => v + ' ms' }
+                                    grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+                                    ticks: { color: '#64748b', font: { size: 10 }, callback: v => v + ' ms' }
                                 },
                                 y: {
                                     grid: { display: false },
-                                    ticks: { color: '#94a3b8', font: { size: 11 } }
+                                    ticks: { color: '#94a3b8', font: { size: 11, weight: '500' } }
                                 }
                             }
                         }
@@ -2236,10 +2359,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         labels: Array(24).fill(''),
                         datasets: [{
                             data: data.timeline.map(h => h.total),
-                            borderColor: '#5c6bc0',
-                            backgroundColor: 'rgba(92, 107, 192, 0.1)',
+                            borderColor: 'rgba(92, 107, 192, 0.8)',
+                            backgroundColor: createGradient(ctx, 'rgba(92, 107, 192, 0.4)'),
                             fill: true,
-                            tension: 0.4,
+                            tension: 0.45,
                             pointRadius: 0,
                             borderWidth: 2
                         }]

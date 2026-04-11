@@ -19,6 +19,7 @@
     
     --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     --primary: var(--accent);
+    --chart-grid: hsla(0, 0%, 100%, 0.05);
 }
 
 body.light {
@@ -1803,4 +1804,39 @@ input:checked + .slider:before {
     #domain-info-modal .value {
         font-size: 1.25rem !important;
     }
+}
+
+/* Virtual Scroller Support */
+.virtual-scroller {
+    height: 500px;
+    overflow-y: auto;
+    position: relative;
+    will-change: transform;
+}
+
+.virtual-scroller-content {
+    position: relative;
+    width: 100%;
+}
+
+.virtual-row {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border-bottom: 1px solid var(--border);
+    display: table;
+    table-layout: fixed;
+}
+
+.virtual-row td {
+    padding: 12px 16px;
+    display: table-cell;
+    vertical-align: middle;
+}
+
+/* Chart Refinement */
+.chart-container {
+    position: relative;
+    filter: drop-shadow(0 4px 6px hsla(0,0%,0%,0.2));
 }
