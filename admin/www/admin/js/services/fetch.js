@@ -99,7 +99,7 @@ export async function fetchPresets() {
                 card.className = 'preset-card';
                 card.innerHTML = `
                     <div class="preset-info"><h3>${preset.name}</h3></div>
-                    <button class="btn btn-sm secondary" onclick="addPreset('${preset.name}', '${preset.url}')">Add</button>
+                    <button class="btn btn-sm secondary" onclick="addPreset('${preset.name}', '${preset.url}', event)">Add</button>
                 `;
                 container.appendChild(card);
             });
@@ -136,7 +136,7 @@ export async function fetchAllowlistPresets() {
                 card.className = 'preset-card';
                 card.innerHTML = `
                     <div class="preset-info"><h3>${preset.name}</h3></div>
-                    <button class="btn btn-sm ${isAdded ? 'secondary' : 'primary'}" ${isAdded ? 'disabled' : ''} onclick="addAllowPreset('${preset.name}', '${preset.url}')">${isAdded ? 'Added ✓' : 'Add'}</button>
+                    <button class="btn btn-sm ${isAdded ? 'secondary' : 'primary'}" ${isAdded ? 'disabled' : ''} onclick="addAllowPreset('${preset.name}', '${preset.url}', event)">${isAdded ? 'Added ✓' : 'Add'}</button>
                 `;
                 container.appendChild(card);
             });
@@ -153,7 +153,7 @@ export async function fetchConfig() {
 
 export async function fetchAPIKeys() {
     try {
-        const keys = await api.apiFetch(api.endpoints.apiKeys);
+        const keys = await api.apiFetch(api.endpoints.tokens);
         state.allTokens = keys;
         // This renderer expects specific arguments, might need adaptation
         // For now, assume it's exposed or imported

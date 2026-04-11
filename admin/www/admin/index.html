@@ -284,9 +284,9 @@
                             <option value="Blocked">Blocked Only</option>
                             <option value="Allowed">Allowed Only</option>
                         </select>
-                        <button class="btn secondary" onclick="exportLogs('csv')"><i class="fas fa-file-csv"></i> Export
+                        <button class="btn secondary" onclick="exportLogs('csv', event)"><i class="fas fa-file-csv"></i> Export
                             CSV</button>
-                        <button class="btn secondary" onclick="exportLogs('json')"><i class="fas fa-file-code"></i>
+                        <button class="btn secondary" onclick="exportLogs('json', event)"><i class="fas fa-file-code"></i>
                             JSON</button>
                     </div>
                 </header>
@@ -314,7 +314,7 @@
                 <header>
                     <h1>System Logs</h1>
                     <div class="header-actions">
-                        <button class="btn secondary" onclick="clearSystemLogs()">Clear Terminal</button>
+                        <button class="btn secondary" onclick="clearSystemLogs(event)">Clear Terminal</button>
                     </div>
                 </header>
                 <div class="card">
@@ -431,7 +431,7 @@
                         <h3>Custom Blocklist</h3>
                         <div class="form-group row">
                             <input type="text" id="custom-block-input" placeholder="e.g. tiktok.com">
-                            <button class="btn secondary" onclick="addCustomRule('blocked')">Block</button>
+                            <button class="btn secondary" onclick="addCustomRule('blocked', null, event)">Block</button>
                         </div>
                         <div id="custom-blocked-list" class="minimal-list"></div>
                     </div>
@@ -439,7 +439,7 @@
                         <h3>Custom Allowlist</h3>
                         <div class="form-group row">
                             <input type="text" id="custom-allow-input" placeholder="e.g. myvpn.com">
-                            <button class="btn secondary" onclick="addCustomRule('allowed')">Allow</button>
+                            <button class="btn secondary" onclick="addCustomRule('allowed', null, event)">Allow</button>
                         </div>
                         <div id="custom-allowed-list" class="minimal-list"></div>
                     </div>
@@ -449,7 +449,7 @@
                         <div class="form-group row">
                             <input type="text" id="custom-map-domain" placeholder="Domain (e.g. fritz.box)">
                             <input type="text" id="custom-map-ip" placeholder="IP (e.g. 192.168.178.1)" style="width:200px">
-                            <button class="btn primary" onclick="addCustomMapping()">Add Mapping</button>
+                            <button class="btn primary" onclick="addCustomMapping(event)">Add Mapping</button>
                         </div>
                         <div id="custom-mappings-list" class="minimal-list"></div>
                     </div>
@@ -758,7 +758,7 @@
                         <div class="list-info" style="margin-top:15px">
                             <div class="diag-item">
                                 <span>ShieldDNS Version</span>
-                                <span id="about-shielddns-ver" class="badge official">v1.1.1-dev</span>
+                                <span id="about-shielddns-ver" class="badge official">v1.6.0</span>
                             </div>
                             <div class="diag-item">
                                 <span>CoreDNS Version</span>

@@ -15,9 +15,7 @@ export class VirtualScroller {
         this.buffer = 5;
 
         // Make tbody block to support height and positioning
-        this.tbody.style.display = 'block';
         this.tbody.style.position = 'relative';
-        this.tbody.style.width = '100%';
 
         this.container.addEventListener('scroll', () => this.render());
     }
@@ -47,14 +45,8 @@ export class VirtualScroller {
             const item = this.data[i];
             if (!item) continue;
             const row = this.renderRow(item);
-            row.style.position = 'absolute';
-            row.style.top = '0';
-            row.style.left = '0';
-            row.style.width = '100%';
-            row.style.height = `${this.rowHeight}px`;
+            row.classList.add('virtual-row');
             row.style.transform = `translateY(${i * this.rowHeight}px)`;
-            row.style.display = 'flex';
-            row.style.alignItems = 'center';
             fragment.appendChild(row);
         }
         this.tbody.innerHTML = '';

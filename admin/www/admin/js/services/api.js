@@ -12,6 +12,8 @@ export async function apiFetch(endpoint, options = {}) {
     }
     
     if (response.status === 401) {
+        localStorage.removeItem('api_token');
+        window.location.reload();
         throw new Error('UNAUTHORIZED');
     }
     

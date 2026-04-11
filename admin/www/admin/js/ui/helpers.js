@@ -78,3 +78,89 @@ export const createGradient = (ctx, color) => {
     gradient.addColorStop(1, color.replace('1)', '0)'));
     return gradient;
 };
+
+/**
+ * Enhanced UI Feedback
+ */
+
+export const setBtnLoading = (btn, isLoading, customText = null) => {
+    if (!btn) return;
+    if (isLoading) {
+        btn.setAttribute('data-original-html', btn.innerHTML);
+        btn.disabled = true;
+        const text = customText || 'Processing...';
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${text}`;
+    } else {
+        const original = btn.getAttribute('data-original-html');
+        if (original) btn.innerHTML = original;
+        btn.disabled = false;
+        btn.removeAttribute('data-original-html');
+    }
+};
+
+export const showToast = (message, type = 'success') => {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        `;
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    const colors = {
+        success: 'var(--success)',
+        error: 'var(--danger)',
+        info: 'var(--accent)'
+    };
+    const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-circle',
+        info: 'fa-info-circle'
+    };
+
+    toast.style.cssText = `
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(8px);
+        color: white;
+        padding: 14px 24px;
+        border-radius: 12px;
+        border-left: 4px solid ${colors[type] || colors.info};
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transform: translateX(120%);
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: auto;
+    `;
+    
+    toast.innerHTML = `
+        <i class="fas ${icons[type]} " style="color: ${colors[type]}"></i>
+        <span>${message}</span>
+    `;
+
+    container.appendChild(toast);
+    
+    // Trigger animation
+    setTimeout(() => toast.style.transform = 'translateX(0)', 10);
+    
+    const remove = () => {
+        toast.style.transform = 'translateX(120%)';
+        setTimeout(() => toast.remove(), 400);
+    };
+
+    setTimeout(remove, 4000);
+    toast.onclick = remove;
+};

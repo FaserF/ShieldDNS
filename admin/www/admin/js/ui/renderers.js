@@ -19,6 +19,8 @@ export function renderDashStats(data) {
     
     const appVer = getEl('app-version');
     if (appVer) appVer.textContent = data.version;
+    const aboutAppVer = getEl('about-shielddns-ver');
+    if (aboutAppVer) aboutAppVer.textContent = data.version;
 }
 
 export function renderQueries(queries) {
@@ -40,7 +42,7 @@ export function renderQueries(queries) {
 
 export function createQueryRow(q) {
     const row = document.createElement('tr');
-    row.style.height = '48px';
+    row.className = 'virtual-row';
     const time = new Date(q.time).toLocaleTimeString();
     const actionBtn = q.status === 'Blocked' ?
         `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')" title="Whitelist Domain">Allow</button>` :
@@ -98,6 +100,11 @@ export function renderConfig(cfg) {
     if (getEl('abuse-detection-check')) getEl('abuse-detection-check').checked = !!cfg.abuse_detection_enabled;
     if (getEl('dnssec-check')) getEl('dnssec-check').checked = !!cfg.dnssec_enabled;
     if (getEl('serve-stale-check')) getEl('serve-stale-check').checked = !!cfg.serve_stale;
+    if (getEl('smart-upstream-check')) getEl('smart-upstream-check').checked = !!cfg.smart_upstream_enabled;
+    if (getEl('smart-selection-policy-input')) getEl('smart-selection-policy-input').value = cfg.smart_selection_policy || 'fastest';
+    if (getEl('latency-interval-input')) getEl('latency-interval-input').value = cfg.latency_check_interval || 10;
+    if (getEl('diagnostics-interval-input')) getEl('diagnostics-interval-input').value = cfg.diagnostics_interval || 600;
+    if (getEl('retention-input')) getEl('retention-input').value = cfg.retention_days || 30;
 
     // Custom Rules
     const renderCustomList = (id, items) => {
@@ -106,7 +113,7 @@ export function renderConfig(cfg) {
         el.innerHTML = items?.map(domain => `
             <div class="preset-selection-item">
                 <span>${domain}</span>
-                <button class="btn danger-text" onclick="removeCustomRule('${domain}')"><i class="fas fa-trash"></i></button>
+                <button class="btn danger-text" onclick="removeCustomRule('${domain}', event)"><i class="fas fa-trash"></i></button>
             </div>
         `).join('') || '';
     };
@@ -120,7 +127,7 @@ export function renderConfig(cfg) {
             <div class="preset-selection-item">
                 <span style="flex:1">${domain}</span>
                 <span class="badge secondary" style="font-family:monospace; margin-right: 15px;">${ip}</span>
-                <button class="btn danger-text" onclick="removeCustomMapping('${domain}')"><i class="fas fa-trash"></i></button>
+                <button class="btn danger-text" onclick="removeCustomMapping('${domain}', event)"><i class="fas fa-trash"></i></button>
             </div>
         `).join('');
     }
@@ -132,8 +139,8 @@ export function renderConfig(cfg) {
             <div class="list-item" onclick="window.openListDetailsModal(${i}, 'block')">
                 <div class="list-info"><h3>${list.name}</h3><p>${list.url}</p></div>
                 <div class="list-actions">
-                    <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'block')">${list.enabled ? 'Disable' : 'Enable'}</button>
-                    <button class="btn btn-sm danger" onclick="event.stopPropagation(); window.removeList(${i}, 'block')"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'block', event)">${list.enabled ? 'Disable' : 'Enable'}</button>
+                    <button class="btn btn-sm danger" onclick="event.stopPropagation(); window.removeList(${i}, 'block', event)"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         `).join('') || '<p class="help">No active blocklists.</p>';
@@ -145,8 +152,8 @@ export function renderConfig(cfg) {
             <div class="list-item" onclick="window.openListDetailsModal(${i}, 'allow')">
                 <div class="list-info"><h3>${list.name}</h3><p>${list.url}</p></div>
                 <div class="list-actions">
-                    <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'allow')">${list.enabled ? 'Disable' : 'Enable'}</button>
-                    <button class="btn btn-sm danger" onclick="event.stopPropagation(); window.removeList(${i}, 'allow')"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'allow', event)">${list.enabled ? 'Disable' : 'Enable'}</button>
+                    <button class="btn btn-sm danger" onclick="event.stopPropagation(); window.removeList(${i}, 'allow', event)"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         `).join('') || '<p class="help">No active allowlists.</p>';
@@ -158,7 +165,7 @@ export function renderConfig(cfg) {
             <div class="tag">
                 <img src="https://flagcdn.com/w20/${code.toLowerCase()}.png">
                 <span>${state.allCountries[code] || code}</span>
-                <span class="remove-tag" onclick="removeCountry('${code}')">&times;</span>
+                <span class="remove-tag" onclick="removeCountry('${code}', event)">&times;</span>
             </div>
         `).join('');
     }
@@ -206,13 +213,27 @@ export function renderDiagnostics(d) {
     }
     
     const latencyList = getEl('upstream-latency-list');
+    const selectionMethodEl = getEl('upstream-selection-method');
+    
+    if (selectionMethodEl && d.upstream_health) {
+        const method = state.currentConfig?.smart_upstream_enabled ? 
+            `Smart Selection (${state.currentConfig.smart_selection_policy})` : 'Static Priority';
+        selectionMethodEl.textContent = `— ${method}`;
+    }
+
     if (latencyList && d.upstream_health) {
          latencyList.innerHTML = d.upstream_health.map(h => {
              const isUp = h.status === 'up';
-             return `<tr>
-                 <td>${h.server}</td>
+             const isPreferred = h.preferred || false;
+             return `<tr class="${isPreferred ? 'preferred-row' : ''}">
+                 <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        ${h.server}
+                        ${isPreferred ? '<span class="badge" style="background:var(--accent); font-size:0.6rem; padding:2px 6px;">Active</span>' : ''}
+                    </div>
+                 </td>
                  <td><span class="badge ${isUp ? 'official' : 'danger'}">${isUp ? 'Healthy' : 'Down'}</span></td>
-                 <td style="text-align:right">${isUp ? h.latency_ms.toFixed(1) + ' ms' : '-'}</td>
+                 <td style="text-align:right; font-weight:${isPreferred ? '600' : '400'}">${isUp ? h.latency_ms.toFixed(1) + ' ms' : '-'}</td>
              </tr>`;
          }).join('') || '<tr><td colspan="3" class="help">No upstreams configured.</td></tr>';
     }

@@ -50,8 +50,9 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - Stale-while-revalidate for assets
 self.addEventListener('fetch', (event) => {
-    // Only handle GET requests
+    // Only handle GET requests and http/https schemes
     if (event.request.method !== 'GET') return;
+    if (!event.request.url.startsWith('http')) return;
 
     // Skip API requests to ensure real-time data
     if (event.request.url.includes('/api/')) return;

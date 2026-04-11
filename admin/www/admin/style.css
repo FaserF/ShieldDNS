@@ -1808,13 +1808,6 @@ input:checked + .slider:before {
 }
 
 /* Virtual Scroller Support */
-.virtual-scroller {
-    height: 500px;
-    overflow-y: auto;
-    position: relative;
-    will-change: transform;
-}
-
 .virtual-scroller-content {
     position: relative;
     width: 100%;
@@ -1828,12 +1821,29 @@ input:checked + .slider:before {
     border-bottom: 1px solid var(--border);
     display: table;
     table-layout: fixed;
+    height: 48px;
 }
 
-.virtual-row td {
+.virtual-row td, .query-table th {
     padding: 12px 16px;
-    display: table-cell;
     vertical-align: middle;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Explicit Widths for Query Log Table (Total 100%) */
+.query-table th:nth-child(1), .query-table td:nth-child(1) { width: 12%; min-width: 90px; } /* Time */
+.query-table th:nth-child(2), .query-table td:nth-child(2) { width: 35%; }                /* Domain */
+.query-table th:nth-child(3), .query-table td:nth-child(3) { width: 18%; }                /* Client IP */
+.query-table th:nth-child(4), .query-table td:nth-child(4) { width: 10%; }                /* Type */
+.query-table th:nth-child(5), .query-table td:nth-child(5) { width: 12%; }                /* Status */
+.query-table th:nth-child(6), .query-table td:nth-child(6) { width: 13%; text-align: right; } /* Actions */
+
+@media (max-width: 992px) {
+    .query-table th:nth-child(2), .query-table td:nth-child(2) { width: 45%; }
+    .query-table th:nth-child(3), .query-table td:nth-child(3) { width: 25%; }
+    .query-table th:nth-child(5), .query-table td:nth-child(5) { width: 18%; }
 }
 
 /* Chart Refinement */

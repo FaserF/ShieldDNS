@@ -108,24 +108,51 @@ window.refreshAll = refreshAll;
 window.showDomainDetails = (domain) => { /* logic to open modal */ console.log('Domain Details:', domain); };
 window.showIPDetails = (ip) => { /* logic to open modal */ console.log('IP Details:', ip); };
 
-window.addPreset = async (name, url) => {
-    if (state.currentConfig.lists.some(l => l.url === url)) return helpers.showAlert('List already added');
+window.addPreset = async (name, url, event) => {
+    if (state.currentConfig.lists.some(l => l.url === url)) return helpers.showToast('List already added', 'info');
+    
+    const btn = event?.currentTarget;
+    helpers.setBtnLoading(btn, true, 'Adding...');
+    
     state.currentConfig.lists.push({ name, url, enabled: true });
-    await events.saveConfig(fetchService.fetchConfig);
+    try {
+        await events.saveConfig(fetchService.fetchConfig);
+        helpers.showToast(`${name} added!`);
+    } catch (e) {
+        helpers.showAlert('Failed to add preset: ' + e.message);
+    } finally {
+        helpers.setBtnLoading(btn, false);
+        fetchService.fetchPresets(); // Refresh presets UI
+    }
 };
 
-window.addAllowPreset = async (name, url) => {
-    if (state.currentConfig.allowlists.some(l => l.url === url)) return helpers.showAlert('Allowlist already added');
+window.addAllowPreset = async (name, url, event) => {
+    if (state.currentConfig.allowlists.some(l => l.url === url)) return helpers.showToast('Allowlist already added', 'info');
+    
+    const btn = event?.currentTarget;
+    helpers.setBtnLoading(btn, true, 'Adding...');
+
     state.currentConfig.allowlists.push({ name, url, enabled: true, category: 'Official' });
-    await events.saveConfig(fetchService.fetchConfig);
+    try {
+        await events.saveConfig(fetchService.fetchConfig);
+        helpers.showToast(`${name} added to Allowlist!`);
+    } catch (e) {
+        helpers.showAlert('Failed to add allow preset: ' + e.message);
+    } finally {
+        helpers.setBtnLoading(btn, false);
+        fetchService.fetchAllowlistPresets(); // Refresh UI
+    }
 };
 
-window.addCustomRule = async (action, domainArg) => {
+window.addCustomRule = async (action, domainArg, event) => {
     const type = action === 'blocked' ? 'block' : 'allow';
     const inputId = action === 'blocked' ? 'custom-block-input' : 'custom-allow-input';
     const domain = domainArg || getEl(inputId)?.value.trim();
     
     if (!domain) return;
+    
+    const btn = event?.currentTarget;
+    helpers.setBtnLoading(btn, true, 'Saving...');
     
     try {
         await api.apiFetch('/api/rules/add', {
@@ -133,18 +160,23 @@ window.addCustomRule = async (action, domainArg) => {
             body: JSON.stringify({ domain, type })
         });
         if (getEl(inputId)) getEl(inputId).value = '';
-        helpers.showAlert(`${domain} added to ${action} list.`, 'Success');
+        helpers.showToast(`${domain} added to ${action} list.`);
         fetchService.fetchConfig();
     } catch (e) {
-        helpers.showAlert(`Failed to add rule: ${e.message}`, 'Error');
+        helpers.showAlert(`Failed to add rule: ${e.message}`);
+    } finally {
+        helpers.setBtnLoading(btn, false);
     }
 };
 
-window.addCustomMapping = async () => {
+window.addCustomMapping = async (event) => {
     const domain = getEl('custom-map-domain')?.value.trim();
     const ip = getEl('custom-map-ip')?.value.trim();
     if (!domain || !ip) return helpers.showAlert('Both Domain and IP are required.');
     
+    const btn = event?.currentTarget;
+    helpers.setBtnLoading(btn, true, 'Adding Mapping...');
+
     try {
         await api.apiFetch('/api/rules/add', {
             method: 'POST',
@@ -152,55 +184,102 @@ window.addCustomMapping = async () => {
         });
         getEl('custom-map-domain').value = '';
         getEl('custom-map-ip').value = '';
-        helpers.showAlert(`Mapping ${domain} -> ${ip} added.`, 'Success');
+        helpers.showToast(`Mapping ${domain} -> ${ip} created.`);
         fetchService.fetchConfig();
-    } catch (e) { helpers.showAlert(`Failed to add mapping: ${e.message}`, 'Error'); }
+    } catch (e) { 
+        helpers.showAlert(`Failed to add mapping: ${e.message}`); 
+    } finally {
+        helpers.setBtnLoading(btn, false);
+    }
 };
 
-window.removeCustomRule = async (domain) => {
+window.removeCustomRule = async (domain, event) => {
     if (!await helpers.showConfirm(`Are you sure you want to remove the rule for ${domain}?`)) return;
+    
+    const btn = event?.currentTarget;
+    helpers.setBtnLoading(btn, true, '');
+
     try {
         await api.apiFetch('/api/rules/remove', {
             method: 'POST',
             body: JSON.stringify({ domain })
         });
+        helpers.showToast('Rule removed');
         fetchService.fetchConfig();
-    } catch (e) { helpers.showAlert(`Failed to remove rule: ${e.message}`, 'Error'); }
+    } catch (e) { 
+        helpers.setBtnLoading(btn, false);
+        helpers.showAlert(`Failed to remove rule: ${e.message}`); 
+    }
 };
 
-window.removeCustomMapping = async (domain) => {
+window.removeCustomMapping = async (domain, event) => {
     if (!await helpers.showConfirm(`Are you sure you want to remove the mapping for ${domain}?`)) return;
+    
+    const btn = event?.currentTarget;
+    helpers.setBtnLoading(btn, true, '');
+
     try {
         await api.apiFetch('/api/rules/remove', {
             method: 'POST',
             body: JSON.stringify({ domain })
         });
+        helpers.showToast('Mapping removed');
         fetchService.fetchConfig();
-    } catch (e) { helpers.showAlert(`Failed to remove mapping: ${e.message}`, 'Error'); }
+    } catch (e) { 
+        helpers.setBtnLoading(btn, false);
+        helpers.showAlert(`Failed to remove mapping: ${e.message}`); 
+    }
 };
 
-window.toggleList = async (idx, enabled, type) => {
+window.toggleList = async (idx, enabled, type, event) => {
+    const btn = event?.currentTarget;
+    helpers.setBtnLoading(btn, true, '');
+
     if (type === 'block') state.currentConfig.lists[idx].enabled = enabled;
     else state.currentConfig.allowlists[idx].enabled = enabled;
+    
     try {
         await api.apiFetch('/api/config', { method: 'POST', body: JSON.stringify(state.currentConfig) });
+        helpers.showToast(enabled ? 'List enabled' : 'List disabled');
         fetchService.fetchConfig();
-    } catch(e) { helpers.showAlert('Failed to toggle list'); }
+    } catch(e) { 
+        helpers.setBtnLoading(btn, false);
+        helpers.showAlert('Failed to toggle list: ' + e.message); 
+    }
 };
 
-window.removeList = async (idx, type) => {
-    if (!await helpers.showConfirm('Remove this list?')) return;
+window.removeList = async (idx, type, event) => {
+    if (!await helpers.showConfirm('Are you sure you want to remove this list?')) return;
+    
+    const btn = event?.currentTarget;
+    helpers.setBtnLoading(btn, true, '');
+
     if (type === 'block') state.currentConfig.lists.splice(idx, 1);
     else state.currentConfig.allowlists.splice(idx, 1);
+    
     try {
         await api.apiFetch('/api/config', { method: 'POST', body: JSON.stringify(state.currentConfig) });
+        helpers.showToast('List removed');
         fetchService.fetchConfig();
-    } catch(e) { helpers.showAlert('Failed to remove list'); }
+    } catch(e) { 
+        helpers.setBtnLoading(btn, false);
+        helpers.showAlert('Failed to remove list: ' + e.message); 
+    }
 };
 
-window.removeCountry = async (code) => {
+window.removeCountry = async (code, event) => {
+    const btn = event?.currentTarget;
+    // For small removal icons, we might not want a text spinner, but we can still disable
+    if (btn) btn.style.pointerEvents = 'none';
+
     state.currentConfig.blocked_countries = (state.currentConfig.blocked_countries || []).filter(c => c !== code);
-    await events.saveConfig(fetchService.fetchConfig);
+    try {
+        await events.saveConfig(fetchService.fetchConfig);
+        helpers.showToast(`${code} removed from Geo-Block`);
+    } catch (e) {
+        if (btn) btn.style.pointerEvents = 'auto';
+        helpers.showAlert('Failed to remove country geo-block');
+    }
 };
 
 window.openListDetailsModal = (idx, type) => {
@@ -216,4 +295,12 @@ window.openListDetailsModal = (idx, type) => {
     modal.classList.remove('hidden');
 };
 
-window.clearSystemLogs = nav.stopSystemLogStream; // Or nav.clearSystemLogs if implemented
+window.clearSystemLogs = (event) => {
+    const btn = event?.currentTarget;
+    if (btn) {
+        helpers.setBtnLoading(btn, true, 'Clearing...');
+        setTimeout(() => helpers.setBtnLoading(btn, false), 500);
+    }
+    nav.stopSystemLogStream();
+    getEl('system-log-terminal').textContent = 'Terminal cleared. Click a nav item to resume logs.';
+};
