@@ -446,3 +446,29 @@ func getDomainClients(domain string, limit int) ([]ClientCount, error) {
 
 	return results, nil
 }
+
+func getAllClients() ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
+	if db == nil {
+		return results, fmt.Errorf("DB not initialized")
+	}
+
+	rows, err := db.Query("SELECT ip, user_agent, last_seen FROM clients ORDER BY last_seen DESC")
+	if err != nil {
+		return results, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var ip, ua, lastSeen string
+		if err := rows.Scan(&ip, &ua, &lastSeen); err == nil {
+			results = append(results, map[string]interface{}{
+				"ip":         ip,
+				"user_agent": ua,
+				"last_seen":  lastSeen,
+			})
+		}
+	}
+
+	return results, nil
+}

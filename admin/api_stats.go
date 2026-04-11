@@ -87,6 +87,36 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(s)
 }
 
+func handleGetAllClients(w http.ResponseWriter, r *http.Request) {
+	clients, err := getAllClients()
+	if err != nil {
+		slog.Error("Error fetching all clients", "error", err)
+		http.Error(w, "Error fetching clients", http.StatusInternalServerError)
+		return
+	}
+
+	configLock.RLock()
+	aliases := config.ClientAliases
+	blockedMap := make(map[string]bool)
+	for _, ip := range config.BlockedClients {
+		blockedMap[ip] = true
+	}
+	configLock.RUnlock()
+
+	for _, c := range clients {
+		ip := c["ip"].(string)
+		if alias, ok := aliases[ip]; ok {
+			c["alias"] = alias
+		} else {
+			c["alias"] = ""
+		}
+		c["blocked"] = blockedMap[ip]
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(clients)
+}
+
 func handleQueries(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("search")
 	statusFilter := r.URL.Query().Get("status")

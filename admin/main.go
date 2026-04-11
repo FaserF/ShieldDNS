@@ -75,6 +75,7 @@ func main() {
 	http.Handle("/api/presets", authMiddleware(http.HandlerFunc(handlePresets)))
 	http.Handle("/api/presets/allow", authMiddleware(http.HandlerFunc(handlePresetAllowlists)))
 	http.Handle("/api/countries", authMiddleware(http.HandlerFunc(handleGetCountries)))
+	http.Handle("/api/clients", authMiddleware(http.HandlerFunc(handleGetAllClients)))
 
 	// Protected API
 	http.Handle("/api/config", authMiddleware(http.HandlerFunc(handleConfig)))
