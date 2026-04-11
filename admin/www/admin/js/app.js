@@ -71,8 +71,10 @@ function initTheme() {
  */
 async function checkAuthStatus() {
     try {
-        const data = await api.apiFetch(api.endpoints.tokens + '/status').catch(e => {
-            if (e.message === 'SETUP_REQUIRED') return { need_setup: true };
+        const data = await api.apiFetch(api.endpoints.authStatus).catch(e => {
+            if (e.message === 'SETUP_REQUIRED') {
+                return { need_setup: true, logged_in: false };
+            }
             throw e;
         });
 

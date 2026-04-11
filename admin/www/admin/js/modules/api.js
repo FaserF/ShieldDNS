@@ -32,5 +32,6 @@ export const endpoints = {
     tokens: '/api/tokens',
     presets: '/api/presets',
     allowlistPresets: '/api/presets/allow',
-    countries: '/api/countries'
+    countries: '/api/countries',
+    authStatus: '/api/auth-status'
 };

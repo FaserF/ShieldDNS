@@ -1,4 +1,4 @@
-<img src="www/logo.png" align="right" width="128" height="128">
+<img src="admin/www/logo.png" align="right" width="128" height="128">
 
 # ShieldDNS 🛡️
 
@@ -231,7 +231,7 @@ The engine uses sliding-window tracking in-memory (cleaned up efficiently via ba
 3. **NXDOMAIN Flood (DGA Bots)**: A client triggers ≥ 300 NXDOMAIN (Domain Not Found) responses in 60 seconds, indicative of malware searching for randomized domains (`auto:nxdomain_flood`).
 4. **TLD Scan**: A client heavily queries a single uncommon Top Level Domain (e.g., ≥ 1000 requests in 5 minutes, representing ≥ 90% of their total traffic) (`auto:tld_scan`).
 
-When a threshold is exceeded, the client IP is instantly blocked, and a warning badge (e.g., `Automatically blocked: auto:domain_flood`) will appear in the **Client Details** UI. 
+When a threshold is exceeded, the client IP is instantly blocked, and a warning badge (e.g., `Automatically blocked: auto:domain_flood`) will appear in the **Client Details** UI.
 
 *This feature is **ON** by default but can be disabled via the Settings toggle.*
 

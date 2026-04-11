@@ -153,6 +153,7 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		configLock.RLock()
 		adminDomain := config.AdminDomain
+		isSetupMode := config.AdminPasswordHashed == ""
 		configLock.RUnlock()
 
 		// Case 1: Special block/stop page route (publicly accessible)
@@ -162,14 +163,22 @@ func main() {
 		}
  
  		// Case 2: Redirection for blocked domains
- 		// If the requested Host doesn't match our AdminDomain and isn't a local address, redirect to block page
- 		if adminDomain != "" && r.Host != adminDomain && !strings.HasPrefix(r.Host, "127.0.0.1") && !strings.HasPrefix(r.Host, "localhost") {
- 			// We redirect to the official HTTPS block page on the admin domain
- 			// This avoids SSL certificate errors for the landing page itself
- 			target := "https://" + adminDomain + "/stopped?domain=" + r.Host
- 			http.Redirect(w, r, target, http.StatusFound)
- 			return
- 		}
+		// EXCEPTION: Never redirect API calls, Admin UI, or core static assets
+		isInternal := strings.HasPrefix(r.URL.Path, "/api/") ||
+			strings.HasPrefix(r.URL.Path, "/admin/") ||
+			strings.HasPrefix(r.URL.Path, "/favicon.ico") ||
+			strings.HasPrefix(r.URL.Path, "/logo.png") ||
+			r.URL.Path == "/stopped" ||
+			r.URL.Path == "/blocked"
+
+		// If we are in setup mode, we allow access from any Host to prevent self-blocking
+		if !isInternal && !isSetupMode && adminDomain != "" && r.Host != adminDomain && 
+			!strings.HasPrefix(r.Host, "127.0.0.1") && !strings.HasPrefix(r.Host, "localhost") {
+			// We redirect to the official HTTPS block page on the admin domain
+			target := "https://" + adminDomain + "/stopped?domain=" + r.Host
+			http.Redirect(w, r, target, http.StatusFound)
+			return
+		}
 
 		// Case 3: Root landing page (Server-Side Rendered to inject Host)
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {

@@ -21,8 +21,6 @@ RUN ln -s /ssl /certs
 
 # Copy Web Assets
 COPY admin/www /var/www/admin
-COPY www/logo.png /var/www/admin/logo.png
-COPY www/favicon.ico /var/www/admin/favicon.ico
 # Copy CoreDNS binary
 COPY --from=binary /coredns /usr/bin/coredns
 
