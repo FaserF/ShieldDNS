@@ -13,8 +13,128 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 )
+
+type CorefileData struct {
+	DNSPort         string
+	DOTPort         string
+	InternalDOHPort string
+	DNSSEC          bool
+	ServeStale      bool
+	Upstreams       string
+	TLSServerName   string
+	Policy          string
+	HostsPath       string
+	GeoACLRules     string
+	CertFile        string
+	KeyFile         string
+}
+
+const CorefileTemplate = `.:{{.DNSPort}} {
+    bind 0.0.0.0
+    {{if .DNSSEC}}dnssec{{end}}
+    metadata
+    health :8082
+    reload 5s
+    cache 7200 {
+        success 50000
+        denial 10000
+        prefetch 3 10m 20%
+        {{if .ServeStale}}serve_stale 1h{{end}}
+    }
+    forward . {{.Upstreams}} {
+        health_check 10s
+        {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
+        {{if .Policy}}policy {{.Policy}}{{end}}
+    }
+    hosts {{.HostsPath}} {
+        reload 5s
+        fallthrough
+    }
+    {{.GeoACLRules}}
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
+    errors
+}
+
+tls://.:{{.DOTPort}} {
+    bind 0.0.0.0
+    tls {{.CertFile}} {{.KeyFile}}
+    {{if .DNSSEC}}dnssec{{end}}
+    metadata
+    reload 5s
+    cache 7200 {
+        success 50000
+        denial 10000
+        prefetch 3 10m 20%
+        {{if .ServeStale}}serve_stale 1h{{end}}
+    }
+    forward . {{.Upstreams}} {
+        health_check 10s
+        {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
+        {{if .Policy}}policy {{.Policy}}{{end}}
+    }
+    hosts {{.HostsPath}} {
+        reload 5s
+        fallthrough
+    }
+    {{.GeoACLRules}}
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
+    errors
+}
+
+https://.:{{.InternalDOHPort}} {
+    bind 0.0.0.0
+    tls {{.CertFile}} {{.KeyFile}}
+    {{if .DNSSEC}}dnssec{{end}}
+    metadata
+    reload 5s
+    cache 7200 {
+        success 50000
+        denial 10000
+        prefetch 3 10m 20%
+        {{if .ServeStale}}serve_stale 1h{{end}}
+    }
+    forward . {{.Upstreams}} {
+        health_check 10s
+        {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
+        {{if .Policy}}policy {{.Policy}}{{end}}
+    }
+    hosts {{.HostsPath}} {
+        reload 5s
+        fallthrough
+    }
+    {{.GeoACLRules}}
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
+    errors
+}
+
+quic://.:{{.DOTPort}} {
+    tls {{.CertFile}} {{.KeyFile}}
+    {{if .DNSSEC}}dnssec{{end}}
+    metadata
+    reload 5s
+    cache 7200 {
+        success 50000
+        denial 10000
+        prefetch 3 10m 20%
+        {{if .ServeStale}}serve_stale 1h{{end}}
+    }
+    forward . {{.Upstreams}} {
+        health_check 10s
+        {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
+        {{if .Policy}}policy {{.Policy}}{{end}}
+    }
+    hosts {{.HostsPath}} {
+        reload 5s
+        fallthrough
+    }
+    {{.GeoACLRules}}
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
+    errors
+}
+`
 
 func startHealthChecker() {
 	for {
@@ -289,8 +409,6 @@ func updateCorefile() {
 	copy(hDoT, healthyDoT)
 	healthLock.RUnlock()
 
-	// Sorting is already handled in checkAll for the global lists,
-	// but we do it again on local copies to be certain and safe for future changes.
 	if smart {
 		latencyLock.RLock()
 		sort.Slice(hDNS, func(i, j int) bool {
@@ -306,96 +424,49 @@ func updateCorefile() {
 	var dotServerName string
 	if preferEncrypted {
 		for _, u := range hDoT {
-			host := u
-			port := "853"
-			if strings.Contains(u, ":") {
-				h, p, err := net.SplitHostPort(u)
-				if err == nil {
-					host = h
-					port = p
-				}
-			}
-
+			host, port := splitAddr(u, "853")
 			ip := resolveHost(host)
 			if dotServerName == "" && ip != host {
-				dotServerName = host // Use first hostname found as server name
+				dotServerName = host
 			}
 			upstreams = append(upstreams, fmt.Sprintf("tls://%s:%s", ip, port))
 		}
 	}
-	// Fallback to normal DNS
+
 	for _, u := range hDNS {
-		host := u
-		port := "53"
-		if strings.Contains(u, ":") {
-			h, p, err := net.SplitHostPort(u)
-			if err == nil {
-				host = h
-				port = p
-			}
-		}
+		host, port := splitAddr(u, "53")
 		ip := resolveHost(host)
 		upstreams = append(upstreams, fmt.Sprintf("%s:%s", ip, port))
 	}
 
-	// If everything is down, use defaults as last resort to avoid total failure
 	if len(upstreams) == 0 {
 		upstreams = []string{"8.8.8.8", "1.1.1.1"}
 	}
 
 	upstreamStr := strings.Join(upstreams, " ")
 
-	// Get cert paths from environment (provided by run.sh)
-	certFile := os.Getenv("CERT_FILE")
-	keyFile := os.Getenv("KEY_FILE")
-	if certFile == "" {
-		certFile = "/ssl/fullchain.pem"
-	}
-	if keyFile == "" {
-		keyFile = "/ssl/privkey.pem"
-	}
-
-	hostsBlock := fmt.Sprintf(`
-    hosts %s {
-        reload 5s
-        fallthrough
-    }`, CombinedHostsPath)
-
-	tlsBlock := ""
-	if dotServerName != "" {
-		tlsBlock = fmt.Sprintf("    tls_servername %s", dotServerName)
-	}
-
-	dnssecBlock := ""
-	if dnssec {
-		dnssecBlock = "    dnssec"
-	}
-
-	staleBlock := ""
-	if serveStale {
-		staleBlock = "        serve_stale 1h"
-	}
-
-	policyBlock := ""
+	policyVal := ""
 	if smart {
 		if policy == "random" {
-			policyBlock = "        policy random"
+			policyVal = "random"
 		} else if policy == "broadcast" {
-			policyBlock = "        policy broadcast"
-			// If broadcast and preferEncrypted, we only want to forward to DoT servers
+			policyVal = "broadcast"
 			if preferEncrypted && len(hDoT) > 0 {
-				upstreamStr = strings.Join(hDoT, " tls://")
-				if !strings.HasPrefix(upstreamStr, "tls://") {
-					upstreamStr = "tls://" + upstreamStr
-				}
+				upstreamStr = "tls://" + strings.Join(hDoT, " tls://")
 			}
 		} else {
-			policyBlock = "        policy sequential"
+			policyVal = "sequential"
 		}
 	}
 
-	geoBlock := getGeoACLRules()
-	metadataPlugin := "    metadata"
+	certFile := os.Getenv("CERT_FILE")
+	if certFile == "" {
+		certFile = "/ssl/fullchain.pem"
+	}
+	keyFile := os.Getenv("KEY_FILE")
+	if keyFile == "" {
+		keyFile = "/ssl/privkey.pem"
+	}
 
 	dnsPort := os.Getenv("DNS_PORT")
 	if dnsPort == "" {
@@ -410,94 +481,34 @@ func updateCorefile() {
 		internalDOHPort = "5553"
 	}
 
-	corefile := fmt.Sprintf(`.:%s {
-    bind 0.0.0.0
-    %s
-    %s
-    health :8082
-    reload 5s
-    cache 7200 {
-        success 50000
-        denial 10000
-        prefetch 3 10m 20%%
-        %s
-    }
-    forward . %s {
-        health_check 10s
-        %s
-        %s
-    }%s%s
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
-    errors
-}
-`, dnsPort, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
+	data := CorefileData{
+		DNSPort:         dnsPort,
+		DOTPort:         dotPort,
+		InternalDOHPort: internalDOHPort,
+		DNSSEC:          dnssec,
+		ServeStale:      serveStale,
+		Upstreams:       upstreamStr,
+		TLSServerName:   dotServerName,
+		Policy:          policyVal,
+		HostsPath:       CombinedHostsPath,
+		GeoACLRules:     getGeoACLRules(),
+		CertFile:        certFile,
+		KeyFile:         keyFile,
+	}
 
-	// Repeat for TLS and HTTPS blocks
-	corefile += fmt.Sprintf(`
-tls://.:%s {
-    bind 0.0.0.0
-    tls %s %s
-    %s
-    %s
-    reload 5s
-    cache 7200 {
-        success 50000
-        denial 10000
-        prefetch 3 10m 20%%
-        %s
-    }
-    forward . %s {
-        health_check 10s
-        %s
-        %s
-    }%s%s
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
-    errors
-}
+	tmpl, err := template.New("corefile").Parse(CorefileTemplate)
+	if err != nil {
+		log.Printf("Error parsing Corefile template: %v", err)
+		return
+	}
 
-https://.:%s {
-    bind 0.0.0.0
-    tls %s %s
-    %s
-    %s
-    reload 5s
-    cache 7200 {
-        success 50000
-        denial 10000
-        prefetch 3 10m 20%%
-        %s
-    }
-    forward . %s {
-        health_check 10s
-        %s
-        %s
-    }%s%s
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
-    errors
-}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		log.Printf("Error executing Corefile template: %v", err)
+		return
+	}
 
-quic://.:%s {
-    tls %s %s
-    %s
-    %s
-    reload 5s
-    cache 7200 {
-        success 50000
-        denial 10000
-        prefetch 3 10m 20%%
-        %s
-    }
-    forward . %s {
-        health_check 10s
-        %s
-        %s
-    }%s%s
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
-    errors
-}
-`, dotPort, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, internalDOHPort, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock, dotPort, certFile, keyFile, dnssecBlock, metadataPlugin, staleBlock, upstreamStr, tlsBlock, policyBlock, hostsBlock, geoBlock)
-
-	os.WriteFile(CorefilePath, []byte(corefile), 0644)
+	os.WriteFile(CorefilePath, buf.Bytes(), 0644)
 }
 
 func startCoreDNS() {

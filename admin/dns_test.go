@@ -4,6 +4,8 @@
 package main
 
 import (
+	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -219,5 +221,64 @@ func TestParseLogLine_InvalidLogs(t *testing.T) {
 
 	if length != 0 {
 		t.Errorf("expected 0 queries for invalid/non-matching logs, got %d", length)
+	}
+}
+func TestUpdateCorefileTemplate(t *testing.T) {
+	// 1. Setup temporary Corefile path
+	tmpCorefile := "test_Corefile"
+	defer os.Remove(tmpCorefile)
+
+	oldPath := CorefilePath
+	CorefilePath = tmpCorefile
+	defer func() { CorefilePath = oldPath }()
+
+	// 2. Setup mock environment
+	os.Setenv("DNS_PORT", "10053")
+	os.Setenv("DOT_PORT", "10853")
+	os.Setenv("INTERNAL_DOH_PORT", "15553")
+	defer os.Unsetenv("DNS_PORT")
+	defer os.Unsetenv("DOT_PORT")
+	defer os.Unsetenv("INTERNAL_DOH_PORT")
+
+	// 3. Setup mock config
+	configLock.Lock()
+	oldConfig := config
+	config = Config{
+		Upstreams:       []string{"1.1.1.1"},
+		PreferEncrypted: false,
+		DNSSECEnabled:   true,
+		ServeStale:      true,
+	}
+	configLock.Unlock()
+	defer func() {
+		configLock.Lock()
+		config = oldConfig
+		configLock.Unlock()
+	}()
+
+	// 4. Run update
+	updateCorefile()
+
+	// 5. Verify file content
+	content, err := os.ReadFile(tmpCorefile)
+	if err != nil {
+		t.Fatalf("Failed to read generated Corefile: %v", err)
+	}
+
+	sContent := string(content)
+
+	expectedSnippets := []string{
+		".:10053 {",
+		"tls://.:10853 {",
+		"https://.:15553 {",
+		"dnssec",
+		"serve_stale 1h",
+		"forward . 1.1.1.1:53",
+	}
+
+	for _, snippet := range expectedSnippets {
+		if !strings.Contains(sContent, snippet) {
+			t.Errorf("Expected Corefile to contain '%s', but it didn't.\nContent:\n%s", snippet, sContent)
+		}
 	}
 }

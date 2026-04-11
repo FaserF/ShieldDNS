@@ -334,6 +334,7 @@ go test ./... -run TestProcessList_StreamingMemoryEfficiency -v
 
 | Area | Test File | What's Covered |
 | :--- | :--- | :--- |
+| Corefile Templates | `dns.go`, `dns_test.go` | `text/template` based Corefile generation with dynamic parameter validation |
 | Blocklist streaming parser | `config_test.go` | AdBlock/hosts/dnsmasq/allowlist formats, streaming line-by-line download |
 | CoreDNS log parser | `dns_test.go` | Structured log format, blocked detection, SSE broadcast, latency parsing |
 | API handlers | `main_test.go`, `api_test.go` | Stats, search, history, auth, token management |
