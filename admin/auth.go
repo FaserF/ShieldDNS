@@ -2,8 +2,10 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -294,4 +296,52 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	sessionLock.Unlock()
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func hashToken(token string) string {
+	h := sha256.New()
+	h.Write([]byte(token))
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func generateToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback for very rare cases if rand.Read fails
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return fmt.Sprintf("%x", b)
+}
+
+func hasPermission(key *APIKey, perm string) bool {
+	for _, p := range key.Permissions {
+		if p == "read:all" || p == perm {
+			return true
+		}
+	}
+	return false
+}
+
+func getRequiredPermission(r *http.Request) string {
+	path := r.URL.Path
+	switch {
+	case strings.HasPrefix(path, "/api/stats"), strings.HasPrefix(path, "/api/history"), strings.HasPrefix(path, "/api/health"):
+		return "read:stats"
+	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-blocked"), strings.HasPrefix(path, "/api/top-clients"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"):
+		return "read:logs"
+	case strings.HasPrefix(path, "/api/system-logs"), strings.HasPrefix(path, "/api/diagnostics"), strings.HasPrefix(path, "/api/backup"):
+		return "read:system"
+	case strings.HasPrefix(path, "/api/filtering"), strings.HasPrefix(path, "/api/rules"):
+		if r.Method == http.MethodGet {
+			return "read:stats"
+		}
+		return "write:filtering"
+	case strings.HasPrefix(path, "/api/config"):
+		if r.Method == http.MethodPost {
+			return "write:config" // Not exposed via tokens usually, but for RBAC safety
+		}
+		return "read:stats"
+	default:
+		return "read:stats"
+	}
 }
