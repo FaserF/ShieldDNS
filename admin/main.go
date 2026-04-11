@@ -69,6 +69,7 @@ func main() {
 	http.HandleFunc("/api/qr", handleQR)
 	// Dashboard Data
 	http.Handle("/api/stats", authMiddleware(http.HandlerFunc(handleStats)))
+	http.Handle("/api/stats/history", authMiddleware(http.HandlerFunc(handleStatsHistory)))
 	http.Handle("/api/system-logs", authMiddleware(http.HandlerFunc(handleSystemLogs)))
 	http.Handle("/api/events", authMiddleware(http.HandlerFunc(handleEvents)))
 	http.Handle("/api/diagnostics", authMiddleware(http.HandlerFunc(handleDiagnostics)))

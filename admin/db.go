@@ -49,6 +49,12 @@ func initDB() {
 			last_seen DATETIME
 		);
 		CREATE INDEX IF NOT EXISTS idx_clients_ip ON clients(ip);
+		CREATE TABLE IF NOT EXISTS hourly_stats (
+			timestamp DATETIME PRIMARY KEY,
+			total INTEGER DEFAULT 0,
+			blocked INTEGER DEFAULT 0,
+			cache_hits INTEGER DEFAULT 0
+		);
 	`)
 	if err != nil {
 		slog.Error("Could not initialize database schema", "error", err)
@@ -124,8 +130,56 @@ func startDBWorker() {
 	}
 
 	go cleanup() // Initial cleanup
+	
+	// Start hourly aggregation ticker
+	aggTicker := time.NewTicker(1 * time.Hour)
+	go func() {
+		// Initial aggregation for the previous hour
+		aggregateHourlyStats()
+		for range aggTicker.C {
+			aggregateHourlyStats()
+		}
+	}()
+
 	for range ticker.C {
 		cleanup()
+	}
+}
+
+func aggregateHourlyStats() {
+	if db == nil {
+		return
+	}
+
+	// Aggregate the full previous hour (e.g., if now is 14:05, aggregate 13:00-14:00)
+	// We use 'now', '-1 hour' and truncate it to the hour start.
+	// SQLite: strftime('%Y-%m-%d %H:00:00', 'now', '-1 hour')
+	
+	targetHour := time.Now().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:00:00")
+	
+	slog.Debug("Starting hourly aggregation", "hour", targetHour)
+
+	_, err := db.Exec(`
+		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
+		SELECT 
+			strftime('%Y-%m-%d %H:00:00', timestamp) as hr,
+			COUNT(*),
+			SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END),
+			SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END)
+		FROM queries
+		WHERE timestamp >= datetime(?, 'start of hour') 
+		  AND timestamp < datetime(?, 'start of hour', '+1 hour')
+		GROUP BY hr
+		ON CONFLICT(timestamp) DO UPDATE SET
+			total = excluded.total,
+			blocked = excluded.blocked,
+			cache_hits = excluded.cache_hits
+	`, targetHour, targetHour)
+
+	if err != nil {
+		slog.Error("Error aggregating hourly stats", "hour", targetHour, "error", err)
+	} else {
+		slog.Info("Successfully aggregated hourly stats", "hour", targetHour)
 	}
 }
 

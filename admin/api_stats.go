@@ -593,3 +593,46 @@ func handleBlockInfo(w http.ResponseWriter, r *http.Request) {
 		"lists":  lists,
 	})
 }
+func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
+	daysStr := r.URL.Query().Get("days")
+	days := 7
+	if d, err := strconv.Atoi(daysStr); err == nil && d > 0 {
+		days = d
+	}
+	if days > 365 {
+		days = 365
+	}
+
+	rows, err := db.Query(`
+		SELECT timestamp, total, blocked, cache_hits 
+		FROM hourly_stats 
+		WHERE timestamp > datetime('now', ?)
+		ORDER BY timestamp ASC
+	`, fmt.Sprintf("-%d days", days))
+
+	if err != nil {
+		slog.Error("Error querying historical stats", "error", err)
+		http.Error(w, "Error querying database", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type HistoryPoint struct {
+		Time      time.Time `json:"time"`
+		Total     int64     `json:"total"`
+		Blocked   int64     `json:"blocked"`
+		CacheHits int64     `json:"cache_hits"`
+	}
+
+	history := make([]HistoryPoint, 0)
+	for rows.Next() {
+		var hp HistoryPoint
+		var ts string
+		rows.Scan(&ts, &hp.Total, &hp.Blocked, &hp.CacheHits)
+		hp.Time, _ = time.Parse("2006-01-02 15:04:05", ts)
+		history = append(history, hp)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(history)
+}
