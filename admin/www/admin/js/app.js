@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 function initializeApp() {
     // 0. Ensure UI references are captured
-    auth.updateUIRefs();
+    updateUIRefs();
     initTheme();
     initModals();
     
