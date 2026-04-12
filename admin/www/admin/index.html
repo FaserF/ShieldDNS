@@ -507,7 +507,11 @@
                 <div class="search-section card">
                     <div class="search-box">
                         <input type="text" id="domain-search" placeholder="Search for a domain (e.g. google.com)">
-                        <button class="btn secondary" id="search-btn">Check Protection</button>
+                        <button class="btn secondary" id="search-btn" onclick="checkProtection()">Check Protection</button>
+                    </div>
+                    <div id="search-loading" class="hidden" style="text-align:center; padding: 20px;">
+                        <div class="spinner"></div>
+                        <p style="margin-top:10px; color:var(--text-secondary);">Analyzing domain reputation...</p>
                     </div>
                     <div id="search-result" class="hidden">
                         <!-- Result will be shown here -->

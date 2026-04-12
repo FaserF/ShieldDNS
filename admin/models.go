@@ -179,7 +179,8 @@ var (
 	blockAttributionLock sync.RWMutex
 
 	// Client info caches
-	ipToUA sync.Map // IP -> User-Agent string
+	ipToUA       sync.Map // IP -> User-Agent string
+	lastUAUpdate sync.Map // IP -> time.Time of last DB persist
 )
 
 type Session struct {

@@ -227,8 +227,8 @@ func main() {
 		adminPort = "443"
 	}
 
-	// Apply unified security middleware
-	finalHandler := csrfMiddleware(mux)
+	// Apply unified security middleware (Headers + CSRF)
+	finalHandler := securityHeadersMiddleware(csrfMiddleware(mux))
 
 	go func() {
 		if adminPort != "443" {

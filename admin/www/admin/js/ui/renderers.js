@@ -502,20 +502,26 @@ export function renderProtectionResult(res, domain) {
     if (res.blocked) {
         const lists = (res.lists || []).join(', ') || 'Custom Blocklist';
         el.innerHTML = `
-            <div class="result-card blocked">
+            <div class="result-card blocked" style="animation: slideUp 0.3s ease-out;">
                 <i class="fas fa-shield-alt icon-blocked"></i>
                 <div class="result-details">
                     <span class="url-text">${helpers.escapeHTML(domain)}</span>
-                    <span class="status-msg" style="color: var(--danger);">is BLOCKED by ${lists}</span>
+                    <span class="status-msg" style="color: var(--danger);">is <strong>BLOCKED</strong> by ${lists}</span>
                 </div>
                 <button class="btn btn-sm secondary" onclick="window.addCustomRule('allowed', '${helpers.escapeHTML(domain)}', event)">Whitelist</button>
             </div>
         `;
     } else {
         const allowedBy = (res.allowlists || []).join(', ');
-        const msg = allowedBy ? `is ALLOWED by ${allowedBy}` : 'is ALLOWED (not in any blocklist)';
+        let msg = 'is <strong>ALLOWED</strong>';
+        if (allowedBy) {
+            msg += ` by ${allowedBy}`;
+        } else {
+            msg += ' (not in any active blocklist)';
+        }
+        
         el.innerHTML = `
-            <div class="result-card allowed">
+            <div class="result-card allowed" style="animation: slideUp 0.3s ease-out;">
                 <i class="fas fa-check-circle icon-allowed"></i>
                 <div class="result-details">
                     <span class="url-text">${helpers.escapeHTML(domain)}</span>

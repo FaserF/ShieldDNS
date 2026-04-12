@@ -173,6 +173,8 @@ func TestAbuseCountersCleanup(t *testing.T) {
 			"fresh.com": {time.Now()},
 		},
 		allQueryTimes: []time.Time{time.Now()},
+		nxdomainTimes: []time.Time{time.Now().Add(-20 * time.Minute)},
+		dgaTimes:      []time.Time{time.Now().Add(-20 * time.Minute)},
 	}
 	abuseCounters[ip] = counters
 	abuseMu.Unlock()
@@ -188,7 +190,10 @@ func TestAbuseCountersCleanup(t *testing.T) {
 			}
 		}
 		counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 10*time.Minute)
-		if len(counters.allQueryTimes) == 0 && len(counters.domainTimes) == 0 {
+		counters.nxdomainTimes = pruneWindow(counters.nxdomainTimes, now, 10*time.Minute)
+		counters.dgaTimes = pruneWindow(counters.dgaTimes, now, 10*time.Minute)
+
+		if len(counters.allQueryTimes) == 0 && len(counters.domainTimes) == 0 && len(counters.nxdomainTimes) == 0 && len(counters.dgaTimes) == 0 {
 			delete(abuseCounters, ip)
 		}
 	}

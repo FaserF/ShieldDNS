@@ -112,7 +112,11 @@ func analyzeQuery(clientIP, domain, status string) {
 		// Bypass DGA check for internal domains and common high-entropy providers
 		bypass := false
 		suffix := strings.ToLower(domain)
-		for _, b := range []string{".local", ".lan", ".home.arpa", "googleusercontent.com", "amazonaws.com", "cloudfront.net", "akamaized.net"} {
+		for _, b := range []string{
+			".local", ".lan", ".home.arpa", "googleusercontent.com", "amazonaws.com", 
+			"cloudfront.net", "akamaized.net", "vimeocdn.com", "duckdns.org", 
+			"no-ip.org", "dyndns.org", "dynamic-dns.net",
+		} {
 			if strings.HasSuffix(suffix, b) {
 				bypass = true
 				break
@@ -239,6 +243,7 @@ func startAbuseCleanup() {
 			// 3. Prune general counters
 			counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 10*time.Minute)
 			counters.nxdomainTimes = pruneWindow(counters.nxdomainTimes, now, 10*time.Minute)
+			counters.dgaTimes = pruneWindow(counters.dgaTimes, now, 10*time.Minute)
 
 			// 4. If no activity at all in last 10 mins, remove the client from map
 			if len(counters.allQueryTimes) == 0 && len(counters.domainTimes) == 0 && len(counters.nxdomainTimes) == 0 && len(counters.dgaTimes) == 0 {

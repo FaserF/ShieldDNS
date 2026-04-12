@@ -62,6 +62,34 @@ func cleanupSessions() {
 	})
 }
 
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// HSTS: Force HTTPS for 1 year (only relevant if served over HTTPS)
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		
+		// Protection against MIME-sniffing
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		
+		// Protection against Clickjacking
+		w.Header().Set("X-Frame-Options", "DENY")
+		
+		// Protection against XSS
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		
+		// Content Security Policy
+		// Allows self-hosted assets, Google Fonts, and FlagCDN for countries
+		csp := "default-src 'self'; " +
+			"script-src 'self' 'unsafe-inline'; " +
+			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://use.fontawesome.com; " +
+			"font-src 'self' https://fonts.gstatic.com https://use.fontawesome.com; " +
+			"img-src 'self' data: https://flagcdn.com https://raw.githubusercontent.com; " +
+			"connect-src 'self' https://api.github.com;"
+		w.Header().Set("Content-Security-Policy", csp)
+		
+		next.ServeHTTP(w, r)
+	})
+}
+
 func csrfMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Mutating methods must have the custom header if using session cookies

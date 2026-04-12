@@ -183,10 +183,22 @@ func detectOS(ua string) string {
 		return "PlayStation"
 	case strings.Contains(ua, "nintendo switch"):
 		return "Nintendo Switch"
-	}
-	// DoH specific UAs
-	if strings.Contains(ua, "dnssettings") {
+	case strings.Contains(ua, "dnssettings"):
 		return "Apple Managed DNS"
+	case strings.Contains(ua, "shelly"):
+		return "Shelly IoT"
+	case strings.Contains(ua, "esphome") || strings.Contains(ua, "tasmota") || strings.Contains(ua, "esp8266") || strings.Contains(ua, "esp32"):
+		return "ESP-based IoT"
+	case strings.Contains(ua, "sonos"):
+		return "Sonos"
+	case strings.Contains(ua, "rokios"):
+		return "Roku OS"
+	case strings.Contains(ua, "appletv") || strings.Contains(ua, "apple tv"):
+		return "tvOS"
+	case strings.Contains(ua, "aetv") || strings.Contains(ua, "firetv"):
+		return "Fire OS"
+	case strings.Contains(ua, "hdm") || strings.Contains(ua, "hue"):
+		return "Philips Hue"
 	}
 	return ""
 }
@@ -198,8 +210,24 @@ func detectDevice(ua string) string {
 		return "iPhone"
 	case strings.Contains(ua, "ipad"):
 		return "iPad"
-	case strings.Contains(ua, "pixel"):
+	case strings.Contains(ua, "atv") || strings.Contains(ua, "appletv") || strings.Contains(ua, "apple tv"):
+		return "Apple TV"
+	case strings.Contains(ua, "aft") || strings.Contains(ua, "firetv"):
+		return "Amazon Fire TV"
+	case strings.Contains(ua, "nexus") || strings.Contains(ua, "pixel"):
 		return "Google Pixel"
+	case strings.Contains(ua, "sonos"):
+		return "Sonos Speaker"
+	case strings.Contains(ua, "shelly"):
+		return "Shelly Device"
+	case strings.Contains(ua, "lg") && strings.Contains(ua, "webos"):
+		return "LG Smart TV"
+	case strings.Contains(ua, "bravia") || (strings.Contains(ua, "sony") && strings.Contains(ua, "tv")):
+		return "Sony Smart TV"
+	case strings.Contains(ua, "esphome"):
+		return "ESPHome Device"
+	case strings.Contains(ua, "unifi"):
+		return "Ubiquiti Unifi"
 	case strings.Contains(ua, "samsung") || strings.Contains(ua, "sm-"):
 		return "Samsung Device"
 	}
@@ -251,6 +279,14 @@ func getManufacturerByMAC(mac string) string {
 		"000FB5": "Netgear",
 		"0014BF": "Linksys",
 		"0018E7": "TP-Link", "F4F26D": "TP-Link",
+		"24A160": "Espressif (IoT)", "30AEA4": "Espressif (IoT)", "A4CF12": "Espressif (IoT)",
+		"BCDD26": "Shelly/Allterco", "C049EF": "Shelly/Allterco",
+		"00032F": "Sonos", "B8E937": "Sonos",
+		"00156D": "Ubiquiti", "0418D6": "Ubiquiti", "B4FBE4": "Ubiquiti", "7483C2": "Ubiquiti",
+		"0004F2": "Polycom",
+		"00E062": "Brother",
+		"001788": "Philips Hue",
+		"603197": "Netatmo",
 	}
 
 	if m, ok := ouis[prefix]; ok {

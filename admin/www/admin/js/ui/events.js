@@ -17,7 +17,13 @@ export function initEvents(fetchConfig) {
         const domain = searchInput.value.trim();
         if (!domain) return;
         
+        const loader = getEl('search-loading');
+        const result = getEl('search-result');
+        
         helpers.setBtnLoading(searchBtn, true, 'Checking...');
+        if (loader) loader.classList.remove('hidden');
+        if (result) result.classList.add('hidden');
+        
         try {
             const res = await api.apiFetch(`${api.endpoints.search}?q=${encodeURIComponent(domain)}`);
             import('./renderers.js').then(m => m.renderProtectionResult(res, domain));
@@ -25,6 +31,7 @@ export function initEvents(fetchConfig) {
             helpers.showAlert('Check failed: ' + e.message);
         } finally {
             helpers.setBtnLoading(searchBtn, false);
+            if (loader) loader.classList.add('hidden');
         }
     };
 

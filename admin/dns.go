@@ -735,10 +735,27 @@ func parseLogLine(line string) {
 
 	slog.Debug("Parsed Query", "type", qType, "domain", qDomain, "client", clientIP, "duration", durationStr)
 
-	// Update latest User-Agent for this IP
+	// Update latest User-Agent for this IP with throttling
 	if userAgent != "" && userAgent != "-" && userAgent != "none" {
-		ipToUA.Store(clientIP, userAgent)
-		saveClientUA(clientIP, userAgent)
+		oldUA, _ := ipToUA.Swap(clientIP, userAgent)
+		
+		shouldPersist := false
+		if oldUA == nil || oldUA.(string) != userAgent {
+			shouldPersist = true
+		} else {
+			if last, ok := lastUAUpdate.Load(clientIP); ok {
+				if time.Since(last.(time.Time)) > 1*time.Hour {
+					shouldPersist = true
+				}
+			} else {
+				shouldPersist = true
+			}
+		}
+
+		if shouldPersist {
+			saveClientUA(clientIP, userAgent)
+			lastUAUpdate.Store(clientIP, time.Now())
+		}
 	}
 
 	duration := 0.0
