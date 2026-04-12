@@ -120,24 +120,32 @@ func startDBWorker() {
 		days := config.RetentionDays
 		configLock.RUnlock()
 
-		if days <= 0 {
-			days = 30
-		}
-
 		if db != nil {
+			// 1. Regular TTL purge based on RetentionDays
 			_, err := db.Exec("DELETE FROM queries WHERE timestamp < datetime('now', ?)", fmt.Sprintf("-%d days", days))
 			if err != nil {
 				slog.Error("Error purging old queries", "error", err)
 			} else {
-				slog.Info("Database maintenance complete", "days_purged", days)
+				slog.Info("Database maintenance: TTL purge complete", "days_retained", days)
+			}
 
-				// Reclaim space incrementally
-				_, err = db.Exec("PRAGMA incremental_vacuum(1000)")
+			// 2. Resource Safety: Hard cap on total queries (max 500k rows)
+			// This prevents disk exhaustion even if RetentionDays is set very high
+			var totalRows int
+			if err := db.QueryRow("SELECT COUNT(*) FROM queries").Scan(&totalRows); err == nil && totalRows > 500000 {
+				overage := totalRows - 500000 + 50000 // Remove overage plus a 50k buffer
+				_, err = db.Exec("DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", overage)
 				if err != nil {
-					slog.Error("Error running incremental vacuum", "error", err)
+					slog.Error("Database maintenance: Error during emergency row prune", "error", err)
 				} else {
-					slog.Debug("Database maintenance: Incremental vacuum completed")
+					slog.Warn("Database maintenance: Row cap exceeded, emergency prune performed", "total_before", totalRows, "deleted", overage)
 				}
+			}
+
+			// 3. Reclaim space incrementally
+			_, err = db.Exec("PRAGMA incremental_vacuum(5000)")
+			if err != nil {
+				slog.Error("Error running incremental vacuum", "error", err)
 			}
 		}
 	}

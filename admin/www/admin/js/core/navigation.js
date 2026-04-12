@@ -113,3 +113,10 @@ export function startSSE(createQueryRow, updateDashboardFeed, scroller) {
         // EventSource automatically reconnects, but we might want to log it
     };
 }
+
+export function stopSSE() {
+	if (state.queryEventSource) {
+		state.queryEventSource.close();
+		state.queryEventSource = null;
+	}
+}

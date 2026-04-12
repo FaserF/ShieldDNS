@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -505,4 +506,21 @@ func signProfile(content []byte, certFile, keyFile string) ([]byte, error) {
 	}
 
 	return out.Bytes(), nil
+}
+
+func CalculateEntropy(s string) float64 {
+	if len(s) == 0 {
+		return 0
+	}
+	counts := make(map[rune]float64)
+	for _, r := range s {
+		counts[r]++
+	}
+	var entropy float64
+	total := float64(len(s))
+	for _, count := range counts {
+		p := count / total
+		entropy -= p * math.Log2(p)
+	}
+	return entropy
 }

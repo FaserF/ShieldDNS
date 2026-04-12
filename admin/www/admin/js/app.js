@@ -27,6 +27,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     auth.checkAuthStatus(initializeApp);
+
+    // Global cleanup on window close
+    window.addEventListener('beforeunload', () => {
+        nav.stopSSE();
+        nav.stopSystemLogStream();
+        nav.stopDiagTimer();
+    });
 });
 
 /**

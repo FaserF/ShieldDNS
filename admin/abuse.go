@@ -12,6 +12,7 @@ type clientAbuseCounters struct {
 	allQueryTimes []time.Time
 	nxdomainTimes []time.Time
 	tldCounts     map[string][]time.Time
+	dgaTimes      []time.Time
 }
 
 var (
@@ -94,6 +95,21 @@ func analyzeQuery(clientIP, domain, status string) {
 		if len(counters.tldCounts[tld]) >= 1000 && float64(len(counters.tldCounts[tld]))/float64(total5m) >= 0.90 {
 			go blockClientAuto(clientIP, "auto:tld_scan")
 			return
+		}
+	}
+
+	// --- 5. DGA Detection (High Entropy Subdomains) ---
+	// Focus on subdomains longer than 8 chars with high entropy
+	parts := strings.Split(domain, ".")
+	if len(parts) > 2 {
+		sub := parts[0]
+		if len(sub) > 8 && CalculateEntropy(sub) > 3.8 {
+			counters.dgaTimes = append(counters.dgaTimes, now)
+			counters.dgaTimes = pruneWindow(counters.dgaTimes, now, 5*time.Minute)
+			if len(counters.dgaTimes) >= 15 {
+				go blockClientAuto(clientIP, "auto:dga_detected")
+				return
+			}
 		}
 	}
 }
@@ -195,7 +211,7 @@ func startAbuseCleanup() {
 			counters.nxdomainTimes = pruneWindow(counters.nxdomainTimes, now, 10*time.Minute)
 
 			// 4. If no activity at all in last 10 mins, remove the client from map
-			if len(counters.allQueryTimes) == 0 && len(counters.domainTimes) == 0 && len(counters.nxdomainTimes) == 0 {
+			if len(counters.allQueryTimes) == 0 && len(counters.domainTimes) == 0 && len(counters.nxdomainTimes) == 0 && len(counters.dgaTimes) == 0 {
 				delete(abuseCounters, ip)
 			}
 		}

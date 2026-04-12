@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+var activeSSEClients atomic.Int32
+
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "healthy", "version": Version})
@@ -103,6 +105,13 @@ func (w *LogWriter) Write(p []byte) (n int, err error) {
 }
 
 func handleSystemLogs(w http.ResponseWriter, r *http.Request) {
+	if activeSSEClients.Load() >= 50 {
+		http.Error(w, "Server busy: too many active streams", http.StatusServiceUnavailable)
+		return
+	}
+	activeSSEClients.Add(1)
+	defer activeSSEClients.Add(-1)
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
@@ -137,6 +146,9 @@ func handleSystemLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleEvents(w http.ResponseWriter, r *http.Request) {
+	activeSSEClients.Add(1)
+	defer activeSSEClients.Add(-1)
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
