@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -548,9 +549,9 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDomainStats(w http.ResponseWriter, r *http.Request) {
-	domain := r.URL.Query().Get("domain")
+	domain := NormalizeDomain(r.URL.Query().Get("domain"))
 	if domain == "" {
-		http.Error(w, "Domain required", http.StatusBadRequest)
+		http.Error(w, "Valid domain required", http.StatusBadRequest)
 		return
 	}
 
@@ -566,9 +567,9 @@ func handleDomainStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDomainClients(w http.ResponseWriter, r *http.Request) {
-	domain := r.URL.Query().Get("domain")
+	domain := NormalizeDomain(r.URL.Query().Get("domain"))
 	if domain == "" {
-		http.Error(w, "Domain required", http.StatusBadRequest)
+		http.Error(w, "Valid domain required", http.StatusBadRequest)
 		return
 	}
 
@@ -653,14 +654,83 @@ func handleBlockInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	blockAttributionLock.RLock()
-	lists := blockAttribution[domain]
+	blockLists := blockAttribution[domain]
 	blockAttributionLock.RUnlock()
+
+	// Check allowlists only if not explicitly blocked by a custom rule
+	allowLists := getAllowlistAttribution(domain)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"domain": domain,
-		"lists":  lists,
+		"domain":     domain,
+		"blocked":    len(blockLists) > 0,
+		"lists":      blockLists,
+		"allowlists": allowLists,
 	})
+}
+
+// getAllowlistAttribution scans all enabled allowlists for the given domain.
+// This is done on-demand as allowlist attribution is not stored globally for performance reasons.
+func getAllowlistAttribution(domain string) []string {
+	configLock.RLock()
+	enabledAllowlists := make([]List, 0)
+	for _, l := range config.Allowlists {
+		if l.Enabled {
+			enabledAllowlists = append(enabledAllowlists, l)
+		}
+	}
+	configLock.RUnlock()
+
+	if len(enabledAllowlists) == 0 {
+		return nil
+	}
+
+	var matchedLists []string
+	searchDomain := strings.ToLower(strings.TrimSpace(domain))
+
+	for _, list := range enabledAllowlists {
+		// Read the list file directly to check for the domain
+		// This ensures we're accurate without keeping all allowlist mappings in RAM
+		filePath := filepath.Join(DataDir, "lists", "allow", fmt.Sprintf("%x.txt", strings.ToLower(list.URL)))
+		if _, err := os.Stat(filePath); err != nil {
+			// Fallback to name-based if hash fails (legacy)
+			filePath = filepath.Join(DataDir, "lists", "allow", list.Name+".txt")
+		}
+
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			continue
+		}
+
+		// Fast check: is the domain in the file?
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "!") {
+				continue
+			}
+			// Handle ||domain^ or 0.0.0.0 domain or raw domain
+			parsed := line
+			if strings.HasPrefix(parsed, "@@") {
+				parsed = parsed[2:]
+			}
+			if strings.HasPrefix(parsed, "||") {
+				parsed = strings.Split(strings.TrimPrefix(parsed, "||"), "^")[0]
+			} else if strings.Contains(parsed, " ") {
+				parts := strings.Fields(parsed)
+				if len(parts) >= 2 {
+					parsed = parts[1]
+				}
+			}
+
+			if strings.ToLower(parsed) == searchDomain {
+				matchedLists = append(matchedLists, list.Name)
+				break
+			}
+		}
+	}
+
+	return matchedLists
 }
 func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
 	daysStr := r.URL.Query().Get("days")

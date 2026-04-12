@@ -42,11 +42,11 @@ func main() {
 	initializeStatsFromDB()
 	initMetrics()
 
-	// Run initial blocklist update synchronously before starting CoreDNS
-	updateBlocklist(nil)
-
 	// Start background updater ticker
 	go startBackgroundUpdater()
+
+	// Trigger initial blocklist update in background
+	go updateBlocklist(nil)
 
 	// Start health checker
 	go startHealthChecker()

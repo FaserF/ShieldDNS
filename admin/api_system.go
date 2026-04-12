@@ -564,22 +564,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			newConfig.SetupDone = config.SetupDone
 		}
 
-		// Sanitize & Validate Custom Rules
-		sanitizeRule := func(r string) string {
-			r = strings.TrimSpace(r)
-			r = strings.TrimPrefix(r, "http://")
-			r = strings.TrimPrefix(r, "https://")
-			for _, sep := range []string{"/", "?", "#"} {
-				if idx := strings.Index(r, sep); idx != -1 {
-					r = r[:idx]
-				}
-			}
-			return r
-		}
-
 		var cleanBlocked []string
 		for _, b := range newConfig.CustomBlocked {
-			if s := sanitizeRule(b); s != "" && isValidDomain(s) {
+			if s := NormalizeDomain(b); s != "" && isValidDomain(s) {
 				cleanBlocked = append(cleanBlocked, s)
 			}
 		}
@@ -587,7 +574,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		var cleanAllowed []string
 		for _, a := range newConfig.CustomAllowed {
-			if s := sanitizeRule(a); s != "" && isValidDomain(s) {
+			if s := NormalizeDomain(a); s != "" && isValidDomain(s) {
 				cleanAllowed = append(cleanAllowed, s)
 			}
 		}

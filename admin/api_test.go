@@ -372,7 +372,7 @@ func TestHandleRuleAddValidation(t *testing.T) {
 		{"Valid domain block", "example.com", "block", http.StatusOK},
 		{"Valid domain allow", "google.com", "allow", http.StatusOK},
 		{"URL stripped to domain", "https://tracking.com/path", "block", http.StatusOK},
-		{"Empty domain", "", "block", http.StatusBadRequest},
+		{"Empty domain", "", "block", http.StatusUnprocessableEntity},
 		{"Invalid domain", "not valid!", "block", http.StatusBadRequest},
 		{"XSS attempt", "<script>alert(1)</script>", "block", http.StatusBadRequest},
 		{"Path traversal", "../../../etc/passwd", "block", http.StatusBadRequest},

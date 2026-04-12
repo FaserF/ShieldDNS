@@ -63,16 +63,9 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	domain := strings.TrimSpace(req.Domain)
-	domain = strings.TrimPrefix(domain, "http://")
-	domain = strings.TrimPrefix(domain, "https://")
-	for _, sep := range []string{"/", "?", "#"} {
-		if idx := strings.Index(domain, sep); idx != -1 {
-			domain = domain[:idx]
-		}
-	}
+	domain := NormalizeDomain(req.Domain)
 	if domain == "" {
-		http.Error(w, "Domain required", http.StatusBadRequest)
+		http.Error(w, "Domain required", http.StatusUnprocessableEntity)
 		return
 	}
 	if !isValidDomain(domain) {
@@ -183,9 +176,9 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	domain := strings.TrimSpace(req.Domain)
+	domain := NormalizeDomain(req.Domain)
 	if domain == "" {
-		http.Error(w, "Domain required", http.StatusBadRequest)
+		http.Error(w, "Domain required", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -340,12 +333,12 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Standardize query (trim http://, paths, trailing dots)
-	query = strings.TrimSpace(query)
-	query = strings.TrimPrefix(query, "http://")
-	query = strings.TrimPrefix(query, "https://")
-	query = strings.Split(query, "/")[0]
-	query = strings.TrimSuffix(query, ".")
+	// Standardize query
+	query = NormalizeDomain(query)
+	if query == "" {
+		http.Error(w, "Valid domain query required", http.StatusBadRequest)
+		return
+	}
 
 	blockAttributionLock.RLock()
 	lists, found := blockAttribution[query]

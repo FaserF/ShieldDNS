@@ -25,6 +25,7 @@ var domainRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9
 
 // isValidDomain checks if a string is a valid domain name or IP address.
 func isValidDomain(s string) bool {
+	// ... (rest as before)
 	if s == "" {
 		return false
 	}
@@ -37,6 +38,21 @@ func isValidDomain(s string) bool {
 		return false
 	}
 	return domainRegex.MatchString(s)
+}
+
+// NormalizeDomain strips protocols, paths, fragments, and trailing dots to return a clean domain.
+func NormalizeDomain(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.ToLower(s)
+	s = strings.TrimPrefix(s, "http://")
+	s = strings.TrimPrefix(s, "https://")
+	// Strip paths, queries, fragments
+	for _, sep := range []string{"/", "?", "#"} {
+		if idx := strings.Index(s, sep); idx != -1 {
+			s = s[:idx]
+		}
+	}
+	return strings.TrimSuffix(s, ".")
 }
 
 func handleIPInfo(w http.ResponseWriter, r *http.Request) {

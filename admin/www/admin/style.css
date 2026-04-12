@@ -1061,12 +1061,15 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: transform 0.2s;
+    transition: var(--transition-smooth);
+    cursor: pointer;
 }
 
 .preset-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-4px) scale(1.02);
     border-color: var(--accent);
+    background-color: rgba(255, 255, 255, 0.03);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
 }
 
 .preset-info h3 {
@@ -1632,6 +1635,26 @@ input:checked + .slider:before {
 
 .protected #status-icon {
     color: var(--success);
+}
+
+.result-card.blocked {
+    background: rgba(var(--danger-rgb), 0.1);
+    border: 1px solid rgba(var(--danger-rgb), 0.3);
+}
+
+.result-card.allowed {
+    background: rgba(var(--accent-rgb), 0.1);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
+}
+
+.result-card.blocked .icon-blocked {
+    color: var(--danger);
+    filter: drop-shadow(0 0 8px rgba(var(--danger-rgb), 0.4));
+}
+
+.result-card.allowed .icon-allowed {
+    color: var(--accent);
+    filter: drop-shadow(0 0 8px rgba(var(--accent-rgb), 0.4));
 }
 
 /* API Key Token Display */

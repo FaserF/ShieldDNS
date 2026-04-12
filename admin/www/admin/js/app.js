@@ -225,10 +225,19 @@ function initModals() {
     });
 
     getEl('domain-info-view-logs-btn')?.addEventListener('click', () => {
-        const domain = getEl('domain-info-subtitle').textContent || getEl('domain-info-title').textContent;
+        // Extract the raw domain from the subtitle or title, cleaning any "Blocked by" tags
+        let domain = getEl('domain-info-subtitle').textContent || getEl('domain-info-title').textContent;
+        if (domain.includes('Blocked by')) {
+            domain = getEl('domain-info-title').textContent; // Fallback to title if subtitle has tags
+        }
+        if (domain === 'Domain Details') {
+            // Last resort: extract from subtitle by splitting if it's "domain.com (Blocked by ...)"
+            domain = getEl('domain-info-subtitle').textContent.split(' ')[0];
+        }
+        
         const searchInput = getEl('query-search');
         if (searchInput) {
-            searchInput.value = domain;
+            searchInput.value = domain.trim();
             fetchService.fetchQueries(true);
             getEl('nav-queries')?.click();
             closeModals();
@@ -313,15 +322,26 @@ function initModals() {
 }
 
 window.showListDetails = (list) => {
-    const modal = getEl('list-details-modal');
-    if (!modal || !list) return;
+    if (!list) return;
     getEl('modal-list-name').textContent = list.name || 'List Details';
     const urlEl = getEl('modal-list-url');
-    urlEl.textContent = list.url || 'No URL';
-    urlEl.href = list.url || '#';
-    getEl('modal-list-entries').textContent = (list.entries || 0).toLocaleString();
-    getEl('modal-list-updated').textContent = (!list.updated_at || list.updated_at.startsWith('0001')) ? 'Never' : new Date(list.updated_at).toLocaleString();
-    modal.classList.remove('hidden');
+    urlEl.textContent = list.url;
+    urlEl.href = list.url;
+    getEl('modal-list-entries').textContent = list.entries?.toLocaleString() || '0';
+    
+    // Standard Update (ShieldDNS last sync)
+    const localDate = list.updated_at && list.updated_at !== '0001-01-01T00:00:00Z' 
+        ? new Date(list.updated_at).toLocaleString() 
+        : 'Never';
+    getEl('modal-list-updated').textContent = localDate;
+
+    // Remote Update (Source file last modified)
+    const remoteDate = list.remote_updated_at && list.remote_updated_at !== '0001-01-01T00:00:00Z'
+        ? new Date(list.remote_updated_at).toLocaleString()
+        : 'n.a.';
+    getEl('modal-list-remote-updated').textContent = remoteDate;
+
+    getEl('list-details-modal').classList.remove('hidden');
 };
 
 window.openListDetailsModal = (idx, type) => {

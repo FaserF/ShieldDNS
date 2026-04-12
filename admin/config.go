@@ -262,22 +262,26 @@ func updateBlocklist(cfg *Config) {
 		processList(list, nil, allowDomains) // Allowlists only populate allowDomains
 	}
 
-	// Update the config lists with the new metadata (Entries and UpdatedAt)
+	// Update the config lists with the new metadata (Entries, UpdatedAt, and RemoteUpdatedAt)
 	configLock.Lock()
 	for _, l := range blocklists {
+		targetURL := strings.ToLower(strings.TrimSpace(l.URL))
 		for j, cl := range config.Lists {
-			if cl.URL == l.URL {
+			if strings.ToLower(strings.TrimSpace(cl.URL)) == targetURL {
 				config.Lists[j].Entries = l.Entries
 				config.Lists[j].UpdatedAt = l.UpdatedAt
+				config.Lists[j].RemoteUpdatedAt = l.RemoteUpdatedAt
 				break
 			}
 		}
 	}
 	for _, l := range allowlists {
+		targetURL := strings.ToLower(strings.TrimSpace(l.URL))
 		for j, cl := range config.Allowlists {
-			if cl.URL == l.URL {
+			if strings.ToLower(strings.TrimSpace(cl.URL)) == targetURL {
 				config.Allowlists[j].Entries = l.Entries
 				config.Allowlists[j].UpdatedAt = l.UpdatedAt
+				config.Allowlists[j].RemoteUpdatedAt = l.RemoteUpdatedAt
 				break
 			}
 		}
@@ -426,6 +430,14 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			slog.Warn("Remote list returned non-OK status", "name", list.Name, "status", resp.StatusCode)
 			return
 		}
+		
+		// Capture remote update time
+		if lm := resp.Header.Get("Last-Modified"); lm != "" {
+			if t, err := http.ParseTime(lm); err == nil {
+				list.RemoteUpdatedAt = t
+			}
+		}
+		
 		reader = resp.Body
 	}
 

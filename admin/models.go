@@ -67,8 +67,9 @@ type List struct {
 	Enabled       bool      `json:"enabled"`
 	Category      string    `json:"category,omitempty"`
 	IsRecommended bool      `json:"is_recommended"`
-	Entries       int       `json:"entries"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	Entries         int       `json:"entries"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	RemoteUpdatedAt time.Time `json:"remote_updated_at"`
 }
 
 type Stats struct {

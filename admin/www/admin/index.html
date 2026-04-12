@@ -1108,14 +1108,18 @@
                     <a id="modal-list-url" href="#" target="_blank" style="word-break: break-all; color: var(--accent-color); font-size: 0.9rem; text-decoration: none;"></a>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-color);">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 20px; margin-top: 24px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-color);">
                     <div>
                         <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Total Entries</label>
                         <div id="modal-list-entries" style="font-size: 1.4rem; font-weight: 600; color: var(--text-primary); margin-top: 4px;">0</div>
                     </div>
                     <div>
-                        <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Last Updated</label>
+                        <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">ShieldDNS Updated</label>
                         <div id="modal-list-updated" style="font-size: 0.9rem; color: var(--text-primary); margin-top: 8px; line-height: 1.4;">Never</div>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Source Updated</label>
+                        <div id="modal-list-remote-updated" style="font-size: 0.9rem; color: var(--text-primary); margin-top: 8px; line-height: 1.4;">n.a.</div>
                     </div>
                 </div>
             </div>

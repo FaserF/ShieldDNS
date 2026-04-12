@@ -495,20 +495,22 @@ export function renderProtectionResult(res, domain) {
                 <i class="fas fa-shield-alt icon-blocked"></i>
                 <div class="result-details">
                     <span class="url-text">${helpers.escapeHTML(domain)}</span>
-                    <span class="status-msg">is BLOCKED by ${lists}</span>
+                    <span class="status-msg" style="color: var(--danger);">is BLOCKED by ${lists}</span>
                 </div>
-                <button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${helpers.escapeHTML(domain)}', event)">Whitelist</button>
+                <button class="btn btn-sm secondary" onclick="window.addCustomRule('allowed', '${helpers.escapeHTML(domain)}', event)">Whitelist</button>
             </div>
         `;
     } else {
+        const allowedBy = (res.allowlists || []).join(', ');
+        const msg = allowedBy ? `is ALLOWED by ${allowedBy}` : 'is ALLOWED (not in any blocklist)';
         el.innerHTML = `
             <div class="result-card allowed">
                 <i class="fas fa-check-circle icon-allowed"></i>
                 <div class="result-details">
                     <span class="url-text">${helpers.escapeHTML(domain)}</span>
-                    <span class="status-msg">is ALLOWED and secure.</span>
+                    <span class="status-msg" style="color: var(--accent);">${msg} and secure.</span>
                 </div>
-                <button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${helpers.escapeHTML(domain)}', event)">Block</button>
+                <button class="btn btn-sm secondary" onclick="window.addCustomRule('blocked', '${helpers.escapeHTML(domain)}', event)">Block</button>
             </div>
         `;
     }
