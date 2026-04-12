@@ -295,7 +295,7 @@ export function renderDiagnostics(d) {
                  <td>
                     <div style="display:flex; align-items:center; gap:8px;">
                         ${h.server}
-                        ${isPreferred ? '<span class="badge" style="background:var(--accent); font-size:0.6rem; padding:2px 6px; color:white;">Active</span>' : ''}
+                        ${isPreferred ? '<span class="badge" style="background:var(--accent); font-size:0.65rem; padding:3px 8px; color:white; border-radius:12px; display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-bolt" style="font-size:0.6rem"></i> Currently Active</span>' : ''}
                     </div>
                  </td>
                  <td><span class="badge ${isUp ? 'official' : 'danger'}">${isUp ? 'Healthy' : 'Down'}</span></td>

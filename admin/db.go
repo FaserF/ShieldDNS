@@ -43,6 +43,7 @@ func initDB() {
 		CREATE INDEX IF NOT EXISTS idx_status ON queries(status);
 		CREATE INDEX IF NOT EXISTS idx_client ON queries(client_ip);
 		CREATE INDEX IF NOT EXISTS idx_domain ON queries(domain);
+		CREATE INDEX IF NOT EXISTS idx_timestamp_status ON queries(timestamp, status);
 		CREATE TABLE IF NOT EXISTS clients (
 			ip TEXT PRIMARY KEY,
 			user_agent TEXT,
@@ -153,9 +154,7 @@ func aggregateHourlyStats() {
 
 	// Aggregate the full previous hour (e.g., if now is 14:05, aggregate 13:00-14:00)
 	// We use 'now', '-1 hour' and truncate it to the hour start.
-	// SQLite: strftime('%Y-%m-%d %H:00:00', 'now', '-1 hour')
-	
-	targetHour := time.Now().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:00:00")
+	targetHour := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
 	
 	slog.Debug("Starting hourly aggregation", "hour", targetHour)
 
@@ -164,11 +163,11 @@ func aggregateHourlyStats() {
 		SELECT 
 			strftime('%Y-%m-%d %H:00:00', timestamp) as hr,
 			COUNT(*),
-			SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END),
+			SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END),
 			SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END)
 		FROM queries
-		WHERE timestamp >= datetime(?, 'start of hour') 
-		  AND timestamp < datetime(?, 'start of hour', '+1 hour')
+		WHERE datetime(timestamp) >= datetime(?, 'start of hour') 
+		  AND datetime(timestamp) < datetime(?, 'start of hour', '+1 hour')
 		GROUP BY hr
 		ON CONFLICT(timestamp) DO UPDATE SET
 			total = excluded.total,
@@ -219,7 +218,7 @@ func flushLogs(toFlush []Query) {
 	defer stmt.Close()
 
 	for _, q := range toFlush {
-		_, err = stmt.Exec(q.Time.Format(time.RFC3339), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs)
+		_, err = stmt.Exec(q.Time.UTC().Format("2006-01-02 15:04:05"), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs)
 		if err != nil {
 			slog.Error("Error executing log statement", "domain", q.Domain, "error", err)
 		}

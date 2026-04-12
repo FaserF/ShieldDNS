@@ -59,9 +59,18 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 
 	if val, ok := sysStats["ram_used_mb"]; ok {
 		s.RAMUsedMB = float64(val.(int64))
+	} else if ram, ok := sysStats["ram"].(map[string]interface{}); ok {
+		if used, ok := ram["used"].(float64); ok {
+			s.RAMUsedMB = used / (1024 * 1024)
+		}
 	}
+
 	if val, ok := sysStats["ram_total_mb"]; ok {
 		s.RAMTotalMB = float64(val.(int64))
+	} else if ram, ok := sysStats["ram"].(map[string]interface{}); ok {
+		if total, ok := ram["total"].(float64); ok {
+			s.RAMTotalMB = total / (1024 * 1024)
+		}
 	}
 	if val, ok := sysStats["uptime_seconds"]; ok {
 		s.UptimeSeconds = val.(int64)
@@ -150,8 +159,13 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 		args = append(args, "%"+search+"%", "%"+search+"%")
 	}
 	if statusFilter != "" {
-		query += " AND status = ?"
-		args = append(args, statusFilter)
+		if statusFilter == "Blocked" {
+			query += " AND status LIKE ?"
+			args = append(args, "Blocked%")
+		} else {
+			query += " AND status = ?"
+			args = append(args, statusFilter)
+		}
 	}
 	if clientIP != "" {
 		query += " AND client_ip = ?"
@@ -192,7 +206,7 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 		SELECT
 			strftime('%H', timestamp) as hr,
 			COUNT(*) as total,
-			SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END) as blocked
+			SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END) as blocked
 		FROM queries
 		WHERE timestamp > datetime('now', '-24 hours')
 		GROUP BY hr
@@ -228,7 +242,7 @@ func handleTopBlocked(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
 		SELECT domain, COUNT(*) as count
 		FROM queries
-		WHERE status = 'Blocked'
+		WHERE status LIKE 'Blocked%'
 		GROUP BY domain
 		ORDER BY count DESC
 		LIMIT 10
