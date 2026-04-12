@@ -157,3 +157,21 @@ jobs:
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🚀 Bump to next Development Version
+        if: github.event.inputs.recreate_release != 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Use our updated script to bump to the next patch version with a -dev suffix
+          # We use the short SHA to identify the dev build base
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          python .github/scripts/bump_version.py patch "-dev+${SHORT_SHA}"
+          
+          DEV_VERSION=$(grep -oP 'Version\s*=\s*"v\K[^"]+' admin/main.go)
+          echo "Bumping main branch to development version: v$DEV_VERSION"
+          
+          git add admin/main.go
+          git commit -m "chore: pivot to development v$DEV_VERSION [skip ci]"
+          git push origin main

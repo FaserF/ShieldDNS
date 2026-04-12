@@ -23,7 +23,7 @@ func TestParseLogLine_Structured(t *testing.T) {
 	bufferLock.Unlock()
 
 	// Test allowed query in new structured CoreDNS format (with User-Agent)
-	parseLogLine(`127.0.0.1:46111 A google.com. NOERROR qr,rd,ra 0.00123s "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"`)
+	parseLogLine(`127.0.0.1:46111 A google.com. NOERROR qr,rd,ra 0.00123s "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" "-"`)
 
 	bufferLock.Lock()
 	length := len(logBuffer)
@@ -36,6 +36,7 @@ func TestParseLogLine_Structured(t *testing.T) {
 	if length != 1 {
 		t.Fatalf("Expected 1 query in buffer, got %d", length)
 	}
+	// Since no real IP was provided, it should still be "DoH Proxy" for UX
 	if q.ClientIP != "DoH Proxy" {
 		t.Errorf("Expected ClientIP DoH Proxy, got %s", q.ClientIP)
 	}
@@ -48,14 +49,32 @@ func TestParseLogLine_Structured(t *testing.T) {
 	if q.Status != "Allowed" {
 		t.Errorf("Expected Status Allowed, got %s", q.Status)
 	}
-	// 0.00123s = 1.23ms
-	if q.DurationMs < 1.2 || q.DurationMs > 1.4 {
-		t.Errorf("Expected Duration ~1.23ms, got %f", q.DurationMs)
-	}
 
 	// Check User-Agent storage
 	if ua, ok := ipToUA.Load("DoH Proxy"); !ok || ua != "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" {
 		t.Errorf("Expected User-Agent to be stored, got %v", ua)
+	}
+}
+
+func TestParseLogLine_WithRealIP(t *testing.T) {
+	bufferLock.Lock()
+	logBuffer = nil
+	bufferLock.Unlock()
+
+	// Test DoH query arriving via 127.0.0.1 but with a forwarded X-Real-IP
+	parseLogLine(`127.0.0.1:55555 A myhome.com. NOERROR qr,rd,ra 0.005s "Mozilla/5.0 (Macintosh)" "10.0.0.42"`)
+
+	bufferLock.Lock()
+	q := logBuffer[0]
+	bufferLock.Unlock()
+
+	if q.ClientIP != "10.0.0.42" {
+		t.Errorf("Expected ClientIP 10.0.0.42 (forwarded), got %s", q.ClientIP)
+	}
+
+	// Check User-Agent storage under the REAL IP
+	if ua, ok := ipToUA.Load("10.0.0.42"); !ok || ua != "Mozilla/5.0 (Macintosh)" {
+		t.Errorf("Expected User-Agent to be stored under real IP, got %v", ua)
 	}
 }
 

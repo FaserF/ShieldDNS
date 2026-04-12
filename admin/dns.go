@@ -59,7 +59,7 @@ const CorefileTemplate = `.:{{.DNSPort}} {
     }
     {{end}}
     {{.GeoACLRules}}
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\""
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
 }
 
@@ -85,7 +85,7 @@ tls://.:{{.DOTPort}} {
         fallthrough
     }
     {{.GeoACLRules}}
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\""
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
 }
 
@@ -111,7 +111,7 @@ https://.:{{.InternalDOHPort}} {
         fallthrough
     }
     {{.GeoACLRules}}
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\""
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
 }
 
@@ -136,7 +136,7 @@ quic://.:{{.DOTPort}} {
         fallthrough
     }
     {{.GeoACLRules}}
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\""
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
 }
 `
@@ -635,60 +635,71 @@ func parseLogLine(line string) {
 		return
 	}
 
-	var remote, qType, qDomain, rcode, rflags, durationStr, userAgent string
+	var remote, qType, qDomain, rcode, rflags, durationStr, userAgent, realIP string
 
 	// 2. Identify Format and Parse
-	// FORMAT A (Custom): remote type name rcode rflags duration "user-agent"
+	// FORMAT A (Custom): remote type name rcode rflags duration "user-agent" "x-real-ip"
 	// FORMAT B (Default): remote:port - id "query_info" rcode rflags size duration
 
-	lastQuote := strings.LastIndex(line, "\"")
-	if lastQuote <= 0 {
-		return
-	}
-
-	firstQuote := strings.LastIndex(line[:lastQuote], "\"")
-	if firstQuote <= 0 {
-		return
-	}
-
-	middlePart := line[firstQuote+1 : lastQuote]
-	prefix := strings.TrimSpace(line[:firstQuote])
-	suffix := strings.TrimSpace(line[lastQuote+1:])
-
-	pFields := strings.Fields(prefix)
-
-	if len(pFields) >= 6 {
-		// Likely FORMAT A (Custom)
-		remote = pFields[0]
-		qType = pFields[1]
-		qDomain = strings.TrimSuffix(pFields[2], ".")
-		rcode = pFields[3]
-		rflags = pFields[4]
-		durationStr = pFields[5]
-		userAgent = middlePart
-	} else if len(pFields) >= 3 && strings.Contains(line[:firstQuote], " - ") {
-		// Likely FORMAT B (Default): remote - id "query_info" rcode rflags size duration
-		remote = pFields[0]
-
-		// Query info is in quotes: "TYPE CLASS NAME PROTO SIZE FLAGS"
-		qFields := strings.Fields(middlePart)
-		if len(qFields) >= 3 {
-			qType = qFields[0]
-			qDomain = strings.TrimSuffix(qFields[2], ".")
-		}
-
-		sFields := strings.Fields(suffix)
-		if len(sFields) >= 3 {
-			rcode = sFields[0]
-			rflags = sFields[1]
-			// size is sFields[2]
-			if len(sFields) >= 4 {
-				durationStr = sFields[3]
+	// Find any quoted strings in the line
+	var quotes []string
+	start := -1
+	for i, char := range line {
+		if char == '"' {
+			if start == -1 {
+				start = i
+			} else {
+				quotes = append(quotes, line[start+1:i])
+				start = -1
 			}
 		}
-		userAgent = "-" // Default format doesn't have User-Agent
+	}
+
+	if len(quotes) >= 1 {
+		// We have at least one quoted string (might be User-Agent or query_info)
+		firstQuoteIndex := strings.Index(line, "\"")
+		prefix := strings.TrimSpace(line[:firstQuoteIndex])
+		pFields := strings.Fields(prefix)
+
+		if len(pFields) >= 6 {
+			// FORMAT A (Custom)
+			remote = pFields[0]
+			qType = pFields[1]
+			qDomain = strings.TrimSuffix(pFields[2], ".")
+			rcode = pFields[3]
+			rflags = pFields[4]
+			durationStr = pFields[5]
+			
+			// Extract User-Agent (first quote) and X-Real-IP (second quote if exists)
+			userAgent = quotes[0]
+			if len(quotes) >= 2 {
+				realIP = quotes[1]
+			}
+		} else if len(pFields) >= 3 && strings.Contains(line[:firstQuoteIndex], " - ") {
+			// FORMAT B (Default)
+			remote = pFields[0]
+			// query_info is in first quotes
+			qFields := strings.Fields(quotes[0])
+			if len(qFields) >= 3 {
+				qType = qFields[0]
+				qDomain = strings.TrimSuffix(qFields[2], ".")
+			}
+
+			// Suffix is after the last quote
+			lastQuoteIndex := strings.LastIndex(line, "\"")
+			suffix := strings.TrimSpace(line[lastQuoteIndex+1:])
+			sFields := strings.Fields(suffix)
+			if len(sFields) >= 3 {
+				rcode = sFields[0]
+				rflags = sFields[1]
+				if len(sFields) >= 4 {
+					durationStr = sFields[3]
+				}
+			}
+			userAgent = "-"
+		}
 	} else {
-		slog.Debug("Parsing failed: unknown format or too few fields in prefix", "prefix", prefix)
+		// No quotes found, cannot parse
 		return
 	}
 
@@ -700,6 +711,11 @@ func parseLogLine(line string) {
 	clientIP := remote
 	if host, _, err := net.SplitHostPort(remote); err == nil {
 		clientIP = host
+	}
+
+	// Prefer X-Real-IP if provided by Nginx (metadata plugin)
+	if realIP != "" && realIP != "-" && realIP != "none" {
+		clientIP = realIP
 	}
 
 	if !strings.Contains(rflags, "qr") {
@@ -728,8 +744,8 @@ func parseLogLine(line string) {
 	}
 	recentQueriesLock.Unlock()
 
-	// Rename local IP for better UX
-	if isLocal {
+	// Rename local IP for better UX if we don't have a real forwarded IP
+	if isLocal && (realIP == "" || realIP == "-" || realIP == "none") {
 		clientIP = "DoH Proxy"
 	}
 

@@ -813,21 +813,66 @@ header {
     font-size: 0.875rem;
 }
 
-.status-badge {
-    padding: 4px 8px;
+/* Unified Badge System */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 10px;
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.725rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    line-height: 1.4;
+    border: 1px solid transparent;
+    transition: var(--transition-smooth);
+}
+
+.badge.success {
+    background-color: hsla(158, 64%, 52%, 0.15) !important;
+    color: var(--success) !important;
+    border-color: hsla(158, 64%, 52%, 0.25) !important;
+}
+
+.badge.danger {
+    background-color: hsla(0, 72%, 60%, 0.15) !important;
+    color: var(--danger) !important;
+    border-color: hsla(0, 72%, 60%, 0.25) !important;
+}
+
+.badge.warning {
+    background-color: hsla(35, 100%, 50%, 0.15) !important;
+    color: #fbbf24 !important;
+    border-color: hsla(35, 100%, 50%, 0.25) !important;
+}
+
+.badge.primary {
+    background-color: hsla(var(--hue), 75%, 68%, 0.15) !important;
+    color: var(--accent) !important;
+    border-color: hsla(var(--hue), 75%, 68%, 0.25) !important;
+}
+
+.badge.local { background-color: #3b82f6; color: white; border: none; }
+.badge.public { background-color: #8b5cf6; color: white; border: none; }
+.badge.official { background-color: var(--accent); color: white; border: none; }
+
+/* Compact metadata badges */
+.badge-sm {
+    font-size: 0.625rem;
+    padding: 1px 6px;
+    border-radius: 4px;
     font-weight: 600;
 }
 
-.status-badge.allowed {
-    background-color: rgba(16, 185, 129, 0.1);
-    color: var(--success);
+.badge-outline {
+    background: transparent !important;
+    border-width: 1.5px !important;
 }
 
-.status-badge.blocked {
-    background-color: rgba(239, 68, 68, 0.1);
-    color: var(--danger);
+.status-badge { /* Deprecated legacy alias, redirects to .badge */
+    display: inline-flex;
 }
 
 .protection-status-card {
@@ -1041,26 +1086,6 @@ header {
     align-items: center;
 }
 
-.badge {
-    font-size: 0.65rem;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-left: 8px;
-    vertical-align: middle;
-}
-
-.badge.local {
-    background-color: #3b82f6;
-    color: white;
-}
-
-.badge.public {
-    background-color: #8b5cf6;
-    color: white;
-}
-
 .badge.official {
     background-color: var(--accent);
     color: white;
@@ -1204,15 +1229,31 @@ header {
 
 .analytics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 32px;
     margin-top: 24px;
     min-width: 0;
+    align-items: stretch;
+    width: 100%;
 }
 
-@media (max-width: 400px) {
+/* Specific refined grid for modals and smaller context */
+.analytics-grid-compact {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 24px;
+}
+
+/* Force 3 columns on desktop for balanced alignment */
+@media (min-width: 900px) {
+    .analytics-grid-forced-3 {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
     .analytics-grid {
         grid-template-columns: 1fr;
+        gap: 20px;
     }
 }
 

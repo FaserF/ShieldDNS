@@ -90,7 +90,7 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 
 	// GeoIP for public IPs
 	if !isPrivate {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
 		
 		req, _ := http.NewRequestWithContext(ctx, "GET", "http://ip-api.com/json/"+ip, nil)
@@ -98,17 +98,18 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		resp, err := client.Do(req)
 		if err == nil {
 			defer resp.Body.Close()
-			var geo struct {
+			var geoData struct {
 				Country     string `json:"country"`
 				CountryCode string `json:"countryCode"`
 				City        string `json:"city"`
 				Org         string `json:"org"`
+				Status      string `json:"status"`
 			}
-			if err := json.NewDecoder(resp.Body).Decode(&geo); err == nil {
-				info.Country = geo.Country
-				info.CountryCode = geo.CountryCode
-				info.City = geo.City
-				info.ISP = geo.Org
+			if err := json.NewDecoder(resp.Body).Decode(&geoData); err == nil && geoData.Status == "success" {
+				info.Country = geoData.Country
+				info.CountryCode = geoData.CountryCode
+				info.City = geoData.City
+				info.ISP = geoData.Org
 			}
 		} else {
 			slog.Warn("GeoIP lookup failed", "ip", ip, "error", err)
@@ -136,11 +137,11 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if ua != "" && ua != "-" {
+	if ua != "" && ua != "-" && ua != "none" {
 		info.UserAgent = ua
 		info.OS = detectOS(ua)
 
-		// If it's a mobile device, we can sometimes improve the manufacturer field
+		// If it's a mobile/smart device, improve the manufacturer field
 		if info.Manufacturer == "" || info.Manufacturer == "Unknown" {
 			dev := detectDevice(ua)
 			if dev != "" {
@@ -156,6 +157,20 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		info.ExpiresAt = time.Now().Add(24 * time.Hour)
 	}
 
+	// Final Fallbacks to avoid "-" in UI
+	if info.Country == "" {
+		info.Country = "-"
+	}
+	if info.City == "" {
+		info.City = "-"
+	}
+	if info.ISP == "" {
+		info.ISP = "-"
+	}
+	if info.OS == "" {
+		info.OS = "Unknown OS"
+	}
+
 	ipInfoCache.Store(ip, info)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -168,14 +183,20 @@ func detectOS(ua string) string {
 	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod"):
 		return "iOS"
 	case strings.Contains(ua, "android"):
+		if strings.Contains(ua, "tv") || strings.Contains(ua, "fire") {
+			return "Android TV"
+		}
 		return "Android"
 	case strings.Contains(ua, "windows nt"):
 		return "Windows"
 	case strings.Contains(ua, "macintosh") || strings.Contains(ua, "mac os x"):
 		return "macOS"
 	case strings.Contains(ua, "linux") && !strings.Contains(ua, "android"):
+		if strings.Contains(ua, "hass.io") || strings.Contains(ua, "home assistant") {
+			return "Home Assistant OS"
+		}
 		return "Linux"
-	case strings.Contains(ua, "crkey"):
+	case strings.Contains(ua, "crkey") || strings.Contains(ua, "chromecast"):
 		return "Chromecast"
 	case strings.Contains(ua, "tizen"):
 		return "Tizen (Samsung TV)"

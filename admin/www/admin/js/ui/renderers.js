@@ -284,7 +284,7 @@ export function renderDiagnostics(d) {
              const cert = d.certificate;
              const daysLeft = Math.floor((new Date(cert.not_after) - new Date()) / (1000 * 60 * 60 * 24));
              certInfo.innerHTML = `
-                 <div class="diag-item"><span>Status</span><span class="badge ${cert.valid ? 'official' : 'danger'}">${cert.valid ? 'Valid' : 'Expired'}</span></div>
+                 <div class="diag-item"><span>Status</span><span class="badge ${cert.valid ? 'success' : 'danger'}">${cert.valid ? 'Valid' : 'Expired'}</span></div>
                  <div class="diag-item"><span>Subject</span><span title="${cert.subject || ''}">${cert.subject || '-'}</span></div>
                  <div class="diag-item"><span>Issuer</span><span title="${cert.issuer || ''}">${cert.issuer || '-'}</span></div>
                  <div class="diag-item"><span>Expires</span><span>${new Date(cert.not_after).toLocaleString()} (${daysLeft} days left)</span></div>
@@ -313,7 +313,7 @@ export function renderDiagnostics(d) {
                         ${isPreferred ? '<span class="badge" style="background:var(--accent); font-size:0.65rem; padding:3px 8px; color:white; border-radius:12px; display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-bolt" style="font-size:0.6rem"></i> Currently Active</span>' : ''}
                     </div>
                  </td>
-                 <td><span class="badge ${isUp ? 'official' : 'danger'}">${isUp ? 'Healthy' : 'Down'}</span></td>
+                 <td><span class="badge ${isUp ? 'success' : 'danger'}">${isUp ? 'Healthy' : 'Down'}</span></td>
                  <td style="text-align:right; font-weight:${isPreferred ? '600' : '400'}">${isUp ? h.latency_ms.toFixed(1) + ' ms' : '-'}</td>
              </tr>`;
          }).join('') || '<tr><td colspan="3" class="help">No upstreams configured.</td></tr>';
@@ -386,7 +386,11 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     }
     
     // Location Info
-    setTxt('ip-info-country', stats.country || (stats.is_private ? 'Local Network' : '-'));
+    let countryDisplay = stats.country;
+    if (!countryDisplay || countryDisplay === '-' || countryDisplay === 'geo') {
+        countryDisplay = stats.is_private ? 'Local Network' : 'Unknown Location';
+    }
+    setTxt('ip-info-country', countryDisplay);
     setTxt('ip-info-city', stats.city || '-');
     const flagEl = getEl('ip-info-flag');
     if (flagEl) {

@@ -5,11 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ShieldDNS</title>
-    <link rel="stylesheet" href="style.css?v=1.7.1">
+    <link rel="stylesheet" href="style.css?v=1.6.0">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script type="module" src="js/app.js?v=1.7.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2"></script>
+    <script type="module" src="js/app.js?v=1.6.0"></script>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0a0b0e">
@@ -20,35 +20,68 @@
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <style>
         :root {
-            --accent-rgb: 99, 102, 241; /* Indigo-500 equivalent */
+            --accent-rgb: 99, 102, 241;
+            /* Indigo-500 equivalent */
         }
+
         #activity-log-stream {
             scrollbar-width: thin;
             scrollbar-color: var(--border) transparent;
         }
+
         #activity-log-stream::-webkit-scrollbar {
             width: 6px;
         }
+
         #activity-log-stream::-webkit-scrollbar-thumb {
             background-color: var(--border);
             border-radius: 10px;
         }
+
         .log-line {
             padding: 2px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             animation: fadeIn 0.3s ease-out;
         }
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        .success-text { color: var(--success); font-weight: 600; }
-        .danger-text { color: var(--danger); font-weight: 600; }
-        .pulse { animation: pulse-glow 2s infinite; }
+
+        .success-text {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .danger-text {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .pulse {
+            animation: pulse-glow 2s infinite;
+        }
+
         @keyframes pulse-glow {
-            0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0); }
-            100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+            0% {
+                box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0);
+            }
         }
     </style>
 </head>
@@ -160,9 +193,13 @@
                             </div>
                         </div>
                         <div id="android-settings-shortcut" class="hidden" style="margin-top: 16px;">
-                            <button id="android-all-in-one-btn" class="btn primary full-width" style="background: #10b981; text-align: center; text-decoration: none; display: block; border-radius: 8px; padding: 12px; font-weight: 600; color: white; width: 100%; border: none; cursor: pointer; font-family: inherit;">Set Up ShieldDNS (Copy & Open Settings)</button>
-                            <p id="android-fallback-hint" style="font-size: 0.7rem; color: var(--text-secondary); text-align: center; margin-top: 8px; display: none;">
-                                <i class="fas fa-info-circle"></i> Hostname copied! If Settings didn't open: Go to <strong>Settings > Connection > More > Private DNS</strong>
+                            <button id="android-all-in-one-btn" class="btn primary full-width"
+                                style="background: #10b981; text-align: center; text-decoration: none; display: block; border-radius: 8px; padding: 12px; font-weight: 600; color: white; width: 100%; border: none; cursor: pointer; font-family: inherit;">Set
+                                Up ShieldDNS (Copy & Open Settings)</button>
+                            <p id="android-fallback-hint"
+                                style="font-size: 0.7rem; color: var(--text-secondary); text-align: center; margin-top: 8px; display: none;">
+                                <i class="fas fa-info-circle"></i> Hostname copied! If Settings didn't open: Go to
+                                <strong>Settings > Connection > More > Private DNS</strong>
                             </p>
                         </div>
                     </div>
@@ -171,42 +208,48 @@
                         <div class="stat-card">
                             <label>
                                 Total Queries (24h)
-                                <i class="fas fa-info-circle info-icon" data-tooltip="Total number of DNS requests processed in the last 24 hours. Includes both blocked and allowed queries."></i>
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Total number of DNS requests processed in the last 24 hours. Includes both blocked and allowed queries."></i>
                             </label>
                             <div class="value" id="stat-total">-</div>
                         </div>
                         <div class="stat-card blocked">
                             <label>
                                 Blocked Queries
-                                <i class="fas fa-info-circle info-icon" data-tooltip="Queries matched against your active block-lists (ads, trackers, malware, etc.) and denied."></i>
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Queries matched against your active block-lists (ads, trackers, malware, etc.) and denied."></i>
                             </label>
                             <div class="value" id="stat-blocked">-</div>
                         </div>
                         <div class="stat-card percentage">
                             <label>
                                 Blocking Ratio
-                                <i class="fas fa-info-circle info-icon" data-tooltip="The percentage of total queries that were blocked. Shows the effectiveness of your filtering rules."></i>
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="The percentage of total queries that were blocked. Shows the effectiveness of your filtering rules."></i>
                             </label>
                             <div class="value" id="stat-ratio">- %</div>
                         </div>
                         <div class="stat-card latency">
                             <label>
                                 Avg. Response Time
-                                <i class="fas fa-info-circle info-icon" data-tooltip="Average time until the server provides an answer. Measures the duration from receiving the client query to handing back the result (including upstream latency)."></i>
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Average time until the server provides an answer. Measures the duration from receiving the client query to handing back the result (including upstream latency)."></i>
                             </label>
                             <div class="value" id="stat-latency">- ms</div>
                         </div>
                         <div class="stat-card clients">
                             <label>
                                 Unique Clients (24h)
-                                <i class="fas fa-info-circle info-icon" data-tooltip="Distinct client IP addresses that have queried this DNS server in the last 24 hours. Useful for monitoring active devices."></i>
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Distinct client IP addresses that have queried this DNS server in the last 24 hours. Useful for monitoring active devices."></i>
                             </label>
                             <div class="value" id="stat-clients">-</div>
                         </div>
                         <div class="stat-card cache">
                             <label>
                                 Cache Hit Ratio
-                                <i class="fas fa-info-circle info-icon" data-tooltip="Percentage of requests satisfied instantly from local memory cache without needing to query upstream providers."></i>
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Percentage of requests satisfied instantly from local memory cache without needing to query upstream providers."></i>
                             </label>
                             <div class="value" id="stat-cache">- %</div>
                         </div>
@@ -319,9 +362,11 @@
                             <option value="Blocked">Blocked Only</option>
                             <option value="Allowed">Allowed Only</option>
                         </select>
-                        <button class="btn secondary" onclick="exportLogs('csv', event)"><i class="fas fa-file-csv"></i> Export
+                        <button class="btn secondary" onclick="exportLogs('csv', event)"><i class="fas fa-file-csv"></i>
+                            Export
                             CSV</button>
-                        <button class="btn secondary" onclick="exportLogs('json', event)"><i class="fas fa-file-code"></i>
+                        <button class="btn secondary" onclick="exportLogs('json', event)"><i
+                                class="fas fa-file-code"></i>
                             JSON</button>
                     </div>
                 </header>
@@ -362,7 +407,7 @@
                 <header>
                     <h1>System Diagnostics</h1>
                 </header>
-                <div class="analytics-grid">
+                <div class="analytics-grid analytics-grid-forced-3">
                     <div class="stat-card card">
                         <h3>SSL Certificate</h3>
                         <div id="cert-info-content" class="list-info" style="margin-top:15px">
@@ -374,15 +419,15 @@
                         <div class="list-info" style="margin-top:15px">
                             <div class="diag-item">
                                 <span>API Reachability</span>
-                                <span class="badge official">Online</span>
+                                <span class="badge success">Online</span>
                             </div>
                             <div class="diag-item">
                                 <span>DNS Port (53)</span>
-                                <span class="badge official">Active</span>
+                                <span class="badge success">Active</span>
                             </div>
                             <div class="diag-item">
                                 <span>DoT Port (853)</span>
-                                <span class="badge official">Active</span>
+                                <span class="badge success">Active</span>
                             </div>
                         </div>
                     </div>
@@ -424,7 +469,7 @@
                             </div>
                             <div class="diag-item">
                                 <span>Uptime</span>
-                                <span id="diag-uptime" class="badge">00:00:00</span>
+                                <span id="diag-uptime" class="badge primary">00:00:00</span>
                             </div>
                         </div>
                     </div>
@@ -480,10 +525,12 @@
                     </div>
                     <div class="stat-card card" style="grid-column: 1 / -1">
                         <h3>Local DNS Mappings</h3>
-                        <p class="help">Map domains to local IP addresses (A Records). Useful for local devices like routers.</p>
+                        <p class="help">Map domains to local IP addresses (A Records). Useful for local devices like
+                            routers.</p>
                         <div class="form-group row">
                             <input type="text" id="custom-map-domain" placeholder="Domain (e.g. fritz.box)">
-                            <input type="text" id="custom-map-ip" placeholder="IP (e.g. 192.168.178.1)" style="width:200px">
+                            <input type="text" id="custom-map-ip" placeholder="IP (e.g. 192.168.178.1)"
+                                style="width:200px">
                             <button class="btn primary" onclick="addCustomMapping(event)">Add Mapping</button>
                         </div>
                         <div id="custom-mappings-list" class="minimal-list"></div>
@@ -507,7 +554,8 @@
                 <div class="search-section card">
                     <div class="search-box">
                         <input type="text" id="domain-search" placeholder="Search for a domain (e.g. google.com)">
-                        <button class="btn secondary" id="search-btn" onclick="checkProtection()">Check Protection</button>
+                        <button class="btn secondary" id="search-btn" onclick="checkProtection()">Check
+                            Protection</button>
                     </div>
                     <div id="search-loading" class="hidden" style="text-align:center; padding: 20px;">
                         <div class="spinner"></div>
@@ -519,9 +567,11 @@
                 </div>
 
                 <div class="list-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h2 style="margin-bottom: 0;">Your Active Blocklists</h2>
-                        <button id="deselect-all-blocklists" class="btn btn-sm secondary" style="font-size: 0.7rem; padding: 4px 10px;">Deselect All</button>
+                        <button id="deselect-all-blocklists" class="btn btn-sm secondary"
+                            style="font-size: 0.7rem; padding: 4px 10px;">Deselect All</button>
                     </div>
                     <div class="list-container" id="active-blocklists-list">
                         <!-- Lists will be injected here -->
@@ -529,9 +579,11 @@
                 </div>
 
                 <div class="list-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h2 style="margin-bottom: 0;">Your Active Allowlists</h2>
-                        <button id="deselect-all-allowlists" class="btn btn-sm secondary" style="font-size: 0.7rem; padding: 4px 10px;">Deselect All</button>
+                        <button id="deselect-all-allowlists" class="btn btn-sm secondary"
+                            style="font-size: 0.7rem; padding: 4px 10px;">Deselect All</button>
                     </div>
                     <p class="help">Domains in these lists will always be allowed, even if they appear in a blocklist.
                     </p>
@@ -630,11 +682,14 @@
                         </label>
                     </div>
 
-                    <div id="abuse-dga-settings" class="mt-2 pl-4" style="border-left: 2px solid var(--accent); margin-left: 10px; padding-left: 20px;">
+                    <div id="abuse-dga-settings" class="mt-2 pl-4"
+                        style="border-left: 2px solid var(--accent); margin-left: 10px; padding-left: 20px;">
                         <div class="form-group">
                             <label>DGA Sensitivity Threshold</label>
-                            <p class="help">Lower is more sensitive (Default: 3.8). Blocks domains with high entropy.</p>
-                            <input type="number" id="abuse-dga-threshold-input" step="0.1" min="1.0" max="10.0" value="3.8">
+                            <p class="help">Lower is more sensitive (Default: 3.8). Blocks domains with high entropy.
+                            </p>
+                            <input type="number" id="abuse-dga-threshold-input" step="0.1" min="1.0" max="10.0"
+                                value="3.8">
                         </div>
                         <div class="form-group">
                             <label>DGA Minimum Length</label>
@@ -642,8 +697,8 @@
                             <input type="number" id="abuse-dga-min-len-input" min="3" max="50" value="8">
                         </div>
                     </div>
-                    
-                 </form>
+
+                </form>
 
 
                 <div class="settings-section">
@@ -778,11 +833,13 @@
 
                 <div class="settings-section">
                     <h2>Client IP Blocking 🚫</h2>
-                    <p class="help">Manually block specific client IP addresses or view automatically blocked clients.</p>
+                    <p class="help">Manually block specific client IP addresses or view automatically blocked clients.
+                    </p>
                     <div class="form-group" style="position: relative;">
                         <label>Block New Client IP</label>
                         <div style="display:flex; gap:10px;">
-                            <input type="text" id="manual-client-block-input" placeholder="e.g. 192.168.1.50" style="flex:1;">
+                            <input type="text" id="manual-client-block-input" placeholder="e.g. 192.168.1.50"
+                                style="flex:1;">
                             <button type="button" class="btn primary" id="manual-client-block-btn">Block IP</button>
                         </div>
                     </div>
@@ -796,23 +853,31 @@
 
                 <div class="settings-section">
                     <h2>Full System Refresh 🔄</h2>
-                    <p class="help">Perform a total refresh of all system components. This will re-download all enabled filter lists, reload all custom rules (IP/Geo), and restart the CoreDNS server to apply changes and flush its cache.</p>
-                    <div class="alert warning" style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 0.85rem;">
-                        <strong>Note:</strong> This process usually takes a few seconds. DNS resolution will be briefly interrupted during the restart.
+                    <p class="help">Perform a total refresh of all system components. This will re-download all enabled
+                        filter lists, reload all custom rules (IP/Geo), and restart the CoreDNS server to apply changes
+                        and flush its cache.</p>
+                    <div class="alert warning"
+                        style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 0.85rem;">
+                        <strong>Note:</strong> This process usually takes a few seconds. DNS resolution will be briefly
+                        interrupted during the restart.
                     </div>
-                    <button type="button" class="btn secondary" id="full-system-refresh-btn"><i class="fas fa-sync"></i> Trigger Full System Refresh</button>
+                    <button type="button" class="btn secondary" id="full-system-refresh-btn"><i class="fas fa-sync"></i>
+                        Trigger Full System Refresh</button>
                 </div>
 
                 <div class="settings-section">
                     <button id="logout-btn" class="btn danger">Logout</button>
                 </div>
 
-                 <div class="settings-save-footer">
-                     <div class="save-status help" id="settings-save-status" style="margin-right: auto; font-size: 0.85rem; opacity: 0.7;">
-                         All changes must be saved. Reboot (via Full System Refresh) might be required for some CoreDNS modifications.
-                     </div>
-                     <button type="button" class="btn primary" onclick="document.getElementById('settings-form').requestSubmit()">Save Configuration</button>
-                 </div>
+                <div class="settings-save-footer">
+                    <div class="save-status help" id="settings-save-status"
+                        style="margin-right: auto; font-size: 0.85rem; opacity: 0.7;">
+                        All changes must be saved. Reboot (via Full System Refresh) might be required for some CoreDNS
+                        modifications.
+                    </div>
+                    <button type="button" class="btn primary"
+                        onclick="document.getElementById('settings-form').requestSubmit()">Save Configuration</button>
+                </div>
             </section>
 
             <!-- About View -->
@@ -848,11 +913,13 @@
                                 <i class="fab fa-github"></i>
                                 <span>Repository</span>
                             </a>
-                            <a href="https://github.com/faserf/ShieldDNS/releases" target="_blank" class="project-link-item">
+                            <a href="https://github.com/faserf/ShieldDNS/releases" target="_blank"
+                                class="project-link-item">
                                 <i class="fas fa-tag"></i>
                                 <span>Releases</span>
                             </a>
-                            <a href="https://github.com/faserf/ShieldDNS/issues" target="_blank" class="project-link-item">
+                            <a href="https://github.com/faserf/ShieldDNS/issues" target="_blank"
+                                class="project-link-item">
                                 <i class="fas fa-bug"></i>
                                 <span>Report Issue</span>
                             </a>
@@ -1039,9 +1106,12 @@
             </div>
             <div id="api-key-result" class="hidden">
                 <p>New API Key generated successfully! <strong>Copy it now, you won't see it again.</strong></p>
-                <div class="token-display" style="background: var(--bg-body); padding: 15px; border-radius: 8px; border: 1px dashed var(--border); margin: 15px 0; display: flex; flex-direction: column; gap: 10px; align-items: center;">
-                    <code id="api-key-value" style="font-family: monospace; color: var(--accent); font-size: 1.1rem; word-break: break-all;">-</code>
-                    <button id="copy-api-key-btn" class="btn btn-sm secondary" style="width: auto;">Copy to Clipboard</button>
+                <div class="token-display"
+                    style="background: var(--bg-body); padding: 15px; border-radius: 8px; border: 1px dashed var(--border); margin: 15px 0; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                    <code id="api-key-value"
+                        style="font-family: monospace; color: var(--accent); font-size: 1.1rem; word-break: break-all;">-</code>
+                    <button id="copy-api-key-btn" class="btn btn-sm secondary" style="width: auto;">Copy to
+                        Clipboard</button>
                 </div>
                 <div class="modal-actions">
                     <button id="close-api-key-modal-btn" class="btn primary">Done</button>
@@ -1125,29 +1195,45 @@
                 <h2 id="modal-list-name" style="margin: 0;">List Details</h2>
                 <button class="btn btn-sm secondary" id="close-list-details-btn">&times;</button>
             </div>
-            
+
             <div class="list-details-body">
                 <div class="form-group">
-                    <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; display: block;">Source URL</label>
-                    <a id="modal-list-url" href="#" target="_blank" style="word-break: break-all; color: var(--accent-color); font-size: 0.9rem; text-decoration: none;"></a>
+                    <label
+                        style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; display: block;">Source
+                        URL</label>
+                    <a id="modal-list-url" href="#" target="_blank"
+                        style="word-break: break-all; color: var(--accent-color); font-size: 0.9rem; text-decoration: none;"></a>
                 </div>
-                
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 20px; margin-top: 24px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-color);">
+
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 20px; margin-top: 24px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-color);">
                     <div>
-                        <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Total Entries</label>
-                        <div id="modal-list-entries" style="font-size: 1.4rem; font-weight: 600; color: var(--text-primary); margin-top: 4px;">0</div>
+                        <label
+                            style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Total
+                            Entries</label>
+                        <div id="modal-list-entries"
+                            style="font-size: 1.4rem; font-weight: 600; color: var(--text-primary); margin-top: 4px;">0
+                        </div>
                     </div>
                     <div>
-                        <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">ShieldDNS Updated</label>
-                        <div id="modal-list-updated" style="font-size: 0.9rem; color: var(--text-primary); margin-top: 8px; line-height: 1.4;">Never</div>
+                        <label
+                            style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">ShieldDNS
+                            Updated</label>
+                        <div id="modal-list-updated"
+                            style="font-size: 0.9rem; color: var(--text-primary); margin-top: 8px; line-height: 1.4;">
+                            Never</div>
                     </div>
                     <div>
-                        <label style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Source Updated</label>
-                        <div id="modal-list-remote-updated" style="font-size: 0.9rem; color: var(--text-primary); margin-top: 8px; line-height: 1.4;">n.a.</div>
+                        <label
+                            style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Source
+                            Updated</label>
+                        <div id="modal-list-remote-updated"
+                            style="font-size: 0.9rem; color: var(--text-primary); margin-top: 8px; line-height: 1.4;">
+                            n.a.</div>
                     </div>
                 </div>
             </div>
-            
+
             <div class="modal-actions" style="margin-top: 30px;">
                 <button class="btn primary full-width" id="close-list-details-btn-2">Close</button>
             </div>
@@ -1172,7 +1258,8 @@
                         <button class="btn btn-sm primary" id="save-alias-btn">Save</button>
                     </div>
                     <p id="ip-info-subtitle" class="help" style="margin-top: 2px;"></p>
-                    <div id="ip-info-abuse-reason-badge" class="badge danger mt-1" style="display: none; padding: 4px 8px; font-size: 0.75rem;">
+                    <div id="ip-info-abuse-reason-badge" class="badge danger mt-1"
+                        style="display: none; padding: 4px 8px; font-size: 0.75rem;">
                         <!-- Abuse reason text injected here -->
                     </div>
                 </div>
@@ -1187,51 +1274,50 @@
                 </div>
             </div>
 
-            <div class="analytics-grid"
-                style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px;">
-                <div class="stat-card card" style="padding: 10px;">
-                    <label style="font-size: 0.65rem; color: var(--text-secondary);">Total Queries</label>
-                    <div class="value" id="ip-info-total" style="font-size: 1.1rem; font-weight: 600;">0</div>
+            <div class="analytics-grid analytics-grid-compact" style="margin-bottom: 24px;">
+                <div class="stat-card card">
+                    <label>Total Queries</label>
+                    <div class="value" id="ip-info-total">0</div>
                 </div>
-                <div class="stat-card card blocked" style="padding: 10px;">
-                    <label style="font-size: 0.65rem; color: var(--text-secondary);">Blocked</label>
-                    <div class="value" id="ip-info-blocked" style="font-size: 1.1rem; font-weight: 600;">0</div>
+                <div class="stat-card card blocked">
+                    <label>Blocked</label>
+                    <div class="value" id="ip-info-blocked">0</div>
                     <div class="progress-bar-container"
-                        style="height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 6px; overflow: hidden;">
+                        style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 8px; overflow: hidden;">
                         <div id="ip-info-blocked-bar"
                             style="height: 100%; background: var(--danger); width: 0%; transition: width 0.5s ease;">
                         </div>
                     </div>
                 </div>
-                <div class="stat-card card" style="padding: 10px;">
-                    <label style="font-size: 0.65rem; color: var(--text-secondary);">Network Info</label>
-                    <div id="ip-info-type-tag" class="badge"
-                        style="display: block; width: fit-content; font-size: 0.7rem; margin-top: 4px;">-</div>
-                    <div class="value" id="ip-info-hostname"
-                        style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; font-weight: 500;">
-                        -</div>
-                    <div id="ip-info-isp" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</div>
+                <div class="stat-card card">
+                    <label>Network Info</label>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                        <span id="ip-info-type-tag" class="badge badge-sm primary" style="width: fit-content;">-</span>
+                        <div class="value" id="ip-info-hostname"
+                            style="font-size: 0.85rem; word-break: break-all; font-weight: 500;">-</div>
+                        <div id="ip-info-isp"
+                            style="font-size: 0.725rem; color: var(--text-secondary); line-height: 1.2;">-</div>
+                    </div>
                 </div>
                 <!-- New Device Card -->
-                <div class="stat-card card" style="padding: 10px;">
-                    <label style="font-size: 0.65rem; color: var(--text-secondary);">Device Info</label>
-                    <div id="ip-info-manufacturer" class="value" style="font-size: 0.85rem; font-weight: 600;">-</div>
-                    <div style="display: flex; gap: 5px; align-items: center; margin-top: 2px;">
-                        <div id="ip-info-os" style="font-size: 0.7rem; color: var(--text-secondary);">Unknown OS</div>
-                        <span style="color: var(--text-secondary); font-size: 0.7rem;">•</span>
-                        <div id="ip-info-mac" style="font-size: 0.7rem; color: var(--text-secondary);"> - </div>
+                <div class="stat-card card">
+                    <label>Device Info</label>
+                    <div id="ip-info-manufacturer" class="value" style="font-size: 0.9rem; font-weight: 600;">-</div>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                        <div id="ip-info-os" style="font-size: 0.75rem; color: var(--text-secondary);">Unknown OS</div>
+                        <span style="color: var(--text-secondary); opacity: 0.5;">•</span>
+                        <div id="ip-info-mac"
+                            style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace;">-</div>
                     </div>
                 </div>
                 <!-- New Location Card -->
-                <div class="stat-card card" style="padding: 10px;">
-                    <label style="font-size: 0.65rem; color: var(--text-secondary);">Location</label>
-                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                <div class="stat-card card">
+                    <label>Location</label>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
                         <div id="ip-info-flag"></div>
-                        <div id="ip-info-country" class="value"
-                            style="font-size: 0.85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            -</div>
+                        <div id="ip-info-country" class="value" style="font-size: 0.9rem; font-weight: 600;">-</div>
                     </div>
-                    <div id="ip-info-city" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">-
+                    <div id="ip-info-city" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">-
                     </div>
                 </div>
                 <!-- Client Timeline -->
@@ -1301,7 +1387,8 @@
                 </div>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+            <div
+                style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
                 <button class="btn secondary" id="ip-info-view-all-btn">View full log for this client</button>
                 <button class="btn primary" id="ip-info-done-btn" style="min-width: 120px;">Done</button>
             </div>
@@ -1314,43 +1401,63 @@
         <div class="modal-content modal-lg" style="background: rgba(13, 15, 20, 0.98); backdrop-filter: blur(20px);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
                 <div>
-                    <h2 id="domain-info-title" style="margin-bottom: 4px; font-size: 1.5rem; letter-spacing: -0.02em;">Domain Details</h2>
-                    <div id="domain-info-subtitle" style="color: var(--accent); font-family: monospace; font-size: 1rem; opacity: 0.8;">domain.com</div>
+                    <h2 id="domain-info-title" style="margin-bottom: 4px; font-size: 1.5rem; letter-spacing: -0.02em;">
+                        Domain Details</h2>
+                    <div id="domain-info-subtitle"
+                        style="color: var(--accent); font-family: monospace; font-size: 1rem; opacity: 0.8;">domain.com
+                    </div>
                 </div>
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <div id="domain-status-badge" class="badge">Checking...</div>
-                    <button id="domain-block-btn" class="btn btn-sm danger" style="padding: 8px 16px;">Block Domain</button>
-                    <button id="domain-allow-btn" class="btn btn-sm secondary" style="padding: 8px 16px;">Allow Domain</button>
-                    <button class="btn btn-sm secondary" id="domain-info-close-btn" style="padding: 8px;"><i class="fas fa-times"></i></button>
+                    <button id="domain-block-btn" class="btn btn-sm danger" style="padding: 8px 16px;">Block
+                        Domain</button>
+                    <button id="domain-allow-btn" class="btn btn-sm secondary" style="padding: 8px 16px;">Allow
+                        Domain</button>
+                    <button class="btn btn-sm secondary" id="domain-info-close-btn" style="padding: 8px;"><i
+                            class="fas fa-times"></i></button>
                 </div>
             </div>
 
-            <div class="stats-grid-details" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px;">
-                 <div class="stat-card card" style="padding: 16px;">
-                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Category</label>
-                    <div class="value" id="domain-info-category" style="font-size: 1.1rem; font-weight: 700; margin-top: 8px; color: var(--accent);">General</div>
+            <div class="stats-grid-details"
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px;">
+                <div class="stat-card card" style="padding: 16px;">
+                    <label
+                        style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Category</label>
+                    <div class="value" id="domain-info-category"
+                        style="font-size: 1.1rem; font-weight: 700; margin-top: 8px; color: var(--accent);">General
+                    </div>
                 </div>
                 <div class="stat-card card" style="padding: 16px;">
-                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Total Hits (24h)</label>
-                    <div class="value" id="domain-info-total" style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0</div>
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Total
+                        Hits (24h)</label>
+                    <div class="value" id="domain-info-total"
+                        style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0</div>
                 </div>
                 <div class="stat-card card blocked" style="padding: 16px;">
-                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Blocked</label>
-                    <div class="value" id="domain-info-blocked" style="font-size: 1.5rem; font-weight: 700; margin-top: 8px; color: var(--danger);">0</div>
+                    <label
+                        style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Blocked</label>
+                    <div class="value" id="domain-info-blocked"
+                        style="font-size: 1.5rem; font-weight: 700; margin-top: 8px; color: var(--danger);">0</div>
                 </div>
                 <div class="stat-card card" style="padding: 16px;">
-                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Unique Clients</label>
-                    <div class="value" id="domain-info-clients" style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0</div>
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Unique
+                        Clients</label>
+                    <div class="value" id="domain-info-clients"
+                        style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0</div>
                 </div>
                 <div class="stat-card card" style="padding: 16px;">
-                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Blocking Ratio</label>
-                    <div class="value" id="domain-info-ratio" style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0%</div>
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Blocking
+                        Ratio</label>
+                    <div class="value" id="domain-info-ratio"
+                        style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0%</div>
                 </div>
             </div>
 
-            <div class="analytics-row-details" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+            <div class="analytics-row-details"
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
                 <div class="query-log-container card" style="padding: 24px; margin-top: 0;">
-                    <h3 style="margin-bottom: 16px; font-size: 1rem; color: var(--accent); display: flex; align-items: center; gap: 8px;">
+                    <h3
+                        style="margin-bottom: 16px; font-size: 1rem; color: var(--accent); display: flex; align-items: center; gap: 8px;">
                         <i class="fas fa-users"></i> Top Clients for this Domain
                     </h3>
                     <div class="overflow-x">
@@ -1369,7 +1476,8 @@
                 </div>
 
                 <div class="query-log-container card" style="padding: 24px; margin-top: 0;">
-                    <h3 style="margin-bottom: 16px; font-size: 1rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+                    <h3
+                        style="margin-bottom: 16px; font-size: 1rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
                         <i class="fas fa-history"></i> Recent Queries
                     </h3>
                     <div class="overflow-x">
@@ -1389,7 +1497,8 @@
                 </div>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
+            <div
+                style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
                 <button class="btn secondary" id="domain-info-view-logs-btn">View all logs for this domain</button>
                 <button class="btn primary" id="domain-info-done-btn" style="min-width: 120px;">Done</button>
             </div>
@@ -1450,7 +1559,7 @@
                             console.error('Copy failed', err);
                             window.location.href = 'intent:#Intent;action=android.settings.NETWORK_OPERATOR_SETTINGS;end';
                         }
-                        
+
                         setTimeout(() => {
                             document.getElementById('android-fallback-hint').style.display = 'block';
                             btn.textContent = 'Set Up ShieldDNS (Copy & Open Settings)';
@@ -1462,19 +1571,23 @@
     </script>
     <!-- System Activity Modal -->
     <div id="activity-modal" class="modal hidden">
-        <div class="modal-content" style="max-width: 700px; padding: 0; overflow: hidden; border: none; border-radius: 20px;">
+        <div class="modal-content"
+            style="max-width: 700px; padding: 0; overflow: hidden; border: none; border-radius: 20px;">
             <div style="padding: 24px; background: var(--bg-card);">
                 <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-                    <div id="activity-icon-container" style="width: 48px; height: 48px; border-radius: 12px; background: rgba(var(--accent-rgb), 0.1); display: flex; align-items: center; justify-content: center; color: var(--accent);">
+                    <div id="activity-icon-container"
+                        style="width: 48px; height: 48px; border-radius: 12px; background: rgba(var(--accent-rgb), 0.1); display: flex; align-items: center; justify-content: center; color: var(--accent);">
                         <i class="fas fa-cog fa-spin fa-lg"></i>
                     </div>
                     <div>
                         <h2 id="activity-title" style="margin: 0; font-size: 1.25rem;">Processing Activity...</h2>
-                        <p id="activity-desc" style="margin: 5px 0 0; font-size: 0.9rem; color: var(--text-secondary);">Real-time system feedback</p>
+                        <p id="activity-desc" style="margin: 5px 0 0; font-size: 0.9rem; color: var(--text-secondary);">
+                            Real-time system feedback</p>
                     </div>
                 </div>
-                
-                <div id="activity-log-stream" style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; height: 300px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.8rem; line-height: 1.6; color: #cbd5e1; border: 1px solid var(--border);">
+
+                <div id="activity-log-stream"
+                    style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; height: 300px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.8rem; line-height: 1.6; color: #cbd5e1; border: 1px solid var(--border);">
                     <!-- Logs stream here -->
                 </div>
 
