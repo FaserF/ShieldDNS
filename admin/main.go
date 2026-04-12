@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 )
@@ -41,6 +42,13 @@ func main() {
 	initDB()
 	initializeStatsFromDB()
 	initMetrics()
+
+	// Ensure hosts file exists before CoreDNS starts to prevent listener failures
+	if _, err := os.Stat(CombinedHostsPath); os.IsNotExist(err) {
+		slog.Info("Creating initial empty hosts file")
+		os.MkdirAll(filepath.Dir(CombinedHostsPath), 0755)
+		os.WriteFile(CombinedHostsPath, []byte("# Initial ShieldDNS hosts file\n"), 0644)
+	}
 
 	// Start background updater ticker
 	go startBackgroundUpdater()

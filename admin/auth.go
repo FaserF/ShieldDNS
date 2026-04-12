@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -76,16 +77,33 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		// Protection against XSS
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		
+		// Dynamically discover configured Admin domain for CSP whitelisting
+		configLock.RLock()
+		adminDomain := config.AdminDomain
+		configLock.RUnlock()
+
+		dynamicHosts := ""
+		if adminDomain != "" {
+			// Allow the domain itself
+			dynamicHosts = " https://" + adminDomain
+			// If it's not a raw IP, also allow subdomains
+			if net.ParseIP(adminDomain) == nil {
+				dynamicHosts += " https://*." + adminDomain
+			}
+		}
+
 		// Content Security Policy
 		// Allows self-hosted assets, Google Fonts, and FlagCDN for countries
+		// Broadened dynamically for proxy compatibility and frame recovery
 		csp := "default-src 'self'; " +
-			"script-src 'self' 'unsafe-inline'; " +
+			"script-src 'self' 'unsafe-inline'" + dynamicHosts + "; " +
 			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://use.fontawesome.com; " +
 			"font-src 'self' https://fonts.gstatic.com https://use.fontawesome.com; " +
-			"img-src 'self' data: https://flagcdn.com https://raw.githubusercontent.com; " +
-			"connect-src 'self' https://api.github.com; " +
+			"img-src 'self' data: https://flagcdn.com https://raw.githubusercontent.com" + dynamicHosts + "; " +
+			"connect-src 'self' https://api.github.com" + dynamicHosts + "; " +
 			"worker-src 'self'; " +
-			"manifest-src 'self';"
+			"manifest-src 'self'; " +
+			"frame-ancestors 'self'" + dynamicHosts + ";"
 		w.Header().Set("Content-Security-Policy", csp)
 		
 		next.ServeHTTP(w, r)

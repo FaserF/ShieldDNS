@@ -70,20 +70,36 @@ jobs:
 
       - name: Verify DNS Resolution (DoT)
         run: |
-          # Install kdig (part of knot-utils in Ubuntu)
-          sudo apt-get update && sudo apt-get install -y knot-dnsutils
+          # Install dependencies for verification
+          sudo apt-get update && sudo apt-get install -y knot-dnsutils net-tools
+
+          # Wait for Port 853 to be active (Health Check)
+          echo "Verifying DNS listener availability..."
+          for i in {1..12}; do
+            if nc -z 127.0.0.1 853; then
+              echo "✅ Port 853 is listening."
+              break
+            fi
+            echo "Waiting for Port 853..."
+            sleep 5
+            if [ $i -eq 12 ]; then
+              echo "❌ Timeout waiting for Port 853."
+              docker logs shielddns
+              exit 1
+            fi
+          done
 
           # Query localhost on port 853 using DoT
           # We disable cert verification (+tls-ca) because we used a self-signed cert
-          kdig -d @127.0.0.1 -p 853 +tls-hostname=localhost +tls-ca=ssl/fullchain.pem google.com
-
-          # Explicit success check
-          if kdig -d @127.0.0.1 -p 853 +tls-hostname=localhost +tls-ca=ssl/fullchain.pem google.com | grep -q "NOERROR"; then
-            echo "✅ DNS Resolution Successful"
-          else
+          if ! kdig -d @127.0.0.1 -p 853 +tls-hostname=localhost +tls-ca=ssl/fullchain.pem google.com | grep -q "NOERROR"; then
             echo "❌ DNS Resolution Failed"
+            echo "--- Container Network State (Netstat) ---"
+            docker exec shielddns netstat -tunlp || true
+            echo "--- Container Logs ---"
+            docker logs shielddns
             exit 1
           fi
+          echo "✅ DNS Resolution Successful"
 
       - name: Wait for Admin UI
         run: |

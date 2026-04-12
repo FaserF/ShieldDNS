@@ -1,5 +1,5 @@
 /* jshint worker: true */
-const CACHE_NAME = 'shielddns-admin-v8';
+const CACHE_NAME = 'shielddns-admin-v9';
 const ASSETS = [
     '/admin/',
     '/admin/index.html',
@@ -26,6 +26,7 @@ const ASSETS = [
 
 // Install event - Cache static assets
 self.addEventListener('install', (event) => {
+    self.skipWaiting(); // Force new service worker to become active
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(ASSETS);
@@ -36,15 +37,18 @@ self.addEventListener('install', (event) => {
 // Activate event - Cleanup old caches
 self.addEventListener('activate', (event) => {
     event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cache) => {
-                    if (cache !== CACHE_NAME) {
-                        return caches.delete(cache);
-                    }
-                })
-            );
-        })
+        Promise.all([
+            self.clients.claim(), // Take control of all open clients immediately
+            caches.keys().then((cacheNames) => {
+                return Promise.all(
+                    cacheNames.map((cache) => {
+                        if (cache !== CACHE_NAME) {
+                            return caches.delete(cache);
+                        }
+                    })
+                );
+            })
+        ])
     );
 });
 
@@ -70,7 +74,7 @@ self.addEventListener('fetch', (event) => {
                 return networkResponse;
             }).catch((err) => {
                 // Return cached response if offline/fetch fails, don't crash the worker
-                console.warn('[SW] Fetch failed:', err);
+                console.warn(`[SW] Fetch failed for ${event.request.url}:`, err);
                 return cachedResponse || new Response('Network error occurred', { status: 503, statusText: 'Service Unavailable' });
             });
 
