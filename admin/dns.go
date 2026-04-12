@@ -31,6 +31,7 @@ type CorefileData struct {
 	GeoACLRules     string
 	CertFile        string
 	KeyFile         string
+	FilteringEnabled bool
 }
 
 const CorefileTemplate = `.:{{.DNSPort}} {
@@ -50,10 +51,12 @@ const CorefileTemplate = `.:{{.DNSPort}} {
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
+    {{if .FilteringEnabled}}
     hosts {{.HostsPath}} {
         reload 5s
         fallthrough
     }
+    {{end}}
     {{.GeoACLRules}}
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
     errors
@@ -401,6 +404,7 @@ func updateCorefile() {
 	policy := config.SmartSelectionPolicy
 	serveStale := config.ServeStale
 	dnssec := config.DNSSECEnabled
+	filtering := config.FilteringEnabled
 	configLock.RUnlock()
 
 	healthLock.RLock()
@@ -495,6 +499,7 @@ func updateCorefile() {
 		GeoACLRules:     getGeoACLRules(),
 		CertFile:        certFile,
 		KeyFile:         keyFile,
+		FilteringEnabled: filtering,
 	}
 
 	tmpl, err := template.New("corefile").Parse(CorefileTemplate)

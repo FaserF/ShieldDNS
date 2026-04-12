@@ -23,16 +23,27 @@
 }
 
 body.light {
-    --hue: 232;
-    --bg-color: hsl(var(--hue), 32%, 96%);
-    --sidebar-bg: hsla(var(--hue), 32%, 100%, 0.85);
-    --card-bg: hsla(var(--hue), 32%, 100%, 0.7);
-    --accent: hsl(var(--hue), 72%, 58%);
-    --accent-hover: hsl(var(--hue), 72%, 50%);
-    --text-primary: hsl(var(--hue), 40%, 12%);
+    --hue: 228;
+    --bg-color: hsl(var(--hue), 20%, 97%);
+    --sidebar-bg: hsla(var(--hue), 20%, 100%, 0.85);
+    --card-bg: hsla(var(--hue), 20%, 100%, 0.9);
+    --accent: hsl(var(--hue), 85%, 55%);
+    --accent-hover: hsl(var(--hue), 95%, 45%);
+    --text-primary: hsl(var(--hue), 30%, 15%);
     --text-secondary: hsl(var(--hue), 15%, 45%);
-    --border: hsla(var(--hue), 20%, 0%, 0.08);
-    --inner-glow: inset 0 1px 1px 0 hsla(0, 0%, 100%, 0.8);
+    --border: hsla(var(--hue), 20%, 0%, 0.06);
+    --glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    --inner-glow: inset 0 1px 1px 0 hsla(0, 0%, 100%, 1);
+    --chart-grid: hsla(var(--hue), 20%, 0%, 0.05);
+}
+
+.preferred-row {
+    background: hsla(var(--hue), 75%, 68%, 0.08) !important;
+    border-left: 3px solid var(--accent);
+}
+
+body.light .preferred-row {
+    background: hsla(var(--hue), 85%, 55%, 0.05) !important;
 }
 
 * {

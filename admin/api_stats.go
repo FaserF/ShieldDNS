@@ -70,11 +70,13 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 		// Note: stats_linux.go doesn't currently provide cpu_percent, but we can add it or just use load
 		s.CPUUsage = val.(float64)
 	} else if val, ok := sysStats["cpu_load"]; ok {
-		load := val.([]string)
-		if len(load) > 0 {
+		// Handle different types depending on platform (string slice from linux, float slice from others)
+		if load, ok := val.([]string); ok && len(load) > 0 {
 			if f, err := strconv.ParseFloat(load[0], 64); err == nil {
 				s.CPUUsage = f
 			}
+		} else if load, ok := val.([]float64); ok && len(load) > 0 {
+			s.CPUUsage = load[0]
 		}
 	}
 

@@ -32,6 +32,28 @@ export function initNavigation(viewHandlers) {
     });
 }
 
+/**
+ * Programmatically navigate to a view and optionally set filters
+ */
+export function navigateTo(target, params = {}) {
+    const item = document.querySelector(`.nav-item[data-view="${target}"]`);
+    if (item) {
+        // Trigger the click event on the nav item to use existing logic
+        item.click();
+        
+        // Handle search parameters
+        if (params.search) {
+            // Check for common search input IDs based on target view
+            const searchInput = getEl(`${target}-search`) || getEl('query-search') || getEl('global-search');
+            if (searchInput) {
+                searchInput.value = params.search;
+                // Dispatch input event to trigger any live filtering logic
+                searchInput.dispatchEvent(new Event('input'));
+            }
+        }
+    }
+}
+
 // Global Timers and Streams
 
 export function startDiagTimer(fetchDiagnostics) {

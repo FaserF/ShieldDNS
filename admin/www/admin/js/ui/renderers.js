@@ -83,6 +83,28 @@ export function renderConfig(cfg) {
         }
     }
 
+    // Protection Status Card (Dashboard)
+    const statusTitle = getEl('status-title');
+    const statusDesc = getEl('status-desc');
+    const statusIcon = getEl('status-icon');
+    const toggleBtn = getEl('toggle-protection-btn');
+
+    if (statusTitle && statusDesc && statusIcon && toggleBtn) {
+        if (cfg.filtering_enabled) {
+            statusTitle.textContent = 'ShieldDNS is Active';
+            statusDesc.textContent = 'Your requests are being filtered and secured.';
+            statusIcon.className = 'status-icon-wrapper protected';
+            toggleBtn.textContent = 'Disable Protection';
+            toggleBtn.className = 'btn btn-primary';
+        } else {
+            statusTitle.textContent = 'Protection Disabled';
+            statusDesc.textContent = 'Filtering is currently inactive. Your network is unprotected.';
+            statusIcon.className = 'status-icon-wrapper disabled';
+            toggleBtn.textContent = 'Enable Protection';
+            toggleBtn.className = 'btn btn-success';
+        }
+    }
+
     // Populate Settings form if visible
     const upstreamsInput = getEl('upstreams-input');
     if (upstreamsInput) upstreamsInput.value = (cfg.upstreams || []).join(', ');
@@ -263,12 +285,12 @@ export function renderDiagnostics(d) {
     if (latencyList && d.upstream_health) {
          latencyList.innerHTML = d.upstream_health.map(h => {
              const isUp = h.status === 'up';
-             const isPreferred = h.preferred || false;
+             const isPreferred = h.is_preferred || false;
              return `<tr class="${isPreferred ? 'preferred-row' : ''}">
                  <td>
                     <div style="display:flex; align-items:center; gap:8px;">
                         ${h.server}
-                        ${isPreferred ? '<span class="badge" style="background:var(--accent); font-size:0.6rem; padding:2px 6px;">Active</span>' : ''}
+                        ${isPreferred ? '<span class="badge" style="background:var(--accent); font-size:0.6rem; padding:2px 6px; color:white;">Active</span>' : ''}
                     </div>
                  </td>
                  <td><span class="badge ${isUp ? 'official' : 'danger'}">${isUp ? 'Healthy' : 'Down'}</span></td>
@@ -286,27 +308,27 @@ export function renderAPIKeys(keys) {
         <tr>
             <td>${key.name}</td>
             <td>${(key.permissions || []).map(p => `<span class="badge secondary" style="font-size:0.7rem; margin-right:4px;">${p}</span>`).join('') || '-'}</td>
-            <td class="help" style="font-size:0.75rem;">${new Date(key.created_at).toLocaleDateString()}</td>
-            <td class="help" style="font-size:0.75rem;">${key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never'}</td>
-            <td>
-                <button class="btn btn-sm danger" onclick="window.deleteAPIKey('${key.id}', event)"><i class="fas fa-trash"></i></button>
-            </td>
+            <td class="help" style="font-size:0.75rem;">${key.last_used ? new Date(key.last_used).toLocaleString() : 'Never'}</td>
+                <button class="btn btn-sm danger-text" onclick="deleteAPIKey('${key.id}', event)"><i class="fas fa-trash"></i></button>
         </tr>
     `).join('') || '<tr><td colspan="5" class="help">No API keys generated.</td></tr>';
 }
 
 
-export function renderIPDetails(ip, stats, topDomains, topBlocked) {
-    getEl('ip-info-title').textContent = stats.alias || ip;
-    getEl('ip-info-subtitle').textContent = stats.alias ? ip : '';
-    getEl('ip-info-total').textContent = stats.total_queries?.toLocaleString() || '0';
-    getEl('ip-info-blocked').textContent = stats.blocked_queries?.toLocaleString() || '0';
+export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
+    const setTxt = (id, txt) => { const el = getEl(id); if (el) el.textContent = txt; };
+    
+    setTxt('ip-info-title', stats.alias || ip);
+    setTxt('ip-info-subtitle', stats.alias ? ip : '');
+    setTxt('ip-info-total', stats.total_queries?.toLocaleString() || '0');
+    setTxt('ip-info-blocked', stats.blocked_queries?.toLocaleString() || '0');
     
     const pct = stats.total_queries > 0 ? (stats.blocked_queries / stats.total_queries * 100) : 0;
-    getEl('ip-info-blocked-bar').style.width = pct + '%';
+    const bar = getEl('ip-info-blocked-bar');
+    if (bar) bar.style.width = pct + '%';
     
-    getEl('ip-info-hostname').textContent = stats.hostname || '-';
-    getEl('ip-info-manufacturer').textContent = stats.manufacturer || '-';
+    setTxt('ip-info-hostname', stats.hostname || '-');
+    setTxt('ip-info-manufacturer', stats.manufacturer || '-');
     
     getEl('ip-info-top-domains').innerHTML = (topDomains || []).map(d => `
         <tr>
@@ -322,6 +344,14 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked) {
         </tr>
     `).join('') || '<tr><td colspan="2">No data</td></tr>';
 
+    getEl('ip-info-history').innerHTML = (history || []).map(q => `
+        <tr>
+            <td>${new Date(q.time).toLocaleTimeString()}</td>
+            <td style="word-break: break-all;">${q.domain}</td>
+            <td><span class="badge ${q.status.includes('Allowed') ? 'success' : 'danger'}">${q.status}</span></td>
+        </tr>
+    `).join('') || '<tr><td colspan="3">No recent activity</td></tr>';
+
     // Show/Hide block buttons
     const isBlocked = (state.currentConfig.blocked_clients || []).includes(ip);
     getEl('ip-block-btn').style.display = isBlocked ? 'none' : 'block';
@@ -330,13 +360,18 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked) {
     getEl('ip-info-modal').classList.remove('hidden');
 }
 
-export function renderDomainDetails(domain, stats, clients, blockInfo) {
-    getEl('domain-info-title').textContent = domain;
-    getEl('domain-info-total').textContent = stats.total_queries?.toLocaleString() || '0';
-    getEl('domain-info-category').textContent = stats.category || 'General';
+export function renderDomainDetails(domain, stats, clients, blockInfo, history) {
+    const setTxt = (id, txt) => { const el = getEl(id); if (el) el.textContent = txt; };
+
+    setTxt('domain-info-title', domain);
+    setTxt('domain-info-total', stats.total_queries?.toLocaleString() || '0');
+    setTxt('domain-info-blocked', stats.blocked_queries?.toLocaleString() || '0');
+    setTxt('domain-info-clients', stats.unique_clients || '0');
+    setTxt('domain-info-category', stats.category || 'General');
     
     const blockRate = stats.total_queries > 0 ? (stats.blocked_queries / stats.total_queries * 100) : 0;
-    getEl('domain-info-block-rate').textContent = blockRate.toFixed(1) + '%';
+    const ratioEl = getEl('domain-info-ratio') || getEl('domain-info-block-rate');
+    if (ratioEl) ratioEl.textContent = blockRate.toFixed(1) + '%';
     
     // Status Badge and Block Info
     const badge = getEl('domain-status-badge');
@@ -356,13 +391,21 @@ export function renderDomainDetails(domain, stats, clients, blockInfo) {
         getEl('domain-info-subtitle').textContent = domain;
     }
 
-    getEl('domain-info-clients').innerHTML = (clients || []).map(c => `
+    getEl('domain-info-clients-list').innerHTML = (clients || []).map(c => `
         <tr>
-            <td><a href="#" onclick="showIPDetails('${c.ip}'); return false;" style="color: var(--accent);">${c.ip}</a></td>
+            <td><a href="#" onclick="window.showIPDetails('${c.ip}'); return false;" style="color: var(--accent);">${c.ip}</a></td>
             <td>${c.alias || '-'}</td>
             <td style="text-align:right">${c.count}</td>
         </tr>
     `).join('') || '<tr><td colspan="3">No data</td></tr>';
+
+    getEl('domain-info-history').innerHTML = (history || []).map(q => `
+        <tr>
+            <td>${new Date(q.time).toLocaleTimeString()}</td>
+            <td><a href="#" onclick="window.showIPDetails('${q.client_ip}'); return false;" style="color: var(--accent);">${q.client_alias || q.client_ip}</a></td>
+            <td><span class="badge ${q.status.includes('Allowed') ? 'success' : 'danger'}">${q.status}</span></td>
+        </tr>
+    `).join('') || '<tr><td colspan="3">No recent activity</td></tr>';
 
     getEl('domain-block-btn').style.display = isCustomBlocked ? 'none' : 'block';
     getEl('domain-allow-btn').style.display = isCustomBlocked ? 'block' : 'none';

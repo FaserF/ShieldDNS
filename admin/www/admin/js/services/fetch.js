@@ -5,6 +5,7 @@ import * as api from './api.js';
 import { state, getEl, uiRefs } from '../core/state.js';
 import * as render from '../ui/renderers.js';
 import * as charts from '../ui/charts.js';
+import * as helpers from '../ui/helpers.js';
 
 export async function fetchStats() {
     try {
@@ -95,14 +96,26 @@ export async function fetchPresets() {
             container.appendChild(catHeader);
 
             grouped[cat].forEach(preset => {
-                const isAdded = (state.currentConfig.lists || []).some(l => l.url === preset.url);
-                const card = document.createElement('div');
-                card.className = 'preset-card';
-                card.innerHTML = `
-                    <div class="preset-info"><h3>${preset.name}</h3></div>
-                    <button class="btn btn-sm ${isAdded ? 'secondary' : 'primary'}" ${isAdded ? 'disabled' : ''} onclick="addPreset('${preset.name}', '${preset.url}', event)">${isAdded ? 'Added ✓' : 'Add'}</button>
-                `;
-                container.appendChild(card);
+            const presetUrl = (preset.url || '').toLowerCase().trim();
+            const isAdded = (state.currentConfig.lists || []).some(l => 
+                (l.url || '').toLowerCase().trim() === presetUrl
+            );
+            
+            const card = document.createElement('div');
+            card.className = 'preset-card';
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-sm secondary';
+            if (isAdded) {
+                btn.textContent = 'Added ✓';
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+            } else {
+                btn.textContent = 'Add';
+                btn.onclick = (e) => window.addPreset(preset.name, preset.url, e);
+            }
+            card.innerHTML = `<div class="preset-info"><h3>${preset.name}</h3></div>`;
+            card.appendChild(btn);
+            container.appendChild(card);
             });
         });
     } catch (e) { console.error('Presets fetch failed', e); }
@@ -132,13 +145,25 @@ export async function fetchAllowlistPresets() {
             container.appendChild(catHeader);
 
             grouped[cat].forEach(preset => {
-                const isAdded = (state.currentConfig.allowlists || []).some(l => l.url === preset.url);
+                const presetUrl = (preset.url || '').toLowerCase().trim();
+                const isAdded = (state.currentConfig.allowlists || []).some(l => 
+                    (l.url || '').toLowerCase().trim() === presetUrl
+                );
+
                 const card = document.createElement('div');
                 card.className = 'preset-card';
-                card.innerHTML = `
-                    <div class="preset-info"><h3>${preset.name}</h3></div>
-                    <button class="btn btn-sm ${isAdded ? 'secondary' : 'primary'}" ${isAdded ? 'disabled' : ''} onclick="addAllowPreset('${preset.name}', '${preset.url}', event)">${isAdded ? 'Added ✓' : 'Add'}</button>
-                `;
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-sm secondary';
+                if (isAdded) {
+                    btn.textContent = 'Added ✓';
+                    btn.disabled = true;
+                    btn.style.opacity = '0.7';
+                } else {
+                    btn.textContent = 'Add';
+                    btn.onclick = (e) => window.addAllowPreset(preset.name, preset.url, e);
+                }
+                card.innerHTML = `<div class="preset-info"><h3>${preset.name}</h3></div>`;
+                card.appendChild(btn);
                 container.appendChild(card);
             });
         });
@@ -168,12 +193,13 @@ export async function fetchCountries() {
 
 export async function fetchIPDetails(ip) {
     try {
-        const [stats, topDomains, topBlocked] = await Promise.all([
+        const [stats, topDomains, topBlocked, queries] = await Promise.all([
             api.apiFetch(`${api.endpoints.clientStats}?ip=${ip}`),
             api.apiFetch(`${api.endpoints.clientTopDomains}?ip=${ip}`),
-            api.apiFetch(`${api.endpoints.clientTopBlocked}?ip=${ip}`)
+            api.apiFetch(`${api.endpoints.clientTopBlocked}?ip=${ip}`),
+            api.apiFetch(`${api.endpoints.queries}?search=${ip}&limit=20`)
         ]);
-        render.renderIPDetails(ip, stats, topDomains, topBlocked);
+        render.renderIPDetails(ip, stats, topDomains, topBlocked, queries.data || []);
     } catch (e) {
         console.error('IP details fetch failed', e);
         helpers.showAlert('Failed to fetch IP details: ' + e.message);
@@ -182,12 +208,13 @@ export async function fetchIPDetails(ip) {
 
 export async function fetchDomainDetails(domain) {
     try {
-        const [stats, clients, blockInfo] = await Promise.all([
+        const [stats, clients, blockInfo, queries] = await Promise.all([
             api.apiFetch(`${api.endpoints.domainStats}?domain=${domain}`),
             api.apiFetch(`${api.endpoints.domainClients}?domain=${domain}`),
-            api.apiFetch(`${api.endpoints.blockInfo}?domain=${domain}`)
+            api.apiFetch(`${api.endpoints.blockInfo}?domain=${domain}`),
+            api.apiFetch(`${api.endpoints.queries}?search=${domain}&limit=20`)
         ]);
-        render.renderDomainDetails(domain, stats, clients, blockInfo);
+        render.renderDomainDetails(domain, stats, clients, blockInfo, queries.data || []);
     } catch (e) {
         console.error('Domain details fetch failed', e);
         helpers.showAlert('Failed to fetch domain details: ' + e.message);

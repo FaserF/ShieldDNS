@@ -289,7 +289,11 @@ export function initEvents(fetchConfig) {
                 return;
             }
             // state.allCountries is loaded via fetchCountries()
-            if (!state.allCountries) return;
+            const allCountries = state.allCountries || {};
+            if (Object.keys(allCountries).length === 0) {
+                // Try fetching if missing
+                return;
+            }
             
             const matches = Object.entries(state.allCountries).filter(([code, name]) => 
                 name.toLowerCase().includes(val) || code.toLowerCase().includes(val)

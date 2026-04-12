@@ -59,7 +59,9 @@
             <div class="version-info" style="display:flex; justify-content:space-between; align-items:center;">
                 <span>ShieldDNS <span id="app-version">v0.0.0</span></span>
                 <button id="theme-toggle" class="btn secondary"
-                    style="padding: 4px 8px; font-size: 0.8rem; height: auto;">🌓</button>
+                    style="padding: 4px 8px; font-size: 0.8rem; height: auto;" title="Toggle Theme">
+                    <i class="fas fa-moon"></i>
+                </button>
             </div>
         </aside>
 
@@ -481,7 +483,7 @@
 
                 <div class="list-section">
                     <h2>Your Active Blocklists</h2>
-                    <div class="list-container" id="list-items">
+                    <div class="list-container" id="active-blocklists-list">
                         <!-- Lists will be injected here -->
                     </div>
                 </div>
@@ -490,7 +492,7 @@
                     <h2>Your Active Allowlists</h2>
                     <p class="help">Domains in these lists will always be allowed, even if they appear in a blocklist.
                     </p>
-                    <div class="list-container" id="allowlist-items">
+                    <div class="list-container" id="active-allowlists-list">
                         <!-- Allowlists will be injected here -->
                     </div>
                 </div>
@@ -1254,6 +1256,10 @@
             </div>
 
             <div class="stats-grid-details" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px;">
+                 <div class="stat-card card" style="padding: 16px;">
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Category</label>
+                    <div class="value" id="domain-info-category" style="font-size: 1.1rem; font-weight: 700; margin-top: 8px; color: var(--accent);">General</div>
+                </div>
                 <div class="stat-card card" style="padding: 16px;">
                     <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Total Hits (24h)</label>
                     <div class="value" id="domain-info-total" style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0</div>

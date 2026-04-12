@@ -86,11 +86,27 @@ function updateDashboardFeed(query) {
  */
 function initTheme() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
-    document.body.className = savedTheme;
-    getEl('theme-toggle')?.addEventListener('click', () => {
-        const newTheme = document.body.classList.contains('dark') ? 'light' : 'dark';
-        document.body.className = newTheme;
+    const toggleBtn = getEl('theme-toggle');
+    const updateIcon = (theme) => {
+        if (!toggleBtn) return;
+        const icon = toggleBtn.querySelector('i');
+        if (icon) {
+            icon.className = theme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+        }
+    };
+
+    document.body.classList.remove('dark', 'light');
+    document.body.classList.add(savedTheme);
+    updateIcon(savedTheme);
+
+    toggleBtn?.addEventListener('click', () => {
+        const isDark = document.body.classList.contains('dark');
+        const newTheme = isDark ? 'light' : 'dark';
+        
+        document.body.classList.remove('dark', 'light');
+        document.body.classList.add(newTheme);
         localStorage.setItem('theme', newTheme);
+        updateIcon(newTheme);
     });
 
     const sidebar = document.querySelector('.sidebar');
@@ -114,7 +130,10 @@ window.showDomainDetails = (domain) => fetchService.fetchDomainDetails(domain);
 window.showIPDetails = (ip) => fetchService.fetchIPDetails(ip);
 
 window.addPreset = async (name, url, event) => {
-    if (state.currentConfig.lists.some(l => l.url === url)) return helpers.showToast('List already added', 'info');
+    const listUrl = (url || '').toLowerCase().trim();
+    if (state.currentConfig.lists.some(l => (l.url || '').toLowerCase().trim() === listUrl)) {
+        return helpers.showToast('List already added', 'info');
+    }
     
     const btn = event?.currentTarget;
     helpers.setBtnLoading(btn, true, 'Adding...');
@@ -132,7 +151,10 @@ window.addPreset = async (name, url, event) => {
 };
 
 window.addAllowPreset = async (name, url, event) => {
-    if (state.currentConfig.allowlists.some(l => l.url === url)) return helpers.showToast('Allowlist already added', 'info');
+    const listUrl = (url || '').toLowerCase().trim();
+    if (state.currentConfig.allowlists.some(l => (l.url || '').toLowerCase().trim() === listUrl)) {
+        return helpers.showToast('Allowlist already added', 'info');
+    }
     
     const btn = event?.currentTarget;
     helpers.setBtnLoading(btn, true, 'Adding...');
@@ -166,6 +188,20 @@ function initModals() {
     ];
     
     closeSelectors.forEach(id => getEl(id)?.addEventListener('click', closeModals));
+
+    // Global closure: backdrop click
+    window.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal')) {
+            closeModals();
+        }
+    });
+
+    // Global closure: Escape key
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModals();
+        }
+    });
 
     // IP Info UI logic
     getEl('edit-alias-btn')?.addEventListener('click', () => {
@@ -240,18 +276,7 @@ function initModals() {
     getEl('ip-info-view-all-btn')?.addEventListener('click', () => {
         const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
         closeModals();
-        
-        // Use navigateTo from nav module
-        import('./ui/navigation.js').then(nav => {
-            nav.navigateTo('queries');
-            setTimeout(() => {
-                const searchInput = getEl('query-search');
-                if (searchInput) {
-                    searchInput.value = ip;
-                    searchInput.dispatchEvent(new Event('input'));
-                }
-            }, 100);
-        });
+        nav.navigateTo('queries', { search: ip });
     });
 }
 
