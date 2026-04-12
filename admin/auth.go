@@ -25,6 +25,43 @@ type apiKeyQuota struct {
 	uMu   sync.Mutex
 }
 
+const SessionDuration = 24 * time.Hour
+
+func startAuthWorkers() {
+	// Periodic cleanup for login failures and sessions
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		for range ticker.C {
+			cleanupLoginFailures()
+			cleanupSessions()
+		}
+	}()
+}
+
+func cleanupLoginFailures() {
+	failureLock.Lock()
+	defer failureLock.Unlock()
+	for ip, count := range loginFailures {
+		if count > 0 {
+			loginFailures[ip]--
+			if loginFailures[ip] == 0 {
+				delete(loginFailures, ip)
+			}
+		}
+	}
+}
+
+func cleanupSessions() {
+	now := time.Now()
+	sessionStore.Range(func(key, value interface{}) bool {
+		sess := value.(Session)
+		if now.After(sess.ExpiresAt) {
+			sessionStore.Delete(key)
+		}
+		return true
+	})
+}
+
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1. Try API Token Authentication first
@@ -112,22 +149,25 @@ func authMiddleware(next http.Handler) http.Handler {
 		configLock.RUnlock()
 
 		if !hasPwd {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(map[string]string{"error": "Setup required", "code": "SETUP_REQUIRED"})
+			renderError(w, "Setup required", "SETUP_REQUIRED", http.StatusForbidden)
 			return
 		}
 
 		cookie, err := r.Cookie(CookieName)
-		sessionLock.RLock()
-		// Secure session comparison
-		valid := err == nil && cookie.Value == sessionToken && sessionToken != ""
-		sessionLock.RUnlock()
+		if err != nil {
+			renderError(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
+			return
+		}
 
-		if !valid {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized", "code": "UNAUTHORIZED"})
+		val, found := sessionStore.Load(cookie.Value)
+		if !found {
+			renderError(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
+			return
+		}
+		sess := val.(Session)
+		if time.Now().After(sess.ExpiresAt) {
+			sessionStore.Delete(cookie.Value)
+			renderError(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
 			return
 		}
 
@@ -149,11 +189,17 @@ func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 	hasPwd := config.AdminPasswordHashed != ""
 	configLock.RUnlock()
 
-	cookie, err := r.Cookie(CookieName)
-	sessionLock.RLock()
-	loggedIn := err == nil && cookie.Value == sessionToken && sessionToken != ""
-	sessionLock.RUnlock()
+	loggedIn := false
+	if cookie, err := r.Cookie(CookieName); err == nil {
+		if val, found := sessionStore.Load(cookie.Value); found {
+			sess := val.(Session)
+			if time.Now().Before(sess.ExpiresAt) {
+				loggedIn = true
+			}
+		}
+	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"need_setup": !hasPwd,
 		"logged_in":  loggedIn,
@@ -223,32 +269,24 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		loginFailures[ip]++
 		failureLock.Unlock()
 
-		// Decay failure count after 5 minutes
-		go func(ip string) {
-			time.Sleep(5 * time.Minute)
-			failureLock.Lock()
-			if loginFailures[ip] > 0 {
-				loginFailures[ip]--
-			}
-			failureLock.Unlock()
-		}(ip)
-
-		http.Error(w, "Invalid password", http.StatusUnauthorized)
 		slog.Warn("Failed login attempt", "ip", ip)
+		renderError(w, "Invalid password", "INVALID_PASSWORD", http.StatusUnauthorized)
 		return
 	}
 
 	// Success - Reset failures
 	failureLock.Lock()
-	loginFailures[ip] = 0
+	delete(loginFailures, ip)
 	failureLock.Unlock()
 
 	// Generate session
 	token := generateToken()
-
-	sessionLock.Lock()
-	sessionToken = token
-	sessionLock.Unlock()
+	sess := Session{
+		Token:     token,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(SessionDuration),
+	}
+	sessionStore.Store(token, sess)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
@@ -256,7 +294,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,
-		MaxAge:   86400,
+		MaxAge:   int(SessionDuration.Seconds()),
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -276,9 +314,9 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {
-	sessionLock.Lock()
-	sessionToken = ""
-	sessionLock.Unlock()
+	if cookie, err := r.Cookie(CookieName); err == nil {
+		sessionStore.Delete(cookie.Value)
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:   CookieName,
 		Value:  "",
@@ -320,12 +358,19 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	saveConfigNoLock()
 
 	// Clear all sessions on pwd change
-	sessionLock.Lock()
-	sessionToken = ""
-	sessionLock.Unlock()
+	sessionStore.Range(func(key, value interface{}) bool {
+		sessionStore.Delete(key)
+		return true
+	})
 
 	slog.Info("Admin password changed", "ip", strings.Split(r.RemoteAddr, ":")[0])
 	w.WriteHeader(http.StatusOK)
+}
+
+func renderError(w http.ResponseWriter, message, code string, status int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": message, "code": code})
 }
 
 func hashToken(token string) string {

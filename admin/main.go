@@ -53,6 +53,8 @@ func main() {
 	go startDNSWatchdog()
 	
 	// Server setup
+	startAuthWorkers()
+	startDNSWorkers()
 	go startDBWorker()
 	go startLogWorker()
 	go startAbuseCleanup()

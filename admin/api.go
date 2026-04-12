@@ -13,7 +13,6 @@ var (
 
 	// Shared caches
 	ipInfoCache sync.Map // IP -> IPInfo
-	ipToUA      sync.Map // IP -> UserAgent string
 )
 
 // IPInfo represents detailed information about a client IP.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -9,6 +10,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
+
+var (
+	cachedUniqueClients int
+	lastUniqueUpdate    time.Time
 )
 
 func handleStats(w http.ResponseWriter, r *http.Request) {
@@ -23,12 +29,25 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	statsLock.RUnlock()
 
-	// Query unique clients in the last 24 hours from DB
-	var uniqueClients int
-	row := db.QueryRow("SELECT COUNT(DISTINCT client_ip) FROM queries WHERE timestamp > datetime('now', '-24 hours')")
-	if err := row.Scan(&uniqueClients); err == nil {
-		s.UniqueClients = uniqueClients
+	// Query unique clients (cached for 1 minute)
+	statsLock.RLock()
+	lastUpdate := lastUniqueUpdate
+	statsLock.RUnlock()
+
+	if time.Since(lastUpdate) > 1*time.Minute {
+		var uniqueClients int
+		row := db.QueryRow("SELECT COUNT(DISTINCT client_ip) FROM queries WHERE timestamp > datetime('now', '-24 hours')")
+		if err := row.Scan(&uniqueClients); err == nil {
+			statsLock.Lock()
+			cachedUniqueClients = uniqueClients
+			lastUniqueUpdate = time.Now()
+			statsLock.Unlock()
+		}
 	}
+	
+	statsLock.RLock()
+	s.UniqueClients = cachedUniqueClients
+	statsLock.RUnlock()
 
 	s.Version = Version
 	s.CoreDNSVersion = getCoreDNSVersion()
@@ -161,7 +180,7 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	if statusFilter != "" {
 		if statusFilter == "Blocked" {
 			query += " AND status LIKE ?"
-			args = append(args, "Blocked%")
+			args = append(args, StatusBlocked+"%")
 		} else {
 			query += " AND status = ?"
 			args = append(args, statusFilter)
@@ -567,6 +586,7 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 	format := r.URL.Query().Get("format")
 	rows, err := db.Query("SELECT timestamp, domain, type, status, client_ip FROM queries ORDER BY timestamp DESC")
 	if err != nil {
+		slog.Error("Export failed: DB query error", "error", err)
 		http.Error(w, "Error querying database", http.StatusInternalServerError)
 		return
 	}
@@ -575,28 +595,45 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 	if format == "csv" {
 		w.Header().Set("Content-Type", "text/csv")
 		w.Header().Set("Content-Disposition", "attachment;filename=shielddns_export.csv")
-		fmt.Fprintln(w, "Timestamp,Domain,Type,Status,ClientIP")
+		
+		writer := csv.NewWriter(w)
+		defer writer.Flush()
+
+		// Header
+		writer.Write([]string{"Timestamp", "Domain", "Type", "Status", "ClientIP"})
+
 		for rows.Next() {
 			var ts, domain, qtype, status, ip string
-			rows.Scan(&ts, &domain, &qtype, &status, &ip)
-			fmt.Fprintf(w, "%s,%s,%s,%s,%s\n", ts, domain, qtype, status, ip)
+			if err := rows.Scan(&ts, &domain, &qtype, &status, &ip); err == nil {
+				writer.Write([]string{ts, domain, qtype, status, ip})
+			}
 		}
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Disposition", "attachment;filename=shielddns_export.json")
-		var queries []map[string]string
+		
+		// Use a streaming JSON encoder
+		enc := json.NewEncoder(w)
+		w.Write([]byte("["))
+		
+		first := true
 		for rows.Next() {
 			var ts, domain, qtype, status, ip string
-			rows.Scan(&ts, &domain, &qtype, &status, &ip)
-			queries = append(queries, map[string]string{
-				"timestamp": ts,
-				"domain":    domain,
-				"type":      qtype,
-				"status":    status,
-				"client_ip": ip,
-			})
+			if err := rows.Scan(&ts, &domain, &qtype, &status, &ip); err == nil {
+				if !first {
+					w.Write([]byte(","))
+				}
+				first = false
+				enc.Encode(map[string]string{
+					"timestamp": ts,
+					"domain":    domain,
+					"type":      qtype,
+					"status":    status,
+					"client_ip": ip,
+				})
+			}
 		}
-		json.NewEncoder(w).Encode(queries)
+		w.Write([]byte("]"))
 	}
 }
 

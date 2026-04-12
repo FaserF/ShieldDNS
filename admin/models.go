@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+const (
+	StatusAllowed       = "Allowed"
+	StatusBlocked       = "Blocked"
+	StatusBlockedPolicy = "Blocked (Policy)"
+	StatusBlockedClient = "Blocked (Client IP)"
+)
+
 type Config struct {
 	Upstreams                  []string          `json:"upstreams"`
 	UpstreamDoT                []string          `json:"upstream_dot"`
@@ -84,6 +91,9 @@ type Stats struct {
 	RAMTotalMB           float64          `json:"ram_total_mb"`
 	CPUUsage             float64          `json:"cpu_usage"`
 	NumAutoBlocked       int              `json:"num_auto_blocked"`
+	
+	// Internal Cache Metadata
+	LastUpdate           time.Time        `json:"-"`
 }
 
 type Query struct {
@@ -134,7 +144,8 @@ var (
 	stats        Stats
 	statsLock    sync.RWMutex
 	dnsCmd       *exec.Cmd
-	sessionToken string
+	
+	sessionStore sync.Map // token -> Session
 	sessionLock  sync.RWMutex
 	history      [24]HourStats
 	historyLock  sync.RWMutex
@@ -163,7 +174,16 @@ var (
 	// Blocklist Attribution (Domain -> List Names)
 	blockAttribution     = make(map[string][]string)
 	blockAttributionLock sync.RWMutex
+
+	// Client info caches
+	ipToUA sync.Map // IP -> User-Agent string
 )
+
+type Session struct {
+	Token     string    `json:"token"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
 
 var (
 	DataDir           = "/etc/shielddns"

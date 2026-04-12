@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log/slog"
@@ -65,6 +66,7 @@ func initDB() {
 			blocked INTEGER DEFAULT 0,
 			cache_hits INTEGER DEFAULT 0
 		);
+		PRAGMA incremental_vacuum;
 	`)
 	if err != nil {
 		slog.Error("Could not initialize database schema", "error", err)
@@ -128,12 +130,12 @@ func startDBWorker() {
 			} else {
 				slog.Info("Database maintenance complete", "days_purged", days)
 
-				// Reclaim space
-				_, err = db.Exec("VACUUM")
+				// Reclaim space incrementally
+				_, err = db.Exec("PRAGMA incremental_vacuum(1000)")
 				if err != nil {
-					slog.Error("Error running internal database VACUUM", "error", err)
+					slog.Error("Error running incremental vacuum", "error", err)
 				} else {
-					slog.Debug("Database maintenance: VACUUM completed")
+					slog.Debug("Database maintenance: Incremental vacuum completed")
 				}
 			}
 		}
@@ -161,13 +163,15 @@ func aggregateHourlyStats() {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	// Aggregate the full previous hour (e.g., if now is 14:05, aggregate 13:00-14:00)
-	// We use 'now', '-1 hour' and truncate it to the hour start.
 	targetHour := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
 	
 	slog.Debug("Starting hourly aggregation", "hour", targetHour)
 
-	_, err := db.Exec(`
+	_, err := db.ExecContext(ctx, `
 		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
 		SELECT 
 			strftime('%Y-%m-%d %H:00:00', timestamp) as hr,
@@ -245,26 +249,49 @@ func initializeStatsFromDB() {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
 	statsLock.Lock()
 	defer statsLock.Unlock()
 
 	// 1. Total, Blocked, Cache Hits and Latency (last 24h)
+	// Optimization: Use hourly_stats for the first 23 hours, and queries for the current hour
 	var total, blocked, cacheHits int64
 	var avgLatency float64
-	row := db.QueryRow(`
+
+	// Current hour start
+	curHour := time.Now().UTC().Truncate(time.Hour).Format("2006-01-02 15:04:05")
+
+	// Get aggregated stats for the previous 23 hours
+	row := db.QueryRowContext(ctx, `
+		SELECT 
+			COALESCE(SUM(total), 0), 
+			COALESCE(SUM(blocked), 0),
+			COALESCE(SUM(cache_hits), 0)
+		FROM hourly_stats 
+		WHERE timestamp > datetime('now', '-24 hours') AND timestamp < ?
+	`, curHour)
+	row.Scan(&total, &blocked, &cacheHits)
+
+	// Get current hour's live stats and overall average latency
+	var curTotal, curBlocked, curCacheHits int64
+	row = db.QueryRowContext(ctx, `
 		SELECT 
 			COUNT(*), 
-			COALESCE(SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0),
 			COALESCE(SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END), 0),
 			COALESCE(AVG(CASE WHEN duration_ms > 0 THEN duration_ms ELSE NULL END), 0)
 		FROM queries 
-		WHERE timestamp > datetime('now', '-24 hours')
-	`)
-	row.Scan(&total, &blocked, &cacheHits, &avgLatency)
-	stats.TotalQueries = total
-	stats.BlockedQueries = blocked
-	stats.CacheHits = cacheHits
+		WHERE timestamp >= ?
+	`, curHour)
+	row.Scan(&curTotal, &curBlocked, &curCacheHits, &avgLatency)
+
+	stats.TotalQueries = total + curTotal
+	stats.BlockedQueries = blocked + curBlocked
+	stats.CacheHits = cacheHits + curCacheHits
 	stats.AverageLatency = avgLatency
+	stats.LastUpdate = time.Now()
 
 	// 2. Populate History (bars for chart)
 	historyLock.Lock()
@@ -275,15 +302,22 @@ func initializeStatsFromDB() {
 		history[i] = HourStats{}
 	}
 
-	rows, err := db.Query(`
+	rows, err := db.QueryContext(ctx, `
 		SELECT 
 			(23 - (strftime('%H', 'now') - strftime('%H', timestamp) + 24) % 24) as hour_index,
-			COUNT(*),
-			COALESCE(SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END), 0)
-		FROM queries
+			total,
+			blocked
+		FROM hourly_stats
 		WHERE timestamp > datetime('now', '-24 hours')
+		UNION ALL
+		SELECT
+			23 as hour_index,
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0)
+		FROM queries
+		WHERE timestamp >= ?
 		GROUP BY hour_index
-	`)
+	`, curHour)
 
 	if err == nil {
 		defer rows.Close()
@@ -299,11 +333,12 @@ func initializeStatsFromDB() {
 	} else {
 		slog.Error("Error initializing history from DB", "error", err)
 	}
+
 	// 3. Query Types (last 24h)
 	if stats.QueryTypes == nil {
 		stats.QueryTypes = make(map[string]int64)
 	}
-	tRows, err := db.Query(`
+	tRows, err := db.QueryContext(ctx, `
 		SELECT type, COUNT(*) 
 		FROM queries 
 		WHERE timestamp > datetime('now', '-24 hours')

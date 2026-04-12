@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -82,9 +83,10 @@ func TestHandleLoginRateLimit(t *testing.T) {
 func TestCSRFProtection(t *testing.T) {
 	// Setup session
 	token := "valid_session_token"
-	sessionLock.Lock()
-	sessionToken = token
-	sessionLock.Unlock()
+	sessionStore.Store(token, Session{
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	})
 
 	// Handler with AuthMiddleware
 	handler := authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

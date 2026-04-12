@@ -357,6 +357,29 @@ var (
 	recentQueriesLock sync.Mutex
 )
 
+func startDNSWorkers() {
+	// Background cleanup for recent query signatures
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		for range ticker.C {
+			cleanupRecentQueries()
+		}
+	}()
+}
+
+func cleanupRecentQueries() {
+	now := time.Now()
+	recentQueriesLock.Lock()
+	defer recentQueriesLock.Unlock()
+	
+	// Keep if less than 10s old
+	for k, v := range recentQueries {
+		if now.Sub(v.time) > 10*time.Second {
+			delete(recentQueries, k)
+		}
+	}
+}
+
 func resolveHost(host string) string {
 	if net.ParseIP(host) != nil {
 		return host
@@ -688,24 +711,12 @@ func parseLogLine(line string) {
 				return
 			}
 			// If not local, always log and update the signature to external
-			if !isLocal {
-				recentQueries[sigKey] = querySignature{ip: clientIP, time: time.Now()}
-			}
+			recentQueries[sigKey] = querySignature{ip: clientIP, time: time.Now()}
 		} else {
 			recentQueries[sigKey] = querySignature{ip: clientIP, time: time.Now()}
 		}
 	} else {
 		recentQueries[sigKey] = querySignature{ip: clientIP, time: time.Now()}
-	}
-
-	// Simple cleanup to prevent unbounded growth
-	if len(recentQueries) > 1000 {
-		now := time.Now()
-		for k, v := range recentQueries {
-			if now.Sub(v.time) > 10*time.Second {
-				delete(recentQueries, k)
-			}
-		}
 	}
 	recentQueriesLock.Unlock()
 
@@ -737,22 +748,22 @@ func parseLogLine(line string) {
 	_, isBlocked := blockAttribution[qDomain]
 	blockAttributionLock.RUnlock()
 
-	status := "Allowed"
+	status := StatusAllowed
 	if isBlocked {
-		status = "Blocked"
+		status = StatusBlocked
 	}
 
 	// ACL / Client / Geo Blocking check
 	// CoreDNS acl plugin returns REFUSED for blocked clients/CIDRs
 	if rcode == "REFUSED" {
 		isBlocked = true
-		status = "Blocked (Policy)"
+		status = StatusBlockedPolicy
 
 		// Check if it was a specifically blocked client IP
 		configLock.RLock()
 		for _, bip := range config.BlockedClients {
 			if bip == clientIP {
-				status = "Blocked (Client IP)"
+				status = StatusBlockedClient
 				break
 			}
 		}

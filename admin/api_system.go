@@ -657,9 +657,10 @@ func handleReset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Clear sessions
-	sessionLock.Lock()
-	sessionToken = "" // Invalidate current session
-	sessionLock.Unlock()
+	sessionStore.Range(func(key, value interface{}) bool {
+		sessionStore.Delete(key)
+		return true
+	})
 
 	statsLock.Lock()
 	stats = Stats{Version: Version}
