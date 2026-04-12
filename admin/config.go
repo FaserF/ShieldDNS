@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -207,7 +208,12 @@ func atomicWriteFile(filename string, data []byte) error {
 	return nil
 }
 
+var blocklistUpdateLock sync.Mutex
+
 func updateBlocklist(cfg *Config) {
+	blocklistUpdateLock.Lock()
+	defer blocklistUpdateLock.Unlock()
+
 	if cfg == nil {
 		configLock.RLock()
 		cfg = config.Clone()
