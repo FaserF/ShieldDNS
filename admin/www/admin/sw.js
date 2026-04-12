@@ -68,6 +68,10 @@ self.addEventListener('fetch', (event) => {
                     });
                 }
                 return networkResponse;
+            }).catch((err) => {
+                // Return cached response if offline/fetch fails, don't crash the worker
+                console.warn('[SW] Fetch failed:', err);
+                return cachedResponse || new Response('Network error occurred', { status: 503, statusText: 'Service Unavailable' });
             });
 
             // Return cached response if available, otherwise wait for network

@@ -70,8 +70,8 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		// Protection against MIME-sniffing
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		
-		// Protection against Clickjacking
-		w.Header().Set("X-Frame-Options", "DENY")
+		// Protection against Clickjacking (SAMEORIGIN allows same-origin frames)
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		
 		// Protection against XSS
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
@@ -83,7 +83,9 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://use.fontawesome.com; " +
 			"font-src 'self' https://fonts.gstatic.com https://use.fontawesome.com; " +
 			"img-src 'self' data: https://flagcdn.com https://raw.githubusercontent.com; " +
-			"connect-src 'self' https://api.github.com;"
+			"connect-src 'self' https://api.github.com; " +
+			"worker-src 'self'; " +
+			"manifest-src 'self';"
 		w.Header().Set("Content-Security-Policy", csp)
 		
 		next.ServeHTTP(w, r)
