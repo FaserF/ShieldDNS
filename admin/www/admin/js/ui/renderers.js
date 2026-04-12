@@ -372,11 +372,17 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const bar = getEl('ip-info-blocked-bar');
     if (bar) bar.style.width = pct + '%';
     
-    setTxt('ip-info-hostname', stats.hostname || '-');
-    setTxt('ip-info-isp', stats.isp || '-');
-    setTxt('ip-info-mac', stats.mac || '-');
-    setTxt('ip-info-manufacturer', stats.manufacturer || 'Unknown');
-    setTxt('ip-info-os', stats.os || 'Unknown OS');
+    const sanitize = (val, fallback = 'N/A') => (!val || val === '-' || val === 'geo' || val === 'none') ? fallback : val;
+
+    setTxt('ip-info-hostname', sanitize(stats.hostname, 'No Hostname'));
+    
+    // Provider & ASN
+    const provider = stats.isp || stats.org || (stats.is_private ? 'Local Network' : 'Unknown Provider');
+    setTxt('ip-info-isp', provider);
+    setTxt('ip-info-as', sanitize(stats.as, ''));
+    setTxt('ip-info-mac', sanitize(stats.mac, 'Unknown MAC'));
+    setTxt('ip-info-manufacturer', sanitize(stats.manufacturer, 'Unknown Manufacturer'));
+    setTxt('ip-info-os', sanitize(stats.os, 'Unknown OS'));
     
     // Type Tag
     const typeTag = getEl('ip-info-type-tag');
@@ -391,7 +397,7 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
         countryDisplay = stats.is_private ? 'Local Network' : 'Unknown Location';
     }
     setTxt('ip-info-country', countryDisplay);
-    setTxt('ip-info-city', stats.city || '-');
+    setTxt('ip-info-city', sanitize(stats.city, 'Unknown City'));
     const flagEl = getEl('ip-info-flag');
     if (flagEl) {
         if (stats.country_code) {

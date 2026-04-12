@@ -24,6 +24,8 @@ type IPInfo struct {
 	CountryCode  string    `json:"country_code"`
 	City         string    `json:"city"`
 	ISP          string    `json:"isp"`
+	Org          string    `json:"org"`
+	AS           string    `json:"as"`
 	MAC          string    `json:"mac,omitempty"`
 	Manufacturer string    `json:"manufacturer,omitempty"`
 	OS           string    `json:"os,omitempty"`

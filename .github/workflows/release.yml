@@ -58,6 +58,8 @@ jobs:
             VERSION=$(grep -oP 'Version\s*=\s*"v\K[^"]+' admin/main.go)
           else
             python .github/scripts/bump_version.py ${{ github.event.inputs.bump_type }}
+            # Reset Subversion to 0 on release
+            sed -i 's/Subversion = "[^"]*"/Subversion = "0"/' admin/main.go
             VERSION=$(grep -oP 'Version\s*=\s*"v\K[^"]+' admin/main.go)
           fi
           echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV

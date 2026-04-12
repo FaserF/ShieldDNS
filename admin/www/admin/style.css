@@ -572,9 +572,10 @@ header {
     align-items: center;
     border: 1px solid var(--border);
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
-    cursor: pointer;
+    margin-bottom: 24px;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
+    cursor: pointer;
     transform: translateZ(0);
     contain: layout style paint;
 }
@@ -1803,6 +1804,17 @@ input:checked + .slider:before {
 .stat-card label:hover .info-icon {
     opacity: 1;
     color: var(--accent);
+}
+
+.label-with-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px !important;
+}
+
+.label-with-info label {
+    margin-bottom: 0 !important;
 }
 
 [data-tooltip] {

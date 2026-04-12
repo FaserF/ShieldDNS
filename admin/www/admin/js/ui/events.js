@@ -277,6 +277,25 @@ export function initEvents(fetchConfig) {
     });
 
     const resetListsBtn = getEl('reset-lists-btn');
+    resetListsBtn?.addEventListener('click', async (e) => {
+        if (!await helpers.showConfirm('Are you sure you want to restore all filtering lists to defaults? Your custom lists will be removed.')) return;
+        
+        const btn = e.target;
+        helpers.setBtnLoading(btn, true, 'Resetting...');
+        showActivityOverlay('Restoring Defaults', 'Downloading factory blocklist presets...');
+        
+        try {
+            await api.apiFetch(api.endpoints.resetLists, { method: 'POST' });
+            helpers.showToast('Filtering lists restored to defaults');
+            hideActivityOverlay(true);
+            setTimeout(() => fetchConfig(), 200); // Tiny delay to ensure server state is persisted
+        } catch (err) {
+            hideActivityOverlay(false);
+            helpers.showAlert('Failed to restore lists: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    });
 
     // Window hooks for dynamic elements
     window.deleteAPIKey = async (id, event) => {

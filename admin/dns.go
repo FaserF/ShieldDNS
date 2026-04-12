@@ -714,7 +714,7 @@ func parseLogLine(line string) {
 	}
 
 	// Prefer X-Real-IP if provided by Nginx (metadata plugin)
-	if realIP != "" && realIP != "-" && realIP != "none" {
+	if realIP != "" && realIP != "-" && realIP != "none" && realIP != "{>X-Real-IP}" {
 		clientIP = realIP
 	}
 
@@ -745,14 +745,14 @@ func parseLogLine(line string) {
 	recentQueriesLock.Unlock()
 
 	// Rename local IP for better UX if we don't have a real forwarded IP
-	if isLocal && (realIP == "" || realIP == "-" || realIP == "none") {
+	if isLocal && (realIP == "" || realIP == "-" || realIP == "none" || realIP == "{>X-Real-IP}") {
 		clientIP = "DoH Proxy"
 	}
 
 	slog.Debug("Parsed Query", "type", qType, "domain", qDomain, "client", clientIP, "duration", durationStr)
 
 	// Update latest User-Agent for this IP with throttling
-	if userAgent != "" && userAgent != "-" && userAgent != "none" {
+	if userAgent != "" && userAgent != "-" && userAgent != "none" && userAgent != "{>User-Agent}" {
 		oldUA, _ := ipToUA.Swap(clientIP, userAgent)
 		
 		shouldPersist := false

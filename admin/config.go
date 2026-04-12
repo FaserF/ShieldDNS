@@ -429,7 +429,17 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		reader = file
 	} else {
 		client := &http.Client{Timeout: 30 * time.Second}
-		resp, err := client.Get(list.URL)
+		req, err := http.NewRequest("GET", list.URL, nil)
+		if err != nil {
+			slog.Warn("Could not create request for remote list", "name", list.Name, "url", list.URL, "error", err)
+			return
+		}
+
+		// Use a browser-like User-Agent to avoid being blocked by strict servers (e.g., Frogeye)
+		req.Header.Set("User-Agent", fmt.Sprintf("ShieldDNS/%s (https://github.com/FaserF/ShieldDNS)", FullVersion))
+		req.Header.Set("Accept", "text/plain, */*")
+
+		resp, err := client.Do(req)
 		if err != nil {
 			slog.Warn("Could not fetch remote list", "name", list.Name, "url", list.URL, "error", err)
 			return
@@ -525,20 +535,26 @@ func startBackgroundUpdater() {
 
 // getRemoteUpdateTime attempts to find the best possible modification timestamp for a remote file.
 func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
-	// 1. Standard HTTP header (works for most static file hosts)
+	// 1. Standard HTTP header (static files)
 	if lm := headers.Get("Last-Modified"); lm != "" {
 		if t, err := http.ParseTime(lm); err == nil {
 			return t
 		}
 	}
 
-	// 2. Specialized support for GitHub Raw Content
+	// 2. Fallback to Date header (at least gives an idea of when the server last touched it)
+	if d := headers.Get("Date"); d != "" {
+		if t, err := http.ParseTime(d); err == nil {
+			return t
+		}
+	}
+
+	// 3. Specialized support for GitHub Raw Content
 	// raw.githubusercontent.com does not send Last-Modified, so we check the Commit API
 	if strings.Contains(rawURL, "raw.githubusercontent.com") {
-		// Transform raw URL to API URL:
-		// raw.githubusercontent.com/user/repo/branch/path... -> api.github.com/repos/user/repo/commits?path=path&page=1&per_page=1
+		// URL: https://raw.githubusercontent.com/user/repo/branch/folder/file.txt
 		parts := strings.Split(strings.TrimPrefix(rawURL, "https://"), "/")
-		if len(parts) >= 4 {
+		if len(parts) >= 5 {
 			user := parts[1]
 			repo := parts[2]
 			branch := parts[3]
@@ -550,7 +566,7 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 			defer cancel()
 
 			req, _ := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
-			req.Header.Set("User-Agent", "ShieldDNS-Update-Tracker") // Required by GitHub API
+			req.Header.Set("User-Agent", "ShieldDNS-Update-Tracker")
 
 			resp, err := http.DefaultClient.Do(req)
 			if err == nil {
@@ -566,8 +582,6 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 					if err := json.NewDecoder(resp.Body).Decode(&commitInfo); err == nil && len(commitInfo) > 0 {
 						return commitInfo[0].Commit.Committer.Date
 					}
-				} else if resp.StatusCode == http.StatusForbidden {
-					slog.Debug("GitHub API rate limit reached for metadata fetch", "url", rawURL)
 				}
 			}
 		}

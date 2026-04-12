@@ -102,14 +102,18 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 				Country     string `json:"country"`
 				CountryCode string `json:"countryCode"`
 				City        string `json:"city"`
+				ISP         string `json:"isp"`
 				Org         string `json:"org"`
+				AS          string `json:"as"`
 				Status      string `json:"status"`
 			}
 			if err := json.NewDecoder(resp.Body).Decode(&geoData); err == nil && geoData.Status == "success" {
 				info.Country = geoData.Country
 				info.CountryCode = geoData.CountryCode
 				info.City = geoData.City
-				info.ISP = geoData.Org
+				info.ISP = geoData.ISP
+				info.Org = geoData.Org
+				info.AS = geoData.AS
 			}
 		} else {
 			slog.Warn("GeoIP lookup failed", "ip", ip, "error", err)

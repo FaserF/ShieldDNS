@@ -5,11 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ShieldDNS</title>
-    <link rel="stylesheet" href="style.css?v=1.6.0">
+    <link rel="stylesheet" href="style.css?v={{.CacheVersion}}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2"></script>
-    <script type="module" src="js/app.js?v=1.6.0"></script>
+    <script type="module" src="js/app.js?v={{.CacheVersion}}"></script>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0a0b0e">
@@ -645,14 +645,18 @@
                         <input type="text" id="admin-domain-input" placeholder="dns.mydomain.de">
                     </div>
                     <div class="form-group">
-                        <label>Block Page / ShieldDNS IP</label>
-                        <p class="help">The IP address of this ShieldDNS server. Blocked domains will point to this IP.
-                        </p>
+                        <div class="label-with-info">
+                            <label>Default IPv4 Block Page IP</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="The IP address clients are sent to when a domain is blocked. Use 0.0.0.0 for null routing (recommended) or your server IP for a custom block page."></i>
+                        </div>
                         <input type="text" id="block-ip-input" placeholder="1.2.3.4 or 127.0.0.1">
                     </div>
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
-                            <label>Prefer Encrypted Upstreams (DoT)</label>
+                            <div class="label-with-info">
+                                <label>Prefer Encrypted Upstreams (DoT)</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Always use DNS-over-TLS (DoT) for upstream queries to ensure privacy and prevent ISP snooping."></i>
+                            </div>
                             <p class="help">Always try to use DNS-over-TLS if available.</p>
                         </div>
                         <label class="switch">
@@ -662,7 +666,10 @@
                     </div>
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
-                            <label>Sign Apple Profiles (.mobileconfig)</label>
+                            <div class="label-with-info">
+                                <label>Sign Apple Profiles (.mobileconfig)</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Uses your server SSL certificate to cryptographically sign generated profiles. This prevents the 'Not Verified' warning on iOS devices."></i>
+                            </div>
                             <p class="help">Use the server's SSL certificate to sign generated profiles for a "Verified"
                                 status on iOS.</p>
                         </div>
@@ -673,7 +680,10 @@
                     </div>
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
-                            <label>Abuse Detection Engine (Auto-Blocking)</label>
+                            <div class="label-with-info">
+                                <label>Abuse Detection Engine (Auto-Blocking)</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="A security layer that monitors query patterns to detect and block DNS amplification, flooding, or DGA-based botnet behavior."></i>
+                            </div>
                             <p class="help">Automatically block clients abusing the server with floods or DGA bots.</p>
                         </div>
                         <label class="switch">
@@ -685,14 +695,20 @@
                     <div id="abuse-dga-settings" class="mt-2 pl-4"
                         style="border-left: 2px solid var(--accent); margin-left: 10px; padding-left: 20px;">
                         <div class="form-group">
-                            <label>DGA Sensitivity Threshold</label>
+                            <div class="label-with-info">
+                                <label>DGA Sensitivity Threshold</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Lower values are more restrictive. Detects algorithms used by malware to generate pseudo-random domains. Default: 3.8."></i>
+                            </div>
                             <p class="help">Lower is more sensitive (Default: 3.8). Blocks domains with high entropy.
                             </p>
                             <input type="number" id="abuse-dga-threshold-input" step="0.1" min="1.0" max="10.0"
                                 value="3.8">
                         </div>
                         <div class="form-group">
-                            <label>DGA Minimum Length</label>
+                            <div class="label-with-info">
+                                <label>DGA Minimum Length</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Ignores very short subdomains to reduce false positives in DGA detection."></i>
+                            </div>
                             <p class="help">Ignores subdomains shorter than this (Default: 8).</p>
                             <input type="number" id="abuse-dga-min-len-input" min="3" max="50" value="8">
                         </div>
@@ -749,7 +765,10 @@
                     <h2>Smart Networking & Maintenance</h2>
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
-                            <label>Smart Upstream Selection</label>
+                            <div class="label-with-info">
+                                <label>Smart Upstream Selection</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Continuously monitors performance of all upstream providers and selects the fastest ones based on your policy."></i>
+                            </div>
                             <p class="help">Dynamic latency sorting for fastest response times.</p>
                         </div>
                         <label class="switch">
@@ -758,7 +777,10 @@
                         </label>
                     </div>
                     <div class="form-group">
-                        <label>Data Retention (Days)</label>
+                        <div class="label-with-info">
+                            <label>Data Retention (Days)</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="The number of days to keep query logs and statistics in the local database before they are permanently purged."></i>
+                        </div>
                         <input type="number" id="retention-input" min="1" max="365" value="30">
                     </div>
                     <div class="form-group">
@@ -767,12 +789,18 @@
                         <input type="number" id="latency-interval-input" min="1" max="1440" value="10">
                     </div>
                     <div class="form-group">
-                        <label>Diagnostics Refresh Interval (Seconds)</label>
+                        <div class="label-with-info">
+                            <label>Diagnostics Refresh Interval (Seconds)</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="How often the UI polls for hardware resource usage. Lower values give real-time data but increase background resource load."></i>
+                        </div>
                         <p class="help">Frequency of hardware resource updates (CPU, RAM, etc.) in Diagnostics view.</p>
                         <input type="number" id="diagnostics-interval-input" min="5" max="3600" value="600">
                     </div>
                     <div class="form-group">
-                        <label>Smart Selection Mode</label>
+                        <div class="label-with-info">
+                            <label>Smart Selection Mode</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Fastest: sequential; Random: load balanced; Broadcast: queries all in parallel and picks first answer (fastest but uses more bandwidth)."></i>
+                        </div>
                         <p class="help">Strategy used for upstream selection when Smart Selection is active.</p>
                         <select id="smart-selection-policy-input">
                             <option value="fastest">Fastest (Lowest Latency)</option>
@@ -782,7 +810,10 @@
                     </div>
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
-                            <label>Enable Serve Stale</label>
+                            <div class="label-with-info">
+                                <label>Enable Serve Stale</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Serves expired records from cache if the upstream is unreachable or slow, providing a seamless browsing experience."></i>
+                            </div>
                             <p class="help">Serve expired cache entries while refreshing in background (faster perceived
                                 speed).</p>
                         </div>
@@ -793,7 +824,10 @@
                     </div>
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
-                            <label>DNSSEC Validation</label>
+                            <div class="label-with-info">
+                                <label>DNSSEC Validation</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Authenticates DNS data with cryptographic signatures to prevent man-in-the-middle attacks."></i>
+                            </div>
                             <p class="help">Perform full local DNSSEC validation. Disable to offload to upstream
                                 (recommended for speed).</p>
                         </div>
@@ -821,7 +855,10 @@
                     <h2>Geo-Blocking 🌍</h2>
                     <p class="help">Block entire countries from accessing or resolving through this DNS server.</p>
                     <div class="form-group" style="position: relative;">
-                        <label>Select Countries to Block</label>
+                        <div class="label-with-info">
+                            <label>Select Countries to Block</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Resolutions from these countries will be instantly dropped. High-risk regions are automatically suggested based on current threat intelligence."></i>
+                        </div>
                         <div class="country-picker-wrapper">
                             <input type="text" id="country-search" placeholder="Search country (e.g. Russia, China)..."
                                 autocomplete="off">
@@ -836,7 +873,10 @@
                     <p class="help">Manually block specific client IP addresses or view automatically blocked clients.
                     </p>
                     <div class="form-group" style="position: relative;">
-                        <label>Block New Client IP</label>
+                        <div class="label-with-info">
+                            <label>Block New Client IP</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Enter a single IP address to permanently ban it from using this DNS server. Local and public IPs are supported."></i>
+                        </div>
                         <div style="display:flex; gap:10px;">
                             <input type="text" id="manual-client-block-input" placeholder="e.g. 192.168.1.50"
                                 style="flex:1;">
@@ -844,7 +884,10 @@
                         </div>
                     </div>
                     <div class="form-group mt-3">
-                        <label>Currently Blocked Clients</label>
+                        <div class="label-with-info">
+                            <label>Currently Blocked Clients</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="List of manually or automatically blocked clients. Click a tag to remove the block immediately."></i>
+                        </div>
                         <div id="settings-blocked-clients-list" class="tag-container mt-2">
                             <!-- Populated via JS -->
                         </div>
@@ -893,7 +936,7 @@
                         <div class="list-info" style="margin-top:15px">
                             <div class="diag-item">
                                 <span>ShieldDNS Version</span>
-                                <span id="about-shielddns-ver" class="badge official">v1.6.0</span>
+                                <span id="about-shielddns-ver" class="badge official">{{.FullVersion}}</span>
                             </div>
                             <div class="diag-item">
                                 <span>CoreDNS Version</span>
@@ -1297,6 +1340,8 @@
                             style="font-size: 0.85rem; word-break: break-all; font-weight: 500;">-</div>
                         <div id="ip-info-isp"
                             style="font-size: 0.725rem; color: var(--text-secondary); line-height: 1.2;">-</div>
+                        <div id="ip-info-as"
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.4); line-height: 1.2; margin-top: 2px;">-</div>
                     </div>
                 </div>
                 <!-- New Device Card -->

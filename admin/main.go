@@ -12,9 +12,32 @@ import (
 	"syscall"
 )
 
-const Version        = "v1.6.1-dev+336760f"
+var (
+	Version    = "v1.6.0"
+	Subversion = "0"
+	CommitID   = ""
+)
+
+var (
+	FullVersion  string
+	CacheVersion string
+)
 
 func main() {
+	// Construct version strings
+	vBase := strings.TrimPrefix(Version, "v")
+	FullVersion = Version
+	CacheVersion = vBase
+
+	if Subversion != "0" && Subversion != "" {
+		FullVersion += "." + Subversion
+		CacheVersion += "." + Subversion
+	}
+
+	if CommitID != "" {
+		FullVersion += " (" + CommitID + ")"
+	}
+
 	// Initialize Structured Logging
 	handlerOpts := &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -157,9 +180,46 @@ func main() {
 		webRoot = "/var/www/admin"
 	}
 
-	// Static Files: Admin UI at /admin and Public Page at /
-	adminFs := http.FileServer(http.Dir(webRoot + "/admin"))
-	mux.Handle("/admin/", http.StripPrefix("/admin/", adminFs))
+	// Static Files: Admin UI
+	// 1. Specialized handler for the main admin index (template-aware for version injection)
+	mux.HandleFunc("/admin/", func(w http.ResponseWriter, r *http.Request) {
+		// Only handle exactly /admin/ or /admin/index.html as a template
+		if r.URL.Path == "/admin/" || r.URL.Path == "/admin/index.html" {
+			tmpl, err := template.ParseFiles(webRoot + "/admin/index.html")
+			if err != nil {
+				slog.Error("Failed to parse admin index template", "error", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			tmpl.Execute(w, struct {
+				FullVersion  string
+				CacheVersion string
+			}{
+				FullVersion:  FullVersion,
+				CacheVersion: CacheVersion,
+			})
+			return
+		}
+
+		// Otherwise serve as static (js, css, icons)
+		adminFs := http.FileServer(http.Dir(webRoot + "/admin"))
+		http.StripPrefix("/admin/", adminFs).ServeHTTP(w, r)
+	})
+
+	// 2. Specialized handler for sw.js (template-aware for version injection)
+	mux.HandleFunc("/admin/sw.js", func(w http.ResponseWriter, r *http.Request) {
+		// We use text/template to avoid HTML escaping in JS
+		tmpl, err := template.New("sw.js").ParseFiles(webRoot + "/admin/sw.js")
+		if err != nil {
+			slog.Error("Failed to parse service worker template", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/javascript")
+		tmpl.Execute(w, struct{ CacheVersion string }{CacheVersion: CacheVersion})
+	})
+
 	mux.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/", http.StatusMovedPermanently)
 	})
@@ -207,9 +267,16 @@ func main() {
 			signEnabled := config.SignMobileConfig
 			configLock.RUnlock()
 			tmpl.Execute(w, struct {
-				Host        string
-				SignEnabled bool
-			}{Host: host, SignEnabled: signEnabled})
+				Host         string
+				SignEnabled  bool
+				FullVersion  string
+				CacheVersion string
+			}{
+				Host:         host,
+				SignEnabled:  signEnabled,
+				FullVersion:  FullVersion,
+				CacheVersion: CacheVersion,
+			})
 			return
 		}
 
