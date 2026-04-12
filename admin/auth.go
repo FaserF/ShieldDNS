@@ -93,12 +93,12 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Content Security Policy
-		// Allows self-hosted assets, Google Fonts, and FlagCDN for countries
+		// Allows self-hosted assets, Google Fonts, and Verified CDNs
 		// Broadened dynamically for proxy compatibility and frame recovery
 		csp := "default-src 'self'; " +
-			"script-src 'self' 'unsafe-inline'" + dynamicHosts + "; " +
-			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://use.fontawesome.com; " +
-			"font-src 'self' https://fonts.gstatic.com https://use.fontawesome.com; " +
+			"script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net" + dynamicHosts + "; " +
+			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://use.fontawesome.com https://cdnjs.cloudflare.com; " +
+			"font-src 'self' https://fonts.gstatic.com https://use.fontawesome.com https://cdnjs.cloudflare.com; " +
 			"img-src 'self' data: https://flagcdn.com https://raw.githubusercontent.com" + dynamicHosts + "; " +
 			"connect-src 'self' https://api.github.com" + dynamicHosts + "; " +
 			"worker-src 'self'; " +

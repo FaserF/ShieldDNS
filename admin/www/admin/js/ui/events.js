@@ -501,9 +501,11 @@ export function initEvents(fetchConfig) {
     });
 
     const passForm = getEl('password-form');
-        e.preventDefault();
-        const current = getEl('current-password').value;
-        const newPass = getEl('new-password').value;
+    if (passForm) {
+        passForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const current = getEl('current-password').value;
+            const newPass = getEl('new-password').value;
         
         if (newPass.length < 12) return helpers.showAlert('New password must be at least 12 characters');
 
