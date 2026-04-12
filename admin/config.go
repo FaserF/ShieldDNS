@@ -269,6 +269,7 @@ func updateBlocklist(cfg *Config) {
 			}
 		}
 	}
+	saveConfigNoLock()
 	configLock.Unlock()
 
 	// Add Custom Rules

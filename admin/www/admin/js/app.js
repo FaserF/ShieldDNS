@@ -311,17 +311,26 @@ function initModals() {
     });
 }
 
-window.openListDetailsModal = (type, idx) => {
-    const list = type === 'block' ? state.currentConfig.lists[idx] : state.currentConfig.allowlists[idx];
-    if (!list) return;
-
-    getEl('modal-list-name').textContent = list.name;
-    getEl('modal-list-url').textContent = list.url;
-    getEl('modal-list-url').href = list.url;
+window.showListDetails = (list) => {
+    const modal = getEl('list-details-modal');
+    if (!modal || !list) return;
+    getEl('modal-list-name').textContent = list.name || 'List Details';
+    const urlEl = getEl('modal-list-url');
+    urlEl.textContent = list.url || 'No URL';
+    urlEl.href = list.url || '#';
     getEl('modal-list-entries').textContent = (list.entries || 0).toLocaleString();
-    getEl('modal-list-updated').textContent = list.last_updated ? new Date(list.last_updated).toLocaleString() : 'Never';
-    
-    getEl('list-details-modal').classList.remove('hidden');
+    getEl('modal-list-updated').textContent = (!list.updated_at || list.updated_at.startsWith('0001')) ? 'Never' : new Date(list.updated_at).toLocaleString();
+    modal.classList.remove('hidden');
+};
+
+window.openListDetailsModal = (idx, type) => {
+    const list = type === 'block' ? state.currentConfig.lists[idx] : state.currentConfig.allowlists[idx];
+    window.showListDetails(list);
+};
+
+window.showPresetDetails = (idx, type) => {
+    const list = type === 'block' ? (state.blockPresets || [])[idx] : (state.allowPresets || [])[idx];
+    window.showListDetails(list);
 };
 
 window.removeList = async (idx, type, event) => {
@@ -482,18 +491,6 @@ window.removeCountry = async (code, event) => {
     }
 };
 
-window.openListDetailsModal = (idx, type) => {
-    const list = type === 'block' ? state.currentConfig.lists[idx] : state.currentConfig.allowlists[idx];
-    const modal = getEl('list-details-modal');
-    if (!modal || !list) return;
-    getEl('modal-list-name').textContent = list.name || 'List Details';
-    const urlEl = getEl('modal-list-url');
-    urlEl.textContent = list.url || 'No URL';
-    urlEl.href = list.url || '#';
-    getEl('modal-list-entries').textContent = (list.entries || 0).toLocaleString();
-    getEl('modal-list-updated').textContent = list.updated_at ? new Date(list.updated_at).toLocaleString() : 'Never';
-    modal.classList.remove('hidden');
-};
 
 window.clearSystemLogs = (event) => {
     const btn = event?.currentTarget;

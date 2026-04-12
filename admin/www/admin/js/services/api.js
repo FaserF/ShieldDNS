@@ -39,6 +39,7 @@ export const endpoints = {
     statsHistory: '/api/stats/history',
     config: '/api/config',
     queries: '/api/queries',
+    search: '/api/search',
     events: '/api/events',
     tokens: '/api/tokens',
     createToken: '/api/tokens/create',

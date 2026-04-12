@@ -477,4 +477,33 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
     getEl('domain-info-modal').classList.remove('hidden');
 }
 
-// Remove duplicate renderAPIKeys
+export function renderProtectionResult(res, domain) {
+    const el = getEl('search-result');
+    if (!el) return;
+    
+    el.classList.remove('hidden');
+    if (res.blocked) {
+        const lists = (res.lists || []).join(', ') || 'Custom Blocklist';
+        el.innerHTML = `
+            <div class="result-card blocked">
+                <i class="fas fa-shield-alt icon-blocked"></i>
+                <div class="result-details">
+                    <span class="url-text">${helpers.escapeHTML(domain)}</span>
+                    <span class="status-msg">is BLOCKED by ${lists}</span>
+                </div>
+                <button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${helpers.escapeHTML(domain)}', event)">Whitelist</button>
+            </div>
+        `;
+    } else {
+        el.innerHTML = `
+            <div class="result-card allowed">
+                <i class="fas fa-check-circle icon-allowed"></i>
+                <div class="result-details">
+                    <span class="url-text">${helpers.escapeHTML(domain)}</span>
+                    <span class="status-msg">is ALLOWED and secure.</span>
+                </div>
+                <button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${helpers.escapeHTML(domain)}', event)">Block</button>
+            </div>
+        `;
+    }
+}

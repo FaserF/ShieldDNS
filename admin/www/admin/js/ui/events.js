@@ -9,6 +9,30 @@ import { showActivityOverlay, hideActivityOverlay } from './activity.js';
 import * as fetchService from '../services/fetch.js';
 
 export function initEvents(fetchConfig) {
+    // Domain Protection Switcher
+    const searchBtn = getEl('search-btn');
+    const searchInput = getEl('domain-search');
+    
+    const handleCheck = async () => {
+        const domain = searchInput.value.trim();
+        if (!domain) return;
+        
+        helpers.setBtnLoading(searchBtn, true, 'Checking...');
+        try {
+            const res = await api.apiFetch(`${api.endpoints.search}?q=${encodeURIComponent(domain)}`);
+            import('./renderers.js').then(m => m.renderProtectionResult(res, domain));
+        } catch (e) {
+            helpers.showAlert('Check failed: ' + e.message);
+        } finally {
+            helpers.setBtnLoading(searchBtn, false);
+        }
+    };
+
+    searchBtn?.addEventListener('click', handleCheck);
+    searchInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleCheck();
+    });
+
     // General Update/Refresh
     const refreshBtn = getEl('refresh-btn');
     refreshBtn?.addEventListener('click', async () => {

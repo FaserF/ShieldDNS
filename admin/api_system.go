@@ -545,6 +545,12 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.APIKeys == nil && config.APIKeys != nil {
 			newConfig.APIKeys = config.APIKeys
 		}
+		if len(newConfig.Lists) == 0 && len(config.Lists) > 0 {
+			newConfig.Lists = config.Lists
+		}
+		if len(newConfig.Allowlists) == 0 && len(config.Allowlists) > 0 {
+			newConfig.Allowlists = config.Allowlists
+		}
 		if newConfig.AdminPasswordHashed == "" {
 			newConfig.AdminPasswordHashed = config.AdminPasswordHashed
 		}

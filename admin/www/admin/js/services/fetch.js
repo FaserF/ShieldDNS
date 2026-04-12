@@ -75,12 +75,14 @@ export async function fetchDiagnostics() {
 export async function fetchPresets() {
     try {
         const presets = await api.apiFetch(api.endpoints.presets);
+        state.blockPresets = presets; // Store for modal lookup
         const container = getEl('preset-items');
         if (!container) return;
         container.innerHTML = '';
 
         const grouped = {};
-        (presets || []).forEach(p => {
+        (presets || []).forEach((p, idx) => {
+            p._idx = idx; // Attach index for lookup
             const cat = p.category || 'Other';
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(p);
@@ -96,26 +98,30 @@ export async function fetchPresets() {
             container.appendChild(catHeader);
 
             grouped[cat].forEach(preset => {
-            const presetUrl = (preset.url || '').toLowerCase().trim();
-            const isAdded = (state.currentConfig.lists || []).some(l => 
-                (l.url || '').toLowerCase().trim() === presetUrl
-            );
-            
-            const card = document.createElement('div');
-            card.className = 'preset-card';
-            const btn = document.createElement('button');
-            btn.className = 'btn btn-sm secondary';
-            if (isAdded) {
-                btn.textContent = 'Added ✓';
-                btn.disabled = true;
-                btn.style.opacity = '0.7';
-            } else {
-                btn.textContent = 'Add';
-                btn.onclick = (e) => window.addPreset(preset.name, preset.url, e);
-            }
-            card.innerHTML = `<div class="preset-info"><h3>${preset.name}</h3></div>`;
-            card.appendChild(btn);
-            container.appendChild(card);
+                const presetUrl = (preset.url || '').toLowerCase().trim();
+                const isAdded = (state.currentConfig.lists || []).some(l => 
+                    (l.url || '').toLowerCase().trim() === presetUrl
+                );
+                
+                const card = document.createElement('div');
+                card.className = 'preset-card';
+                card.onclick = () => window.showPresetDetails(preset._idx, 'block');
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-sm secondary';
+                if (isAdded) {
+                    btn.textContent = 'Added ✓';
+                    btn.disabled = true;
+                    btn.style.opacity = '0.7';
+                } else {
+                    btn.textContent = 'Add';
+                    btn.onclick = (e) => {
+                        e.stopPropagation();
+                        window.addPreset(preset.name, preset.url, e);
+                    };
+                }
+                card.innerHTML = `<div class="preset-info"><h3>${preset.name}</h3></div>`;
+                card.appendChild(btn);
+                container.appendChild(card);
             });
         });
     } catch (e) { console.error('Presets fetch failed', e); }
@@ -124,12 +130,14 @@ export async function fetchPresets() {
 export async function fetchAllowlistPresets() {
     try {
         const presets = await api.apiFetch(api.endpoints.allowlistPresets);
+        state.allowPresets = presets; // Store for modal lookup
         const container = getEl('preset-allow-items');
         if (!container) return;
         container.innerHTML = '';
 
         const grouped = {};
-        (presets || []).forEach(p => {
+        (presets || []).forEach((p, idx) => {
+            p._idx = idx;
             const cat = p.category || 'Official';
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(p);
@@ -152,6 +160,7 @@ export async function fetchAllowlistPresets() {
 
                 const card = document.createElement('div');
                 card.className = 'preset-card';
+                card.onclick = () => window.showPresetDetails(preset._idx, 'allow');
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-sm secondary';
                 if (isAdded) {
@@ -160,7 +169,10 @@ export async function fetchAllowlistPresets() {
                     btn.style.opacity = '0.7';
                 } else {
                     btn.textContent = 'Add';
-                    btn.onclick = (e) => window.addAllowPreset(preset.name, preset.url, e);
+                    btn.onclick = (e) => {
+                        e.stopPropagation();
+                        window.addAllowPreset(preset.name, preset.url, e);
+                    };
                 }
                 card.innerHTML = `<div class="preset-info"><h3>${preset.name}</h3></div>`;
                 card.appendChild(btn);
