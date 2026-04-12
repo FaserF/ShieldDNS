@@ -231,23 +231,47 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
 			if req.Action == "recommended" {
 				configLock.Lock()
-				// Add DefaultPresets to config.Lists if they don't exist
+				
+				// Apply Recommended Blocklists
 				for _, rec := range DefaultPresets {
+					if !rec.IsRecommended {
+						continue
+					}
 					exists := false
-					for _, l := range config.Lists {
+					for i, l := range config.Lists {
 						if l.URL == rec.URL {
+							config.Lists[i].Enabled = true
 							exists = true
 							break
 						}
 					}
 					if !exists {
-						config.Lists = append(config.Lists, List{
-							Name:    rec.Name,
-							URL:     rec.URL,
-							Enabled: true,
-						})
+						newList := rec
+						newList.Enabled = true
+						config.Lists = append(config.Lists, newList)
 					}
 				}
+
+				// Apply Recommended Allowlists
+				for _, rec := range DefaultAllowlists {
+					if !rec.IsRecommended {
+						continue
+					}
+					exists := false
+					for i, l := range config.Allowlists {
+						if l.URL == rec.URL {
+							config.Allowlists[i].Enabled = true
+							exists = true
+							break
+						}
+					}
+					if !exists {
+						newList := rec
+						newList.Enabled = true
+						config.Allowlists = append(config.Allowlists, newList)
+					}
+				}
+
 				saveConfigNoLock()
 				configLock.Unlock()
 				go updateBlocklist(nil)

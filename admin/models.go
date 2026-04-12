@@ -55,12 +55,13 @@ type APIKey struct {
 }
 
 type List struct {
-	Name      string    `json:"name"`
-	URL       string    `json:"url"`
-	Enabled   bool      `json:"enabled"`
-	Category  string    `json:"category,omitempty"`
-	Entries   int       `json:"entries"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Name          string    `json:"name"`
+	URL           string    `json:"url"`
+	Enabled       bool      `json:"enabled"`
+	Category      string    `json:"category,omitempty"`
+	IsRecommended bool      `json:"is_recommended"`
+	Entries       int       `json:"entries"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Stats struct {
