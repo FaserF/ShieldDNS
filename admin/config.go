@@ -58,6 +58,12 @@ func loadConfig() {
 	if err == nil {
 		// This will overwrite defaults with values from file
 		json.Unmarshal(file, &config)
+		if config.Lists == nil {
+			config.Lists = []List{}
+		}
+		if config.Allowlists == nil {
+			config.Allowlists = []List{}
+		}
 	} else {
 		isNew = true
 		slog.Info("Creating default config", "path", ConfigPath)

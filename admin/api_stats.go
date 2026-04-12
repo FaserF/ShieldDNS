@@ -132,9 +132,17 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// To ensure high performance, we only search within the last 2000 entries if no other strict filters are applied.
-	// This prevents full table scans on domain LIKE '%...%' which are unavoidable in SQLite without FTS.
-	query := "SELECT timestamp, domain, type, status, client_ip FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) WHERE 1=1"
+	// Optimization: If a specific client_ip is provided, we can skip the subquery/limit-2000 optimization
+	// because client_ip is indexed and exact matches are very fast.
+	var baseQuery string
+	if clientIP != "" {
+		baseQuery = "SELECT timestamp, domain, type, status, client_ip FROM queries WHERE 1=1"
+	} else {
+		// General search/overview: only search within last 2000 for performance
+		baseQuery = "SELECT timestamp, domain, type, status, client_ip FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) WHERE 1=1"
+	}
+	
+	query := baseQuery
 	var args []interface{}
 
 	if search != "" {

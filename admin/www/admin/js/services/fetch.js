@@ -193,13 +193,17 @@ export async function fetchCountries() {
 
 export async function fetchIPDetails(ip) {
     try {
-        const [stats, topDomains, topBlocked, queries] = await Promise.all([
+        const [stats, ipInfo, topDomains, topBlocked, history] = await Promise.all([
             api.apiFetch(`${api.endpoints.clientStats}?ip=${ip}`),
+            api.apiFetch(`${api.endpoints.ipInfo}?ip=${ip}`),
             api.apiFetch(`${api.endpoints.clientTopDomains}?ip=${ip}`),
             api.apiFetch(`${api.endpoints.clientTopBlocked}?ip=${ip}`),
-            api.apiFetch(`${api.endpoints.queries}?search=${ip}&limit=20`)
+            api.apiFetch(`${api.endpoints.queries}?client_ip=${ip}&limit=50`)
         ]);
-        render.renderIPDetails(ip, stats, topDomains, topBlocked, queries.data || []);
+        
+        // Merge IP info into stats for the renderer
+        const mergedStats = { ...stats, ...ipInfo };
+        render.renderIPDetails(ip, mergedStats, topDomains, topBlocked, history.data || history || []);
     } catch (e) {
         console.error('IP details fetch failed', e);
         helpers.showAlert('Failed to fetch IP details: ' + e.message);

@@ -113,8 +113,8 @@ export function initEvents(fetchConfig) {
                 getEl('api-key-result').classList.remove('hidden');
                 getEl('api-key-value').textContent = res.token;
                 helpers.showToast('API Key generated!');
-                // Wait a bit then refresh list
-                setTimeout(fetchConfig, 500); 
+                // Immediate refresh of the table
+                fetchService.fetchAPIKeys(); 
             } else {
                 throw new Error('No token returned from server');
             }
@@ -202,7 +202,7 @@ export function initEvents(fetchConfig) {
         const btn = e.target;
         helpers.setBtnLoading(btn, true, 'Resetting...');
         try {
-            await api.apiFetch(api.endpoints.reset, { method: 'POST', body: JSON.stringify({ scope: 'lists' }) });
+            await api.apiFetch(api.endpoints.resetLists, { method: 'POST' });
             helpers.showToast('Lists restored to defaults');
             // Force immediate reload to update UI
             setTimeout(fetchConfig, 800);
@@ -219,12 +219,11 @@ export function initEvents(fetchConfig) {
         const btn = event.currentTarget;
         helpers.setBtnLoading(btn, true, '');
         try {
-            await api.apiFetch(api.endpoints.deleteToken, { 
-                method: 'POST', 
-                body: JSON.stringify({ id }) 
+            await api.apiFetch(`${api.endpoints.deleteToken}?id=${id}`, { 
+                method: 'DELETE'
             });
             helpers.showToast('API Key deleted');
-            setTimeout(fetchConfig, 500);
+            fetchService.fetchAPIKeys();
         } catch (err) {
             helpers.showAlert('Failed to delete token: ' + err.message);
             helpers.setBtnLoading(btn, false);

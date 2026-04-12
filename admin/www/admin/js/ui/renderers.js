@@ -47,7 +47,12 @@ export function createQueryRow(q) {
         `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')" title="Whitelist Domain">Allow</button>` :
         `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')" title="Blacklist Domain">Block</button>`;
 
-    const statusClass = q.status === 'Blocked' ? 'danger' : 'official';
+    let statusClass = 'official';
+    if (q.status.includes('Blocked')) {
+        statusClass = 'danger';
+    } else if (q.status === 'Allowed') {
+        statusClass = 'success';
+    }
     const displayIp = q.client_alias ? `${q.client_alias} (${q.client_ip})` : q.client_ip;
 
     row.innerHTML = `
@@ -320,15 +325,28 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     
     setTxt('ip-info-title', stats.alias || ip);
     setTxt('ip-info-subtitle', stats.alias ? ip : '');
-    setTxt('ip-info-total', stats.total_queries?.toLocaleString() || '0');
-    setTxt('ip-info-blocked', stats.blocked_queries?.toLocaleString() || '0');
+    setTxt('ip-info-total', stats.total?.toLocaleString() || '0');
+    setTxt('ip-info-blocked', stats.blocked?.toLocaleString() || '0');
     
-    const pct = stats.total_queries > 0 ? (stats.blocked_queries / stats.total_queries * 100) : 0;
+    const pct = stats.total > 0 ? (stats.blocked / stats.total * 100) : 0;
     const bar = getEl('ip-info-blocked-bar');
     if (bar) bar.style.width = pct + '%';
     
     setTxt('ip-info-hostname', stats.hostname || '-');
     setTxt('ip-info-manufacturer', stats.manufacturer || '-');
+    setTxt('ip-info-mac', stats.mac || '-');
+    
+    // Location Info
+    setTxt('ip-info-country', stats.country || '-');
+    setTxt('ip-info-city', stats.city || '-');
+    const flagEl = getEl('ip-info-flag');
+    if (flagEl) {
+        if (stats.country_code) {
+            flagEl.innerHTML = `<img src="https://flagcdn.com/w40/${stats.country_code.toLowerCase()}.png" style="height: 14px; border-radius: 2px;">`;
+        } else {
+            flagEl.innerHTML = '';
+        }
+    }
     
     getEl('ip-info-top-domains').innerHTML = (topDomains || []).map(d => `
         <tr>
@@ -364,12 +382,12 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
     const setTxt = (id, txt) => { const el = getEl(id); if (el) el.textContent = txt; };
 
     setTxt('domain-info-title', domain);
-    setTxt('domain-info-total', stats.total_queries?.toLocaleString() || '0');
-    setTxt('domain-info-blocked', stats.blocked_queries?.toLocaleString() || '0');
-    setTxt('domain-info-clients', stats.unique_clients || '0');
+    setTxt('domain-info-total', stats.total?.toLocaleString() || '0');
+    setTxt('domain-info-blocked', stats.blocked?.toLocaleString() || '0');
+    setTxt('domain-info-clients', stats.clients_count || '0');
     setTxt('domain-info-category', stats.category || 'General');
     
-    const blockRate = stats.total_queries > 0 ? (stats.blocked_queries / stats.total_queries * 100) : 0;
+    const blockRate = stats.total > 0 ? (stats.blocked / stats.total * 100) : 0;
     const ratioEl = getEl('domain-info-ratio') || getEl('domain-info-block-rate');
     if (ratioEl) ratioEl.textContent = blockRate.toFixed(1) + '%';
     
@@ -413,6 +431,25 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
     getEl('domain-info-modal').classList.remove('hidden');
 }
 
-
-
-
+export function renderAPIKeys(keys) {
+    const container = getEl('api-keys-list-container');
+    if (!container) return;
+    
+    container.innerHTML = (keys || []).map(k => {
+        const createdDate = (!k.created_at || k.created_at.startsWith('0001')) ? 'Unknown' : new Date(k.created_at).toLocaleDateString();
+        const lastUsed = (!k.last_used || k.last_used.startsWith('0001')) ? 'Never' : new Date(k.last_used).toLocaleString();
+        
+        return `
+            <tr>
+                <td>${k.name}</td>
+                <td>${(k.permissions || []).map(p => `<span class="badge secondary">${p}</span>`).join(' ')}</td>
+                <td>${createdDate}</td>
+                <td>${lastUsed}</td>
+                <td>
+                    <button class="btn btn-sm secondary" onclick="window.editAPIKey('${k.id}')">Edit</button>
+                    <button class="btn btn-sm danger" onclick="window.deleteAPIKey('${k.id}')">Delete</button>
+                </td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="5" class="help">No API keys generated.</td></tr>';
+}

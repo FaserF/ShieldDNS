@@ -58,6 +58,7 @@ export const endpoints = {
     removeRule: '/api/rules/remove',
     fullReload: '/api/system/full-reload',
     reset: '/api/reset',
+    resetLists: '/api/config/reset-lists',
     clientBlock: '/api/client/block',
     clientAlias: '/api/client/alias',
     clientStats: '/api/client/stats',

@@ -339,7 +339,12 @@ func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 		},
 		"selection_mode":  selectionMode,
 		"upstream_health": upstreamHealth,
-		"system":          getSystemStats(),
+	}
+
+	// Merge system stats into info (flatten)
+	systemStats := getSystemStats()
+	for k, v := range systemStats {
+		info[k] = v
 	}
 
 	w.Header().Set("Content-Type", "application/json")

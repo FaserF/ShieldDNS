@@ -131,13 +131,14 @@ window.showIPDetails = (ip) => fetchService.fetchIPDetails(ip);
 
 window.addPreset = async (name, url, event) => {
     const listUrl = (url || '').toLowerCase().trim();
-    if (state.currentConfig.lists.some(l => (l.url || '').toLowerCase().trim() === listUrl)) {
+    if ((state.currentConfig.lists || []).some(l => (l.url || '').toLowerCase().trim() === listUrl)) {
         return helpers.showToast('List already added', 'info');
     }
     
     const btn = event?.currentTarget;
     helpers.setBtnLoading(btn, true, 'Adding...');
-    
+
+    if (!state.currentConfig.lists) state.currentConfig.lists = [];
     state.currentConfig.lists.push({ name, url, enabled: true });
     try {
         await events.saveConfig(fetchService.fetchConfig);
@@ -152,13 +153,14 @@ window.addPreset = async (name, url, event) => {
 
 window.addAllowPreset = async (name, url, event) => {
     const listUrl = (url || '').toLowerCase().trim();
-    if (state.currentConfig.allowlists.some(l => (l.url || '').toLowerCase().trim() === listUrl)) {
+    if ((state.currentConfig.allowlists || []).some(l => (l.url || '').toLowerCase().trim() === listUrl)) {
         return helpers.showToast('Allowlist already added', 'info');
     }
     
     const btn = event?.currentTarget;
     helpers.setBtnLoading(btn, true, 'Adding...');
 
+    if (!state.currentConfig.allowlists) state.currentConfig.allowlists = [];
     state.currentConfig.allowlists.push({ name, url, enabled: true, category: 'Official' });
     try {
         await events.saveConfig(fetchService.fetchConfig);

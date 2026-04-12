@@ -739,7 +739,7 @@ func parseLogLine(line string) {
 	// CoreDNS acl plugin returns REFUSED for blocked clients/CIDRs
 	if rcode == "REFUSED" {
 		isBlocked = true
-		status = "Blocked (Geo Block)"
+		status = "Blocked (Policy)"
 
 		// Check if it was a specifically blocked client IP
 		configLock.RLock()
