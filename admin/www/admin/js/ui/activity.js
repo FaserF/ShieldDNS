@@ -61,9 +61,21 @@ const startLogStream = (container) => {
     logSource = new EventSource('/api/system-logs');
     logSource.onmessage = (event) => {
         if (!container) return;
+        
+        const filter = getEl('activity-log-filter')?.value || 'ALL';
+        const msg = event.data;
+        const isError = msg.includes('[ERROR]');
+        const isWarn = msg.includes('[WARN]');
+
+        if (filter === 'ERROR' && !isError) return;
+        if (filter === 'WARN' && !isError && !isWarn) return;
+
         const line = document.createElement('div');
         line.className = 'log-line';
-        line.textContent = `[${new Date().toLocaleTimeString()}] ${event.data}`;
+        if (isError) line.classList.add('error');
+        if (isWarn) line.classList.add('warn');
+        
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
         container.appendChild(line);
         container.scrollTop = container.scrollHeight;
         

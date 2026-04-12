@@ -642,6 +642,13 @@
                     <h2>API Keys</h2>
                     <p class="help">Manage API keys for third-party monitoring and automation. Tokens are shown only
                         once.</p>
+                    <div class="table-header-actions">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="api-keys-search" placeholder="Search API keys...">
+                        </div>
+                        <button id="create-api-key-btn" class="btn btn-primary">Generate New Key</button>
+                    </div>
                     <div class="card overflow-x">
                         <table class="query-table">
                             <thead>
@@ -658,8 +665,6 @@
                             </tbody>
                         </table>
                     </div>
-                    <button id="create-api-key-btn" class="btn btn-primary" style="margin-top: 15px;">Generate New
-                        Key</button>
                 </div>
 
                 <div class="settings-section">
@@ -1358,6 +1363,30 @@
             </div>
         </div>
     </div>
+
+    <!-- System Activity Modal -->
+    <div id="activity-modal" class="modal hidden">
+        <div class="modal-content large">
+            <div class="activity-header">
+                <div>
+                    <h2 id="activity-title">Activity Console</h2>
+                    <p id="activity-desc" class="help">Live feedback während Operationen...</p>
+                </div>
+                <div class="activity-controls">
+                    <select id="activity-log-filter" class="form-control sm">
+                        <option value="ALL">All Levels</option>
+                        <option value="WARN">Warnings</option>
+                        <option value="ERROR">Errors Only</option>
+                    </select>
+                </div>
+            </div>
+            <div id="activity-log-stream" class="log-container"></div>
+            <div class="modal-footer">
+                <button id="activity-close-btn" class="btn secondary">Done</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

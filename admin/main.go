@@ -50,6 +50,9 @@ func main() {
 
 	// Start health checker
 	go startHealthChecker()
+	go startDNSWatchdog()
+	
+	// Server setup
 	go startDBWorker()
 	go startLogWorker()
 	go startAbuseCleanup()

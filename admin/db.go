@@ -51,6 +51,8 @@ func initDB() {
 		CREATE INDEX IF NOT EXISTS idx_client ON queries(client_ip);
 		CREATE INDEX IF NOT EXISTS idx_domain ON queries(domain);
 		CREATE INDEX IF NOT EXISTS idx_timestamp_status ON queries(timestamp, status);
+		CREATE INDEX IF NOT EXISTS idx_queries_client_ts ON queries(client_ip, timestamp);
+		CREATE INDEX IF NOT EXISTS idx_queries_domain_ts ON queries(domain, timestamp);
 		CREATE TABLE IF NOT EXISTS clients (
 			ip TEXT PRIMARY KEY,
 			user_agent TEXT,

@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -28,7 +27,7 @@ type apiKeyQuota struct {
 
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 1. Try API Token Authentication first (for Drittsysteme)
+		// 1. Try API Token Authentication first
 		token := r.Header.Get("X-API-Key")
 		if token == "" {
 			authHeader := r.Header.Get("Authorization")
@@ -58,7 +57,7 @@ func authMiddleware(next http.Handler) http.Handler {
 				return
 			}
 
-			// 1b. Validate & Update LastUsed (Throttled)
+			// 1b. Validate & Update LastUsed
 			var matchedKey APIKey
 			found := false
 
@@ -107,7 +106,7 @@ func authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// 2. Try Session Cookie Authentication (for Admin UI)
+		// 2. Try Session Cookie Authentication
 		configLock.RLock()
 		hasPwd := config.AdminPasswordHashed != ""
 		configLock.RUnlock()
@@ -121,6 +120,7 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		cookie, err := r.Cookie(CookieName)
 		sessionLock.RLock()
+		// Secure session comparison
 		valid := err == nil && cookie.Value == sessionToken && sessionToken != ""
 		sessionLock.RUnlock()
 
@@ -129,6 +129,15 @@ func authMiddleware(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized", "code": "UNAUTHORIZED"})
 			return
+		}
+
+		// 3. CSRF Protection for state-changing requests
+		if r.Method == http.MethodPost || r.Method == http.MethodDelete || r.Method == http.MethodPut {
+			if r.Header.Get("X-Shield-Request") == "" {
+				slog.Warn("State-changing request rejected: Missing X-Shield-Request header (CSRF protection)", "method", r.Method, "path", r.URL.Path)
+				http.Error(w, "State-changing requests require X-Shield-Request header", http.StatusBadRequest)
+				return
+			}
 		}
 
 		next.ServeHTTP(w, r)
@@ -235,9 +244,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	failureLock.Unlock()
 
 	// Generate session
-	b := make([]byte, 32)
-	rand.Read(b)
-	token := hex.EncodeToString(b)
+	token := generateToken()
 
 	sessionLock.Lock()
 	sessionToken = token
@@ -352,21 +359,19 @@ func getRequiredPermission(r *http.Request) string {
 		return "read:stats"
 	case strings.HasPrefix(path, "/api/metrics"):
 		return "read:metrics"
-	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-blocked"), strings.HasPrefix(path, "/api/top-clients"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"):
+	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-blocked"), strings.HasPrefix(path, "/api/top-clients"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"), strings.HasPrefix(path, "/api/ip-history"):
 		return "read:logs"
-	case strings.HasPrefix(path, "/api/system-logs"), strings.HasPrefix(path, "/api/diagnostics"), strings.HasPrefix(path, "/api/backup"):
+	case strings.HasPrefix(path, "/api/system-logs"), strings.HasPrefix(path, "/api/diagnostics"), strings.HasPrefix(path, "/api/backup"), strings.HasPrefix(path, "/api/events"):
 		return "read:system"
-	case strings.HasPrefix(path, "/api/filtering"), strings.HasPrefix(path, "/api/rules"):
+	case strings.HasPrefix(path, "/api/filtering"), strings.HasPrefix(path, "/api/rules"), strings.HasPrefix(path, "/api/full-reload"), strings.HasPrefix(path, "/api/restore"), strings.HasPrefix(path, "/api/reset"), strings.HasPrefix(path, "/api/restart-dns"):
+		return "write:filtering"
+	case strings.HasPrefix(path, "/api/tokens"), strings.HasPrefix(path, "/api/keys"):
+		return "write:system"
+	case strings.HasPrefix(path, "/api/config"):
 		if r.Method == http.MethodGet {
-			return "read:stats"
+			return "read:system"
 		}
 		return "write:filtering"
-	case strings.HasPrefix(path, "/api/config"):
-		if r.Method == http.MethodPost {
-			return "write:config" // Not exposed via tokens usually, but for RBAC safety
-		}
-		return "read:stats"
-	default:
-		return "read:stats"
 	}
+	return "read:all"
 }

@@ -78,3 +78,47 @@ func TestHandleLoginRateLimit(t *testing.T) {
 	}
 	failureLock.Unlock()
 }
+
+func TestCSRFProtection(t *testing.T) {
+	// Setup session
+	token := "valid_session_token"
+	sessionLock.Lock()
+	sessionToken = token
+	sessionLock.Unlock()
+
+	// Handler with AuthMiddleware
+	handler := authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// 1. POST without header should fail
+	req, _ := http.NewRequest("POST", "/api/rules", nil)
+	req.AddCookie(&http.Cookie{Name: CookieName, Value: token})
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("POST without X-Shield-Request: expected 400, got %d", rr.Code)
+	}
+
+	// 2. POST with header should succeed
+	req, _ = http.NewRequest("POST", "/api/rules", nil)
+	req.AddCookie(&http.Cookie{Name: CookieName, Value: token})
+	req.Header.Set("X-Shield-Request", "1")
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("POST with X-Shield-Request: expected 200, got %d", rr.Code)
+	}
+
+	// 3. GET should not require header
+	req, _ = http.NewRequest("GET", "/api/stats", nil)
+	req.AddCookie(&http.Cookie{Name: CookieName, Value: token})
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("GET without header: expected 200, got %d", rr.Code)
+	}
+}

@@ -139,6 +139,14 @@ export function initEvents(fetchConfig) {
     getEl('cancel-api-key-btn')?.addEventListener('click', () => getEl('api-key-modal')?.classList.add('hidden'));
     getEl('close-api-key-modal-btn')?.addEventListener('click', () => getEl('api-key-modal')?.classList.add('hidden'));
 
+    // API Key search
+    getEl('api-keys-search')?.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        const keys = state.currentConfig.api_keys || [];
+        const filtered = keys.filter(k => k.name.toLowerCase().includes(query));
+        import('./renderers.js').then(m => m.renderAPIKeys(filtered));
+    });
+
     // List Management Modals
     getEl('add-list-btn')?.addEventListener('click', () => {
         getEl('modal-title').textContent = 'Add Blocklist';
