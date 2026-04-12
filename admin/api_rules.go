@@ -41,10 +41,14 @@ func handleToggleFiltering(w http.ResponseWriter, r *http.Request) {
 func handleFilteringStatus(w http.ResponseWriter, r *http.Request) {
 	configLock.RLock()
 	enabled := config.FilteringEnabled
+	abuseEnabled := config.AbuseDetectionEnabled
 	configLock.RUnlock()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"enabled": enabled})
+	json.NewEncoder(w).Encode(map[string]bool{
+		"enabled":                 enabled,
+		"abuse_detection_enabled": abuseEnabled,
+	})
 }
 
 func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
