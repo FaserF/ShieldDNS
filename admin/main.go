@@ -142,9 +142,6 @@ func main() {
 	})
 	mux.Handle("/api/health", authMiddleware(http.HandlerFunc(handleHealth)))
 
-	// Static files (Admin UI)
-	mux.Handle("/", http.FileServer(http.Dir("www")))
-
 	// Get cert/key paths
 	certFile := os.Getenv("CERT_FILE")
 	if certFile == "" {

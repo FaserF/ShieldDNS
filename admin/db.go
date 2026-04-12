@@ -30,19 +30,17 @@ func initDB() {
 		os.Exit(1)
 	}
 
-	// Performance Tuning: SQLite in WAL mode handles multiple readers well, 
-	// but we limit connections to avoid file handle exhaustion and memory overhead.
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
+	// Performance Tuning: SQLite handles multiple readers in WAL mode,
+	// but is limited to a single writer. For ShieldDNS, we use a single
+	// open connection to eliminate SQLITE_BUSY contention across goroutines.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(1 * time.Hour)
 
 	_, err = db.Exec(`
+		PRAGMA busy_timeout=10000;
 		PRAGMA journal_mode=WAL;
 		PRAGMA synchronous=NORMAL;
-		PRAGMA cache_size=-64000;
-		PRAGMA mmap_size=268435456;
-		PRAGMA temp_store=MEMORY;
-		PRAGMA busy_timeout=10000;
 		PRAGMA auto_vacuum=INCREMENTAL;
 		CREATE TABLE IF NOT EXISTS queries (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
