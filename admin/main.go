@@ -12,7 +12,7 @@ import (
 	"syscall"
 )
 
-const Version        = "v1.6.0"
+const Version        = "v1.6.1-dev+336760f"
 
 func main() {
 	// Initialize Structured Logging
