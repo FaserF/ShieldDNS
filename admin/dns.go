@@ -566,7 +566,14 @@ func startCoreDNS() {
 func restartCoreDNS() {
 	if dnsCmd != nil && dnsCmd.Process != nil {
 		slog.Info("Restarting CoreDNS to flush cache and apply updated lists")
-		dnsCmd.Process.Kill()
+		// Try graceful termination first (SIGINT/SIGTERM)
+		dnsCmd.Process.Signal(os.Interrupt)
+		
+		// Start a watchdog to force kill if it hangs
+		go func(p *os.Process) {
+			time.Sleep(2 * time.Second)
+			p.Kill() // Fallback
+		}(dnsCmd.Process)
 	}
 }
 

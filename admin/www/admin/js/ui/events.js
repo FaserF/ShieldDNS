@@ -6,6 +6,7 @@ import * as helpers from './helpers.js';
 import { state, getEl } from '../core/state.js';
 import { renderConfig } from './renderers.js';
 import { showActivityOverlay, hideActivityOverlay } from './activity.js';
+import * as fetchService from '../services/fetch.js';
 
 export function initEvents(fetchConfig) {
     // General Update/Refresh
@@ -118,7 +119,7 @@ export function initEvents(fetchConfig) {
                 getEl('api-key-value').textContent = res.token;
                 helpers.showToast('API Key generated!');
                 // Immediate refresh of the table
-                fetchService.fetchAPIKeys(); 
+                fetchService.fetchAPIKeys();
             } else {
                 throw new Error('No token returned from server');
             }

@@ -185,40 +185,54 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
-	var req struct{ Password string }
+	ip := strings.Split(r.RemoteAddr, ":")[0]
+
+	failureLock.Lock()
+	if loginFailures[ip] >= 10 {
+		failureLock.Unlock()
+		slog.Warn("Login blocked due to too many failures", "ip", ip)
+		http.Error(w, "Too many login attempts. Please try again later.", http.StatusTooManyRequests)
+		return
+	}
+	failureLock.Unlock()
+
+	var req struct {
+		Password string `json:"password"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	ip := strings.Split(r.RemoteAddr, ":")[0]
-	failureLock.Lock()
-	if loginFailures[ip] >= 5 {
-		failureLock.Unlock()
-		http.Error(w, "Too many login attempts. Please wait.", http.StatusTooManyRequests)
-		return
-	}
-	failureLock.Unlock()
-
 	configLock.RLock()
-	err := bcrypt.CompareHashAndPassword([]byte(config.AdminPasswordHashed), []byte(req.Password))
+	hashed := config.AdminPasswordHashed
 	configLock.RUnlock()
 
+	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(req.Password))
 	if err != nil {
 		failureLock.Lock()
 		loginFailures[ip]++
+		failureLock.Unlock()
+
+		// Decay failure count after 5 minutes
 		go func(ip string) {
-			time.Sleep(1 * time.Minute)
+			time.Sleep(5 * time.Minute)
 			failureLock.Lock()
-			loginFailures[ip]--
+			if loginFailures[ip] > 0 {
+				loginFailures[ip]--
+			}
 			failureLock.Unlock()
 		}(ip)
-		failureLock.Unlock()
 
 		http.Error(w, "Invalid password", http.StatusUnauthorized)
 		slog.Warn("Failed login attempt", "ip", ip)
 		return
 	}
+
+	// Success - Reset failures
+	failureLock.Lock()
+	loginFailures[ip] = 0
+	failureLock.Unlock()
 
 	// Generate session
 	b := make([]byte, 32)

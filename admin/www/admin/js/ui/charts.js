@@ -168,3 +168,65 @@ export const renderTypeChart = (queryTypes, onClickType) => {
         }
     });
 };
+
+export const renderClientChart = (canvas, data, blocked) => {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    // Last 24 hours labels
+    const labels = Array.from({ length: 24 }, (_, i) => {
+        const h = (new Date().getHours() - 23 + i + 24) % 24;
+        return `${h}:00`;
+    });
+
+    const totalColor = 'rgba(92, 107, 192, 1)';
+    const blockedColor = 'rgba(239, 68, 68, 1)';
+
+    if (clientChart) {
+        clientChart.data.datasets[0].data = data;
+        clientChart.data.datasets[1].data = blocked;
+        clientChart.update();
+        return;
+    }
+
+    clientChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Total',
+                    data: data,
+                    borderColor: totalColor,
+                    backgroundColor: createGradient(ctx, totalColor),
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 0
+                },
+                {
+                    label: 'Blocked',
+                    data: blocked,
+                    borderColor: blockedColor,
+                    backgroundColor: createGradient(ctx, blockedColor),
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                y: { beginAtZero: true, display: false },
+                x: { display: false }
+            }
+        }
+    });
+};

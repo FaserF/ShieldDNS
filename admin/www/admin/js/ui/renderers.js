@@ -321,20 +321,19 @@ export function renderDiagnostics(d) {
             }
          }
     }
-}
-
-export function renderAPIKeys(keys) {
+}export function renderAPIKeys(keys) {
     const list = getEl('api-keys-list') || getEl('api-keys-list-container');
     if (!list) return;
     
     list.innerHTML = (keys || []).map(k => {
-        const createdDate = (!k.created_at || k.created_at.startsWith('0001')) ? 'Unknown' : new Date(k.created_at).toLocaleDateString();
+        const createdDate = (!k.created_at || k.created_at.startsWith('0001')) ? 'Unknown' : new Date(k.created_at).toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'});
         const lastUsed = (!k.last_used || k.last_used.startsWith('0001')) ? 'Never' : new Date(k.last_used).toLocaleString();
         
         return `
             <tr>
                 <td>${helpers.escapeHTML(k.name)}</td>
                 <td>${(k.permissions || []).map(p => `<span class="badge secondary" style="font-size:0.7rem; margin-right:4px;">${helpers.escapeHTML(p)}</span>`).join('') || '-'}</td>
+                <td class="help" style="font-size:0.75rem;">${createdDate}</td>
                 <td class="help" style="font-size:0.75rem;">${lastUsed}</td>
                 <td>
                     <div style="display:flex; gap:8px;">
@@ -344,9 +343,8 @@ export function renderAPIKeys(keys) {
                 </td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="4" class="help">No API keys generated.</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="help">No API keys generated.</td></tr>';
 }
-
 
 export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const setTxt = (id, txt) => { const el = getEl(id); if (el) el.textContent = txt; };
@@ -375,6 +373,25 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
             flagEl.innerHTML = '';
         }
     }
+
+    // IP Activity Chart
+    const canvas = getEl('ip-info-chart');
+    if (canvas) {
+        const hourlyData = new Array(24).fill(0);
+        const hourlyBlocked = new Array(24).fill(0);
+        const now = new Date();
+        
+        (history || []).forEach(q => {
+            const d = new Date(q.time);
+            const diffHours = Math.floor((now - d) / (1000 * 60 * 60));
+            if (diffHours >= 0 && diffHours < 24) {
+                const idx = 23 - diffHours;
+                hourlyData[idx]++;
+                if (q.status.includes('Blocked')) hourlyBlocked[idx]++;
+            }
+        });
+        charts.renderClientChart(canvas, hourlyData, hourlyBlocked);
+    }
     
     getEl('ip-info-top-domains').innerHTML = (topDomains || []).map(d => `
         <tr>
@@ -394,7 +411,7 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
         <tr>
             <td>${new Date(q.time).toLocaleTimeString()}</td>
             <td style="word-break: break-all;">${helpers.escapeHTML(q.domain)}</td>
-            <td><span class="badge ${q.status.includes('Allowed') ? 'success' : 'danger'}">${helpers.escapeHTML(q.status)}</span></td>
+            <td><span class="badge ${q.status.includes('Blocked') ? 'danger' : 'success'}">${helpers.escapeHTML(q.status)}</span></td>
         </tr>
     `).join('') || '<tr><td colspan="3">No recent activity</td></tr>';
 
@@ -449,9 +466,10 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
         <tr>
             <td>${new Date(q.time).toLocaleTimeString()}</td>
             <td><a href="#" onclick="window.showIPDetails('${helpers.escapeHTML(q.client_ip)}'); return false;" style="color: var(--accent);">${helpers.escapeHTML(q.client_alias || q.client_ip)}</a></td>
-            <td><span class="badge ${q.status.includes('Allowed') ? 'success' : 'danger'}">${helpers.escapeHTML(q.status)}</span></td>
+            <td><span class="badge ${q.status.includes('Blocked') ? 'danger' : 'success'}">${helpers.escapeHTML(q.status)}</span></td>
         </tr>
     `).join('') || '<tr><td colspan="3">No recent activity</td></tr>';
+;
 
     getEl('domain-block-btn').style.display = isCustomBlocked ? 'none' : 'block';
     getEl('domain-allow-btn').style.display = isCustomBlocked ? 'block' : 'none';
