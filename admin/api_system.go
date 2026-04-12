@@ -192,6 +192,7 @@ func getSystemStats() map[string]interface{} {
 	fillRAMStats(stats)
 	fillUptimeStats(stats)
 	fillDiskStats(stats)
+	fillShieldStats(stats)
 
 	return stats
 }
@@ -695,4 +696,23 @@ func handleReset(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("System Reset complete. Exiting for restart.")
 		os.Exit(0)
 	}()
+}
+func fillShieldStats(stats map[string]interface{}) {
+	dbSize := int64(0)
+	if fi, err := os.Stat(DBPath); err == nil {
+		dbSize = fi.Size()
+	}
+
+	dataSize := int64(0)
+	filepath.Walk(DataDir, func(_ string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			dataSize += info.Size()
+		}
+		return nil
+	})
+
+	stats["shield_data"] = map[string]interface{}{
+		"db_size":    dbSize,
+		"total_size": dataSize,
+	}
 }

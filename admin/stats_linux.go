@@ -21,16 +21,23 @@ func fillCPUStats(stats map[string]interface{}) {
 		}
 	}
 
-	// CPU Info
+	// CPU Info - check multiple potential prefixes for different architectures
 	if data, err := os.ReadFile("/proc/cpuinfo"); err == nil {
 		lines := strings.Split(string(data), "\n")
-		for _, line := range lines {
-			if strings.HasPrefix(line, "model name") {
-				parts := strings.Split(line, ":")
-				if len(parts) > 1 {
-					stats["cpu_model"] = strings.TrimSpace(parts[1])
-					break
+		foundModel := false
+		for _, prefix := range []string{"model name", "Hardware", "Model", "Processor"} {
+			for _, line := range lines {
+				if strings.HasPrefix(strings.ToLower(line), strings.ToLower(prefix)) {
+					parts := strings.Split(line, ":")
+					if len(parts) > 1 {
+						stats["cpu_model"] = strings.TrimSpace(parts[1])
+						foundModel = true
+						break
+					}
 				}
+			}
+			if foundModel {
+				break
 			}
 		}
 		// Count cores

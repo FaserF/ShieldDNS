@@ -99,11 +99,27 @@ func analyzeQuery(clientIP, domain, status string) {
 	}
 
 	// --- 5. DGA Detection (High Entropy Subdomains) ---
-	// Focus on subdomains longer than 8 chars with high entropy
+	configLock.RLock()
+	dgaThreshold := config.AbuseDGAThreshold
+	dgaMinLen := config.AbuseDGAMinLen
+	configLock.RUnlock()
+
+	// Focus on subdomains longer than dgaMinLen chars with high entropy
 	parts := strings.Split(domain, ".")
-	if len(parts) > 2 {
+	if len(parts) >= 2 {
 		sub := parts[0]
-		if len(sub) > 8 && CalculateEntropy(sub) > 3.8 {
+		
+		// Bypass DGA check for internal domains and common high-entropy providers
+		bypass := false
+		suffix := strings.ToLower(domain)
+		for _, b := range []string{".local", ".lan", ".home.arpa", "googleusercontent.com", "amazonaws.com", "cloudfront.net", "akamaized.net"} {
+			if strings.HasSuffix(suffix, b) {
+				bypass = true
+				break
+			}
+		}
+
+		if !bypass && len(sub) > dgaMinLen && CalculateEntropy(sub) > dgaThreshold {
 			counters.dgaTimes = append(counters.dgaTimes, now)
 			counters.dgaTimes = pruneWindow(counters.dgaTimes, now, 5*time.Minute)
 			if len(counters.dgaTimes) >= 15 {
@@ -142,10 +158,24 @@ func pruneWindow(times []time.Time, now time.Time, window time.Duration) []time.
 
 func extractTLD(domain string) string {
 	parts := strings.Split(domain, ".")
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
+	if len(parts) < 2 {
+		return ""
 	}
-	return ""
+	
+	last := parts[len(parts)-1]
+	secondLast := parts[len(parts)-2]
+	
+	// Handle common two-part TLDs (e.g., co.uk, gv.at, com.br)
+	// This is a heuristic; for perfect accuracy one would need the Public Suffix List
+	twoPartTLDs := map[string]bool{
+		"co": true, "com": true, "net": true, "org": true, "gov": true, "gv": true, "ac": true, "edu": true,
+	}
+	
+	if len(parts) >= 3 && twoPartTLDs[secondLast] && len(last) == 2 {
+		return secondLast + "." + last
+	}
+	
+	return last
 }
 
 func blockClientAuto(ip, reason string) {

@@ -43,14 +43,16 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	lastUpdate := lastUniqueUpdate
 	statsLock.RUnlock()
 
-	if time.Since(lastUpdate) > 1*time.Minute {
+	if db != nil && time.Since(lastUpdate) > 1*time.Minute {
 		var uniqueClients int
-		row := db.QueryRow("SELECT COUNT(DISTINCT client_ip) FROM queries WHERE timestamp > datetime('now', '-24 hours')")
-		if err := row.Scan(&uniqueClients); err == nil {
+		err := db.QueryRow("SELECT COUNT(DISTINCT client_ip) FROM queries WHERE timestamp > datetime('now', '-24 hours')").Scan(&uniqueClients)
+		if err == nil {
 			statsLock.Lock()
 			cachedUniqueClients = uniqueClients
 			lastUniqueUpdate = time.Now()
 			statsLock.Unlock()
+		} else {
+			slog.Debug("Failed to query unique clients for stats", "error", err)
 		}
 	}
 	
@@ -774,4 +776,19 @@ func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(history)
+}
+
+func handleClearLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := ClearQueryLogs(); err != nil {
+		http.Error(w, "Error clearing logs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }

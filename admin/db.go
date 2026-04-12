@@ -30,6 +30,12 @@ func initDB() {
 		os.Exit(1)
 	}
 
+	// Performance Tuning: SQLite in WAL mode handles multiple readers well, 
+	// but we limit connections to avoid file handle exhaustion and memory overhead.
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(1 * time.Hour)
+
 	_, err = db.Exec(`
 		PRAGMA journal_mode=WAL;
 		PRAGMA synchronous=NORMAL;
@@ -579,4 +585,19 @@ func getAllClients() ([]map[string]interface{}, error) {
 	}
 
 	return results, nil
+}
+
+func ClearQueryLogs() error {
+	if db == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	_, err := db.Exec("DELETE FROM queries")
+	if err != nil {
+		slog.Error("Failed to clear query logs", "error", err)
+		return err
+	}
+	// Also run VACUUM to reclaim space
+	_, _ = db.Exec("VACUUM")
+	slog.Info("All query logs cleared manually")
+	return nil
 }

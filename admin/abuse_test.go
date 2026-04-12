@@ -11,6 +11,8 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 	configLock.Lock()
 	config = Config{
 		AbuseDetectionEnabled: true,
+		AbuseDGAThreshold:     3.8,
+		AbuseDGAMinLen:        8,
 		BlockedClients:        []string{},
 		BlockedClientsInfo:    make(map[string]BlockedClientInfo),
 	}
@@ -84,6 +86,8 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 	configLock.Lock()
 	config = Config{
 		AbuseDetectionEnabled: true,
+		AbuseDGAThreshold:     3.8,
+		AbuseDGAMinLen:        8,
 		BlockedClients:        []string{},
 		BlockedClientsInfo:    make(map[string]BlockedClientInfo),
 	}
@@ -137,6 +141,8 @@ func TestAbuseDetectionDisabled(t *testing.T) {
 	configLock.Lock()
 	config = Config{
 		AbuseDetectionEnabled: false,
+		AbuseDGAThreshold:     3.8,
+		AbuseDGAMinLen:        8,
 		BlockedClients:        []string{},
 	}
 	configLock.Unlock()

@@ -14,6 +14,11 @@ func TestAddColumnIfNotExists(t *testing.T) {
 	testDBPath := "test_migration.db"
 	defer os.Remove(testDBPath)
 
+	oldDB := db
+	defer func() {
+		db = oldDB
+	}()
+
 	var err error
 	db, err = sql.Open("sqlite", testDBPath)
 	if err != nil {

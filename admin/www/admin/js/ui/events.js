@@ -237,24 +237,39 @@ export function initEvents(fetchConfig) {
         }
     });
 
-    getEl('reset-lists-btn')?.addEventListener('click', async (e) => {
-        if (!await helpers.showConfirm('Reset all lists to factory defaults? Your custom lists will be removed.')) return;
+    getEl('deselect-all-blocklists')?.addEventListener('click', async (e) => {
+        if (!await helpers.showConfirm('Deselect all blocklists?')) return;
         const btn = e.target;
-        helpers.setBtnLoading(btn, true, 'Resetting...');
-        showActivityOverlay('Resetting Lists', 'Reverting to default ShieldDNS configuration...');
+        helpers.setBtnLoading(btn, true, 'Clearing...');
+        state.currentConfig.lists.forEach(l => l.enabled = false);
         try {
-            await api.apiFetch(api.endpoints.resetLists, { method: 'POST' });
-            helpers.showToast('Lists restored to defaults');
-            hideActivityOverlay(true);
-            // Force immediate reload to update UI
-            setTimeout(fetchConfig, 800);
+            await api.apiFetch(api.endpoints.config, { method: 'POST', body: JSON.stringify(state.currentConfig) });
+            helpers.showToast('All blocklists deseledted');
+            fetchConfig();
         } catch (err) {
-            hideActivityOverlay(false);
-            helpers.showAlert('Failed to reset lists: ' + err.message);
+            helpers.showAlert('Failed to deselect lists: ' + err.message);
         } finally {
             helpers.setBtnLoading(btn, false);
         }
     });
+
+    getEl('deselect-all-allowlists')?.addEventListener('click', async (e) => {
+        if (!await helpers.showConfirm('Deselect all allowlists?')) return;
+        const btn = e.target;
+        helpers.setBtnLoading(btn, true, 'Clearing...');
+        state.currentConfig.allowlists.forEach(l => l.enabled = false);
+        try {
+            await api.apiFetch(api.endpoints.config, { method: 'POST', body: JSON.stringify(state.currentConfig) });
+            helpers.showToast('All allowlists deselected');
+            fetchConfig();
+        } catch (err) {
+            helpers.showAlert('Failed to deselect allowlists: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    });
+
+    const resetListsBtn = getEl('reset-lists-btn');
 
     // Window hooks for dynamic elements
     window.deleteAPIKey = async (id, event) => {
@@ -432,8 +447,53 @@ export function initEvents(fetchConfig) {
             helpers.showAlert('Factory reset failed: ' + err.message);
         }
     });
+    
+    getEl('clear-logs-btn')?.addEventListener('click', async () => {
+        if (!await helpers.showConfirm('Are you sure you want to clear all query logs? This action is irreversible and will delete all historical query data.')) return;
+        
+        const btn = getEl('clear-logs-btn');
+        helpers.setBtnLoading(btn, true, 'Clearing...');
+        try {
+            await api.apiFetch(api.endpoints.clearLogs, { method: 'POST' });
+            helpers.showToast('All query logs cleared', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } catch (err) {
+            helpers.showAlert('Failed to clear logs: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    });
 
-    getEl('password-form')?.addEventListener('submit', async (e) => {
+    // Detail Modal Shortcuts
+    getEl('ip-info-view-all-btn')?.addEventListener('click', () => {
+        const ip = getEl('ip-info-subtitle').textContent;
+        if (!ip) return;
+        getEl('ip-info-modal').classList.add('hidden');
+        window.navigateTo('logs');
+        setTimeout(() => {
+            const search = getEl('query-log-search');
+            if (search) {
+                search.value = ip;
+                search.dispatchEvent(new Event('input'));
+            }
+        }, 300);
+    });
+
+    getEl('domain-info-view-logs-btn')?.addEventListener('click', () => {
+        const domain = getEl('domain-info-subtitle').textContent;
+        if (!domain) return;
+        getEl('domain-info-modal').classList.add('hidden');
+        window.navigateTo('logs');
+        setTimeout(() => {
+            const search = getEl('query-log-search');
+            if (search) {
+                search.value = domain;
+                search.dispatchEvent(new Event('input'));
+            }
+        }, 300);
+    });
+
+    const passForm = getEl('password-form');
         e.preventDefault();
         const current = getEl('current-password').value;
         const newPass = getEl('new-password').value;
@@ -481,6 +541,8 @@ export async function saveConfig(fetchConfig) {
         latency_test_interval: parseInt(getEl('latency-interval-input')?.value) || 10,
         diagnostics_refresh_interval: parseInt(getEl('diagnostics-interval-input')?.value) || 600,
         retention_days: parseInt(getEl('retention-input')?.value) || 30,
+        abuse_dga_threshold: parseFloat(getEl('abuse-dga-threshold-input')?.value) || 3.8,
+        abuse_dga_min_len: parseInt(getEl('abuse-dga-min-len-input')?.value) || 8,
     };
 
     try {

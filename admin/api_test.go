@@ -251,6 +251,39 @@ func TestHandleIPInfo(t *testing.T) {
 	}
 }
 
+func TestHandleIPInfoPersistence(t *testing.T) {
+	if db == nil {
+		t.Skip("DB not initialized")
+	}
+
+	ip := "1.2.3.5"
+	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)"
+
+	// 1. Manually save to DB
+	saveClientUA(ip, ua)
+
+	// 2. Clear memory cache just in case
+	ipToUA.Delete(ip)
+
+	// 3. Call handleIPInfo
+	req := httptest.NewRequest("GET", "/api/ip-info?ip="+ip, nil)
+	rr := httptest.NewRecorder()
+	handleIPInfo(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %v", rr.Code)
+	}
+
+	var info IPInfo
+	json.NewDecoder(rr.Body).Decode(&info)
+	if info.UserAgent != ua {
+		t.Errorf("expected UA %q, got %q", ua, info.UserAgent)
+	}
+	if info.OS != "iOS" {
+		t.Errorf("expected OS iOS, got %q", info.OS)
+	}
+}
+
 func TestHandleQueriesWithFiltering(t *testing.T) {
 	// We need to mock DB or at least check if it handles parameters.
 	// Since handleQueries uses a global 'db', we can't easily mock it without refactoring.

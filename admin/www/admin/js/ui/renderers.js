@@ -132,6 +132,8 @@ export function renderConfig(cfg) {
     if (getEl('latency-interval-input')) getEl('latency-interval-input').value = cfg.latency_test_interval || 10;
     if (getEl('diagnostics-interval-input')) getEl('diagnostics-interval-input').value = cfg.diagnostics_refresh_interval || 600;
     if (getEl('retention-input')) getEl('retention-input').value = cfg.retention_days || 30;
+    if (getEl('abuse-dga-threshold-input')) getEl('abuse-dga-threshold-input').value = cfg.abuse_dga_threshold || 3.8;
+    if (getEl('abuse-dga-min-len-input')) getEl('abuse-dga-min-len-input').value = cfg.abuse_dga_min_len || 8;
 
     // Custom Rules
     const renderCustomList = (id, items) => {
@@ -367,9 +369,18 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     setTxt('ip-info-hostname', stats.hostname || '-');
     setTxt('ip-info-isp', stats.isp || '-');
     setTxt('ip-info-mac', stats.mac || '-');
+    setTxt('ip-info-manufacturer', stats.manufacturer || 'Unknown');
+    setTxt('ip-info-os', stats.os || 'Unknown OS');
+    
+    // Type Tag
+    const typeTag = getEl('ip-info-type-tag');
+    if (typeTag) {
+        typeTag.textContent = stats.is_private ? 'Private Network' : 'Public Network';
+        typeTag.className = 'badge ' + (stats.is_private ? 'primary' : 'warning');
+    }
     
     // Location Info
-    setTxt('ip-info-country', stats.country || '-');
+    setTxt('ip-info-country', stats.country || (stats.is_private ? 'Local Network' : '-'));
     setTxt('ip-info-city', stats.city || '-');
     const flagEl = getEl('ip-info-flag');
     if (flagEl) {

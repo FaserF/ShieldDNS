@@ -39,6 +39,8 @@ type Config struct {
 	BlockedClients             []string                     `json:"blocked_clients"`
 	BlockedClientsInfo         map[string]BlockedClientInfo `json:"blocked_clients_info"`
 	AbuseDetectionEnabled      bool                         `json:"abuse_detection_enabled"`
+	AbuseDGAThreshold          float64                      `json:"abuse_dga_threshold"`
+	AbuseDGAMinLen             int                          `json:"abuse_dga_min_len"`
 	ClientAliases              map[string]string            `json:"client_aliases"`
 	SignMobileConfig           bool              `json:"sign_mobileconfig"`
 	DebugMode                  bool              `json:"debug_mode"`

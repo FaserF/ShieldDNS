@@ -59,7 +59,7 @@ const CorefileTemplate = `.:{{.DNSPort}} {
     }
     {{end}}
     {{.GeoACLRules}}
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\""
     errors
 }
 
@@ -85,7 +85,7 @@ tls://.:{{.DOTPort}} {
         fallthrough
     }
     {{.GeoACLRules}}
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\""
     errors
 }
 
@@ -111,7 +111,7 @@ https://.:{{.InternalDOHPort}} {
         fallthrough
     }
     {{.GeoACLRules}}
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\""
     errors
 }
 
@@ -136,7 +136,7 @@ quic://.:{{.DOTPort}} {
         fallthrough
     }
     {{.GeoACLRules}}
-    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"-\""
+    log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\""
     errors
 }
 `
@@ -738,6 +738,7 @@ func parseLogLine(line string) {
 	// Update latest User-Agent for this IP
 	if userAgent != "" && userAgent != "-" && userAgent != "none" {
 		ipToUA.Store(clientIP, userAgent)
+		saveClientUA(clientIP, userAgent)
 	}
 
 	duration := 0.0

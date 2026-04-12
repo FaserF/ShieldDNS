@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -51,6 +52,8 @@ func loadConfig() {
 		DNSSECEnabled:              true,
 		SignMobileConfig:           true,
 		AbuseDetectionEnabled:      true,
+		AbuseDGAThreshold:          3.8,
+		AbuseDGAMinLen:             8,
 		CustomMappings:             map[string]string{"fritz.box": "192.168.178.1", "openwrt.lan": "192.168.1.1", "router.miwifi.com": "192.168.31.1"},
 	}
 
@@ -138,6 +141,12 @@ func loadConfig() {
 	}
 	if config.CustomMappings == nil {
 		config.CustomMappings = make(map[string]string)
+	}
+	if config.AbuseDGAThreshold == 0 {
+		config.AbuseDGAThreshold = 3.8
+	}
+	if config.AbuseDGAMinLen == 0 {
+		config.AbuseDGAMinLen = 8
 	}
 	debugModeEnabled.Store(config.DebugMode)
 }
@@ -430,14 +439,10 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			slog.Warn("Remote list returned non-OK status", "name", list.Name, "status", resp.StatusCode)
 			return
 		}
-		
-		// Capture remote update time
-		if lm := resp.Header.Get("Last-Modified"); lm != "" {
-			if t, err := http.ParseTime(lm); err == nil {
-				list.RemoteUpdatedAt = t
-			}
-		}
-		
+
+		// Capture remote update time with specialized GitHub support
+		list.RemoteUpdatedAt = getRemoteUpdateTime(list.URL, resp.Header)
+
 		reader = resp.Body
 	}
 
@@ -516,4 +521,57 @@ func startBackgroundUpdater() {
 	for range ticker.C {
 		go updateBlocklist(nil)
 	}
+}
+
+// getRemoteUpdateTime attempts to find the best possible modification timestamp for a remote file.
+func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
+	// 1. Standard HTTP header (works for most static file hosts)
+	if lm := headers.Get("Last-Modified"); lm != "" {
+		if t, err := http.ParseTime(lm); err == nil {
+			return t
+		}
+	}
+
+	// 2. Specialized support for GitHub Raw Content
+	// raw.githubusercontent.com does not send Last-Modified, so we check the Commit API
+	if strings.Contains(rawURL, "raw.githubusercontent.com") {
+		// Transform raw URL to API URL:
+		// raw.githubusercontent.com/user/repo/branch/path... -> api.github.com/repos/user/repo/commits?path=path&page=1&per_page=1
+		parts := strings.Split(strings.TrimPrefix(rawURL, "https://"), "/")
+		if len(parts) >= 4 {
+			user := parts[1]
+			repo := parts[2]
+			branch := parts[3]
+			path := strings.Join(parts[4:], "/")
+
+			apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits?path=%s&sha=%s&per_page=1", user, repo, path, branch)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+
+			req, _ := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+			req.Header.Set("User-Agent", "ShieldDNS-Update-Tracker") // Required by GitHub API
+
+			resp, err := http.DefaultClient.Do(req)
+			if err == nil {
+				defer resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					var commitInfo []struct {
+						Commit struct {
+							Committer struct {
+								Date time.Time `json:"date"`
+							} `json:"committer"`
+						} `json:"commit"`
+					}
+					if err := json.NewDecoder(resp.Body).Decode(&commitInfo); err == nil && len(commitInfo) > 0 {
+						return commitInfo[0].Commit.Committer.Date
+					}
+				} else if resp.StatusCode == http.StatusForbidden {
+					slog.Debug("GitHub API rate limit reached for metadata fetch", "url", rawURL)
+				}
+			}
+		}
+	}
+
+	return time.Time{}
 }
