@@ -73,10 +73,25 @@ export function startSystemLogStream() {
     const term = getEl('system-log-terminal');
     if (term) term.innerHTML = '';
     state.systemLogStream = new EventSource(api.endpoints.systemLogs);
+
+    let pendingLogs = [];
+    let rafScheduled = false;
+
+    const flushLogs = () => {
+        rafScheduled = false;
+        if (!term || pendingLogs.length === 0) return;
+        term.innerHTML += pendingLogs.join('');
+        pendingLogs = [];
+        term.scrollTop = term.scrollHeight;
+    };
+
     state.systemLogStream.onmessage = (e) => {
         if (!term) return;
-        term.innerHTML += e.data + '\n';
-        term.scrollTop = term.scrollHeight;
+        pendingLogs.push(e.data + '\n');
+        if (!rafScheduled) {
+            rafScheduled = true;
+            requestAnimationFrame(flushLogs);
+        }
     };
     state.systemLogStream.onerror = () => stopSystemLogStream();
 }

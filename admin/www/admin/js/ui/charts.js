@@ -66,6 +66,10 @@ export const renderTrafficChart = (data, onClickHour) => {
             ]
         },
         options: {
+            animation: {
+                duration: 1200,
+                easing: 'easeOutQuart'
+            },
             onClick: (e, activeEls) => {
                 if (activeEls.length > 0 && onClickHour) {
                     const idx = activeEls[0].index;

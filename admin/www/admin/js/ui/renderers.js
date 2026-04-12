@@ -10,12 +10,18 @@ import { VirtualScroller } from './scroller.js';
 export function renderDashStats(data) {
     const c = uiRefs.statsContainer;
     if (!c.total) return;
-    c.total.textContent = data.total_queries.toLocaleString();
-    c.blocked.textContent = data.blocked_queries.toLocaleString();
-    c.ratio.textContent = `${(data.total_queries > 0 ? (data.blocked_queries/data.total_queries*100) : 0).toFixed(1)} %`;
-    c.cache.textContent = `${(data.total_queries > 0 ? (data.cache_hits/data.total_queries*100) : 0).toFixed(1)} %`;
-    c.latency.textContent = `${(data.average_latency || 0).toFixed(2)} ms`;
-    c.clients.textContent = data.unique_clients || 0;
+    
+    helpers.countTo(c.total, data.total_queries);
+    helpers.countTo(c.blocked, data.blocked_queries);
+    
+    const ratio = data.total_queries > 0 ? (data.blocked_queries / data.total_queries * 100) : 0;
+    helpers.countTo(c.ratio, ratio, 800, ' %');
+    
+    const cache = data.total_queries > 0 ? (data.cache_hits / data.total_queries * 100) : 0;
+    helpers.countTo(c.cache, cache, 800, ' %');
+    
+    helpers.countTo(c.latency, data.average_latency || 0, 800, ' ms');
+    helpers.countTo(c.clients, data.unique_clients || 0);
     
     const appVer = getEl('app-version');
     if (appVer) appVer.textContent = data.version;

@@ -59,6 +59,32 @@ const startLogStream = (container) => {
     if (logSource) return;
 
     logSource = new EventSource('/api/system-logs');
+    let pendingLines = [];
+    let rafScheduled = false;
+
+    const flushPendingLines = () => {
+        rafScheduled = false;
+        if (!container || pendingLines.length === 0) return;
+
+        const fragment = document.createDocumentFragment();
+        for (const { msg, isError, isWarn } of pendingLines) {
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            if (isError) line.classList.add('error');
+            if (isWarn) line.classList.add('warn');
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            fragment.appendChild(line);
+        }
+        pendingLines = [];
+        container.appendChild(fragment);
+        container.scrollTop = container.scrollHeight;
+
+        // Keep only last 100 lines
+        while (container.childNodes.length > 100) {
+            container.removeChild(container.firstChild);
+        }
+    };
+
     logSource.onmessage = (event) => {
         if (!container) return;
         
@@ -70,18 +96,11 @@ const startLogStream = (container) => {
         if (filter === 'ERROR' && !isError) return;
         if (filter === 'WARN' && !isError && !isWarn) return;
 
-        const line = document.createElement('div');
-        line.className = 'log-line';
-        if (isError) line.classList.add('error');
-        if (isWarn) line.classList.add('warn');
-        
-        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        container.appendChild(line);
-        container.scrollTop = container.scrollHeight;
-        
-        // Keep only last 100 lines
-        while (container.childNodes.length > 100) {
-            container.removeChild(container.firstChild);
+        pendingLines.push({ msg, isError, isWarn });
+
+        if (!rafScheduled) {
+            rafScheduled = true;
+            requestAnimationFrame(flushPendingLines);
         }
     };
 

@@ -100,7 +100,7 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://use.fontawesome.com https://cdnjs.cloudflare.com; " +
 			"font-src 'self' https://fonts.gstatic.com https://use.fontawesome.com https://cdnjs.cloudflare.com; " +
 			"img-src 'self' data: https://flagcdn.com https://raw.githubusercontent.com" + dynamicHosts + "; " +
-			"connect-src 'self' https://api.github.com" + dynamicHosts + "; " +
+			"connect-src 'self' https://api.github.com https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net" + dynamicHosts + "; " +
 			"worker-src 'self'; " +
 			"manifest-src 'self'; " +
 			"frame-ancestors 'self'" + dynamicHosts + ";"

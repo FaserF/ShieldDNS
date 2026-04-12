@@ -506,24 +506,25 @@ export function initEvents(fetchConfig) {
             e.preventDefault();
             const current = getEl('current-password').value;
             const newPass = getEl('new-password').value;
-        
-        if (newPass.length < 12) return helpers.showAlert('New password must be at least 12 characters');
 
-        const btn = e.target.querySelector('button[type="submit"]');
-        helpers.setBtnLoading(btn, true, 'Updating...');
-        try {
-            await api.apiFetch(api.endpoints.changePassword, {
-                method: 'POST',
-                body: JSON.stringify({ current_password: current, new_password: newPass })
-            });
-            helpers.showToast('Password updated successfully');
-            e.target.reset();
-        } catch (err) {
-            helpers.showAlert('Failed to update password: ' + err.message);
-        } finally {
-            helpers.setBtnLoading(btn, false);
-        }
-    });
+            if (newPass.length < 12) return helpers.showAlert('New password must be at least 12 characters');
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            helpers.setBtnLoading(btn, true, 'Updating...');
+            try {
+                await api.apiFetch(api.endpoints.changePassword, {
+                    method: 'POST',
+                    body: JSON.stringify({ current_password: current, new_password: newPass })
+                });
+                helpers.showToast('Password updated successfully');
+                e.target.reset();
+            } catch (err) {
+                helpers.showAlert('Failed to update password: ' + err.message);
+            } finally {
+                helpers.setBtnLoading(btn, false);
+            }
+        });
+    }
 }
 
 export async function saveConfig(fetchConfig) {

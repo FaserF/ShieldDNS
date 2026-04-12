@@ -166,6 +166,50 @@ export const showToast = (message, type = 'success') => {
 };
 
 /**
+ * Animates a numeric value from its current state to a target value
+ * Optimized for high-refresh-rate displays
+ */
+export const countTo = (element, targetValue, duration = 800, suffix = '') => {
+    if (!element) return;
+    
+    // Parse current value or default to 0
+    let startValue = parseFloat(element.textContent.replace(/[^0-9.-]+/g, "")) || 0;
+    
+    // Don't animate if the value hasn't changed enough
+    if (Math.abs(startValue - targetValue) < 0.1) {
+        element.textContent = targetValue.toLocaleString() + suffix;
+        return;
+    }
+
+    const startTime = performance.now();
+    
+    const update = (now) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Ease out quadratic
+        const ease = 1 - (1 - progress) * (1 - progress);
+        
+        const current = startValue + (targetValue - startValue) * ease;
+        
+        // Use integer or fixed precision depending on input
+        if (Number.isInteger(targetValue)) {
+            element.textContent = Math.round(current).toLocaleString() + suffix;
+        } else {
+            element.textContent = current.toFixed(1).toLocaleString() + suffix;
+        }
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            element.textContent = targetValue.toLocaleString() + suffix;
+        }
+    };
+    
+    requestAnimationFrame(update);
+};
+
+/**
  * Escapes HTML special characters to prevent XSS
  * @param {string} str - The string to escape
  * @returns {string} - The escaped string

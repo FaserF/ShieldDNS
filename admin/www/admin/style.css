@@ -52,6 +52,14 @@ body.light .preferred-row {
     padding: 0;
 }
 
+/* High-refresh-rate display optimizations */
+html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
 body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-color);
@@ -59,6 +67,7 @@ body {
     line-height: 1.5;
     overflow-x: hidden;
     width: 100%;
+    -webkit-overflow-scrolling: touch;
 }
 
 .app-container {
@@ -167,6 +176,9 @@ nav {
     flex-grow: 1;
     padding: 60px;
     overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    will-change: scroll-position;
 }
 
 h1 {
@@ -403,10 +415,13 @@ header {
     padding: 32px;
     border-radius: 24px;
     border: 1px solid var(--border);
-    transition: var(--transition-smooth);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
     position: relative;
     box-shadow: var(--glass-shadow), var(--inner-glow);
     animation: fadeIn 0.6s ease-out backwards;
+    will-change: transform;
+    transform: translateZ(0);
+    contain: layout style paint;
 }
 
 @keyframes fadeIn {
@@ -447,12 +462,13 @@ header {
     font-weight: 600;
     cursor: pointer;
     border: 1px solid transparent;
-    transition: var(--transition-smooth);
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     margin-right: 8px;
+    transform: translateZ(0);
 }
 
 .btn:last-child {
@@ -555,10 +571,12 @@ header {
     justify-content: space-between;
     align-items: center;
     border: 1px solid var(--border);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
     cursor: pointer;
     position: relative;
     overflow: hidden;
+    transform: translateZ(0);
+    contain: layout style paint;
 }
 
 .list-item:hover {
@@ -698,7 +716,8 @@ header {
     border: 1px solid var(--border);
     position: relative;
     box-shadow: 0 40px 80px -20px rgba(0,0,0,0.7);
-    transition: var(--transition-smooth);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+    transform: translateZ(0);
 }
 
 .modal-content.modal-lg {
@@ -1061,8 +1080,10 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: var(--transition-smooth);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.2s ease;
     cursor: pointer;
+    transform: translateZ(0);
+    contain: layout style paint;
 }
 
 .preset-card:hover {
@@ -1948,4 +1969,83 @@ input:checked + .slider:before {
     .settings-save-footer .btn {
         width: 100%;
     }
+}
+
+/* ──────────────── HIGH REFRESH-RATE OPTIMIZATIONS ──────────────── */
+
+/* Respect user's motion preferences (accessibility) */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Smooth scrollbars for all scrollable containers */
+.content,
+.log-terminal,
+.custom-dropdown,
+.overflow-x,
+.presets-list-minimal {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.content::-webkit-scrollbar,
+.log-terminal::-webkit-scrollbar,
+.custom-dropdown::-webkit-scrollbar,
+.overflow-x::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.content::-webkit-scrollbar-track,
+.log-terminal::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb,
+.log-terminal::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 10px;
+}
+
+.content::-webkit-scrollbar-thumb:hover,
+.log-terminal::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-secondary);
+}
+
+/* GPU-accelerate cards during hover to prevent jank */
+.stat-card:hover,
+.list-item:hover,
+.preset-card:hover,
+.copy-box:hover,
+.project-link-item:hover {
+    will-change: auto; /* Release after hover completes */
+}
+
+/* Promote sidebar to its own compositing layer */
+.sidebar {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+/* Smooth chart canvas rendering */
+.chart-wrapper canvas,
+.chart-wrapper-small canvas {
+    image-rendering: auto;
+    transform: translateZ(0);
+}
+
+/* Optimize table rows for virtual scrolling */
+.virtual-row {
+    will-change: transform;
+    backface-visibility: hidden;
+}
+
+/* Ensure modal overlay doesn't cause scrollbar shift */
+.modal {
+    overscroll-behavior: contain;
 }
