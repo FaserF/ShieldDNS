@@ -34,6 +34,7 @@ func initDB() {
 		PRAGMA journal_mode=WAL;
 		PRAGMA synchronous=NORMAL;
 		PRAGMA cache_size=-64000;
+		PRAGMA mmap_size=268435456;
 		PRAGMA temp_store=MEMORY;
 		PRAGMA busy_timeout=10000;
 		PRAGMA auto_vacuum=INCREMENTAL;

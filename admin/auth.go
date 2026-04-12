@@ -62,6 +62,21 @@ func cleanupSessions() {
 	})
 }
 
+func csrfMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Mutating methods must have the custom header if using session cookies
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch {
+			// Skip CSRF check for API Key / Bearer requests
+			hasApiKey := r.Header.Get("X-API-Key") != "" || strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ")
+			if !hasApiKey && r.Header.Get("X-Shield-Request") != "true" {
+				http.Error(w, "Invalid request: Missing security header", http.StatusForbidden)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1. Try API Token Authentication first
@@ -172,10 +187,10 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		// 3. CSRF Protection for state-changing requests
-		if r.Method == http.MethodPost || r.Method == http.MethodDelete || r.Method == http.MethodPut {
-			if r.Header.Get("X-Shield-Request") == "" {
-				slog.Warn("State-changing request rejected: Missing X-Shield-Request header (CSRF protection)", "method", r.Method, "path", r.URL.Path)
-				http.Error(w, "State-changing requests require X-Shield-Request header", http.StatusBadRequest)
+		if r.Method == http.MethodPost || r.Method == http.MethodDelete || r.Method == http.MethodPut || r.Method == http.MethodPatch {
+			if r.Header.Get("X-Shield-Request") != "true" {
+				slog.Warn("State-changing request rejected: Missing/invalid X-Shield-Request header (CSRF protection)", "method", r.Method, "path", r.URL.Path)
+				http.Error(w, "State-changing requests require X-Shield-Request: true header", http.StatusForbidden)
 				return
 			}
 		}

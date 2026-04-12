@@ -358,37 +358,58 @@ func handleBackup(w http.ResponseWriter, r *http.Request) {
 	zw := zip.NewWriter(w)
 	defer zw.Close()
 
-	files := []string{ConfigPath, DBPath, BlocklistPath, AllowlistPath}
-	for _, f := range files {
-		file, err := os.Open(f)
-		if err != nil {
-			continue
+	// 1. Snapshot the database consistently to a temporary file
+	tmpDB := filepath.Join(os.TempDir(), fmt.Sprintf("shielddns-backup-%d.db", time.Now().UnixNano()))
+	dbConsistent := false
+	if db != nil {
+		if _, err := db.Exec("VACUUM INTO ?", tmpDB); err == nil {
+			dbConsistent = true
+			defer os.Remove(tmpDB)
+		} else {
+			slog.Error("Failed to create DB snapshot for backup", "error", err)
+			tmpDB = DBPath // fallback to live file
 		}
-
-		info, err := file.Stat()
-		if err != nil {
-			file.Close()
-			continue
-		}
-
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			file.Close()
-			continue
-		}
-		header.Name = filepath.Base(f)
-		header.Method = zip.Deflate
-
-		writer, err := zw.CreateHeader(header)
-		if err != nil {
-			file.Close()
-			continue
-		}
-
-		io.Copy(writer, file)
-		file.Close()
+	} else {
+		tmpDB = DBPath
 	}
-	slog.Info("System backup downloaded")
+
+	// 2. Prepare files to include
+	type backupFile struct {
+		Path     string
+		Target   string
+		WithLock bool
+	}
+	files := []backupFile{
+		{Path: ConfigPath, Target: "config.json", WithLock: true},
+		{Path: tmpDB, Target: "shielddns.db", WithLock: false},
+		{Path: BlocklistPath, Target: "shielddns.hosts", WithLock: false},
+		{Path: AllowlistPath, Target: "allow.hosts", WithLock: false},
+	}
+
+	for _, bf := range files {
+		var content []byte
+		var err error
+
+		if bf.WithLock {
+			configLock.RLock()
+			content, err = os.ReadFile(bf.Path)
+			configLock.RUnlock()
+		} else {
+			content, err = os.ReadFile(bf.Path)
+		}
+
+		if err != nil {
+			continue
+		}
+
+		f, err := zw.Create(bf.Target)
+		if err != nil {
+			continue
+		}
+		f.Write(content)
+	}
+
+	slog.Info("System backup downloaded", "consistent_db", dbConsistent)
 }
 
 func handleRestore(w http.ResponseWriter, r *http.Request) {

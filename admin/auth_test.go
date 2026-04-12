@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -81,42 +80,43 @@ func TestHandleLoginRateLimit(t *testing.T) {
 }
 
 func TestCSRFProtection(t *testing.T) {
-	// Setup session
-	token := "valid_session_token"
-	sessionStore.Store(token, Session{
-		Token:     token,
-		ExpiresAt: time.Now().Add(24 * time.Hour),
-	})
-
-	// Handler with AuthMiddleware
-	handler := authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Handler with csrfMiddleware
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	}))
+	})
+	handler := csrfMiddleware(inner)
 
-	// 1. POST without header should fail
+	// 1. POST without header should fail with 403 Forbidden
 	req, _ := http.NewRequest("POST", "/api/rules", nil)
-	req.AddCookie(&http.Cookie{Name: CookieName, Value: token})
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Errorf("POST without X-Shield-Request: expected 400, got %d", rr.Code)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("POST without X-Shield-Request: expected 403, got %d", rr.Code)
 	}
 
-	// 2. POST with header should succeed
+	// 2. POST with header 'true' should succeed
 	req, _ = http.NewRequest("POST", "/api/rules", nil)
-	req.AddCookie(&http.Cookie{Name: CookieName, Value: token})
-	req.Header.Set("X-Shield-Request", "1")
+	req.Header.Set("X-Shield-Request", "true")
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
-		t.Errorf("POST with X-Shield-Request: expected 200, got %d", rr.Code)
+		t.Errorf("POST with X-Shield-Request=true: expected 200, got %d", rr.Code)
 	}
 
-	// 3. GET should not require header
+	// 3. POST with API Key should skip CSRF check
+	req, _ = http.NewRequest("POST", "/api/rules", nil)
+	req.Header.Set("X-API-Key", "dummy")
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("POST with API Key: expected 200, got %d", rr.Code)
+	}
+
+	// 4. GET should not require header
 	req, _ = http.NewRequest("GET", "/api/stats", nil)
-	req.AddCookie(&http.Cookie{Name: CookieName, Value: token})
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 

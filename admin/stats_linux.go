@@ -3,7 +3,6 @@
 package main
 
 import (
-	"math"
 	"os"
 	"strconv"
 	"strings"

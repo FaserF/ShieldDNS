@@ -228,14 +228,15 @@ func main() {
 	}
 
 	go func() {
+		handler := csrfMiddleware(http.DefaultServeMux)
 		if adminPort != "443" {
 			log.Printf("ShieldDNS Admin starting on :%s (HTTP internal proxy)", adminPort)
-			if err := http.ListenAndServe(":"+adminPort, nil); err != nil {
+			if err := http.ListenAndServe(":"+adminPort, handler); err != nil {
 				log.Printf("Admin UI server stopped: %v", err)
 			}
 		} else {
 			log.Println("ShieldDNS Admin starting on :443 (HTTPS)")
-			if err := http.ListenAndServeTLS(":443", certFile, keyFile, nil); err != nil {
+			if err := http.ListenAndServeTLS(":443", certFile, keyFile, handler); err != nil {
 				log.Printf("Admin UI server stopped: %v", err)
 			}
 		}

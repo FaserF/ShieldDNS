@@ -7,7 +7,7 @@ export async function apiFetch(endpoint, options = {}) {
     if (['POST', 'PUT', 'DELETE'].includes(method)) {
         options.headers = {
             ...options.headers,
-            'X-Shield-Request': '1'
+            'X-Shield-Request': 'true'
         };
     }
     const response = await fetch(endpoint, options);
