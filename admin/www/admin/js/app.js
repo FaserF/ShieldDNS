@@ -236,6 +236,7 @@ function initModals() {
     });
 
     // IP Info UI logic
+    getEl('edit-alias-btn')?.addEventListener('click', () => {
         getEl('alias-edit-box').classList.toggle('hidden');
         getEl('client-alias-input').value = getEl('ip-info-title').textContent === getEl('ip-info-subtitle').textContent ? '' : getEl('ip-info-title').textContent;
     });
