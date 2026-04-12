@@ -40,6 +40,9 @@ export function initEvents(fetchConfig) {
         if (e.key === 'Enter') handleCheck();
     });
 
+    // Support legacy onclick handlers
+    window.checkProtection = handleCheck;
+
     // General Update/Refresh
     const refreshBtn = getEl('refresh-btn');
     refreshBtn?.addEventListener('click', async () => {
@@ -120,6 +123,7 @@ export function initEvents(fetchConfig) {
         getEl('api-key-modal-title').textContent = 'Generate API Key';
         getEl('api-key-name').value = '';
         getEl('save-api-key-btn').textContent = 'Generate';
+        delete getEl('save-api-key-btn').dataset.editId;
         form.classList.remove('hidden');
         result.classList.add('hidden');
         modal.classList.remove('hidden');
@@ -136,19 +140,27 @@ export function initEvents(fetchConfig) {
         if (getEl('perm-system').checked) perms.push('read:system');
         if (getEl('perm-filtering').checked) perms.push('write:filtering');
 
-        helpers.setBtnLoading(btn, true, 'Generating...');
+        const currentEditId = getEl('save-api-key-btn').dataset.editId;
+        const endpoint = currentEditId ? `${api.endpoints.createToken}?id=${currentEditId}` : api.endpoints.createToken;
+        const method = currentEditId ? 'PUT' : 'POST';
+
+        helpers.setBtnLoading(btn, true, currentEditId ? 'Updating...' : 'Generating...');
         try {
-            const res = await api.apiFetch(api.endpoints.createToken, {
-                method: 'POST',
+            const res = await api.apiFetch(endpoint, {
+                method: method,
                 body: JSON.stringify({ name, permissions: perms })
             });
             
             // The backend returns { token: "...", id: "..." } or similar
-            if (res.token) {
-                getEl('api-key-form').classList.add('hidden');
-                getEl('api-key-result').classList.remove('hidden');
-                getEl('api-key-value').textContent = res.token;
-                helpers.showToast('API Key generated!');
+            if (res.token || currentEditId) {
+                getEl('api-key-modal').classList.add('hidden');
+                if (res.token) {
+                    getEl('api-key-form').classList.add('hidden');
+                    getEl('api-key-result').classList.remove('hidden');
+                    getEl('api-key-value').textContent = res.token;
+                    getEl('api-key-modal').classList.remove('hidden');
+                }
+                helpers.showToast(currentEditId ? 'API Key updated' : 'API Key generated!');
                 // Immediate refresh of the table
                 fetchService.fetchAPIKeys();
             } else {
@@ -298,6 +310,55 @@ export function initEvents(fetchConfig) {
     });
 
     // Window hooks for dynamic elements
+    window.copyText = (id) => {
+        const el = getEl(id);
+        if (el) {
+            const val = el.value || el.textContent;
+            navigator.clipboard.writeText(val);
+            helpers.showToast('Copied to clipboard');
+        }
+    };
+
+    window.exportLogs = async (type, event) => {
+        const btn = event?.currentTarget;
+        if (btn) helpers.setBtnLoading(btn, true, 'Exporting...');
+        try {
+            const token = localStorage.getItem('api_token');
+            window.location.href = `${api.endpoints.exportLogs}?format=${type}&token=${token}`;
+            helpers.showToast(`Log export (${type}) started`, 'info');
+        } catch (err) {
+            helpers.showAlert('Export failed: ' + err.message);
+        } finally {
+            if (btn) setTimeout(() => helpers.setBtnLoading(btn, false), 2000);
+        }
+    };
+
+    window.editAPIKey = (id) => {
+        const key = state.currentConfig.api_keys?.find(k => k.id === id);
+        if (!key) return;
+        
+        const modal = getEl('api-key-modal');
+        const form = getEl('api-key-form');
+        const result = getEl('api-key-result');
+        const saveBtn = getEl('save-api-key-btn');
+        
+        if (!modal || !form || !result || !saveBtn) return;
+        
+        getEl('api-key-modal-title').textContent = 'Edit API Key';
+        getEl('api-key-name').value = key.name;
+        saveBtn.textContent = 'Update';
+        saveBtn.dataset.editId = id;
+        
+        getEl('perm-stats').checked = key.permissions.includes('read:stats');
+        getEl('perm-logs').checked = key.permissions.includes('read:logs');
+        getEl('perm-system').checked = key.permissions.includes('read:system');
+        getEl('perm-filtering').checked = key.permissions.includes('write:filtering');
+        
+        form.classList.remove('hidden');
+        result.classList.add('hidden');
+        modal.classList.remove('hidden');
+    };
+
     window.deleteAPIKey = async (id, event) => {
         if (!await helpers.showConfirm('Delete this API key forever?', 'Delete API Key', true)) return;
         const btn = event.currentTarget;

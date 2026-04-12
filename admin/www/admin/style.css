@@ -1173,8 +1173,11 @@ header {
 }
 
 .search-box {
-    display: flex;
-    gap: 12px;
+    gap: 4px;
+}
+
+.search-section .search-box {
+    margin-bottom: 24px;
 }
 
 .search-box input {
@@ -1484,7 +1487,7 @@ header {
     position: relative;
     display: inline-flex;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 0; /* Remove global margin to fix header alignment */
 }
 
 .search-box i {

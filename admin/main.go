@@ -77,6 +77,7 @@ func main() {
 	// Start background updater ticker
 	go startBackgroundUpdater()
 	go startMaliciousUpdater()
+	go startMetadataUpdater()
 
 	// Trigger initial blocklist update in background
 	go updateBlocklist(nil)

@@ -535,6 +535,116 @@ func startBackgroundUpdater() {
 	}
 }
 
+var (
+	metadataCache = make(map[string]List)
+	metadataMu    sync.RWMutex
+)
+
+// startMetadataUpdater periodically refreshes metadata for all lists and presets.
+// Uses a 24h ticker for full refresh and a 1h ticker for missing information retries.
+func startMetadataUpdater() {
+	fullTicker := time.NewTicker(24 * time.Hour)
+	missingTicker := time.NewTicker(1 * time.Hour)
+	
+	go func() {
+		// Initial wait to let main startup finish
+		time.Sleep(10 * time.Second)
+		
+		// Run once on startup
+		refreshAllMetadata(false)
+		
+		for {
+			select {
+			case <-fullTicker.C:
+				refreshAllMetadata(false) // Full refresh
+			case <-missingTicker.C:
+				refreshAllMetadata(true) // Only missing metadata
+			}
+		}
+	}()
+}
+
+func refreshAllMetadata(onlyMissing bool) {
+	mode := "Full"
+	if onlyMissing {
+		mode = "Missing-Only"
+	}
+	slog.Info("Starting background metadata refresh", "mode", mode)
+	
+	configLock.RLock()
+	allLists := append([]List{}, config.Lists...)
+	allLists = append(allLists, config.Allowlists...)
+	configLock.RUnlock()
+	
+	// Also include all presets
+	allLists = append(allLists, DefaultPresets...)
+	allLists = append(allLists, DefaultAllowlists...)
+
+	// Deduplicate by URL
+	uniqueURLs := make(map[string]List)
+	for _, l := range allLists {
+		uniqueURLs[l.URL] = l
+	}
+
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, 5) // Concurrency limit
+
+	for _, l := range uniqueURLs {
+		// If onlyMissing is requested, skip lists that already have metadata
+		if onlyMissing {
+			metadataMu.RLock()
+			cached, ok := metadataCache[l.URL]
+			metadataMu.RUnlock()
+			if ok && cached.Entries > 0 && !cached.RemoteUpdatedAt.IsZero() {
+				continue
+			}
+		}
+
+		wg.Add(1)
+		go func(list List) {
+			defer wg.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			req, _ := http.NewRequestWithContext(ctx, "GET", list.URL, nil)
+			req.Header.Set("User-Agent", fmt.Sprintf("ShieldDNS/%s (MetadataFetcher)", FullVersion))
+			req.Header.Set("Range", "bytes=0-102400") // Fetch first 100KB to estimate entries if needed
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusPartialContent {
+				list.RemoteUpdatedAt = getRemoteUpdateTime(list.URL, resp.Header)
+				
+				// Quick entry estimate if entries are 0
+				if list.Entries == 0 {
+					scanner := bufio.NewScanner(resp.Body)
+					count := 0
+					for scanner.Scan() {
+						line := strings.TrimSpace(scanner.Text())
+						if line != "" && !strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "!") {
+							count++
+						}
+					}
+					list.Entries = count
+				}
+
+				metadataMu.Lock()
+				metadataCache[list.URL] = list
+				metadataMu.Unlock()
+			}
+		}(l)
+	}
+	wg.Wait()
+	slog.Info("Background metadata refresh completed", "count", len(uniqueURLs))
+}
+
 // getRemoteUpdateTime attempts to find the best possible modification timestamp for a remote file.
 func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 	// 1. Standard HTTP header (static files)
@@ -544,12 +654,16 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 		}
 	}
 
-	// 2. Fallback to Date header (at least gives an idea of when the server last touched it)
+	// 2. Fallback to Date header - DISABLED
+	// The Date header is just when the server sent the response, not when the file changed.
+	// Returning empty time is better than a false "now" timestamp.
+	/*
 	if d := headers.Get("Date"); d != "" {
 		if t, err := http.ParseTime(d); err == nil {
 			return t
 		}
 	}
+	*/
 
 	// 3. Specialized support for GitHub Raw Content
 	// raw.githubusercontent.com does not send Last-Modified, so we check the Commit API

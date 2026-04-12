@@ -299,12 +299,42 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 
 func handlePresets(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(DefaultPresets)
+	
+	// Merge metadata from cache if available
+	response := make([]List, len(DefaultPresets))
+	copy(response, DefaultPresets)
+	
+	metadataMu.RLock()
+	for i, p := range response {
+		if m, ok := metadataCache[p.URL]; ok {
+			response[i].Entries = m.Entries
+			response[i].UpdatedAt = m.UpdatedAt
+			response[i].RemoteUpdatedAt = m.RemoteUpdatedAt
+		}
+	}
+	metadataMu.RUnlock()
+
+	json.NewEncoder(w).Encode(response)
 }
 
 func handlePresetAllowlists(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(DefaultAllowlists)
+	
+	// Merge metadata from cache if available
+	response := make([]List, len(DefaultAllowlists))
+	copy(response, DefaultAllowlists)
+	
+	metadataMu.RLock()
+	for i, p := range response {
+		if m, ok := metadataCache[p.URL]; ok {
+			response[i].Entries = m.Entries
+			response[i].UpdatedAt = m.UpdatedAt
+			response[i].RemoteUpdatedAt = m.RemoteUpdatedAt
+		}
+	}
+	metadataMu.RUnlock()
+
+	json.NewEncoder(w).Encode(response)
 }
 
 func handleResetLists(w http.ResponseWriter, r *http.Request) {
