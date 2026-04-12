@@ -7,10 +7,11 @@ import (
 )
 
 const (
-	StatusAllowed       = "Allowed"
-	StatusBlocked       = "Blocked"
-	StatusBlockedPolicy = "Blocked (Policy)"
-	StatusBlockedClient = "Blocked (Client IP)"
+	StatusAllowed          = "Allowed"
+	StatusBlocked          = "Blocked"
+	StatusBlockedPolicy    = "Blocked (Policy)"
+	StatusBlockedClient    = "Blocked (Client IP)"
+	StatusBlockedMalicious = "Blocked (Threat Intelligence)"
 )
 
 type Config struct {
