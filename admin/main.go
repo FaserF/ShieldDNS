@@ -60,6 +60,7 @@ func main() {
 	initPaths()
 	loadConfig()
 	initGeo()
+	initMalicious()
 
 	// Initialize SQLite
 	initDB()
@@ -75,9 +76,11 @@ func main() {
 
 	// Start background updater ticker
 	go startBackgroundUpdater()
+	go startMaliciousUpdater()
 
 	// Trigger initial blocklist update in background
 	go updateBlocklist(nil)
+	go syncMaliciousIPs()
 
 	// Start health checker
 	go startHealthChecker()

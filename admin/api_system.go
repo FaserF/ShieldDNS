@@ -570,6 +570,14 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if len(newConfig.BlockedClients) == 0 && len(config.BlockedClients) > 0 {
 			newConfig.BlockedClients = config.BlockedClients
 		}
+		// Validate that critical clients are not being blocked manually via config
+		for _, bip := range newConfig.BlockedClients {
+			if bip == "DoH Proxy" || bip == "127.0.0.1" || bip == "::1" || bip == "localhost" {
+				http.Error(w, "Cannot block critical internal clients (DoH Proxy, localhost, loopback). Please remove these entries from the Blocked Clients list.", http.StatusBadRequest)
+				configLock.Unlock()
+				return
+			}
+		}
 		if newConfig.BlockedClientsInfo == nil && config.BlockedClientsInfo != nil {
 			newConfig.BlockedClientsInfo = config.BlockedClientsInfo
 		}
@@ -614,11 +622,24 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		newConfig.CustomAllowed = cleanAllowed
 
+		configHold := config
 		config = newConfig
 		saveConfigNoLock()
 		configLock.Unlock()
+
+		// If malicious settings changed, restart the background worker
+		if config.MaliciousIPInterval != configHold.MaliciousIPInterval ||
+			config.MaliciousIPBlockingEnabled != configHold.MaliciousIPBlockingEnabled {
+			restartMaliciousUpdater()
+			// If it was just enabled, trigger an immediate sync
+			if config.MaliciousIPBlockingEnabled && !configHold.MaliciousIPBlockingEnabled {
+				go syncMaliciousIPs()
+			}
+		}
+
 		updateCorefile()
-		
+		restartCoreDNS() // Ensure Corefile changes (ACL) are applied
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(config)
 		return

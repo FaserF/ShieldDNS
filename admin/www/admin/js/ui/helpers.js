@@ -30,18 +30,27 @@ export const formatUptime = (seconds) => {
     return `${m}m ${s}s`;
 };
 
-export const showAlert = (msg) => {
+export const showAlert = (msg, title = 'Notification') => {
     return new Promise(resolve => {
         const modal = document.getElementById('alert-modal');
+        const titleEl = document.getElementById('alert-title');
         const msgEl = document.getElementById('alert-message');
         const okBtn = document.getElementById('alert-ok');
+        
         if (modal && msgEl && okBtn) {
+            if (titleEl) titleEl.textContent = title;
             msgEl.textContent = msg;
             modal.classList.remove('hidden');
-            okBtn.onclick = () => {
+            
+            const close = () => {
                 modal.classList.add('hidden');
+                window.removeEventListener('keydown', escListener);
                 resolve();
             };
+            
+            const escListener = (e) => { if (e.key === 'Escape') close(); };
+            window.addEventListener('keydown', escListener);
+            okBtn.onclick = close;
         } else {
             alert(msg);
             resolve();
@@ -49,23 +58,43 @@ export const showAlert = (msg) => {
     });
 };
 
-export const showConfirm = (msg) => {
+export const showConfirm = (msg, title = 'Confirmation', isDanger = false) => {
     return new Promise(resolve => {
         const modal = document.getElementById('confirm-modal');
+        const titleEl = document.getElementById('confirm-title');
         const msgEl = document.getElementById('confirm-message');
         const okBtn = document.getElementById('confirm-yes');
-        const cancelBtn = document.getElementById('confirm-no');
+        const cancelBtn = document.getElementById('confirm-cancel');
+        
         if (modal && msgEl && okBtn && cancelBtn) {
+            if (titleEl) titleEl.textContent = title;
             msgEl.textContent = msg;
+            
+            // Apply danger styling if requested
+            if (isDanger) {
+                modal.classList.add('danger');
+                okBtn.classList.remove('primary');
+                okBtn.classList.add('danger');
+            } else {
+                modal.classList.remove('danger');
+                okBtn.classList.remove('danger');
+                okBtn.classList.add('primary');
+            }
+
             modal.classList.remove('hidden');
-            okBtn.onclick = () => {
+            
+            const handle = (result) => {
                 modal.classList.add('hidden');
-                resolve(true);
+                window.removeEventListener('keydown', escListener);
+                resolve(result);
             };
-            cancelBtn.onclick = () => {
-                modal.classList.add('hidden');
-                resolve(false);
-            };
+            
+            const escListener = (e) => { if (e.key === 'Escape') handle(false); };
+            window.addEventListener('keydown', escListener);
+            
+            okBtn.onclick = () => handle(true);
+            cancelBtn.onclick = () => handle(false);
+            modal.onclick = (e) => { if (e.target === modal) handle(false); };
         } else {
             resolve(confirm(msg));
         }

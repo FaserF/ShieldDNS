@@ -136,10 +136,14 @@ export function renderConfig(cfg) {
     if (getEl('smart-upstream-check')) getEl('smart-upstream-check').checked = !!cfg.use_fastest_upstream;
     if (getEl('smart-selection-policy-input')) getEl('smart-selection-policy-input').value = cfg.smart_selection_policy || 'fastest';
     if (getEl('latency-interval-input')) getEl('latency-interval-input').value = cfg.latency_test_interval || 10;
-    if (getEl('diagnostics-interval-input')) getEl('diagnostics-interval-input').value = cfg.diagnostics_refresh_interval || 600;
+    if (getEl('diagnostics-interval-input')) getEl('diagnostics-interval-input').value = cfg.diagnostics_refresh_interval || 30;
     if (getEl('retention-input')) getEl('retention-input').value = cfg.retention_days || 30;
     if (getEl('abuse-dga-threshold-input')) getEl('abuse-dga-threshold-input').value = cfg.abuse_dga_threshold || 3.8;
     if (getEl('abuse-dga-min-len-input')) getEl('abuse-dga-min-len-input').value = cfg.abuse_dga_min_len || 8;
+    
+    // Malicious IP Settings
+    if (getEl('malicious-check')) getEl('malicious-check').checked = cfg.malicious_ip_blocking_enabled;
+    if (getEl('malicious-interval-input')) getEl('malicious-interval-input').value = cfg.malicious_ip_interval || 8;
 
     // Custom Rules
     const renderCustomList = (id, items) => {
@@ -388,7 +392,7 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const typeTag = getEl('ip-info-type-tag');
     if (typeTag) {
         typeTag.textContent = stats.is_private ? 'Private Network' : 'Public Network';
-        typeTag.className = 'badge ' + (stats.is_private ? 'primary' : 'warning');
+        typeTag.className = 'badge ' + (stats.is_private ? 'success' : 'warning');
     }
     
     // Location Info
@@ -450,7 +454,8 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
 
     // Show/Hide block buttons
     const isBlocked = (state.currentConfig.blocked_clients || []).includes(ip);
-    getEl('ip-block-btn').style.display = isBlocked ? 'none' : 'block';
+    const isCritical = ['DoH Proxy', '127.0.0.1', '::1', 'localhost'].includes(ip);
+    getEl('ip-block-btn').style.display = (isBlocked || isCritical) ? 'none' : 'block';
     getEl('ip-unblock-btn').style.display = isBlocked ? 'block' : 'none';
     
     getEl('ip-info-modal').classList.remove('hidden');

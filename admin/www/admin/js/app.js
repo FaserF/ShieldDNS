@@ -42,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeApp() {
     // 0. Ensure UI references are captured
     updateUIRefs();
-    initTheme();
     initModals();
     
     // 1. Init Navigation with view-specific handlers
@@ -281,7 +280,7 @@ function initModals() {
 
     getEl('ip-block-btn')?.addEventListener('click', async () => {
         const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
-        if (!await helpers.showConfirm(`Block client ${ip}?`)) return;
+        if (!await helpers.showConfirm(`Block client ${ip}?`, 'Block Client', true)) return;
         try {
             await api.apiFetch(api.endpoints.clientBlock, { method: 'POST', body: JSON.stringify({ ip, action: 'block' }) });
             helpers.showToast('Client blocked');
@@ -302,7 +301,7 @@ function initModals() {
 
     getEl('domain-block-btn')?.addEventListener('click', async () => {
         const domain = getEl('domain-info-title').textContent;
-        if (!domain || !await helpers.showConfirm(`Block domain ${domain}?`)) return;
+        if (!domain || !await helpers.showConfirm(`Block domain ${domain}?`, 'Block Domain', true)) return;
         try {
             await api.apiFetch(api.endpoints.addRule, { method: 'POST', body: JSON.stringify({ domain, action: 'block' }) });
             helpers.showToast(`${domain} blocked`);
@@ -431,7 +430,7 @@ window.addCustomMapping = async (event) => {
 };
 
 window.removeCustomRule = async (domain, event) => {
-    if (!await helpers.showConfirm(`Are you sure you want to remove the rule for ${domain}?`)) return;
+    if (!await helpers.showConfirm(`Are you sure you want to remove the rule for ${domain}?`, 'Remove Rule', true)) return;
     
     const btn = event?.currentTarget;
     helpers.setBtnLoading(btn, true, '');
@@ -486,7 +485,7 @@ window.toggleList = async (idx, enabled, type, event) => {
 };
 
 window.removeList = async (idx, type, event) => {
-    if (!await helpers.showConfirm('Are you sure you want to remove this list?')) return;
+    if (!await helpers.showConfirm('Are you sure you want to remove this list?', 'Remove List', true)) return;
     
     const btn = event?.currentTarget;
     helpers.setBtnLoading(btn, true, '');

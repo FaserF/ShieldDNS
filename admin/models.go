@@ -42,6 +42,8 @@ type Config struct {
 	AbuseDGAThreshold          float64                      `json:"abuse_dga_threshold"`
 	AbuseDGAMinLen             int                          `json:"abuse_dga_min_len"`
 	ClientAliases              map[string]string            `json:"client_aliases"`
+	MaliciousIPBlockingEnabled bool                         `json:"malicious_ip_blocking_enabled"`
+	MaliciousIPInterval        int                          `json:"malicious_ip_interval"`
 	SignMobileConfig           bool              `json:"sign_mobileconfig"`
 	DebugMode                  bool              `json:"debug_mode"`
 	LastLogin                  time.Time         `json:"last_login"`

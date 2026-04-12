@@ -278,7 +278,7 @@ export function initEvents(fetchConfig) {
 
     const resetListsBtn = getEl('reset-lists-btn');
     resetListsBtn?.addEventListener('click', async (e) => {
-        if (!await helpers.showConfirm('Are you sure you want to restore all filtering lists to defaults? Your custom lists will be removed.')) return;
+        if (!await helpers.showConfirm('Are you sure you want to restore all filtering lists to defaults? Your custom lists will be removed.', 'Restore Defaults', true)) return;
         
         const btn = e.target;
         helpers.setBtnLoading(btn, true, 'Resetting...');
@@ -299,7 +299,7 @@ export function initEvents(fetchConfig) {
 
     // Window hooks for dynamic elements
     window.deleteAPIKey = async (id, event) => {
-        if (!await helpers.showConfirm('Delete this API key forever?')) return;
+        if (!await helpers.showConfirm('Delete this API key forever?', 'Delete API Key', true)) return;
         const btn = event.currentTarget;
         helpers.setBtnLoading(btn, true, '');
         try {
@@ -457,7 +457,7 @@ export function initEvents(fetchConfig) {
     });
 
     getEl('reset-system-btn')?.addEventListener('click', async () => {
-        if (!await helpers.showConfirm('FACTORY RESET: This will wipe your configuration and password. The system will revert to setup mode. Are you absolutely sure?')) return;
+        if (!await helpers.showConfirm('FACTORY RESET: This will wipe your configuration and password. The system will revert to setup mode. Are you absolutely sure?', 'Factory Reset', true)) return;
         
         showActivityOverlay('Factory Reset', 'Wiping all system data and configurations...');
         try {
@@ -475,7 +475,7 @@ export function initEvents(fetchConfig) {
     });
     
     getEl('clear-logs-btn')?.addEventListener('click', async () => {
-        if (!await helpers.showConfirm('Are you sure you want to clear all query logs? This action is irreversible and will delete all historical query data.')) return;
+        if (!await helpers.showConfirm('Are you sure you want to clear all query logs? This action is irreversible and will delete all historical query data.', 'Clear Logs', true)) return;
         
         const btn = getEl('clear-logs-btn');
         helpers.setBtnLoading(btn, true, 'Clearing...');
@@ -572,6 +572,8 @@ export async function saveConfig(fetchConfig) {
         retention_days: parseInt(getEl('retention-input')?.value) || 30,
         abuse_dga_threshold: parseFloat(getEl('abuse-dga-threshold-input')?.value) || 3.8,
         abuse_dga_min_len: parseInt(getEl('abuse-dga-min-len-input')?.value) || 8,
+        malicious_ip_blocking_enabled: getEl('malicious-check')?.checked,
+        malicious_ip_interval: parseInt(getEl('malicious-interval-input')?.value) || 8,
     };
 
     try {

@@ -97,6 +97,9 @@ func getGeoACLRules() string {
 		}
 	}
 
+	// Add malicious IPs from threat feed
+	rules = append(rules, getMaliciousIPRules()...)
+
 	if len(rules) == 0 {
 		return ""
 	}

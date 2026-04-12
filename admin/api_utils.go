@@ -73,7 +73,7 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	isPrivate := false
-	if strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "172.") || ip == "127.0.0.1" || ip == "::1" || strings.HasPrefix(ip, "fd") {
+	if strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "172.") || ip == "127.0.0.1" || ip == "::1" || strings.HasPrefix(ip, "fd") || ip == "DoH Proxy" || ip == "localhost" {
 		isPrivate = true
 	}
 
@@ -82,10 +82,31 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		IsPrivate: isPrivate,
 	}
 
-	// Reverse DNS
-	names, _ := net.LookupAddr(ip)
-	if len(names) > 0 {
-		info.Hostname = strings.TrimSuffix(names[0], ".")
+	// Handle special internal clients with hardcoded metadata
+	if ip == "DoH Proxy" {
+		info.Hostname = "ShieldDNS Internal Proxy"
+		info.ISP = "Local Forwarder"
+		info.Country = "Local"
+		info.CountryCode = "geo" // Standardized local indicator
+		info.City = "Server Environment"
+		info.Manufacturer = "ShieldDNS System"
+		info.OS = "ShieldDNS Native"
+	} else if ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
+		info.Hostname = "Localhost (Loopback)"
+		info.ISP = "Internal Interface"
+		info.Country = "Server Environment"
+		info.CountryCode = "geo"
+		info.City = "ShieldDNS Core"
+		info.Manufacturer = "ShieldDNS Console"
+		info.OS = "ShieldDNS Native"
+	}
+
+	// Reverse DNS (only if not already handled by special cases)
+	if info.Hostname == "" {
+		names, _ := net.LookupAddr(ip)
+		if len(names) > 0 {
+			info.Hostname = strings.TrimSuffix(names[0], ".")
+		}
 	}
 
 	// GeoIP for public IPs

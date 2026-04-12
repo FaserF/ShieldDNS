@@ -55,6 +55,8 @@ func loadConfig() {
 		AbuseDGAThreshold:          3.8,
 		AbuseDGAMinLen:             8,
 		CustomMappings:             map[string]string{"fritz.box": "192.168.178.1", "openwrt.lan": "192.168.1.1", "router.miwifi.com": "192.168.31.1"},
+		MaliciousIPBlockingEnabled: true,
+		MaliciousIPInterval:        8,
 	}
 
 	isNew := false

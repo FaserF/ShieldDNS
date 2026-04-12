@@ -852,6 +852,32 @@
                 </div>
 
                 <div class="settings-section">
+                    <h2>Threat Intelligence 🛡️</h2>
+                    <p class="help">Automatically block high-risk IP addresses from public threat feeds (blocklist.de).</p>
+                    <div class="form-group checkbox-group" style="margin-bottom: 15px;">
+                        <div class="checkbox-text">
+                            <div class="label-with-info">
+                                <label>Malicious IP Blocking</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Automatically block IPs reported as malicious, such as scanners, botnets, and attackers."></i>
+                            </div>
+                            <p class="help">Enforce real-time protection using curated threat lists.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="malicious-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <div class="label-with-info">
+                            <label>Update Interval (Hours)</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Frequency of updates for the malicious IP list. Default: 8 hours."></i>
+                        </div>
+                        <p class="help">How often to refresh the threat feed (Range: 1-168 hours).</p>
+                        <input type="number" id="malicious-interval-input" min="1" max="168">
+                    </div>
+                </div>
+
+                <div class="settings-section">
                     <h2>Geo-Blocking 🌍</h2>
                     <p class="help">Block entire countries from accessing or resolving through this DNS server.</p>
                     <div class="form-group" style="position: relative;">
@@ -1209,22 +1235,28 @@
     </div>
 
     <!-- Custom Alert Modal -->
-    <div id="alert-modal" class="modal hidden" style="z-index: 10001;">
-        <div class="modal-content" style="max-width: 400px; text-align: center;">
-            <h2 id="alert-title" style="margin-bottom: 12px;">Notification</h2>
-            <p id="alert-message" style="margin-bottom: 24px; color: var(--text-secondary);"></p>
-            <div class="modal-actions" style="justify-content: center;">
+    <div id="alert-modal" class="modal hidden system-dialog">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 id="alert-title">Notification</h2>
+                <button class="modal-close-btn" onclick="this.closest('.modal').classList.add('hidden')">&times;</button>
+            </div>
+            <p id="alert-message" class="modal-body-text"></p>
+            <div class="modal-actions centered">
                 <button class="btn primary full-width" id="alert-ok">OK</button>
             </div>
         </div>
     </div>
 
     <!-- Custom Confirm Modal -->
-    <div id="confirm-modal" class="modal hidden" style="z-index: 10002;">
-        <div class="modal-content" style="max-width: 450px;">
-            <h2 id="confirm-title" style="margin-bottom: 12px; text-align: center;">Confirmation</h2>
-            <p id="confirm-message" style="margin-bottom: 24px; color: var(--text-secondary); text-align: center;"></p>
-            <div class="modal-actions" style="display: flex; gap: 12px;">
+    <div id="confirm-modal" class="modal hidden system-dialog">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 id="confirm-title">Confirmation</h2>
+                <button class="modal-close-btn" onclick="this.closest('.modal').classList.add('hidden')">&times;</button>
+            </div>
+            <p id="confirm-message" class="modal-body-text"></p>
+            <div class="modal-actions">
                 <button class="btn secondary full-width" id="confirm-cancel">Cancel</button>
                 <button class="btn primary full-width" id="confirm-yes">Confirm</button>
             </div>

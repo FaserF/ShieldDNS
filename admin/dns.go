@@ -801,7 +801,12 @@ func parseLogLine(line string) {
 		isBlocked = true
 		status = StatusBlockedPolicy
 
-		// Check if it was a specifically blocked client IP
+		// Check if it was blocked by the automated malicious IP intelligence feed
+		if IsMaliciousIP(clientIP) {
+			status = StatusBlockedMalicious
+		}
+
+		// Check if it was a specifically blocked client IP (Manual block has highest priority)
 		configLock.RLock()
 		for _, bip := range config.BlockedClients {
 			if bip == clientIP {
