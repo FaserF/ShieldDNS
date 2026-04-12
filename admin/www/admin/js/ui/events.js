@@ -5,6 +5,7 @@ import * as api from '../services/api.js';
 import * as helpers from './helpers.js';
 import { state, getEl } from '../core/state.js';
 import { renderConfig } from './renderers.js';
+import { showActivityOverlay, hideActivityOverlay } from './activity.js';
 
 export function initEvents(fetchConfig) {
     // General Update/Refresh
@@ -40,11 +41,14 @@ export function initEvents(fetchConfig) {
         if (!confirmed) return;
 
         helpers.setBtnLoading(fullRefreshBtn, true, 'Restarting System...');
+        showActivityOverlay('Full System Refresh', 'Re-downloading lists and restarting CoreDNS...');
         try {
              await api.apiFetch(api.endpoints.fullReload, { method: 'POST' });
-             helpers.showToast('Full system refresh initiated. CoreDNS is restarting.', 'info');
+             helpers.showToast('Full system refresh initiated.', 'info');
+             hideActivityOverlay(true);
         } catch (e) { 
             helpers.setBtnLoading(fullRefreshBtn, false);
+            hideActivityOverlay(false);
             helpers.showAlert('Failed to start full refresh: ' + e.message); 
         }
     });
@@ -186,11 +190,14 @@ export function initEvents(fetchConfig) {
     getEl('apply-recommended-btn')?.addEventListener('click', async (e) => {
         const btn = e.target;
         helpers.setBtnLoading(btn, true, 'Applying...');
+        showActivityOverlay('Applying Recommendations', 'Adding ShieldDNS official blocklists...');
         try {
             await api.apiFetch(api.endpoints.refresh, { method: 'POST', body: JSON.stringify({ action: 'recommended' }) });
             helpers.showToast('Recommended lists are being applied...');
+            hideActivityOverlay(true);
             fetchConfig();
         } catch (err) {
+            hideActivityOverlay(false);
             helpers.showAlert('Failed to apply recommended lists: ' + err.message);
         } finally {
             helpers.setBtnLoading(btn, false);
@@ -201,12 +208,15 @@ export function initEvents(fetchConfig) {
         if (!await helpers.showConfirm('Reset all lists to factory defaults? Your custom lists will be removed.')) return;
         const btn = e.target;
         helpers.setBtnLoading(btn, true, 'Resetting...');
+        showActivityOverlay('Resetting Lists', 'Reverting to default ShieldDNS configuration...');
         try {
             await api.apiFetch(api.endpoints.resetLists, { method: 'POST' });
             helpers.showToast('Lists restored to defaults');
+            hideActivityOverlay(true);
             // Force immediate reload to update UI
             setTimeout(fetchConfig, 800);
         } catch (err) {
+            hideActivityOverlay(false);
             helpers.showAlert('Failed to reset lists: ' + err.message);
         } finally {
             helpers.setBtnLoading(btn, false);
@@ -354,17 +364,20 @@ export function initEvents(fetchConfig) {
         if (!file) return;
 
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('config', file); // API expects 'config' field
 
-        helpers.showToast('Restoring configuration...', 'info');
+        helpers.showToast('Restoring system...', 'info');
+        showActivityOverlay('System Restoration', 'Applying configuration and database backup...');
         try {
             await api.apiFetch(api.endpoints.restore, {
                 method: 'POST',
                 body: formData
             });
-            helpers.showToast('Configuration restored successfully! System is restarting...');
-            setTimeout(() => window.location.reload(), 2000);
+            helpers.showToast('System restored successfully!');
+            hideActivityOverlay(true);
+            setTimeout(() => window.location.reload(), 2500);
         } catch (err) {
+            hideActivityOverlay(false);
             helpers.showAlert('Restore failed: ' + err.message);
         }
     });
@@ -372,14 +385,17 @@ export function initEvents(fetchConfig) {
     getEl('reset-system-btn')?.addEventListener('click', async () => {
         if (!await helpers.showConfirm('FACTORY RESET: This will wipe your configuration and password. The system will revert to setup mode. Are you absolutely sure?')) return;
         
+        showActivityOverlay('Factory Reset', 'Wiping all system data and configurations...');
         try {
             await api.apiFetch(api.endpoints.reset, { 
                 method: 'POST', 
                 body: JSON.stringify({ scope: 'all' }) 
             });
-            helpers.showToast('Factory reset successful. Redirecting to setup...');
+            helpers.showToast('Factory reset successful.');
+            hideActivityOverlay(true);
             setTimeout(() => window.location.reload(), 2000);
         } catch (err) {
+            hideActivityOverlay(false);
             helpers.showAlert('Factory reset failed: ' + err.message);
         }
     });

@@ -69,5 +69,6 @@ export const endpoints = {
     changePassword: '/api/change-password',
     backup: '/api/backup',
     restore: '/api/restore',
-    blockInfo: '/api/block-info'
+    blockInfo: '/api/block-info',
+    recheckDiagnostics: '/api/diagnostics/recheck'
 };

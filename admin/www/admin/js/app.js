@@ -11,6 +11,7 @@ import * as render from './ui/renderers.js';
 import * as api from './services/api.js';
 import * as helpers from './ui/helpers.js';
 import * as uiModules from './ui/ui.js';
+import { showActivityOverlay, hideActivityOverlay } from './ui/activity.js';
 
 /**
  * Global Initialization
@@ -137,13 +138,16 @@ window.addPreset = async (name, url, event) => {
     
     const btn = event?.currentTarget;
     helpers.setBtnLoading(btn, true, 'Adding...');
+    showActivityOverlay('Adding Blocklist', `Downloading and processing ${name}...`);
 
     if (!state.currentConfig.lists) state.currentConfig.lists = [];
     state.currentConfig.lists.push({ name, url, enabled: true });
     try {
         await events.saveConfig(fetchService.fetchConfig);
         helpers.showToast(`${name} added!`);
+        hideActivityOverlay(true);
     } catch (e) {
+        hideActivityOverlay(false);
         helpers.showAlert('Failed to add preset: ' + e.message);
     } finally {
         helpers.setBtnLoading(btn, false);
@@ -159,13 +163,16 @@ window.addAllowPreset = async (name, url, event) => {
     
     const btn = event?.currentTarget;
     helpers.setBtnLoading(btn, true, 'Adding...');
+    showActivityOverlay('Adding Allowlist', `Processing ${name} preset...`);
 
     if (!state.currentConfig.allowlists) state.currentConfig.allowlists = [];
     state.currentConfig.allowlists.push({ name, url, enabled: true, category: 'Official' });
     try {
         await events.saveConfig(fetchService.fetchConfig);
         helpers.showToast(`${name} added to Allowlist!`);
+        hideActivityOverlay(true);
     } catch (e) {
+        hideActivityOverlay(false);
         helpers.showAlert('Failed to add allow preset: ' + e.message);
     } finally {
         helpers.setBtnLoading(btn, false);
@@ -205,8 +212,30 @@ function initModals() {
         }
     });
 
+    // Navigate to full logs from details
+    getEl('ip-info-view-all-btn')?.addEventListener('click', () => {
+        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
+        const searchInput = getEl('query-search');
+        if (searchInput) {
+            searchInput.value = ip;
+            fetchService.fetchQueries(true);
+            getEl('nav-queries')?.click();
+            closeModals();
+        }
+    });
+
+    getEl('domain-info-view-logs-btn')?.addEventListener('click', () => {
+        const domain = getEl('domain-info-subtitle').textContent || getEl('domain-info-title').textContent;
+        const searchInput = getEl('query-search');
+        if (searchInput) {
+            searchInput.value = domain;
+            fetchService.fetchQueries(true);
+            getEl('nav-queries')?.click();
+            closeModals();
+        }
+    });
+
     // IP Info UI logic
-    getEl('edit-alias-btn')?.addEventListener('click', () => {
         getEl('alias-edit-box').classList.toggle('hidden');
         getEl('client-alias-input').value = getEl('ip-info-title').textContent === getEl('ip-info-subtitle').textContent ? '' : getEl('ip-info-title').textContent;
     });
@@ -474,4 +503,19 @@ window.clearSystemLogs = (event) => {
     }
     nav.stopSystemLogStream();
     getEl('system-log-terminal').textContent = 'Terminal cleared. Click a nav item to resume logs.';
+};
+
+window.recheckUpstreams = async (btn) => {
+    if (btn) helpers.setBtnLoading(btn, true, 'Testing...');
+    try {
+        await api.apiFetch(api.endpoints.recheckDiagnostics, { method: 'POST' });
+        helpers.showToast('Latency re-check triggered. Updating badges...', 'info');
+        // Diagnostics are auto-refreshed via the diagnostics view timer, 
+        // but we can trigger an immediate one if we are currently looking at it.
+        setTimeout(fetchService.fetchDiagnostics, 1500);
+    } catch (e) {
+        helpers.showAlert('Failed to trigger re-check: ' + e.message);
+    } finally {
+        if (btn) helpers.setBtnLoading(btn, false);
+    }
 };

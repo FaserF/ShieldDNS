@@ -18,6 +18,39 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ShieldDNS">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <style>
+        :root {
+            --accent-rgb: 99, 102, 241; /* Indigo-500 equivalent */
+        }
+        #activity-log-stream {
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        #activity-log-stream::-webkit-scrollbar {
+            width: 6px;
+        }
+        #activity-log-stream::-webkit-scrollbar-thumb {
+            background-color: var(--border);
+            border-radius: 10px;
+        }
+        .log-line {
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .success-text { color: var(--success); font-weight: 600; }
+        .danger-text { color: var(--danger); font-weight: 600; }
+        .pulse { animation: pulse-glow 2s infinite; }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0); }
+            100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+        }
+    </style>
 </head>
 
 <body class="dark">
@@ -1366,6 +1399,31 @@
             }
         }
     </script>
+    <!-- System Activity Modal -->
+    <div id="activity-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 700px; padding: 0; overflow: hidden; border: none; border-radius: 20px;">
+            <div style="padding: 24px; background: var(--bg-card);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                    <div id="activity-icon-container" style="width: 48px; height: 48px; border-radius: 12px; background: rgba(var(--accent-rgb), 0.1); display: flex; align-items: center; justify-content: center; color: var(--accent);">
+                        <i class="fas fa-cog fa-spin fa-lg"></i>
+                    </div>
+                    <div>
+                        <h2 id="activity-title" style="margin: 0; font-size: 1.25rem;">Processing Activity...</h2>
+                        <p id="activity-desc" style="margin: 5px 0 0; font-size: 0.9rem; color: var(--text-secondary);">Real-time system feedback</p>
+                    </div>
+                </div>
+                
+                <div id="activity-log-stream" style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; height: 300px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.8rem; line-height: 1.6; color: #cbd5e1; border: 1px solid var(--border);">
+                    <!-- Logs stream here -->
+                </div>
+
+                <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+                    <button id="activity-done-btn" class="btn primary hidden">Done</button>
+                    <button id="activity-close-btn" class="btn secondary hidden">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

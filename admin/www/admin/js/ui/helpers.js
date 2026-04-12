@@ -164,3 +164,15 @@ export const showToast = (message, type = 'success') => {
     setTimeout(remove, 4000);
     toast.onclick = remove;
 };
+
+/**
+ * Escapes HTML special characters to prevent XSS
+ * @param {string} str - The string to escape
+ * @returns {string} - The escaped string
+ */
+export const escapeHTML = (str) => {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+};

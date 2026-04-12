@@ -397,19 +397,96 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := r.ParseMultipartForm(10 << 20)
+	err := r.ParseMultipartForm(50 << 20) // Allow up to 50MB for ZIP backups
 	if err != nil {
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
 
-	file, _, err := r.FormFile("config")
+	file, header, err := r.FormFile("config")
 	if err != nil {
-		http.Error(w, "Config file 'config' field required", http.StatusBadRequest)
+		http.Error(w, "Restore file field 'config' required", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 
+	// Check if it's a ZIP file
+	isZip := strings.HasSuffix(strings.ToLower(header.Filename), ".zip")
+
+	if isZip {
+		// Temporary buffer for the zip file
+		tmpZip, err := os.CreateTemp("", "shielddns-restore-*.zip")
+		if err != nil {
+			http.Error(w, "Failed to create temp file", http.StatusInternalServerError)
+			return
+		}
+		defer os.Remove(tmpZip.Name())
+		defer tmpZip.Close()
+
+		if _, err := io.Copy(tmpZip, file); err != nil {
+			http.Error(w, "Failed to save uploaded ZIP", http.StatusInternalServerError)
+			return
+		}
+
+		zr, err := zip.OpenReader(tmpZip.Name())
+		if err != nil {
+			http.Error(w, "Corrupt ZIP file", http.StatusBadRequest)
+			return
+		}
+		defer zr.Close()
+
+		var newCfg *Config
+		var dbData []byte
+
+		for _, f := range zr.File {
+			rc, err := f.Open()
+			if err != nil {
+				continue
+			}
+			defer rc.Close()
+
+			content, _ := io.ReadAll(rc)
+			if f.Name == "config.json" {
+				var c Config
+				if err := json.Unmarshal(content, &c); err == nil {
+					newCfg = &c
+				}
+			} else if f.Name == "shielddns.db" {
+				dbData = content
+			}
+		}
+
+		if newCfg == nil {
+			http.Error(w, "ZIP missing config.json", http.StatusBadRequest)
+			return
+		}
+
+		// Apply Config
+		configLock.Lock()
+		if newCfg.AdminPasswordHashed == "" {
+			newCfg.AdminPasswordHashed = config.AdminPasswordHashed
+		}
+		config = *newCfg
+		saveConfigNoLock()
+		configLock.Unlock()
+
+		// Apply Database if present
+		if len(dbData) > 0 {
+			closeDB()
+			if err := atomicWriteFile(DBPath, dbData); err != nil {
+				slog.Error("Failed to restore DB file", "error", err)
+			}
+			initDB()
+		}
+
+		updateCorefile()
+		go updateBlocklist(nil)
+		slog.Info("System Full Restore Completed from ZIP")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Fallback to legacy JSON restore
 	var newConfig Config
 	if err := json.NewDecoder(file).Decode(&newConfig); err != nil {
 		http.Error(w, "Invalid JSON format: "+err.Error(), http.StatusBadRequest)
@@ -427,8 +504,21 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 	updateCorefile()
 	go updateBlocklist(nil)
 
-	slog.Info("System Configuration Restored from uploaded file")
+	slog.Info("System Configuration Restored from JSON")
 	w.WriteHeader(http.StatusOK)
+}
+
+func handleRecheckUpstreams(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	slog.Info("Manual upstream latency check triggered")
+	go checkAll()
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, `{"status":"triggered"}`)
 }
 
 func handleConfig(w http.ResponseWriter, r *http.Request) {

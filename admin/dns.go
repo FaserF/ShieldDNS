@@ -514,7 +514,7 @@ func updateCorefile() {
 		return
 	}
 
-	os.WriteFile(CorefilePath, buf.Bytes(), 0644)
+	atomicWriteFile(CorefilePath, buf.Bytes())
 }
 
 func startCoreDNS() {

@@ -181,13 +181,30 @@ func saveConfig() {
 
 func saveConfigNoLock() {
 	debugModeEnabled.Store(config.DebugMode)
-	data, _ := json.MarshalIndent(config, "", "  ")
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		slog.Error("Failed to marshal config", "error", err)
+		return
+	}
 	os.MkdirAll(filepath.Dir(ConfigPath), 0755)
-	if err := os.WriteFile(ConfigPath, data, 0644); err != nil {
+	if err := atomicWriteFile(ConfigPath, data); err != nil {
 		slog.Error("Failed to save config", "path", ConfigPath, "error", err)
 	} else {
 		slog.Debug("Config saved", "path", ConfigPath)
 	}
+}
+
+func atomicWriteFile(filename string, data []byte) error {
+	tmpFile := filename + ".tmp"
+	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
+		slog.Error("Failed to write temp file for atomic save", "path", tmpFile, "error", err)
+		return err
+	}
+	if err := os.Rename(tmpFile, filename); err != nil {
+		slog.Error("Failed to rename temp file for atomic save", "from", tmpFile, "to", filename, "error", err)
+		return err
+	}
+	return nil
 }
 
 func updateBlocklist(cfg *Config) {
@@ -300,15 +317,15 @@ func applyCurrentRules(attribution map[string][]string, allowSet map[string]stru
 	}
 
 	os.MkdirAll(filepath.Dir(CombinedHostsPath), 0755)
-	os.WriteFile(CombinedHostsPath, []byte(combinedBuilder.String()), 0644)
-	os.WriteFile(BlocklistPath, []byte(combinedBuilder.String()), 0644)
+	atomicWriteFile(CombinedHostsPath, []byte(combinedBuilder.String()))
+	atomicWriteFile(BlocklistPath, []byte(combinedBuilder.String()))
 
 	// Write Allowlist for tracking
 	var allowBuilder strings.Builder
 	for domain := range allowSet {
 		allowBuilder.WriteString(fmt.Sprintf("127.0.0.1 %s\n", domain))
 	}
-	os.WriteFile(AllowlistPath, []byte(allowBuilder.String()), 0644)
+	atomicWriteFile(AllowlistPath, []byte(allowBuilder.String()))
 
 	// Write Custom Mappings separately too
 	var mappingsBuilder strings.Builder

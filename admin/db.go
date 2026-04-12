@@ -13,6 +13,13 @@ import (
 
 var db *sql.DB
 
+func closeDB() {
+	if db != nil {
+		db.Close()
+		db = nil
+	}
+}
+
 func initDB() {
 	var err error
 	os.MkdirAll(filepath.Dir(DBPath), 0755)

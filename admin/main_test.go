@@ -201,8 +201,8 @@ func TestUpdateCorefile(t *testing.T) {
 		healthyUpstreams = originalHealthy
 		CorefilePath = originalPath
 		os.Remove(CorefilePath)
-		tmpFile.Close()
 	}()
+    tmpFile.Close() // Close immediately so atomicWriteFile can overwrite it
 
 	configLock.Lock()
 	config = Config{
@@ -304,8 +304,8 @@ func TestSmartSorting(t *testing.T) {
 		configLock.Unlock()
 		CorefilePath = originalPath
 		os.Remove(CorefilePath)
-		tmpFile.Close()
 	}()
+    tmpFile.Close() // Close immediately so atomicWriteFile can overwrite it
 
 	configLock.Lock()
 	config = Config{

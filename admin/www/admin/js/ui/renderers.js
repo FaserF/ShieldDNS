@@ -43,9 +43,9 @@ export function renderQueries(queries) {
 export function createQueryRow(q) {
     const row = document.createElement('tr');
     const time = new Date(q.time).toLocaleTimeString();
-    const actionBtn = q.status === 'Blocked' ?
-        `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${q.domain}')" title="Whitelist Domain">Allow</button>` :
-        `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${q.domain}')" title="Blacklist Domain">Block</button>`;
+    const actionBtn = q.status.includes('Blocked') ?
+        `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${helpers.escapeHTML(q.domain)}')" title="Whitelist Domain">Allow</button>` :
+        `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${helpers.escapeHTML(q.domain)}')" title="Blacklist Domain">Block</button>`;
 
     let statusClass = 'official';
     if (q.status.includes('Blocked')) {
@@ -53,14 +53,15 @@ export function createQueryRow(q) {
     } else if (q.status === 'Allowed') {
         statusClass = 'success';
     }
-    const displayIp = q.client_alias ? `${q.client_alias} (${q.client_ip})` : q.client_ip;
+    const escapedAlias = q.client_alias ? helpers.escapeHTML(q.client_alias) : '';
+    const displayIp = q.client_alias ? `${escapedAlias} (${helpers.escapeHTML(q.client_ip)})` : helpers.escapeHTML(q.client_ip);
 
     row.innerHTML = `
         <td>${time}</td>
-        <td><span class="domain-link" onclick="showDomainDetails('${q.domain}')">${q.domain}</span></td>
-        <td><span class="ip-link" onclick="showIPDetails('${q.client_ip}')">${displayIp}</span></td>
-        <td class="hide-mobile">${q.type || 'A'}</td>
-        <td><span class="badge ${statusClass}">${q.status}</span></td>
+        <td><span class="domain-link" onclick="showDomainDetails('${helpers.escapeHTML(q.domain)}')">${helpers.escapeHTML(q.domain)}</span></td>
+        <td><span class="ip-link" onclick="showIPDetails('${helpers.escapeHTML(q.client_ip)}')">${displayIp}</span></td>
+        <td class="hide-mobile">${helpers.escapeHTML(q.type) || 'A'}</td>
+        <td><span class="badge ${statusClass}">${helpers.escapeHTML(q.status)}</span></td>
         <td class="hide-mobile">${actionBtn}</td>
     `;
     return row;
@@ -289,12 +290,12 @@ export function renderDiagnostics(d) {
 
     if (latencyList && d.upstream_health) {
          latencyList.innerHTML = d.upstream_health.map(h => {
-             const isUp = h.status === 'up';
+             const isUp = h.status === 'up' || h.status === 'Healthy';
              const isPreferred = h.is_preferred || false;
              return `<tr class="${isPreferred ? 'preferred-row' : ''}">
                  <td>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        ${h.server}
+                        ${helpers.escapeHTML(h.server)}
                         ${isPreferred ? '<span class="badge" style="background:var(--accent); font-size:0.65rem; padding:3px 8px; color:white; border-radius:12px; display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-bolt" style="font-size:0.6rem"></i> Currently Active</span>' : ''}
                     </div>
                  </td>
@@ -302,21 +303,48 @@ export function renderDiagnostics(d) {
                  <td style="text-align:right; font-weight:${isPreferred ? '600' : '400'}">${isUp ? h.latency_ms.toFixed(1) + ' ms' : '-'}</td>
              </tr>`;
          }).join('') || '<tr><td colspan="3" class="help">No upstreams configured.</td></tr>';
+         
+         // Add manual trigger button if it doesn't exist or update it
+         if (!getEl('recheck-latency-btn')) {
+            const header = latencyList.parentElement.parentElement.querySelector('.chart-header');
+            if (header) {
+                const btn = document.createElement('button');
+                btn.id = 'recheck-latency-btn';
+                btn.className = 'btn btn-sm secondary';
+                btn.style.marginLeft = 'auto';
+                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Retest Now';
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    window.recheckUpstreams(btn);
+                };
+                header.appendChild(btn);
+            }
+         }
     }
 }
 
 export function renderAPIKeys(keys) {
-    const list = getEl('api-keys-list');
+    const list = getEl('api-keys-list') || getEl('api-keys-list-container');
     if (!list) return;
     
-    list.innerHTML = (keys || []).map(key => `
-        <tr>
-            <td>${key.name}</td>
-            <td>${(key.permissions || []).map(p => `<span class="badge secondary" style="font-size:0.7rem; margin-right:4px;">${p}</span>`).join('') || '-'}</td>
-            <td class="help" style="font-size:0.75rem;">${key.last_used ? new Date(key.last_used).toLocaleString() : 'Never'}</td>
-                <button class="btn btn-sm danger-text" onclick="deleteAPIKey('${key.id}', event)"><i class="fas fa-trash"></i></button>
-        </tr>
-    `).join('') || '<tr><td colspan="5" class="help">No API keys generated.</td></tr>';
+    list.innerHTML = (keys || []).map(k => {
+        const createdDate = (!k.created_at || k.created_at.startsWith('0001')) ? 'Unknown' : new Date(k.created_at).toLocaleDateString();
+        const lastUsed = (!k.last_used || k.last_used.startsWith('0001')) ? 'Never' : new Date(k.last_used).toLocaleString();
+        
+        return `
+            <tr>
+                <td>${helpers.escapeHTML(k.name)}</td>
+                <td>${(k.permissions || []).map(p => `<span class="badge secondary" style="font-size:0.7rem; margin-right:4px;">${helpers.escapeHTML(p)}</span>`).join('') || '-'}</td>
+                <td class="help" style="font-size:0.75rem;">${lastUsed}</td>
+                <td>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-sm secondary" onclick="window.editAPIKey('${k.id}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm danger" onclick="window.deleteAPIKey('${k.id}')"><i class="fas fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="4" class="help">No API keys generated.</td></tr>';
 }
 
 
@@ -333,7 +361,7 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     if (bar) bar.style.width = pct + '%';
     
     setTxt('ip-info-hostname', stats.hostname || '-');
-    setTxt('ip-info-manufacturer', stats.manufacturer || '-');
+    setTxt('ip-info-isp', stats.isp || '-');
     setTxt('ip-info-mac', stats.mac || '-');
     
     // Location Info
@@ -350,14 +378,14 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     
     getEl('ip-info-top-domains').innerHTML = (topDomains || []).map(d => `
         <tr>
-            <td style="word-break: break-all;">${d.domain}</td>
+            <td style="word-break: break-all;">${helpers.escapeHTML(d.domain)}</td>
             <td style="text-align:right">${d.count}</td>
         </tr>
     `).join('') || '<tr><td colspan="2">No data</td></tr>';
     
     getEl('ip-info-top-blocked').innerHTML = (topBlocked || []).map(d => `
         <tr>
-            <td style="word-break: break-all;">${d.domain}</td>
+            <td style="word-break: break-all;">${helpers.escapeHTML(d.domain)}</td>
             <td style="text-align:right">${d.count}</td>
         </tr>
     `).join('') || '<tr><td colspan="2">No data</td></tr>';
@@ -365,8 +393,8 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     getEl('ip-info-history').innerHTML = (history || []).map(q => `
         <tr>
             <td>${new Date(q.time).toLocaleTimeString()}</td>
-            <td style="word-break: break-all;">${q.domain}</td>
-            <td><span class="badge ${q.status.includes('Allowed') ? 'success' : 'danger'}">${q.status}</span></td>
+            <td style="word-break: break-all;">${helpers.escapeHTML(q.domain)}</td>
+            <td><span class="badge ${q.status.includes('Allowed') ? 'success' : 'danger'}">${helpers.escapeHTML(q.status)}</span></td>
         </tr>
     `).join('') || '<tr><td colspan="3">No recent activity</td></tr>';
 
@@ -411,8 +439,8 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
 
     getEl('domain-info-clients-list').innerHTML = (clients || []).map(c => `
         <tr>
-            <td><a href="#" onclick="window.showIPDetails('${c.ip}'); return false;" style="color: var(--accent);">${c.ip}</a></td>
-            <td>${c.alias || '-'}</td>
+            <td><a href="#" onclick="window.showIPDetails('${helpers.escapeHTML(c.ip)}'); return false;" style="color: var(--accent);">${helpers.escapeHTML(c.ip)}</a></td>
+            <td>${helpers.escapeHTML(c.alias) || '-'}</td>
             <td style="text-align:right">${c.count}</td>
         </tr>
     `).join('') || '<tr><td colspan="3">No data</td></tr>';
@@ -420,8 +448,8 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
     getEl('domain-info-history').innerHTML = (history || []).map(q => `
         <tr>
             <td>${new Date(q.time).toLocaleTimeString()}</td>
-            <td><a href="#" onclick="window.showIPDetails('${q.client_ip}'); return false;" style="color: var(--accent);">${q.client_alias || q.client_ip}</a></td>
-            <td><span class="badge ${q.status.includes('Allowed') ? 'success' : 'danger'}">${q.status}</span></td>
+            <td><a href="#" onclick="window.showIPDetails('${helpers.escapeHTML(q.client_ip)}'); return false;" style="color: var(--accent);">${helpers.escapeHTML(q.client_alias || q.client_ip)}</a></td>
+            <td><span class="badge ${q.status.includes('Allowed') ? 'success' : 'danger'}">${helpers.escapeHTML(q.status)}</span></td>
         </tr>
     `).join('') || '<tr><td colspan="3">No recent activity</td></tr>';
 
@@ -431,25 +459,4 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
     getEl('domain-info-modal').classList.remove('hidden');
 }
 
-export function renderAPIKeys(keys) {
-    const container = getEl('api-keys-list-container');
-    if (!container) return;
-    
-    container.innerHTML = (keys || []).map(k => {
-        const createdDate = (!k.created_at || k.created_at.startsWith('0001')) ? 'Unknown' : new Date(k.created_at).toLocaleDateString();
-        const lastUsed = (!k.last_used || k.last_used.startsWith('0001')) ? 'Never' : new Date(k.last_used).toLocaleString();
-        
-        return `
-            <tr>
-                <td>${k.name}</td>
-                <td>${(k.permissions || []).map(p => `<span class="badge secondary">${p}</span>`).join(' ')}</td>
-                <td>${createdDate}</td>
-                <td>${lastUsed}</td>
-                <td>
-                    <button class="btn btn-sm secondary" onclick="window.editAPIKey('${k.id}')">Edit</button>
-                    <button class="btn btn-sm danger" onclick="window.deleteAPIKey('${k.id}')">Delete</button>
-                </td>
-            </tr>
-        `;
-    }).join('') || '<tr><td colspan="5" class="help">No API keys generated.</td></tr>';
-}
+// Remove duplicate renderAPIKeys

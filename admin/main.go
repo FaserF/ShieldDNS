@@ -73,6 +73,7 @@ func main() {
 	http.Handle("/api/system-logs", authMiddleware(http.HandlerFunc(handleSystemLogs)))
 	http.Handle("/api/events", authMiddleware(http.HandlerFunc(handleEvents)))
 	http.Handle("/api/diagnostics", authMiddleware(http.HandlerFunc(handleDiagnostics)))
+	http.Handle("/api/diagnostics/recheck", authMiddleware(http.HandlerFunc(handleRecheckUpstreams)))
 	http.Handle("/api/ip-info", authMiddleware(http.HandlerFunc(handleIPInfo)))
 	http.HandleFunc("/api/presets", handlePresets)
 	http.HandleFunc("/api/presets/allow", handlePresetAllowlists)
