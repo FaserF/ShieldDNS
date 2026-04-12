@@ -6,7 +6,7 @@ var DefaultPresets = []List{
 
 	// --- General Blocking ---
 	{Name: "HaGeZi Multi (Light)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt", Enabled: false, Category: "General Blocking"},
-	{Name: "HaGeZi Multi (Normal)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/multi.txt", Enabled: true, Category: "General Blocking"},
+	{Name: "HaGeZi Multi (Normal)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/multi.txt", Enabled: false, Category: "General Blocking"},
 	{Name: "HaGeZi Multi (Pro)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
 	{Name: "HaGeZi Multi (Pro++)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.plus.txt", Enabled: false, Category: "General Blocking"},
 	{Name: "HaGeZi Multi (Ultimate)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/ultimate.txt", Enabled: false, Category: "General Blocking"},

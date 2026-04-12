@@ -132,6 +132,7 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 }
 
 func TestAbuseDetectionDisabled(t *testing.T) {
+	// ... (rest of old TestAbuseDetectionDisabled)
 	// Reset state
 	configLock.Lock()
 	config = Config{
@@ -152,5 +153,51 @@ func TestAbuseDetectionDisabled(t *testing.T) {
 
 	if blocked {
 		t.Fatal("Client should not be blocked when detection is disabled")
+	}
+}
+
+func TestAbuseCountersCleanup(t *testing.T) {
+	// Setup: Add some counters
+	abuseMu.Lock()
+	abuseCounters = make(map[string]*clientAbuseCounters)
+	ip := "7.7.7.7"
+	counters := &clientAbuseCounters{
+		domainTimes: map[string][]time.Time{
+			"stale.com": {time.Now().Add(-20 * time.Minute)},
+			"fresh.com": {time.Now()},
+		},
+		allQueryTimes: []time.Time{time.Now()},
+	}
+	abuseCounters[ip] = counters
+	abuseMu.Unlock()
+
+	// Manually trigger cleanup worker logic for test
+	now := time.Now()
+	abuseMu.Lock()
+	for ip, counters := range abuseCounters {
+		for domain, dTimes := range counters.domainTimes {
+			counters.domainTimes[domain] = pruneWindow(dTimes, now, 10*time.Minute)
+			if len(counters.domainTimes[domain]) == 0 {
+				delete(counters.domainTimes, domain)
+			}
+		}
+		counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 10*time.Minute)
+		if len(counters.allQueryTimes) == 0 && len(counters.domainTimes) == 0 {
+			delete(abuseCounters, ip)
+		}
+	}
+	abuseMu.Unlock()
+
+	abuseMu.Lock()
+	defer abuseMu.Unlock()
+	c, exists := abuseCounters[ip]
+	if !exists {
+		t.Fatal("Counter entry for IP should still exist because fresh.com is within window")
+	}
+	if _, staleExists := c.domainTimes["stale.com"]; staleExists {
+		t.Error("stale.com should have been purged from domainTimes")
+	}
+	if _, freshExists := c.domainTimes["fresh.com"]; !freshExists {
+		t.Error("fresh.com should NOT have been purged from domainTimes")
 	}
 }

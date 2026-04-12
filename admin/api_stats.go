@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -20,12 +21,19 @@ var (
 func handleStats(w http.ResponseWriter, r *http.Request) {
 	statsLock.RLock()
 	s := stats
-	// Deep copy QueryTypes map to avoid race condition during JSON encoding
-	if stats.QueryTypes != nil {
-		s.QueryTypes = make(map[string]int64)
-		for k, v := range stats.QueryTypes {
-			s.QueryTypes[k] = v
+	
+	// Reload atomic counters to get latest values safely
+	s.TotalQueries = atomic.LoadInt64(&stats.TotalQueries)
+	s.BlockedQueries = atomic.LoadInt64(&stats.BlockedQueries)
+	s.CacheHits = atomic.LoadInt64(&stats.CacheHits)
+
+	if len(s.QueryTypes) > 0 {
+		// Deep copy map under read lock
+		newQt := make(map[string]int64)
+		for k, v := range s.QueryTypes {
+			newQt[k] = v
 		}
+		s.QueryTypes = newQt
 	}
 	statsLock.RUnlock()
 

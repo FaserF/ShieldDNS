@@ -18,7 +18,7 @@ var (
 )
 
 func fillCPUStats(stats map[string]interface{}) {
-	stats["cpu_load"] = []string{"0.00", "0.00", "0.00"}
+	stats["cpu_load"] = []float64{0.00, 0.00, 0.00}
 	stats["cpu_model"] = fmt.Sprintf("%s %s (%d Cores)", runtime.GOOS, runtime.GOARCH, runtime.NumCPU())
 	stats["cpu_cores"] = runtime.NumCPU()
 }
@@ -30,9 +30,10 @@ func fillRAMStats(stats map[string]interface{}) {
 	total := uint64(16 * 1024 * 1024 * 1024) // 16GB Mock
 	used := m.Sys
 	
-	stats["ram_total_mb"] = int64(total / (1024 * 1024))
-	stats["ram_used_mb"] = int64(used / (1024 * 1024))
-	stats["ram_percent"] = float64(used) / float64(total) * 100
+	stats["ram"] = map[string]interface{}{
+		"total": total / 1024, // in KB
+		"used":  used / 1024,  // in KB
+	}
 }
 
 func fillUptimeStats(stats map[string]interface{}) {
@@ -41,16 +42,15 @@ func fillUptimeStats(stats map[string]interface{}) {
 
 func fillDiskStats(stats map[string]interface{}) {
 	total, _, used, err := getWindowsDiskStats()
-	if err == nil {
-		stats["disk_total_gb"] = float64(total) / (1024 * 1024 * 1024)
-		stats["disk_used_gb"] = float64(used) / (1024 * 1024 * 1024)
-		stats["disk_percent"] = float64(used) / float64(total) * 100
-		return
+	if err != nil {
+		total = 100 * 1024 * 1024 * 1024
+		used = 0
 	}
 
-	stats["disk_total_gb"] = 100.0
-	stats["disk_used_gb"] = 0.0
-	stats["disk_percent"] = 0.0
+	stats["disk"] = map[string]interface{}{
+		"total": total, // in Bytes
+		"used":  used,  // in Bytes
+	}
 }
 
 func getWindowsDiskStats() (total, free, used uint64, err error) {

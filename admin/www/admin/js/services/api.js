@@ -2,6 +2,14 @@
  * API Module - Handles all communication with the ShieldDNS backend
  */
 export async function apiFetch(endpoint, options = {}) {
+    // Inject CSRF protection header for state-changing requests
+    const method = options.method?.toUpperCase();
+    if (['POST', 'PUT', 'DELETE'].includes(method)) {
+        options.headers = {
+            ...options.headers,
+            'X-Shield-Request': '1'
+        };
+    }
     const response = await fetch(endpoint, options);
     
     if (response.status === 403) {
@@ -71,5 +79,11 @@ export const endpoints = {
     backup: '/api/backup',
     restore: '/api/restore',
     blockInfo: '/api/block-info',
-    recheckDiagnostics: '/api/diagnostics/recheck'
+    recheckDiagnostics: '/api/diagnostics/recheck',
+    ipInfo: '/api/ip-info',
+    clients: '/api/clients',
+    metrics: '/api/metrics',
+    export: '/api/export',
+    filteringStatus: '/api/filtering/status',
+    health: '/api/health'
 };

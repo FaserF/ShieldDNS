@@ -15,7 +15,10 @@ func fillCPUStats(stats map[string]interface{}) {
 	if data, err := os.ReadFile("/proc/loadavg"); err == nil {
 		fields := strings.Fields(string(data))
 		if len(fields) >= 3 {
-			stats["cpu_load"] = []string{fields[0], fields[1], fields[2]}
+			l1, _ := strconv.ParseFloat(fields[0], 64)
+			l5, _ := strconv.ParseFloat(fields[1], 64)
+			l15, _ := strconv.ParseFloat(fields[2], 64)
+			stats["cpu_load"] = []float64{l1, l5, l15}
 		}
 	}
 
@@ -60,10 +63,10 @@ func fillRAMStats(stats map[string]interface{}) {
 		}
 		if total > 0 {
 			used := total - available
-			percent := float64(used) / float64(total) * 100
-			stats["ram_total_mb"] = total / 1024
-			stats["ram_used_mb"] = used / 1024
-			stats["ram_percent"] = math.Round(percent*10) / 10
+			stats["ram"] = map[string]interface{}{
+				"total": total, // in KB
+				"used":  used,  // in KB
+			}
 		}
 	}
 }
@@ -84,9 +87,9 @@ func fillDiskStats(stats map[string]interface{}) {
 		total := fs.Blocks * uint64(fs.Bsize)
 		free := fs.Bfree * uint64(fs.Bsize)
 		used := total - free
-		percent := float64(used) / float64(total) * 100
-		stats["disk_total_gb"] = math.Round(float64(total)/1024/1024/1024*10) / 10
-		stats["disk_used_gb"] = math.Round(float64(used)/1024/1024/1024*10) / 10
-		stats["disk_percent"] = math.Round(percent*10) / 10
+		stats["disk"] = map[string]interface{}{
+			"total": total, // in Bytes
+			"used":  used,  // in Bytes
+		}
 	}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -72,8 +73,12 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 
 	// GeoIP for public IPs
 	if !isPrivate {
-		client := &http.Client{Timeout: 2 * time.Second}
-		resp, err := client.Get("http://ip-api.com/json/" + ip)
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		
+		req, _ := http.NewRequestWithContext(ctx, "GET", "http://ip-api.com/json/"+ip, nil)
+		client := &http.Client{}
+		resp, err := client.Do(req)
 		if err == nil {
 			defer resp.Body.Close()
 			var geo struct {
@@ -88,6 +93,8 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 				info.City = geo.City
 				info.ISP = geo.Org
 			}
+		} else {
+			slog.Warn("GeoIP lookup failed", "ip", ip, "error", err)
 		}
 	}
 
@@ -448,9 +455,12 @@ By proceeding, you consent to all DNS traffic being routed through this server. 
 		}
 
 		if _, err := os.Stat(certFile); err == nil {
-			if signed, err := signProfile(finalContent, certFile, keyFile); err == nil {
+			signed, signErr := signProfile(finalContent, certFile, keyFile)
+			if signErr == nil {
 				finalContent = signed
-				slog.Warn("Error signing profile", "error", err)
+			} else {
+				slog.Error("Failed to sign mobileconfig profile", "error", signErr)
+				// Fallback to unsigned content (which we already have in finalContent)
 			}
 		}
 	}

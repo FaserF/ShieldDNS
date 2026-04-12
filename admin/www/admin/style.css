@@ -392,8 +392,8 @@ header {
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 32px;
-    margin-bottom: 60px;
+    gap: 40px;
+    margin-bottom: 80px;
 }
 
 .stat-card {
@@ -1373,8 +1373,9 @@ header {
 
 .search-box {
     position: relative;
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    margin-bottom: 24px;
 }
 
 .search-box i {
@@ -1642,7 +1643,7 @@ input:checked + .slider:before {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 15px 0;
+    margin: 24px 0;
 }
 
 .token-display code {

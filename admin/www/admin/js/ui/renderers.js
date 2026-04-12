@@ -233,11 +233,17 @@ export function renderAnalytics(blocked, clients) {
 }
 
 export function renderDiagnostics(d) {
-    if (getEl('diag-cpu-load')) getEl('diag-cpu-load').textContent = d.cpu_load ? d.cpu_load.map(n => n.toFixed(2)).join(', ') : '0.00, 0.00, 0.00';
+    if (getEl('diag-cpu-load')) {
+        const load = d.cpu_load ? d.cpu_load.map(n => {
+            const val = parseFloat(n);
+            return isNaN(val) ? '0.00' : val.toFixed(2);
+        }).join(', ') : '0.00, 0.00, 0.00';
+        getEl('diag-cpu-load').textContent = load;
+    }
     if (getEl('diag-cpu-model')) getEl('diag-cpu-model').textContent = d.cpu_model || 'Unknown CPU';
     
-    if (d.ram) {
-        const used = (d.ram.used / 1024).toFixed(0);
+    if (d.ram && d.ram.total > 0) {
+        const used = (d.ram.used / 1024).toFixed(0); // From KB to MB
         const total = (d.ram.total / 1024).toFixed(0);
         const pct = (d.ram.used / d.ram.total * 100).toFixed(1);
         if (getEl('diag-ram-usage')) getEl('diag-ram-usage').textContent = `${used} / ${total} MB (${pct}%)`;
@@ -245,8 +251,8 @@ export function renderDiagnostics(d) {
         if (bar) bar.style.width = pct + '%';
     }
     
-    if (d.disk) {
-        const used = (d.disk.used / 1024 / 1024 / 1024).toFixed(1);
+    if (d.disk && d.disk.total > 0) {
+        const used = (d.disk.used / 1024 / 1024 / 1024).toFixed(1); // From Bytes to GB
         const total = (d.disk.total / 1024 / 1024 / 1024).toFixed(1);
         const pct = (d.disk.used / d.disk.total * 100).toFixed(1);
         if (getEl('diag-disk-usage')) getEl('diag-disk-usage').textContent = `${used} / ${total} GB (${pct}%)`;

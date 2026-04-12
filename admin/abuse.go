@@ -99,7 +99,16 @@ func analyzeQuery(clientIP, domain, status string) {
 }
 
 func pruneWindow(times []time.Time, now time.Time, window time.Duration) []time.Time {
+	if len(times) == 0 {
+		return times
+	}
 	cutoff := now.Add(-window)
+	
+	// Fast path: if the oldest entry is within the window, nothing to prune
+	if !times[0].Before(cutoff) {
+		return times
+	}
+
 	// Find first index that is AFTER the cutoff
 	idx := -1
 	for i, t := range times {
@@ -110,12 +119,7 @@ func pruneWindow(times []time.Time, now time.Time, window time.Duration) []time.
 	}
 	
 	if idx == -1 {
-		// All times are older than the window
 		return nil
-	}
-	if idx == 0 {
-		// All times are within the window
-		return times
 	}
 	return times[idx:]
 }
@@ -170,15 +174,28 @@ func startAbuseCleanup() {
 		
 		abuseMu.Lock()
 		for ip, counters := range abuseCounters {
-			active := false
-			
-			// If recent queries were within the last 5 minutes, we keep the client mapping
-			counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 5*time.Minute)
-			if len(counters.allQueryTimes) > 0 {
-				active = true
+			// 1. Prune nested domain counters and remove empty ones
+			for domain, dTimes := range counters.domainTimes {
+				counters.domainTimes[domain] = pruneWindow(dTimes, now, 10*time.Minute)
+				if len(counters.domainTimes[domain]) == 0 {
+					delete(counters.domainTimes, domain)
+				}
 			}
 
-			if !active {
+			// 2. Prune TLD counters
+			for tld, tTimes := range counters.tldCounts {
+				counters.tldCounts[tld] = pruneWindow(tTimes, now, 10*time.Minute)
+				if len(counters.tldCounts[tld]) == 0 {
+					delete(counters.tldCounts, tld)
+				}
+			}
+
+			// 3. Prune general counters
+			counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 10*time.Minute)
+			counters.nxdomainTimes = pruneWindow(counters.nxdomainTimes, now, 10*time.Minute)
+
+			// 4. If no activity at all in last 10 mins, remove the client from map
+			if len(counters.allQueryTimes) == 0 && len(counters.domainTimes) == 0 && len(counters.nxdomainTimes) == 0 {
 				delete(abuseCounters, ip)
 			}
 		}

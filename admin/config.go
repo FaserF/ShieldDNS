@@ -197,12 +197,25 @@ func saveConfigNoLock() {
 
 func atomicWriteFile(filename string, data []byte) error {
 	tmpFile := filename + ".tmp"
-	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
-		slog.Error("Failed to write temp file for atomic save", "path", tmpFile, "error", err)
+	f, err := os.OpenFile(tmpFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
 		return err
 	}
+	defer f.Close()
+
+	if _, err := f.Write(data); err != nil {
+		return err
+	}
+
+	if err := f.Sync(); err != nil {
+		return err
+	}
+
+	if err := f.Close(); err != nil {
+		return err
+	}
+
 	if err := os.Rename(tmpFile, filename); err != nil {
-		slog.Error("Failed to rename temp file for atomic save", "from", tmpFile, "to", filename, "error", err)
 		return err
 	}
 	return nil
@@ -479,6 +492,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 
 	list.Entries = count
 	list.UpdatedAt = time.Now()
+	slog.Info("List processed", "name", list.Name, "entries", count, "url", list.URL)
 
 	if err := scanner.Err(); err != nil {
 		slog.Error("Error reading lines for list", "name", list.Name, "error", err)

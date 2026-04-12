@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"text/template"
 	"time"
 )
@@ -604,21 +605,28 @@ func parseLogLine(line string) {
 	// 1. Strip common prefixes added by CoreDNS or system logging
 	// Handle: "[INFO] ", "[DEBUG] ", "[CoreDNS] ", "[CoreDNS-ERR] ", "[16:23:02] "
 	for {
-		clean := false
 		line = strings.TrimSpace(line)
+		if line == "" {
+			return
+		}
+		
 		prefixes := []string{"[INFO]", "[DEBUG]", "[ERROR]", "[CoreDNS]", "[CoreDNS-ERR]"}
+		found := false
 		for _, p := range prefixes {
 			if strings.HasPrefix(line, p) {
 				line = strings.TrimSpace(strings.TrimPrefix(line, p))
-				clean = true
+				found = true
+				break
 			}
 		}
+		
 		// Handle timestamp prefix like [16:23:02]
-		if len(line) > 10 && line[0] == '[' && line[9] == ']' {
+		if !found && len(line) > 10 && line[0] == '[' && line[9] == ']' {
 			line = strings.TrimSpace(line[10:])
-			clean = true
+			found = true
 		}
-		if !clean {
+		
+		if !found {
 			break
 		}
 	}
@@ -772,17 +780,17 @@ func parseLogLine(line string) {
 
 	isCacheHit := !isBlocked && duration < 5.0
 
-	// Update memory stats for real-time dashboard
-	statsLock.Lock()
-	stats.TotalQueries++
+	// Update memory stats for real-time dashboard (Atomic for core counters)
+	atomic.AddInt64(&stats.TotalQueries, 1)
 	if isBlocked {
-		stats.BlockedQueries++
+		atomic.AddInt64(&stats.BlockedQueries, 1)
 	}
 	if isCacheHit {
-		stats.CacheHits++
+		atomic.AddInt64(&stats.CacheHits, 1)
 	}
 
-	// Moving average for latency
+	// Update locked stats (Query types and latency)
+	statsLock.Lock()
 	if duration > 0 {
 		if stats.AverageLatency == 0 {
 			stats.AverageLatency = duration

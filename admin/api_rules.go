@@ -252,6 +252,23 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 
+				// Deduplicate tiers for efficiency (e.g., HaGeZi Multi Tiers)
+				// If Pro is enabled, disable Normal and Light
+				proEnabled := false
+				for _, l := range config.Lists {
+					if strings.Contains(l.Name, "(Pro)") && l.Enabled {
+						proEnabled = true
+						break
+					}
+				}
+				if proEnabled {
+					for i, l := range config.Lists {
+						if (strings.Contains(l.Name, "(Light)") || strings.Contains(l.Name, "(Normal)")) && strings.Contains(l.Name, "HaGeZi") {
+							config.Lists[i].Enabled = false
+						}
+					}
+				}
+
 				// Apply Recommended Allowlists
 				for _, rec := range DefaultAllowlists {
 					if !rec.IsRecommended {
