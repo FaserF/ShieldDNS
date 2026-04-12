@@ -1265,10 +1265,10 @@
 
     <!-- Filtering List Detail Modal -->
     <div id="list-details-modal" class="modal hidden">
-        <div class="modal-content" style="max-width: 500px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-                <h2 id="modal-list-name" style="margin: 0;">List Details</h2>
-                <button class="btn btn-sm secondary" id="close-list-details-btn">&times;</button>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-list-name">List Details</h2>
+                <button class="modal-close-btn" id="close-list-details-btn">&times;</button>
             </div>
 
             <div class="list-details-body">
@@ -1319,8 +1319,8 @@
 
     <div id="ip-info-modal" class="modal hidden">
         <div class="modal-content modal-lg">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-                <div style="flex-grow: 1;">
+            <div class="modal-header">
+                <div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <h2 id="ip-info-title" style="margin-bottom: 0;">Client Details</h2>
                         <button class="btn btn-sm secondary" id="edit-alias-btn" title="Edit Alias"><i
@@ -1332,11 +1332,6 @@
                             style="padding: 5px 10px; font-size: 0.8rem;">
                         <button class="btn btn-sm primary" id="save-alias-btn">Save</button>
                     </div>
-                    <p id="ip-info-subtitle" class="help" style="margin-top: 2px;"></p>
-                    <div id="ip-info-abuse-reason-badge" class="badge danger mt-1"
-                        style="display: none; padding: 4px 8px; font-size: 0.75rem;">
-                        <!-- Abuse reason text injected here -->
-                    </div>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <button id="ip-block-btn" class="btn btn-sm danger" style="padding: 6px 14px; display: none;">
@@ -1345,8 +1340,13 @@
                     <button id="ip-unblock-btn" class="btn btn-sm secondary" style="padding: 6px 14px; display: none;">
                         <i class="fas fa-check-circle"></i> Unblock Client
                     </button>
-                    <button class="btn btn-sm secondary" id="ip-info-close-btn">&times;</button>
+                    <button class="modal-close-btn" id="ip-info-close-btn">&times;</button>
                 </div>
+            </div>
+            <p id="ip-info-subtitle" class="help" style="margin-top: -15px; margin-bottom: 10px;"></p>
+            <div id="ip-info-abuse-reason-badge" class="badge danger mt-1"
+                style="display: none; padding: 4px 8px; font-size: 0.75rem; margin-bottom: 15px; width: fit-content;">
+                <!-- Abuse reason text injected here -->
             </div>
 
             <div class="analytics-grid analytics-grid-compact" style="margin-bottom: 24px;">
@@ -1475,23 +1475,17 @@
 
     <!-- Domain Details Modal -->
     <div id="domain-info-modal" class="modal hidden">
-        <div class="modal-content modal-lg" style="background: rgba(13, 15, 20, 0.98); backdrop-filter: blur(20px);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
                 <div>
-                    <h2 id="domain-info-title" style="margin-bottom: 4px; font-size: 1.5rem; letter-spacing: -0.02em;">
-                        Domain Details</h2>
-                    <div id="domain-info-subtitle"
-                        style="color: var(--accent); font-family: monospace; font-size: 1rem; opacity: 0.8;">domain.com
-                    </div>
+                    <h2 id="domain-info-title" style="margin-bottom: 4px;">Domain Details</h2>
+                    <div id="domain-info-subtitle" style="color: var(--accent); font-family: monospace; font-size: 0.9rem; opacity: 0.8;">domain.com</div>
                 </div>
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <div id="domain-status-badge" class="badge">Checking...</div>
-                    <button id="domain-block-btn" class="btn btn-sm danger" style="padding: 8px 16px;">Block
-                        Domain</button>
-                    <button id="domain-allow-btn" class="btn btn-sm secondary" style="padding: 8px 16px;">Allow
-                        Domain</button>
-                    <button class="btn btn-sm secondary" id="domain-info-close-btn" style="padding: 8px;"><i
-                            class="fas fa-times"></i></button>
+                    <button id="domain-block-btn" class="btn btn-sm danger" style="padding: 8px 16px; display: none;">Block Domain</button>
+                    <button id="domain-allow-btn" class="btn btn-sm secondary" style="padding: 8px 16px; display: none;">Allow Domain</button>
+                    <button class="modal-close-btn" id="domain-info-close-btn">&times;</button>
                 </div>
             </div>
 

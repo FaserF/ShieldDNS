@@ -7,22 +7,30 @@ import * as charts from './charts.js';
 import * as ui from './ui.js';
 import { VirtualScroller } from './scroller.js';
 
+const getFlagHTML = (code, size = 'w20') => {
+    if (!code || code.toLowerCase() === 'geo' || code.toLowerCase() === 'unknown' || code.length !== 2) {
+        return `<i class="fas fa-globe" style="color: var(--accent); opacity: 0.6;"></i>`;
+    }
+    const width = size === 'w40' ? '18px' : '15px';
+    return `<img src="https://flagcdn.com/${size}/${code.toLowerCase()}.png" alt="${code}" style="height: ${width}; border-radius: 2px; vertical-align: middle;">`;
+};
+
 export function renderDashStats(data) {
     const c = uiRefs.statsContainer;
     if (!c.total) return;
-    
+
     helpers.countTo(c.total, data.total_queries);
     helpers.countTo(c.blocked, data.blocked_queries);
-    
+
     const ratio = data.total_queries > 0 ? (data.blocked_queries / data.total_queries * 100) : 0;
     helpers.countTo(c.ratio, ratio, 800, ' %');
-    
+
     const cache = data.total_queries > 0 ? (data.cache_hits / data.total_queries * 100) : 0;
     helpers.countTo(c.cache, cache, 800, ' %');
-    
+
     helpers.countTo(c.latency, data.average_latency || 0, 800, ' ms');
     helpers.countTo(c.clients, data.unique_clients || 0);
-    
+
     const appVer = getEl('app-version');
     if (appVer) appVer.textContent = data.version;
     const aboutAppVer = getEl('about-shielddns-ver');
@@ -126,7 +134,7 @@ export function renderConfig(cfg) {
     if (adminDomainInput) adminDomainInput.value = cfg.admin_domain || '';
     const blockIpInput = getEl('block-ip-input');
     if (blockIpInput) blockIpInput.value = cfg.block_page_ip || '';
-    
+
     if (getEl('prefer-encrypted-check')) getEl('prefer-encrypted-check').checked = !!cfg.prefer_encrypted;
     if (getEl('debug-mode-check')) getEl('debug-mode-check').checked = !!cfg.debug_mode;
     if (getEl('sign-mobileconfig-check')) getEl('sign-mobileconfig-check').checked = !!cfg.sign_mobileconfig;
@@ -140,7 +148,7 @@ export function renderConfig(cfg) {
     if (getEl('retention-input')) getEl('retention-input').value = cfg.retention_days || 30;
     if (getEl('abuse-dga-threshold-input')) getEl('abuse-dga-threshold-input').value = cfg.abuse_dga_threshold || 3.8;
     if (getEl('abuse-dga-min-len-input')) getEl('abuse-dga-min-len-input').value = cfg.abuse_dga_min_len || 8;
-    
+
     // Malicious IP Settings
     if (getEl('malicious-check')) getEl('malicious-check').checked = cfg.malicious_ip_blocking_enabled;
     if (getEl('malicious-interval-input')) getEl('malicious-interval-input').value = cfg.malicious_ip_interval || 8;
@@ -202,7 +210,7 @@ export function renderConfig(cfg) {
     if (tags) {
         tags.innerHTML = (cfg.blocked_countries || []).map(code => `
             <div class="tag">
-                <img src="https://flagcdn.com/w20/${code.toLowerCase()}.png">
+                ${getFlagHTML(code)}
                 <span>${state.allCountries[code] || code}</span>
                 <span class="remove-tag" onclick="removeCountry('${code}', event)">&times;</span>
             </div>
@@ -231,7 +239,7 @@ export function renderAnalytics(blocked, clients) {
             </tr>
         `).join('') || '<tr><td colspan="2">No data available</td></tr>';
     }
-    
+
     const topClientsList = getEl('top-clients-list');
     if (topClientsList) {
         topClientsList.innerHTML = (clients || []).map(c => {
@@ -253,7 +261,7 @@ export function renderDiagnostics(d) {
         getEl('diag-cpu-load').textContent = load;
     }
     if (getEl('diag-cpu-model')) getEl('diag-cpu-model').textContent = d.cpu_model || 'Unknown CPU';
-    
+
     if (d.ram && d.ram.total > 0) {
         const used = (d.ram.used / 1024).toFixed(0); // From KB to MB
         const total = (d.ram.total / 1024).toFixed(0);
@@ -262,7 +270,7 @@ export function renderDiagnostics(d) {
         const bar = getEl('diag-ram-bar');
         if (bar) bar.style.width = pct + '%';
     }
-    
+
     if (d.disk && d.disk.total > 0) {
         const used = (d.disk.used / 1024 / 1024 / 1024).toFixed(1); // From Bytes to GB
         const total = (d.disk.total / 1024 / 1024 / 1024).toFixed(1);
@@ -277,17 +285,17 @@ export function renderDiagnostics(d) {
         const h = Math.floor(up / 3600);
         const m = Math.floor((up % 3600) / 60);
         const s = up % 60;
-        getEl('diag-uptime').textContent = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        getEl('diag-uptime').textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
 
     const certInfo = getEl('cert-info-content');
     if (certInfo) {
         if (!d.certificate || !d.certificate.valid) {
-             certInfo.innerHTML = '<p class="help">No valid SSL certificate information available.</p>';
+            certInfo.innerHTML = '<p class="help">No valid SSL certificate information available.</p>';
         } else {
-             const cert = d.certificate;
-             const daysLeft = Math.floor((new Date(cert.not_after) - new Date()) / (1000 * 60 * 60 * 24));
-             certInfo.innerHTML = `
+            const cert = d.certificate;
+            const daysLeft = Math.floor((new Date(cert.not_after) - new Date()) / (1000 * 60 * 60 * 24));
+            certInfo.innerHTML = `
                  <div class="diag-item"><span>Status</span><span class="badge ${cert.valid ? 'success' : 'danger'}">${cert.valid ? 'Valid' : 'Expired'}</span></div>
                  <div class="diag-item"><span>Subject</span><span title="${cert.subject || ''}">${cert.subject || '-'}</span></div>
                  <div class="diag-item"><span>Issuer</span><span title="${cert.issuer || ''}">${cert.issuer || '-'}</span></div>
@@ -296,21 +304,21 @@ export function renderDiagnostics(d) {
              `;
         }
     }
-    
+
     const latencyList = getEl('upstream-latency-list');
     const selectionMethodEl = getEl('upstream-selection-method');
-    
+
     if (selectionMethodEl && d.upstream_health) {
-        const method = state.currentConfig?.use_fastest_upstream ? 
+        const method = state.currentConfig?.use_fastest_upstream ?
             `Smart Selection (${state.currentConfig.smart_selection_policy})` : 'Static Priority';
         selectionMethodEl.textContent = `— ${method}`;
     }
 
     if (latencyList && d.upstream_health) {
-         latencyList.innerHTML = d.upstream_health.map(h => {
-             const isUp = h.status === 'up' || h.status === 'Healthy';
-             const isPreferred = h.is_preferred || false;
-             return `<tr class="${isPreferred ? 'preferred-row' : ''}">
+        latencyList.innerHTML = d.upstream_health.map(h => {
+            const isUp = h.status === 'up' || h.status === 'Healthy';
+            const isPreferred = h.is_preferred || false;
+            return `<tr class="${isPreferred ? 'preferred-row' : ''}">
                  <td>
                     <div style="display:flex; align-items:center; gap:8px;">
                         ${helpers.escapeHTML(h.server)}
@@ -320,10 +328,10 @@ export function renderDiagnostics(d) {
                  <td><span class="badge ${isUp ? 'success' : 'danger'}">${isUp ? 'Healthy' : 'Down'}</span></td>
                  <td style="text-align:right; font-weight:${isPreferred ? '600' : '400'}">${isUp ? h.latency_ms.toFixed(1) + ' ms' : '-'}</td>
              </tr>`;
-         }).join('') || '<tr><td colspan="3" class="help">No upstreams configured.</td></tr>';
-         
-         // Add manual trigger button if it doesn't exist or update it
-         if (!getEl('recheck-latency-btn')) {
+        }).join('') || '<tr><td colspan="3" class="help">No upstreams configured.</td></tr>';
+
+        // Add manual trigger button if it doesn't exist or update it
+        if (!getEl('recheck-latency-btn')) {
             const header = latencyList.parentElement.parentElement.querySelector('.chart-header');
             if (header) {
                 const btn = document.createElement('button');
@@ -337,16 +345,16 @@ export function renderDiagnostics(d) {
                 };
                 header.appendChild(btn);
             }
-         }
+        }
     }
-}export function renderAPIKeys(keys) {
+} export function renderAPIKeys(keys) {
     const list = getEl('api-keys-list') || getEl('api-keys-list-container');
     if (!list) return;
-    
+
     list.innerHTML = (keys || []).map(k => {
-        const createdDate = (!k.created_at || k.created_at.startsWith('0001')) ? 'Unknown' : new Date(k.created_at).toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'});
+        const createdDate = (!k.created_at || k.created_at.startsWith('0001')) ? 'Unknown' : new Date(k.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
         const lastUsed = (!k.last_used || k.last_used.startsWith('0001')) ? 'Never' : new Date(k.last_used).toLocaleString();
-        
+
         return `
             <tr>
                 <td>${helpers.escapeHTML(k.name)}</td>
@@ -366,20 +374,20 @@ export function renderDiagnostics(d) {
 
 export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const setTxt = (id, txt) => { const el = getEl(id); if (el) el.textContent = txt; };
-    
+
     setTxt('ip-info-title', stats.alias || ip);
     setTxt('ip-info-subtitle', stats.alias ? ip : '');
     setTxt('ip-info-total', stats.total?.toLocaleString() || '0');
     setTxt('ip-info-blocked', stats.blocked?.toLocaleString() || '0');
-    
+
     const pct = stats.total > 0 ? (stats.blocked / stats.total * 100) : 0;
     const bar = getEl('ip-info-blocked-bar');
     if (bar) bar.style.width = pct + '%';
-    
+
     const sanitize = (val, fallback = 'N/A') => (!val || val === '-' || val === 'geo' || val === 'none') ? fallback : val;
 
     setTxt('ip-info-hostname', sanitize(stats.hostname, 'No Hostname'));
-    
+
     // Provider & ASN
     const provider = stats.isp || stats.org || (stats.is_private ? 'Local Network' : 'Unknown Provider');
     setTxt('ip-info-isp', provider);
@@ -387,14 +395,14 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     setTxt('ip-info-mac', sanitize(stats.mac, 'Unknown MAC'));
     setTxt('ip-info-manufacturer', sanitize(stats.manufacturer, 'Unknown Manufacturer'));
     setTxt('ip-info-os', sanitize(stats.os, 'Unknown OS'));
-    
+
     // Type Tag
     const typeTag = getEl('ip-info-type-tag');
     if (typeTag) {
         typeTag.textContent = stats.is_private ? 'Private Network' : 'Public Network';
         typeTag.className = 'badge ' + (stats.is_private ? 'success' : 'warning');
     }
-    
+
     // Location Info
     let countryDisplay = stats.country;
     if (!countryDisplay || countryDisplay === '-' || countryDisplay === 'geo') {
@@ -404,11 +412,7 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     setTxt('ip-info-city', sanitize(stats.city, 'Unknown City'));
     const flagEl = getEl('ip-info-flag');
     if (flagEl) {
-        if (stats.country_code) {
-            flagEl.innerHTML = `<img src="https://flagcdn.com/w40/${stats.country_code.toLowerCase()}.png" style="height: 14px; border-radius: 2px;">`;
-        } else {
-            flagEl.innerHTML = '';
-        }
+        flagEl.innerHTML = getFlagHTML(stats.country_code, 'w40');
     }
 
     // IP Activity Chart
@@ -417,7 +421,7 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
         const hourlyData = new Array(24).fill(0);
         const hourlyBlocked = new Array(24).fill(0);
         const now = new Date();
-        
+
         (history || []).forEach(q => {
             const d = new Date(q.time);
             const diffHours = Math.floor((now - d) / (1000 * 60 * 60));
@@ -429,14 +433,14 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
         });
         charts.renderClientChart(canvas, hourlyData, hourlyBlocked);
     }
-    
+
     getEl('ip-info-top-domains').innerHTML = (topDomains || []).map(d => `
         <tr>
             <td style="word-break: break-all;">${helpers.escapeHTML(d.domain)}</td>
             <td style="text-align:right">${d.count}</td>
         </tr>
     `).join('') || '<tr><td colspan="2">No data</td></tr>';
-    
+
     getEl('ip-info-top-blocked').innerHTML = (topBlocked || []).map(d => `
         <tr>
             <td style="word-break: break-all;">${helpers.escapeHTML(d.domain)}</td>
@@ -457,7 +461,7 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const isCritical = ['DoH Proxy', '127.0.0.1', '::1', 'localhost'].includes(ip);
     getEl('ip-block-btn').style.display = (isBlocked || isCritical) ? 'none' : 'block';
     getEl('ip-unblock-btn').style.display = isBlocked ? 'block' : 'none';
-    
+
     getEl('ip-info-modal').classList.remove('hidden');
 }
 
@@ -469,16 +473,16 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
     setTxt('domain-info-blocked', stats.blocked?.toLocaleString() || '0');
     setTxt('domain-info-clients', stats.clients_count || '0');
     setTxt('domain-info-category', stats.category || 'General');
-    
+
     const blockRate = stats.total > 0 ? (stats.blocked / stats.total * 100) : 0;
     const ratioEl = getEl('domain-info-ratio') || getEl('domain-info-block-rate');
     if (ratioEl) ratioEl.textContent = blockRate.toFixed(1) + '%';
-    
+
     // Status Badge and Block Info
     const badge = getEl('domain-status-badge');
     const isCustomBlocked = (state.currentConfig.custom_blocked || []).includes(domain);
     const isListBlocked = blockInfo.lists && blockInfo.lists.length > 0;
-    
+
     if (isCustomBlocked) {
         badge.textContent = 'Blocked (Custom)';
         badge.className = 'badge danger';
@@ -507,7 +511,7 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
             <td><span class="badge ${q.status.includes('Blocked') ? 'danger' : 'success'}">${helpers.escapeHTML(q.status)}</span></td>
         </tr>
     `).join('') || '<tr><td colspan="3">No recent activity</td></tr>';
-;
+    ;
 
     getEl('domain-block-btn').style.display = isCustomBlocked ? 'none' : 'block';
     getEl('domain-allow-btn').style.display = isCustomBlocked ? 'block' : 'none';
@@ -518,7 +522,7 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
 export function renderProtectionResult(res, domain) {
     const el = getEl('search-result');
     if (!el) return;
-    
+
     el.classList.remove('hidden');
     if (res.blocked) {
         const lists = (res.lists || []).join(', ') || 'Custom Blocklist';
@@ -540,7 +544,7 @@ export function renderProtectionResult(res, domain) {
         } else {
             msg += ' (not in any active blocklist)';
         }
-        
+
         el.innerHTML = `
             <div class="result-card allowed" style="animation: slideUp 0.3s ease-out;">
                 <i class="fas fa-check-circle icon-allowed"></i>
