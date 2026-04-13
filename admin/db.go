@@ -83,7 +83,25 @@ func initDB() {
 	addColumnIfNotExists("queries", "duration_ms", "REAL DEFAULT 0")
 }
 
+// isValidSQLName checks if a string is a valid SQL table or column name.
+func isValidSQLName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 func addColumnIfNotExists(table, column, definition string) {
+	if !isValidSQLName(table) || !isValidSQLName(column) {
+		slog.Error("Database Migration: Invalid SQL name for migration", "table", table, "column", column)
+		return
+	}
+
 	// Check if column exists
 	query := fmt.Sprintf("PRAGMA table_info(%s)", table)
 	rows, err := db.Query(query)
@@ -107,6 +125,7 @@ func addColumnIfNotExists(table, column, definition string) {
 	}
 
 	if !exists {
+		// table and column are validated above to be alphanum+_ only
 		alterQuery := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition)
 		_, err := db.Exec(alterQuery)
 		if err != nil {
@@ -128,22 +147,24 @@ func startDBWorker(ctx context.Context) {
 
 		if db != nil {
 			// 1. Regular TTL purge based on RetentionDays
-			_, err := db.ExecContext(ctx, "DELETE FROM queries WHERE timestamp < datetime('now', ?)", fmt.Sprintf("-%d days", days))
+			res, err := db.ExecContext(ctx, "DELETE FROM queries WHERE timestamp < datetime('now', ?)", fmt.Sprintf("-%d days", days))
 			if err != nil {
 				slog.Error("Error purging old queries", "error", err)
 			} else {
-				slog.Info("Database maintenance: TTL purge complete", "days_retained", days)
+				deleted, _ := res.RowsAffected()
+				slog.Info("Database maintenance: TTL purge complete", "days_retained", days, "rows_deleted", deleted)
 			}
 
 			// 2. Resource Safety: Hard cap on total queries (max 500k rows)
 			var totalRows int
 			if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM queries").Scan(&totalRows); err == nil && totalRows > 500000 {
 				overage := totalRows - 500000 + 50000
-				_, err = db.ExecContext(ctx, "DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", overage)
+				res, err = db.ExecContext(ctx, "DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", overage)
 				if err != nil {
 					slog.Error("Database maintenance: Error during emergency row prune", "error", err)
 				} else {
-					slog.Warn("Database maintenance: Row cap exceeded, emergency prune performed", "total_before", totalRows, "deleted", overage)
+					deleted, _ := res.RowsAffected()
+					slog.Warn("Database maintenance: Row cap exceeded, emergency prune performed", "total_before", totalRows, "deleted", deleted)
 				}
 			}
 

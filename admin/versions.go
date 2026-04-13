@@ -198,7 +198,8 @@ func fetchAlpineLatest() string {
 
 	// Actually, let's just use the branch part or the first version we find.
 	// Since it's a small file, we can read it.
-	b, _ := io.ReadAll(resp.Body)
+	lr := io.LimitReader(resp.Body, 1*1024*1024) // 1MB limit for YAML
+	b, _ := io.ReadAll(lr)
 	content := string(b)
 
 	// Simple parsing for "version: X.Y.Z"

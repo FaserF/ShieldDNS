@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -400,29 +401,39 @@ func handleBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, bf := range files {
-		var content []byte
+		var fReader io.ReadCloser
 		var err error
 
 		if bf.WithLock {
 			configLock.RLock()
-			content, err = os.ReadFile(bf.Path)
+			content, err := os.ReadFile(bf.Path)
 			configLock.RUnlock()
-		} else {
-			content, err = os.ReadFile(bf.Path)
-		}
-
-		if err != nil {
+			if err == nil {
+				f, err := zw.Create(bf.Target)
+				if err == nil {
+					f.Write(content)
+				}
+			}
 			continue
+		} else {
+			fReader, err = os.Open(bf.Path)
+			if err != nil {
+				continue
+			}
 		}
 
 		f, err := zw.Create(bf.Target)
-		if err != nil {
-			continue
+		if err == nil {
+			io.Copy(f, fReader)
 		}
-		f.Write(content)
+		fReader.Close()
 	}
 
-	slog.Info("System backup downloaded", "consistent_db", dbConsistent)
+	ip := r.Header.Get("X-Real-IP")
+	if ip == "" {
+		ip, _, _ = net.SplitHostPort(r.RemoteAddr)
+	}
+	slog.Info("System backup downloaded", "ip", ip, "consistent_db", dbConsistent)
 }
 
 func handleRestore(w http.ResponseWriter, r *http.Request) {
@@ -470,11 +481,18 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 		defer zr.Close()
 
 		var newCfg *Config
-		var dbData []byte
+		restoreDBPath := ""
 
 		for _, f := range zr.File {
 			// Security: Prevent path traversal
 			if strings.Contains(f.Name, "..") || strings.HasPrefix(f.Name, "/") {
+				continue
+			}
+
+			// Security: Prevention of ZIP bomb/Resource exhaustion
+			// Skip files larger than 100MB
+			if f.UncompressedSize64 > 100*1024*1024 {
+				slog.Warn("Restore: Skipping oversized file in ZIP", "name", f.Name, "size", f.UncompressedSize64)
 				continue
 			}
 
@@ -484,22 +502,32 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 			}
 			defer rc.Close()
 
-			content, _ := io.ReadAll(rc)
 			if f.Name == "config.json" {
+				// We can read config.json into memory as it's small
+				lr := io.LimitReader(rc, 1*1024*1024) // 1MB limit for config
+				content, _ := io.ReadAll(lr)
 				var c Config
 				if err := json.Unmarshal(content, &c); err == nil {
 					newCfg = &c
 				}
 			} else if f.Name == "shielddns.db" {
-				dbData = content
-			} else {
-				// Ignore other files for security
-				continue
+				// Stream DB to temp file
+				tmpDB, err := os.CreateTemp("", "shielddns-restore-db-*.db")
+				if err == nil {
+					lr := io.LimitReader(rc, 100*1024*1024) // 100MB limit for DB
+					if _, err := io.Copy(tmpDB, lr); err == nil {
+						restoreDBPath = tmpDB.Name()
+					}
+					tmpDB.Close()
+				}
 			}
 		}
 
 		if newCfg == nil {
-			http.Error(w, "ZIP missing config.json", http.StatusBadRequest)
+			if restoreDBPath != "" {
+				os.Remove(restoreDBPath)
+			}
+			http.Error(w, "ZIP missing config.json or it was truncated due to size limits", http.StatusBadRequest)
 			return
 		}
 
@@ -513,17 +541,27 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 		configLock.Unlock()
 
 		// Apply Database if present
-		if len(dbData) > 0 {
+		if restoreDBPath != "" {
+			defer os.Remove(restoreDBPath)
 			closeDB()
-			if err := atomicWriteFile(DBPath, dbData); err != nil {
-				slog.Error("Failed to restore DB file", "error", err)
+			
+			// Move the temp DB into place
+			if err := os.Rename(restoreDBPath, DBPath); err != nil {
+				// Fallback to atomicWrite if rename fails (e.g. cross-device)
+				data, _ := os.ReadFile(restoreDBPath)
+				atomicWriteFile(DBPath, data)
 			}
 			initDB()
 		}
 
 		updateCorefile()
 		go updateBlocklist(nil)
-		slog.Info("System Full Restore Completed from ZIP")
+		
+		ip := r.Header.Get("X-Real-IP")
+		if ip == "" {
+			ip, _, _ = net.SplitHostPort(r.RemoteAddr)
+		}
+		slog.Info("System Full Restore Completed from ZIP", "ip", ip)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -613,6 +651,34 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if !newConfig.SetupDone && config.SetupDone {
 			newConfig.SetupDone = config.SetupDone
 		}
+		if newConfig.DoHRateLimit == 0 && config.DoHRateLimit != 0 {
+			newConfig.DoHRateLimit = config.DoHRateLimit
+		}
+
+		// Security: Validate Upstreams and UpstreamDoT for malicious injections
+		validatedUpstreams := make([]string, 0, len(newConfig.Upstreams))
+		for _, u := range newConfig.Upstreams {
+			if isValidUpstream(u) {
+				validatedUpstreams = append(validatedUpstreams, u)
+			} else if u != "" {
+				http.Error(w, "Invalid Upstream DNS format detected: "+u, http.StatusBadRequest)
+				configLock.Unlock()
+				return
+			}
+		}
+		newConfig.Upstreams = validatedUpstreams
+
+		validatedDoT := make([]string, 0, len(newConfig.UpstreamDoT))
+		for _, u := range newConfig.UpstreamDoT {
+			if isValidUpstream(u) {
+				validatedDoT = append(validatedDoT, u)
+			} else if u != "" {
+				http.Error(w, "Invalid Upstream DoT format detected: "+u, http.StatusBadRequest)
+				configLock.Unlock()
+				return
+			}
+		}
+		newConfig.UpstreamDoT = validatedDoT
 
 		var cleanBlocked []string
 		for _, b := range newConfig.CustomBlocked {

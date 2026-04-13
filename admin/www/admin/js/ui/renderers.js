@@ -31,6 +31,10 @@ export function renderDashStats(data) {
     helpers.countTo(c.latency, data.average_latency || 0, 800, ' ms');
     helpers.countTo(c.clients, data.unique_clients || 0);
 
+    if (c.qps) {
+        c.qps.textContent = (data.active_qps || 0).toFixed(1);
+    }
+
     const appVer = getEl('app-version');
     if (appVer) appVer.textContent = data.version;
     const aboutAppVer = getEl('about-shielddns-ver');
@@ -94,6 +98,14 @@ export function renderConfig(cfg) {
     if (dohUrl) dohUrl.value = `https://${domain}/dns-query`;
     if (doqUrl) doqUrl.value = `quic://${domain}`;
 
+    // Mobile Config QR and Link
+    const g = uiRefs.guide;
+    if (g && g.mobileBtn && g.mobileQR) {
+        const fullUrl = `https://${domain}/api/mobileconfig`;
+        g.mobileBtn.href = fullUrl;
+        g.mobileQR.src = `/api/qr?data=${encodeURIComponent(fullUrl)}`;
+    }
+
     // Last Login
     const lastLoginEl = getEl('dashboard-last-login');
     if (lastLoginEl && cfg.previous_login) {
@@ -146,6 +158,7 @@ export function renderConfig(cfg) {
     if (getEl('latency-interval-input')) getEl('latency-interval-input').value = cfg.latency_test_interval || 10;
     if (getEl('diagnostics-interval-input')) getEl('diagnostics-interval-input').value = cfg.diagnostics_refresh_interval || 30;
     if (getEl('retention-input')) getEl('retention-input').value = cfg.retention_days || 30;
+    if (getEl('doh-rate-limit-input')) getEl('doh-rate-limit-input').value = cfg.doh_rate_limit || 30;
     if (getEl('abuse-dga-threshold-input')) getEl('abuse-dga-threshold-input').value = cfg.abuse_dga_threshold || 3.8;
     if (getEl('abuse-dga-min-len-input')) getEl('abuse-dga-min-len-input').value = cfg.abuse_dga_min_len || 8;
 

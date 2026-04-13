@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"sort"
@@ -943,8 +944,12 @@ func DoHRateLimitMiddleware(next http.Handler) http.Handler {
 			entry.Count++
 		}
 
-		if entry.Count > 30 {
-			slog.Warn("DoH Rate limit exceeded", "ip", clientIP)
+		configLock.RLock()
+		limit := config.DoHRateLimit
+		configLock.RUnlock()
+
+		if entry.Count > limit {
+			slog.Warn("DoH Rate limit exceeded", "ip", clientIP, "limit", limit)
 			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}

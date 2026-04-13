@@ -9,7 +9,7 @@
 set -e
 
 # Define local paths
-COREFILE_PATH="/etc/Corefile"
+COREFILE_PATH="/etc/shielddns/Corefile"
 DEFAULT_UPSTREAM="1.1.1.1"
 
 echo "➡️  Starting ShieldDNS Initialization..."

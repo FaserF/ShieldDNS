@@ -28,7 +28,12 @@ export const uiRefs = {
         ratio: getEl('stat-ratio'),
         cache: getEl('stat-cache'),
         latency: getEl('stat-latency'),
-        clients: getEl('stat-clients')
+        clients: getEl('stat-clients'),
+        qps: getEl('stat-qps')
+    },
+    guide: {
+        mobileBtn: getEl('guide-mobileconfig-btn'),
+        mobileQR: getEl('guide-mobileconfig-qr')
     }
 };
 
@@ -48,4 +53,8 @@ export const updateUIRefs = () => {
     uiRefs.statsContainer.cache = getEl('stat-cache');
     uiRefs.statsContainer.latency = getEl('stat-latency');
     uiRefs.statsContainer.clients = getEl('stat-clients');
+    uiRefs.statsContainer.qps = getEl('stat-qps');
+    
+    uiRefs.guide.mobileBtn = getEl('guide-mobileconfig-btn');
+    uiRefs.guide.mobileQR = getEl('guide-mobileconfig-qr');
 };

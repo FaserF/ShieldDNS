@@ -40,6 +40,10 @@ func startDNSWatchdog(ctx context.Context) {
 				
 				// Critical failure: CoreDNS might be hung or crashed
 				if failureCount >= 3 {
+					statsLock.Lock()
+					stats.CoreDNSAlive = false
+					statsLock.Unlock()
+					
 					slog.Error("DNS health check failed 3 consecutive times. Initiating CoreDNS restart...")
 					restartCoreDNS()
 					failureCount = 0 // Reset after restart attempt
@@ -56,6 +60,10 @@ func startDNSWatchdog(ctx context.Context) {
 					slog.Info("DNS health check recovered")
 				}
 				failureCount = 0
+				
+				statsLock.Lock()
+				stats.CoreDNSAlive = true
+				statsLock.Unlock()
 			}
 		}
 	}

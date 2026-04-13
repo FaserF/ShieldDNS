@@ -47,6 +47,7 @@ type Config struct {
 	MaliciousIPInterval        int                          `json:"malicious_ip_interval"`
 	SignMobileConfig           bool              `json:"sign_mobileconfig"`
 	VerifyUpstreamTLS          bool              `json:"verify_upstream_tls"`
+	DoHRateLimit               int               `json:"doh_rate_limit"`
 	DebugMode                  bool              `json:"debug_mode"`
 	LastLogin                  time.Time         `json:"last_login"`
 	PreviousLogin              time.Time         `json:"previous_login"`
@@ -98,6 +99,8 @@ type Stats struct {
 	RAMTotalMB           float64          `json:"ram_total_mb"`
 	CPUUsage             float64          `json:"cpu_usage"`
 	NumAutoBlocked       int              `json:"num_auto_blocked"`
+	ActiveQPS            float64          `json:"active_qps"`
+	CoreDNSAlive         bool             `json:"coredns_alive"`
 	
 	// Internal Cache Metadata
 	LastUpdate           time.Time        `json:"-"`
@@ -189,6 +192,8 @@ var (
 
 type Session struct {
 	Token     string    `json:"token"`
+	RemoteIP  string    `json:"remote_ip"`
+	UserAgent string    `json:"user_agent"`
 	CreatedAt time.Time `json:"created_at"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
@@ -199,7 +204,7 @@ var (
 	BlocklistPath     = "/etc/shielddns/blocklist.hosts"
 	AllowlistPath     = "/etc/shielddns/allowlist.hosts"
 	MappingsPath      = "/etc/shielddns/mappings.hosts"
-	CorefilePath      = "/etc/Corefile"
+	CorefilePath      = "/etc/shielddns/Corefile"
 	DBPath            = "/etc/shielddns/queries.db"
 	CombinedHostsPath = "/etc/shielddns/shielddns.hosts"
 )

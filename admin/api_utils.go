@@ -26,7 +26,6 @@ var domainRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9
 
 // isValidDomain checks if a string is a valid domain name or IP address.
 func isValidDomain(s string) bool {
-	// ... (rest as before)
 	if s == "" {
 		return false
 	}
@@ -38,7 +37,45 @@ func isValidDomain(s string) bool {
 	if len(s) > 253 {
 		return false
 	}
+	// Strict check: no spaces, no newlines, no brackets
+	if strings.ContainsAny(s, " \n\r\t{}()<>\\\"'`|") {
+		return false
+	}
 	return domainRegex.MatchString(s)
+}
+
+// isValidUpstream checks if a string is a valid DNS upstream (IP or Hostname).
+func isValidUpstream(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	// Strip protocol if present for validation
+	clean := s
+	if idx := strings.Index(s, "://"); idx != -1 {
+		clean = s[idx+3:]
+	}
+	
+	host := clean
+	if strings.Contains(clean, ":") {
+		var err error
+		host, _, err = net.SplitHostPort(clean)
+		if err != nil {
+			return false // Malformed addr:port
+		}
+	}
+
+	return isValidDomain(host)
+}
+
+// escapeXML prepares a string for safe insertion into an XML attribute or element.
+func escapeXML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	return s
 }
 
 // NormalizeDomain strips protocols, paths, fragments, and trailing dots to return a clean domain.
@@ -471,7 +508,7 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	// DoQ is supported natively via third-party apps (DNSecure, AdGuard) but not via profiles.
 
 	w.Header().Set("Content-Type", "application/x-apple-aspen-config")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=shielddns_%s.mobileconfig", host))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=shielddns_%s.mobileconfig", escapeXML(host)))
 
 	mobileConfig := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -539,7 +576,7 @@ TECHNICAL DETAILS:
 By proceeding, you consent to all DNS traffic being routed through this server. No personal web traffic (HTTP/HTTPS content) is decrypted; only the destination addresses are processed for filtering. You can remove this profile at any time in Settings &gt; General &gt; VPN &amp; Device Management.</string>
 	</dict>
 </dict>
-</plist>`, host, serverAddrsXML, dohUUID, certPayloadXML, certReferenceXML, profileUUID)
+</plist>`, escapeXML(host), serverAddrsXML, dohUUID, certPayloadXML, certReferenceXML, profileUUID)
 
 	finalContent := []byte(mobileConfig)
 	if signEnabled {

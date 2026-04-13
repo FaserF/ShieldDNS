@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"net/http"
+	"sync/atomic"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -19,6 +22,9 @@ var (
 		},
 		[]string{"status", "type"},
 	)
+	
+	// Atomic counter for QPS calculation
+	recentQueryCount atomic.Int64
 
 	cacheHitsTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
@@ -55,6 +61,27 @@ var (
 			Help: "Total number of clients automatically blocked by the abuse engine.",
 		},
 	)
+
+	cpuUsage = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "shielddns_system_cpu_usage_percent",
+			Help: "Current CPU usage percentage.",
+		},
+	)
+
+	ramUsage = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "shielddns_system_ram_usage_bytes",
+			Help: "Current RAM usage in bytes.",
+		},
+	)
+
+	uptimeSeconds = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "shielddns_system_uptime_seconds",
+			Help: "Current system uptime in seconds.",
+		},
+	)
 )
 
 func initMetrics() {
@@ -64,11 +91,15 @@ func initMetrics() {
 	shieldDNSRegistry.MustRegister(activeClients)
 	shieldDNSRegistry.MustRegister(dbSizeBytes)
 	shieldDNSRegistry.MustRegister(abuseBlockedTotal)
+	shieldDNSRegistry.MustRegister(cpuUsage)
+	shieldDNSRegistry.MustRegister(ramUsage)
+	shieldDNSRegistry.MustRegister(uptimeSeconds)
 }
 
 // RecordQuery updates Prometheus metrics based on a Query log
 func RecordQuery(q Query) {
 	queriesTotal.WithLabelValues(q.Status, q.Type).Inc()
+	recentQueryCount.Add(1)
 	if q.IsCacheHit {
 		cacheHitsTotal.Inc()
 	}
@@ -81,6 +112,10 @@ func UpdateSystemMetrics(s *Stats) {
 	activeClients.Set(float64(s.UniqueClients))
 	// DBSizeMB to Bytes
 	dbSizeBytes.Set(s.DBSizeMB * 1024 * 1024)
+	
+	cpuUsage.Set(s.CPUUsage)
+	ramUsage.Set(s.RAMUsedMB * 1024 * 1024)
+	uptimeSeconds.Set(float64(s.UptimeSeconds))
 }
 
 // RecordAbuseBlock increments the abuse blocked counter
@@ -90,10 +125,30 @@ func RecordAbuseBlock() {
 
 func handleMetrics(w http.ResponseWriter, r *http.Request) {
 	// Periodic update of gauges that are not updated per query
-	// We use the cached stats if available to avoid DB locks
 	statsLock.RLock()
 	UpdateSystemMetrics(&stats)
 	statsLock.RUnlock()
 
 	promhttp.HandlerFor(shieldDNSRegistry, promhttp.HandlerOpts{}).ServeHTTP(w, r)
+}
+
+// StartQPSWorker periodically calculates the queries per second
+func StartQPSWorker(ctx context.Context) {
+	const intervalSeconds = 5
+	ticker := time.NewTicker(intervalSeconds * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			count := recentQueryCount.Swap(0)
+			qps := float64(count) / float64(intervalSeconds)
+			
+			statsLock.Lock()
+			stats.ActiveQPS = qps
+			statsLock.Unlock()
+		}
+	}
 }

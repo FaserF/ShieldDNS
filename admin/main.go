@@ -67,17 +67,15 @@ func main() {
 	// Apply unified security middleware (Headers + CSRF)
 	finalHandler := securityHeadersMiddleware(csrfMiddleware(mux))
 
+	// Base server configuration
 	adminPort := os.Getenv("ADMIN_PORT")
 	if adminPort == "" {
 		adminPort = "443"
 	}
 
-	server := &http.Server{
-		Addr:    ":" + adminPort,
-		Handler: finalHandler,
-	}
+	ingressPort := os.Getenv("INGRESS_PORT")
 
-	// Capture cert paths
+	// Capture cert paths for primary server
 	certFile := os.Getenv("CERT_FILE")
 	if certFile == "" {
 		certFile = "/ssl/fullchain.pem"
@@ -87,19 +85,40 @@ func main() {
 		keyFile = "/ssl/privkey.pem"
 	}
 
+	// 1. Primary Server (Admin UI + DoH)
+	primaryServer := &http.Server{
+		Addr:    ":" + adminPort,
+		Handler: finalHandler,
+	}
+
 	go func() {
 		if adminPort != "443" {
-			slog.Info("ShieldDNS Admin starting", "port", adminPort, "mode", "HTTP internal proxy")
-			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				slog.Error("Admin UI server stopped", "error", err)
+			slog.Info("Primary Admin server starting", "port", adminPort, "mode", "HTTP")
+			if err := primaryServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Error("Primary server stopped", "error", err)
 			}
 		} else {
-			slog.Info("ShieldDNS Admin starting", "port", "443", "mode", "HTTPS")
-			if err := server.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
-				slog.Error("Admin UI server stopped", "error", err)
+			slog.Info("Primary Admin server starting", "port", "443", "mode", "HTTPS")
+			if err := primaryServer.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
+				slog.Error("Primary server stopped", "error", err)
 			}
 		}
 	}()
+
+	// 2. Optional Ingress Server (Home Assistant internal access)
+	var auxiliaryServer *http.Server
+	if ingressPort != "" && ingressPort != adminPort {
+		auxiliaryServer = &http.Server{
+			Addr:    ":" + ingressPort,
+			Handler: finalHandler, // Shared handler for both ports
+		}
+		go func() {
+			slog.Info("Ingress secondary server starting", "port", ingressPort)
+			if err := auxiliaryServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Error("Ingress server stopped", "error", err)
+			}
+		}()
+	}
 
 	// Graceful shutdown
 	stop := make(chan os.Signal, 1)
@@ -115,8 +134,13 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		slog.Error("HTTP server shutdown error", "error", err)
+	if err := primaryServer.Shutdown(shutdownCtx); err != nil {
+		slog.Error("Primary server shutdown error", "error", err)
+	}
+	if auxiliaryServer != nil {
+		if err := auxiliaryServer.Shutdown(shutdownCtx); err != nil {
+			slog.Error("Ingress server shutdown error", "error", err)
+		}
 	}
 
 	// Final log flush
@@ -174,6 +198,7 @@ func startWorkers() {
 	go startBackgroundUpdater(appCtx)
 	go startMaliciousUpdater(appCtx)
 	go startMetadataUpdater(appCtx)
+	go StartQPSWorker(appCtx)
 
 	// Trigger initial blocklist update in background
 	go updateBlocklist(nil)
@@ -194,7 +219,7 @@ func setupRouter() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Internal DNS-over-HTTPS (DoH) Proxy to CoreDNS
-	mux.Handle("/dns-query", newDoHProxy())
+	mux.Handle("/dns-query", DoHRateLimitMiddleware(newDoHProxy()))
 
 	// Auth API (Public but CSRF protected mutations)
 	mux.HandleFunc("/api/auth-status", handleAuthStatus)
@@ -375,7 +400,8 @@ func setupStaticHandlers(mux *http.ServeMux) {
 
 		if !isInternal && !isSetupMode && adminDomain != "" && r.Host != adminDomain &&
 			!strings.HasPrefix(r.Host, "127.0.0.1") && !strings.HasPrefix(r.Host, "localhost") {
-			target := "https://" + adminDomain + "/stopped?domain=" + r.Host
+			// Security: Use url.QueryEscape to prevent URI injection/Open Redirect via r.Host
+			target := "https://" + adminDomain + "/stopped?domain=" + url.QueryEscape(r.Host)
 			http.Redirect(w, r, target, http.StatusFound)
 			return
 		}

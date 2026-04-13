@@ -65,36 +65,42 @@ func cleanupSessions() {
 
 func securityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// HSTS: Force HTTPS for 1 year (only relevant if served over HTTPS)
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		// 1. Strict Transport Security (HSTS)
+		// Only set if served over HTTPS or if we know it's a secure environment
+		// max-age is 1 year
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+		}
 		
-		// Protection against MIME-sniffing
+		// 2. Prevent MIME-Type Sniffing
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		
-		// Protection against Clickjacking (SAMEORIGIN allows same-origin frames)
+		// 3. Clickjacking Protection
+		// SAMEORIGIN allows the page to be displayed in a frame on the same origin as the page itself.
 		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		
-		// Protection against XSS
+		// 4. XSS Protection (Legacy but still useful for some browsers)
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
-		
-		// Dynamically discover configured Admin domain for CSP whitelisting
+
+		// 5. Referrer Policy
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+
+		// 6. Content Security Policy (CSP)
+		// Dynamically discover configured Admin domain for whitelisting
 		configLock.RLock()
 		adminDomain := config.AdminDomain
 		configLock.RUnlock()
 
 		dynamicHosts := ""
 		if adminDomain != "" {
-			// Allow the domain itself
 			dynamicHosts = " https://" + adminDomain
-			// If it's not a raw IP, also allow subdomains
 			if net.ParseIP(adminDomain) == nil {
 				dynamicHosts += " https://*." + adminDomain
 			}
 		}
 
-		// Content Security Policy
-		// Allows self-hosted assets, Google Fonts, and Verified CDNs
-		// Broadened dynamically for proxy compatibility and frame recovery
+		// Allows self-hosted assets, Google Fonts, and verified CDNs
+		// script-src: 'self', 'unsafe-inline' (for templates)
 		csp := "default-src 'self'; " +
 			"script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net" + dynamicHosts + "; " +
 			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://use.fontawesome.com https://cdnjs.cloudflare.com; " +
@@ -103,8 +109,13 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 			"connect-src 'self' https://api.github.com https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://flagcdn.com https://raw.githubusercontent.com" + dynamicHosts + "; " +
 			"worker-src 'self'; " +
 			"manifest-src 'self'; " +
-			"frame-ancestors 'self'" + dynamicHosts + ";"
+			"frame-ancestors 'self'" + dynamicHosts + "; " +
+			"base-uri 'none';"
+		
 		w.Header().Set("Content-Security-Policy", csp)
+
+		// 7. Permissions Policy (Disable unneeded browser features)
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), vr=()")
 		
 		next.ServeHTTP(w, r)
 	})
@@ -234,6 +245,22 @@ func authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Security: Bind session to IP and User-Agent
+		clientIP := strings.Split(r.RemoteAddr, ":")[0]
+		// Handle X-Forwarded-For if behind a proxy like HA Ingress
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			clientIP = strings.Split(xff, ",")[0]
+		}
+		
+		if sess.RemoteIP != clientIP || sess.UserAgent != r.UserAgent() {
+			slog.Warn("Session identity mismatch: possibly hijaked or changed connection", 
+				"expected_ip", sess.RemoteIP, "actual_ip", clientIP,
+				"expected_ua", sess.UserAgent, "actual_ua", r.UserAgent())
+			sessionStore.Delete(cookie.Value)
+			renderError(w, "Session invalid: connection changed", "SESSION_MISMATCH", http.StatusUnauthorized)
+			return
+		}
+
 		// 3. API Authorization check
 		required := getRequiredPermission(r)
 		// (Session user has all permissions essentially, but we could add role checks here)
@@ -325,10 +352,17 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(req.Password))
 	if err != nil {
 		failureLock.Lock()
+		count := loginFailures[ip]
 		loginFailures[ip]++
 		failureLock.Unlock()
 
-		slog.Warn("Failed login attempt", "ip", ip)
+		slog.Warn("Failed login attempt", "ip", ip, "failure_count", count+1)
+		
+		// Brute-force cooling: Artificial delay for repeated failures
+		if count >= 3 {
+			time.Sleep(2 * time.Second)
+		}
+		
 		renderError(w, "Invalid password", "INVALID_PASSWORD", http.StatusUnauthorized)
 		return
 	}
@@ -342,6 +376,8 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	token := generateToken()
 	sess := Session{
 		Token:     token,
+		RemoteIP:  ip,
+		UserAgent: r.UserAgent(),
 		CreatedAt: time.Now(),
 		ExpiresAt: time.Now().Add(SessionDuration),
 	}
