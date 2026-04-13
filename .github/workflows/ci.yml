@@ -47,6 +47,8 @@ jobs:
         run: |
           mkdir ssl
           openssl req -x509 -newkey rsa:4096 -keyout ssl/privkey.pem -out ssl/fullchain.pem -days 365 -nodes -subj "/CN=localhost"
+          chmod -R 755 ssl
+          chmod 644 ssl/*
 
       - name: Start Container
         run: |

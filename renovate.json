@@ -12,7 +12,10 @@
     {
       "matchManagers": ["gomod"],
       "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
-      "rangeStrategy": "replace"
+      "rangeStrategy": "replace",
+      "updateGoVersion": true,
+      "groupName": "Go Modules",
+      "stabilityDays": 0
     }
   ],
   "gomod": {
