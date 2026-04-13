@@ -144,6 +144,43 @@
     gap: 16px;
 }
 
+.apple-setup-section {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: 1fr 200px;
+    gap: 24px;
+    padding: 24px;
+    background: rgba(var(--accent-rgb), 0.03);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+}
+
+.apple-setup-qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    padding: 12px;
+    border-radius: 12px;
+    height: 180px;
+    width: 180px;
+    margin-left: auto;
+}
+
+.apple-setup-qr img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.apple-setup-qr span {
+    font-size: 0.65rem;
+    color: #000;
+    font-weight: 700;
+    margin-top: 4px;
+}
+
 .preset-card {
     background-color: var(--card-bg);
     padding: 20px;
