@@ -52,7 +52,7 @@ jobs:
 
       - name: Start Container
         run: |
-          docker run -d --name shielddns -p 853:853 -p 8080:8080 -v ${{ github.workspace }}/ssl:/ssl -e UPSTREAM_DNS=8.8.8.8 -e CERT_FILE=/ssl/fullchain.pem -e KEY_FILE=/ssl/privkey.pem shielddns:test
+          docker run -d --name shielddns -p 853:853 -p 8080:8080 -v ${{ github.workspace }}/ssl:/ssl -e UPSTREAM_DNS=8.8.8.8 -e CERT_FILE=/ssl/fullchain.pem -e KEY_FILE=/ssl/privkey.pem -e DOH_PORT=8080 shielddns:test
           sleep 10
 
       - name: Check Container Status & Logs
