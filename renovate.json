@@ -14,7 +14,7 @@
       "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
       "rangeStrategy": "replace",
       "groupName": "Go Modules",
-      "stabilityDays": 0
+      "minimumReleaseAge": null
     },
     {
       "matchManagers": ["gomod"],
@@ -26,34 +26,25 @@
   "gomod": {
     "enabled": true
   },
-  "regexManagers": [
+  "customManagers": [
     {
-      "fileMatch": ["^admin/www/admin/index\\.html$"],
-      "matchStrings": [
-        "https://cdnjs\\.cloudflare\\.com/ajax/libs/font-awesome/(?<currentValue>[^/]+)/"
-      ],
+      "customType": "regex",
+      "managerFilePatterns": ["/^admin/www/admin/index\\.html$/"],
+      "matchStrings": ["https://cdnjs\\.cloudflare\\.com/ajax/libs/font-awesome/(?<currentValue>[^/]+)/"],
       "datasourceTemplate": "cdnjs",
       "depNameTemplate": "font-awesome"
     },
     {
-      "fileMatch": ["^admin/www/admin/index\\.html$"],
-      "matchStrings": [
-        "https://cdn\\.jsdelivr\\.net/npm/chart\\.js@(?<currentValue>[^/\"']+)"
-      ],
+      "customType": "regex",
+      "managerFilePatterns": ["/^admin/www/admin/index\\.html$/"],
+      "matchStrings": ["https://cdn\\.jsdelivr\\.net/npm/chart\\.js@(?<currentValue>[^/\"']+)"],
       "datasourceTemplate": "npm",
       "depNameTemplate": "chart.js"
     },
     {
-      "fileMatch": [
-        "^admin/main\\.go$",
-        "^admin/www/admin/index\\.html$",
-        "^admin/www/admin/sw\\.js$"
-      ],
-      "matchStrings": [
-        "const Version\\s+=\\s+\"v(?<currentValue>\\d+\\.\\d+\\.\\d+)\"",
-        "\\?v=(?<currentValue>\\d+\\.\\d+\\.\\d+)",
-        "CACHE_NAME = 'shielddns-admin-v(?<currentValue>\\d+\\.\\d+\\.\\d+)'"
-      ],
+      "customType": "regex",
+      "managerFilePatterns": ["/^admin/main\\.go$/", "/^admin/www/admin/index\\.html$/", "/^admin/www/admin/sw\\.js$/"],
+      "matchStrings": ["const Version\\s+=\\s+\"v(?<currentValue>\\d+\\.\\d+\\.\\d+)\"", "\\?v=(?<currentValue>\\d+\\.\\d+\\.\\d+)", "CACHE_NAME = 'shielddns-admin-v(?<currentValue>\\d+\\.\\d+\\.\\d+)'"],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "ShieldDNS",
       "packageNameTemplate": "FaserF/ShieldDNS",
