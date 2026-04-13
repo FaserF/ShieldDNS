@@ -130,34 +130,94 @@ jobs:
         run: |
           cat << 'EOF' > verify_layout.js
           const { chromium } = require('playwright');
+          
           (async () => {
               const browser = await chromium.launch();
               const page = await browser.newPage();
-              const viewports = [{ width: 320, height: 568 }, { width: 375, height: 667 }, { width: 1200, height: 800 }];
+              const viewports = [
+                  { width: 320, height: 568, name: 'iPhone SE' },
+                  { width: 375, height: 667, name: 'iPhone 6/7/8' },
+                  { width: 1200, height: 800, name: 'Desktop' }
+              ];
               
               console.log('Navigating to Admin UI...');
-              // Navigate once at the beginning
-              await page.goto('http://localhost:8080/admin/index.html', { waitUntil: 'load', timeout: 60000 });
+              try {
+                  await page.goto('http://localhost:8080/admin/index.html', { waitUntil: 'load', timeout: 60000 });
+              } catch (err) {
+                  console.error('❌ Failed to load page:', err.message);
+                  process.exit(1);
+              }
               
               let failed = false;
+              const issues = [];
+          
               for (const vp of viewports) {
-                  console.log(`Checking viewport: ${vp.width}x${vp.height}`);
-                  await page.setViewportSize(vp);
-                  // Brief settle time for responsive layout to adjust
+                  console.log(`\nChecking viewport: ${vp.width}x${vp.height} (${vp.name})`);
+                  await page.setViewportSize({ width: vp.width, height: vp.height });
                   await new Promise(r => setTimeout(r, 500));
                   
-                  const isOverflowing = await page.evaluate(() => {
-                      return document.documentElement.scrollWidth > document.documentElement.clientWidth;
+                  const overflow = await page.evaluate(() => {
+                      const scrollWidth = document.documentElement.scrollWidth;
+                      const clientWidth = document.documentElement.clientWidth;
+                      const containerElements = document.querySelectorAll('[class*="container"]');
+                      const elements = [document.documentElement, document.body, ...containerElements];
+                      
+                      const overflowingElements = [];
+                      elements.forEach(el => {
+                          if (el.scrollWidth > el.clientWidth) {
+                              overflowingElements.push({
+                                  tag: el.tagName,
+                                  class: el.className,
+                                  scrollWidth: el.scrollWidth,
+                                  clientWidth: el.clientWidth,
+                                  overflow: el.scrollWidth - el.clientWidth
+                              });
+                          }
+                      });
+                      
+                      return {
+                          hasOverflow: scrollWidth > clientWidth,
+                          scrollWidth,
+                          clientWidth,
+                          overflowingElements
+                      };
                   });
-                  if (isOverflowing) {
+          
+                  if (overflow.hasOverflow) {
                       console.error(`❌ Layout Failure: Horizontal overflow at ${vp.width}px.`);
+                      console.error(`   Document scrollWidth: ${overflow.scrollWidth}px, clientWidth: ${overflow.clientWidth}px`);
+                      console.error(`   Overflow amount: ${overflow.scrollWidth - overflow.clientWidth}px`);
+                      if (overflow.overflowingElements.length > 0) {
+                          console.error(`   Overflowing elements:`);
+                          overflow.overflowingElements.forEach(el => {
+                              console.error(`    - <${el.tag}> class="${el.class}" | scrollWidth: ${el.scrollWidth}px, clientWidth: ${el.clientWidth}px, overflow: ${el.overflow}px`);
+                          });
+                      }
+                      issues.push({
+                          viewport: `${vp.width}x${vp.height}`,
+                          name: vp.name,
+                          scrollWidth: overflow.scrollWidth,
+                          clientWidth: overflow.clientWidth
+                      });
                       failed = true;
                   } else {
                       console.log(`✅ No overflow at ${vp.width}px.`);
                   }
               }
+              
               await browser.close();
-              if (failed) process.exit(1);
+              
+              if (failed) {
+                  console.error('\n❌ Layout verification failed!');
+                  console.error('Issues found:');
+                  issues.forEach(issue => {
+                      console.error(`  - ${issue.viewport} (${issue.name}): ${issue.scrollWidth - issue.clientWidth}px overflow`);
+                  });
+                  process.exit(1);
+              } else {
+                  console.log('\n✅ All viewports pass layout verification!');
+                  process.exit(0);
+              }
           })();
           EOF
           node verify_layout.js

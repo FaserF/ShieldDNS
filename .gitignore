@@ -49,3 +49,4 @@ c.out
 *err*.txt
 *status*.txt
 dump.rdb
+/node_modules
