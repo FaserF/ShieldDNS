@@ -13,9 +13,14 @@
       "matchManagers": ["gomod"],
       "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
       "rangeStrategy": "replace",
-      "updateGoVersion": true,
       "groupName": "Go Modules",
       "stabilityDays": 0
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchDepNames": ["go"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "replace"
     }
   ],
   "gomod": {
@@ -51,7 +56,7 @@
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "ShieldDNS",
-      "lookupNameTemplate": "FaserF/ShieldDNS",
+      "packageNameTemplate": "FaserF/ShieldDNS",
       "versioningTemplate": "semver"
     }
   ]
