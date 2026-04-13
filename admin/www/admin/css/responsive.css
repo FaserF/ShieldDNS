@@ -124,6 +124,15 @@
     .stat-card .value {
         font-size: 1.25rem;
     }
+
+    .analytics-grid, .analytics-grid-forced-3 {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .analytics-grid .stat-card {
+        padding: 16px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -147,6 +156,34 @@
         border-left: none;
         border-top: 1px solid var(--border);
         padding: 10px;
+    }
+}
+    
+@media (max-width: 360px) {
+    .content {
+        padding: 16px 12px;
+    }
+
+    .protection-status-card, .query-log-container, .card, .stat-card {
+        padding: 12px !important;
+    }
+
+    .stats-grid, .analytics-grid, .analytics-grid-forced-3, .connection-guide-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+
+    .stat-card .value {
+        font-size: 1.15rem !important;
+    }
+
+    .apple-setup-qr {
+        width: 160px;
+        height: 160px;
+    }
+    
+    header h1 {
+        font-size: 1.5rem;
     }
 }
 
