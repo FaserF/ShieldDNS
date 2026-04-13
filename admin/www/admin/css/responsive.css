@@ -157,6 +157,23 @@
         border-top: 1px solid var(--border);
         padding: 10px;
     }
+
+    .query-table {
+        min-width: auto !important;
+        width: 100% !important;
+        table-layout: auto;
+    }
+
+    .query-table th,
+    .query-table td {
+        padding: 8px 4px;
+        font-size: 0.75rem;
+    }
+
+    .overflow-x {
+        margin: 0 -8px;
+        padding: 0 8px;
+    }
 }
     
 @media (max-width: 360px) {
@@ -184,6 +201,41 @@
     
     header h1 {
         font-size: 1.5rem;
+    }
+
+    .query-table {
+        min-width: 100% !important;
+        width: 100% !important;
+        table-layout: auto;
+        font-size: 0.7rem;
+    }
+
+    .query-table th,
+    .query-table td {
+        padding: 6px 2px;
+        font-size: 0.7rem;
+    }
+
+    .overflow-x {
+        margin: 0 -4px;
+        padding: 0 4px;
+        min-width: 0;
+    }
+
+    .stats-grid, .analytics-grid, .analytics-grid-forced-3, .presets-grid {
+        grid-template-columns: 1fr !important;
+        min-width: 0 !important;
+    }
+
+    .apple-setup-section {
+        grid-template-columns: 1fr !important;
+        gap: 16px;
+    }
+
+    .apple-setup-qr {
+        margin-left: 0 !important;
+        width: 140px;
+        height: 140px;
     }
 }
 
