@@ -473,6 +473,11 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 		var dbData []byte
 
 		for _, f := range zr.File {
+			// Security: Prevent path traversal
+			if strings.Contains(f.Name, "..") || strings.HasPrefix(f.Name, "/") {
+				continue
+			}
+
 			rc, err := f.Open()
 			if err != nil {
 				continue
@@ -487,6 +492,9 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 				}
 			} else if f.Name == "shielddns.db" {
 				dbData = content
+			} else {
+				// Ignore other files for security
+				continue
 			}
 		}
 

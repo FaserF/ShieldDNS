@@ -46,6 +46,7 @@ type Config struct {
 	MaliciousIPBlockingEnabled bool                         `json:"malicious_ip_blocking_enabled"`
 	MaliciousIPInterval        int                          `json:"malicious_ip_interval"`
 	SignMobileConfig           bool              `json:"sign_mobileconfig"`
+	VerifyUpstreamTLS          bool              `json:"verify_upstream_tls"`
 	DebugMode                  bool              `json:"debug_mode"`
 	LastLogin                  time.Time         `json:"last_login"`
 	PreviousLogin              time.Time         `json:"previous_login"`

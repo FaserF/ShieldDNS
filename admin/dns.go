@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -141,16 +142,24 @@ quic://.:{{.DOTPort}} {
 }
 `
 
-func startHealthChecker() {
+func startHealthChecker(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
 	for {
-		checkAll()
-		configLock.RLock()
-		interval := config.LatencyTestInterval
-		configLock.RUnlock()
-		if interval < 1 {
-			interval = 1
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			checkAll()
+			configLock.RLock()
+			interval := config.LatencyTestInterval
+			configLock.RUnlock()
+			if interval < 1 {
+				interval = 1
+			}
+			ticker.Reset(time.Duration(interval) * time.Minute)
 		}
-		time.Sleep(time.Duration(interval) * time.Minute)
 	}
 }
 
@@ -314,8 +323,12 @@ func checkDoT(addr, serverName string) bool {
 }
 
 func checkDoTOnce(addr, serverName string) bool {
+	configLock.RLock()
+	verify := config.VerifyUpstreamTLS
+	configLock.RUnlock()
+
 	conf := &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: !verify,
 		ServerName:         serverName,
 	}
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 3 * time.Second}, "tcp", addr, conf)
@@ -358,12 +371,18 @@ var (
 	recentQueriesLock sync.Mutex
 )
 
-func startDNSWorkers() {
+func startDNSWorkers(ctx context.Context) {
 	// Background cleanup for recent query signatures
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
-		for range ticker.C {
-			cleanupRecentQueries()
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				cleanupRecentQueries()
+			}
 		}
 	}()
 }
@@ -541,49 +560,67 @@ func updateCorefile() {
 	atomicWriteFile(CorefilePath, buf.Bytes())
 }
 
-func startCoreDNS() {
+func startCoreDNS(ctx context.Context) {
 	for {
-		slog.Info("Starting CoreDNS")
-		dnsCmd = exec.Command("coredns", "-conf", CorefilePath)
-		stdout, _ := dnsCmd.StdoutPipe()
-		stderr, _ := dnsCmd.StderrPipe()
+		select {
+		case <-ctx.Done():
+			if dnsCmd != nil && dnsCmd.Process != nil {
+				dnsCmd.Process.Signal(os.Interrupt)
+			}
+			return
+		default:
+			slog.Info("Starting CoreDNS")
+			dnsCmd = exec.CommandContext(ctx, "coredns", "-conf", CorefilePath)
+			stdout, _ := dnsCmd.StdoutPipe()
+			stderr, _ := dnsCmd.StderrPipe()
 
-		if err := dnsCmd.Start(); err != nil {
-			slog.Error("Error starting CoreDNS", "error", err)
-			time.Sleep(5 * time.Second)
-			continue
+			if err := dnsCmd.Start(); err != nil {
+				slog.Error("Error starting CoreDNS", "error", err)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(5 * time.Second):
+					continue
+				}
+			}
+
+			go func(reader io.Reader) {
+				scanner := bufio.NewScanner(reader)
+				for scanner.Scan() {
+					line := scanner.Text()
+					configLock.RLock()
+					debug := config.DebugMode
+					configLock.RUnlock()
+					if debug {
+						slog.Info(line, "source", "coredns")
+					}
+					go parseLogLine(line)
+				}
+			}(stdout)
+
+			go func(reader io.Reader) {
+				scanner := bufio.NewScanner(reader)
+				for scanner.Scan() {
+					line := scanner.Text()
+					configLock.RLock()
+					debug := config.DebugMode
+					configLock.RUnlock()
+					if debug {
+						slog.Error(line, "source", "coredns-err")
+					}
+				}
+			}(stderr)
+
+			dnsCmd.Wait()
+			
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				slog.Warn("CoreDNS exited. Restarting...")
+				time.Sleep(1 * time.Second)
+			}
 		}
-
-		go func(reader io.Reader) {
-			scanner := bufio.NewScanner(reader)
-			for scanner.Scan() {
-				line := scanner.Text()
-				configLock.RLock()
-				debug := config.DebugMode
-				configLock.RUnlock()
-				if debug {
-					slog.Info(line, "source", "coredns")
-				}
-				go parseLogLine(line)
-			}
-		}(stdout)
-
-		go func(reader io.Reader) {
-			scanner := bufio.NewScanner(reader)
-			for scanner.Scan() {
-				line := scanner.Text()
-				configLock.RLock()
-				debug := config.DebugMode
-				configLock.RUnlock()
-				if debug {
-					slog.Error(line, "source", "coredns-err")
-				}
-			}
-		}(stderr)
-
-		dnsCmd.Wait()
-		slog.Warn("CoreDNS exited. Restarting...")
-		time.Sleep(1 * time.Second)
 	}
 }
 
@@ -603,7 +640,6 @@ func restartCoreDNS() {
 
 func parseLogLine(line string) {
 	// 1. Strip common prefixes added by CoreDNS or system logging
-	// Handle: "[INFO] ", "[DEBUG] ", "[CoreDNS] ", "[CoreDNS-ERR] ", "[16:23:02] "
 	for {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -635,34 +671,41 @@ func parseLogLine(line string) {
 		return
 	}
 
-	var remote, qType, qDomain, rcode, rflags, durationStr, userAgent, realIP string
-
-	// 2. Identify Format and Parse
+	// 2. Identification & Field Extraction using a robust field-based approach
 	// FORMAT A (Custom): remote type name rcode rflags duration "user-agent" "x-real-ip"
 	// FORMAT B (Default): remote:port - id "query_info" rcode rflags size duration
 
-	// Find any quoted strings in the line
-	var quotes []string
-	start := -1
-	for i, char := range line {
-		if char == '"' {
-			if start == -1 {
-				start = i
-			} else {
-				quotes = append(quotes, line[start+1:i])
-				start = -1
-			}
-		}
-	}
+	var remote, qType, qDomain, rcode, rflags, durationStr, userAgent, realIP string
+
+	// Extract quoted parts first as they are most likely metadata or query_info
+	quotes := extractQuotes(line)
 
 	if len(quotes) >= 1 {
-		// We have at least one quoted string (might be User-Agent or query_info)
-		firstQuoteIndex := strings.Index(line, "\"")
-		prefix := strings.TrimSpace(line[:firstQuoteIndex])
+		firstQuoteIdx := strings.Index(line, "\"")
+		prefix := strings.TrimSpace(line[:firstQuoteIdx])
 		pFields := strings.Fields(prefix)
 
-		if len(pFields) >= 6 {
-			// FORMAT A (Custom)
+		if strings.Contains(prefix, " - ") && len(pFields) >= 3 {
+			// FORMAT B (Default CoreDNS format)
+			remote = pFields[0]
+			qFields := strings.Fields(quotes[0]) // "query_info" usually is "TYPE CLASS NAME +flags"
+			if len(qFields) >= 3 {
+				qType = qFields[0]
+				qDomain = strings.TrimSuffix(qFields[2], ".")
+			}
+
+			// Suffix after the last quote
+			lastQuoteIdx := strings.LastIndex(line, "\"")
+			suffix := strings.TrimSpace(line[lastQuoteIdx+1:])
+			sFields := strings.Fields(suffix)
+			if len(sFields) >= 3 {
+				rcode = sFields[0]
+				rflags = sFields[1]
+				durationStr = sFields[len(sFields)-1]
+			}
+			userAgent = "-"
+		} else if len(pFields) >= 6 {
+			// FORMAT A (ShieldDNS specific custom format)
 			remote = pFields[0]
 			qType = pFields[1]
 			qDomain = strings.TrimSuffix(pFields[2], ".")
@@ -670,37 +713,11 @@ func parseLogLine(line string) {
 			rflags = pFields[4]
 			durationStr = pFields[5]
 			
-			// Extract User-Agent (first quote) and X-Real-IP (second quote if exists)
 			userAgent = quotes[0]
 			if len(quotes) >= 2 {
 				realIP = quotes[1]
 			}
-		} else if len(pFields) >= 3 && strings.Contains(line[:firstQuoteIndex], " - ") {
-			// FORMAT B (Default)
-			remote = pFields[0]
-			// query_info is in first quotes
-			qFields := strings.Fields(quotes[0])
-			if len(qFields) >= 3 {
-				qType = qFields[0]
-				qDomain = strings.TrimSuffix(qFields[2], ".")
-			}
-
-			// Suffix is after the last quote
-			lastQuoteIndex := strings.LastIndex(line, "\"")
-			suffix := strings.TrimSpace(line[lastQuoteIndex+1:])
-			sFields := strings.Fields(suffix)
-			if len(sFields) >= 3 {
-				rcode = sFields[0]
-				rflags = sFields[1]
-				if len(sFields) >= 4 {
-					durationStr = sFields[3]
-				}
-			}
-			userAgent = "-"
 		}
-	} else {
-		// No quotes found, cannot parse
-		return
 	}
 
 	if qType == "" || qDomain == "" || rcode == "" {
@@ -890,4 +907,48 @@ func parseLogLine(line string) {
 			}
 		}
 	}(q)
+}
+
+type rateLimitEntry struct {
+	Count      int
+	LastAccess time.Time
+}
+
+var (
+	dohRateLimits sync.Map // IP -> *rateLimitEntry
+)
+
+// DoHRateLimitMiddleware prevents DoS on the DoH proxy endpoint
+func DoHRateLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		clientIP := r.Header.Get("X-Real-IP")
+		if clientIP == "" {
+			clientIP, _, _ = net.SplitHostPort(r.RemoteAddr)
+		}
+
+		if clientIP == "" || clientIP == "127.0.0.1" || clientIP == "::1" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		now := time.Now()
+		v, _ := dohRateLimits.LoadOrStore(clientIP, &rateLimitEntry{LastAccess: now})
+		entry := v.(*rateLimitEntry)
+
+		// Simple fixed-window rate limit: 30 requests per 1 second
+		if now.Sub(entry.LastAccess) > 1*time.Second {
+			entry.Count = 1
+			entry.LastAccess = now
+		} else {
+			entry.Count++
+		}
+
+		if entry.Count > 30 {
+			slog.Warn("DoH Rate limit exceeded", "ip", clientIP)
+			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

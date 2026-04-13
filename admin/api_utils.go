@@ -114,7 +114,7 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
 		
-		req, _ := http.NewRequestWithContext(ctx, "GET", "http://ip-api.com/json/"+ip, nil)
+		req, _ := http.NewRequestWithContext(ctx, "GET", "https://ip-api.com/json/"+ip, nil)
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err == nil {
@@ -605,4 +605,20 @@ func CalculateEntropy(s string) float64 {
 		entropy -= p * math.Log2(p)
 	}
 	return entropy
+}
+
+func extractQuotes(s string) []string {
+	var quotes []string
+	start := -1
+	for i, char := range s {
+		if char == '"' {
+			if start == -1 {
+				start = i
+			} else {
+				quotes = append(quotes, s[start+1:i])
+				start = -1
+			}
+		}
+	}
+	return quotes
 }

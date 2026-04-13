@@ -117,8 +117,10 @@ func addColumnIfNotExists(table, column, definition string) {
 	}
 }
 
-func startDBWorker() {
+func startDBWorker(ctx context.Context) {
 	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+
 	cleanup := func() {
 		configLock.RLock()
 		days := config.RetentionDays
@@ -126,7 +128,7 @@ func startDBWorker() {
 
 		if db != nil {
 			// 1. Regular TTL purge based on RetentionDays
-			_, err := db.Exec("DELETE FROM queries WHERE timestamp < datetime('now', ?)", fmt.Sprintf("-%d days", days))
+			_, err := db.ExecContext(ctx, "DELETE FROM queries WHERE timestamp < datetime('now', ?)", fmt.Sprintf("-%d days", days))
 			if err != nil {
 				slog.Error("Error purging old queries", "error", err)
 			} else {
@@ -134,11 +136,10 @@ func startDBWorker() {
 			}
 
 			// 2. Resource Safety: Hard cap on total queries (max 500k rows)
-			// This prevents disk exhaustion even if RetentionDays is set very high
 			var totalRows int
-			if err := db.QueryRow("SELECT COUNT(*) FROM queries").Scan(&totalRows); err == nil && totalRows > 500000 {
-				overage := totalRows - 500000 + 50000 // Remove overage plus a 50k buffer
-				_, err = db.Exec("DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", overage)
+			if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM queries").Scan(&totalRows); err == nil && totalRows > 500000 {
+				overage := totalRows - 500000 + 50000
+				_, err = db.ExecContext(ctx, "DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", overage)
 				if err != nil {
 					slog.Error("Database maintenance: Error during emergency row prune", "error", err)
 				} else {
@@ -147,7 +148,7 @@ func startDBWorker() {
 			}
 
 			// 3. Reclaim space incrementally
-			_, err = db.Exec("PRAGMA incremental_vacuum(5000)")
+			_, err = db.ExecContext(ctx, "PRAGMA incremental_vacuum(5000)")
 			if err != nil {
 				slog.Error("Error running incremental vacuum", "error", err)
 			}
@@ -158,26 +159,34 @@ func startDBWorker() {
 	
 	// Start hourly aggregation ticker
 	aggTicker := time.NewTicker(1 * time.Hour)
+	defer aggTicker.Stop()
 	go func() {
 		// Initial aggregation for the previous hour
-		aggregateHourlyStats()
-		for range aggTicker.C {
-			aggregateHourlyStats()
+		aggregateHourlyStats(ctx)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-aggTicker.C:
+				aggregateHourlyStats(ctx)
+			}
 		}
 	}()
 
-	for range ticker.C {
-		cleanup()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			cleanup()
+		}
 	}
 }
 
-func aggregateHourlyStats() {
+func aggregateHourlyStats(ctx context.Context) {
 	if db == nil {
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 
 	// Aggregate the full previous hour (e.g., if now is 14:05, aggregate 13:00-14:00)
 	targetHour := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
@@ -208,23 +217,30 @@ func aggregateHourlyStats() {
 	}
 }
 
-func startLogWorker() {
+func startLogWorker(ctx context.Context) {
 	// Periodically flush buffered queries to SQLite
 	ticker := time.NewTicker(5 * time.Second)
-	for range ticker.C {
-		bufferLock.Lock()
-		if len(logBuffer) == 0 {
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			// Final flush is handled in main.go during shutdown
+			return
+		case <-ticker.C:
+			bufferLock.Lock()
+			if len(logBuffer) == 0 {
+				bufferLock.Unlock()
+				continue
+			}
+			toFlush := logBuffer
+			logBuffer = nil
 			bufferLock.Unlock()
-			continue
-		}
-		toFlush := logBuffer
-		logBuffer = nil
-		bufferLock.Unlock()
 
-		if db == nil {
-			continue
+			if db == nil {
+				continue
+			}
+			flushLogs(toFlush)
 		}
-		flushLogs(toFlush)
 	}
 }
 

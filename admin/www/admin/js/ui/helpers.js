@@ -177,7 +177,7 @@ export const showToast = (message, type = 'success') => {
     
     toast.innerHTML = `
         <i class="fas ${icons[type]} " style="color: ${colors[type]}"></i>
-        <span>${message}</span>
+        <span>${escapeHTML(message)}</span>
     `;
 
     container.appendChild(toast);

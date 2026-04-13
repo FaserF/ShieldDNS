@@ -149,9 +149,9 @@ export function renderConfig(cfg) {
     if (getEl('abuse-dga-threshold-input')) getEl('abuse-dga-threshold-input').value = cfg.abuse_dga_threshold || 3.8;
     if (getEl('abuse-dga-min-len-input')) getEl('abuse-dga-min-len-input').value = cfg.abuse_dga_min_len || 8;
 
-    // Malicious IP Settings
     if (getEl('malicious-check')) getEl('malicious-check').checked = cfg.malicious_ip_blocking_enabled;
     if (getEl('malicious-interval-input')) getEl('malicious-interval-input').value = cfg.malicious_ip_interval || 8;
+    if (getEl('verify-upstream-tls-check')) getEl('verify-upstream-tls-check').checked = !!cfg.verify_upstream_tls;
 
     // Custom Rules
     const renderCustomList = (id, items) => {
@@ -159,8 +159,8 @@ export function renderConfig(cfg) {
         if (!el) return;
         el.innerHTML = items?.map(domain => `
             <div class="preset-selection-item">
-                <span>${domain}</span>
-                <button class="btn danger-text" onclick="removeCustomRule('${domain}', event)"><i class="fas fa-trash"></i></button>
+                <span>${helpers.escapeHTML(domain)}</span>
+                <button class="btn danger-text" onclick="removeCustomRule('${helpers.escapeHTML(domain)}', event)"><i class="fas fa-trash"></i></button>
             </div>
         `).join('') || '';
     };
@@ -172,9 +172,9 @@ export function renderConfig(cfg) {
     if (mappingsList) {
         mappingsList.innerHTML = Object.entries(cfg.custom_mappings || {}).map(([domain, ip]) => `
             <div class="preset-selection-item">
-                <span style="flex:1">${domain}</span>
-                <span class="badge secondary" style="font-family:monospace; margin-right: 15px;">${ip}</span>
-                <button class="btn danger-text" onclick="removeCustomMapping('${domain}', event)"><i class="fas fa-trash"></i></button>
+                <span style="flex:1">${helpers.escapeHTML(domain)}</span>
+                <span class="badge secondary" style="font-family:monospace; margin-right: 15px;">${helpers.escapeHTML(ip)}</span>
+                <button class="btn danger-text" onclick="removeCustomMapping('${helpers.escapeHTML(domain)}', event)"><i class="fas fa-trash"></i></button>
             </div>
         `).join('');
     }
@@ -184,7 +184,7 @@ export function renderConfig(cfg) {
     if (activeBlocks) {
         activeBlocks.innerHTML = (cfg.lists || []).map((list, i) => `
             <div class="list-item" onclick="window.openListDetailsModal(${i}, 'block')">
-                <div class="list-info"><h3>${list.name}</h3><p>${list.url}</p></div>
+                <div class="list-info"><h3>${helpers.escapeHTML(list.name)}</h3><p>${helpers.escapeHTML(list.url)}</p></div>
                 <div class="list-actions">
                     <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'block', event)">${list.enabled ? 'Disable' : 'Enable'}</button>
                     <button class="btn btn-sm danger" onclick="event.stopPropagation(); window.removeList(${i}, 'block', event)"><i class="fas fa-trash"></i></button>
@@ -197,7 +197,7 @@ export function renderConfig(cfg) {
     if (activeAllows) {
         activeAllows.innerHTML = (cfg.allowlists || []).map((list, i) => `
             <div class="list-item" onclick="window.openListDetailsModal(${i}, 'allow')">
-                <div class="list-info"><h3>${list.name}</h3><p>${list.url}</p></div>
+                <div class="list-info"><h3>${helpers.escapeHTML(list.name)}</h3><p>${helpers.escapeHTML(list.url)}</p></div>
                 <div class="list-actions">
                     <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'allow', event)">${list.enabled ? 'Disable' : 'Enable'}</button>
                     <button class="btn btn-sm danger" onclick="event.stopPropagation(); window.removeList(${i}, 'allow', event)"><i class="fas fa-trash"></i></button>
@@ -211,8 +211,8 @@ export function renderConfig(cfg) {
         tags.innerHTML = (cfg.blocked_countries || []).map(code => `
             <div class="tag">
                 ${getFlagHTML(code)}
-                <span>${state.allCountries[code] || code}</span>
-                <span class="remove-tag" onclick="removeCountry('${code}', event)">&times;</span>
+                <span>${helpers.escapeHTML(state.allCountries[code] || code)}</span>
+                <span class="remove-tag" onclick="removeCountry('${helpers.escapeHTML(code)}', event)">&times;</span>
             </div>
         `).join('');
     }
@@ -222,8 +222,8 @@ export function renderConfig(cfg) {
     if (blockedClientsList) {
         blockedClientsList.innerHTML = (cfg.blocked_clients || []).map(ip => `
             <div class="tag danger">
-                <span>${ip}</span>
-                <span class="remove-tag" onclick="unblockClient('${ip}')">&times;</span>
+                <span>${helpers.escapeHTML(ip)}</span>
+                <span class="remove-tag" onclick="unblockClient('${helpers.escapeHTML(ip)}')">&times;</span>
             </div>
         `).join('') || '<p class="help">No clients are currently blocked.</p>';
     }
@@ -234,8 +234,8 @@ export function renderAnalytics(blocked, clients) {
     if (topBlockedList) {
         topBlockedList.innerHTML = (blocked || []).map(b => `
             <tr>
-                <td><span class="domain-link" onclick="showDomainDetails('${b.domain}')">${b.domain}</span></td>
-                <td class="text-right">${b.count || 0}</td>
+                <td><span class="domain-link" onclick="showDomainDetails('${helpers.escapeHTML(b.domain)}')">${helpers.escapeHTML(b.domain)}</span></td>
+                <td class="text-right">${helpers.escapeHTML(b.count?.toString() || '0')}</td>
             </tr>
         `).join('') || '<tr><td colspan="2">No data available</td></tr>';
     }
@@ -243,10 +243,10 @@ export function renderAnalytics(blocked, clients) {
     const topClientsList = getEl('top-clients-list');
     if (topClientsList) {
         topClientsList.innerHTML = (clients || []).map(c => {
-            const display = c.client_alias ? `${c.client_alias} (${c.client_ip})` : c.client_ip;
+            const display = c.client_alias ? `${helpers.escapeHTML(c.client_alias)} (${helpers.escapeHTML(c.client_ip)})` : helpers.escapeHTML(c.client_ip);
             return `<tr>
-                <td><span class="ip-link" onclick="showIPDetails('${c.client_ip}')">${display}</span></td>
-                <td class="text-right">${c.count || 0}</td>
+                <td><span class="ip-link" onclick="showIPDetails('${helpers.escapeHTML(c.client_ip)}')">${display}</span></td>
+                <td class="text-right">${helpers.escapeHTML(c.count?.toString() || '0')}</td>
             </tr>`;
         }).join('') || '<tr><td colspan="2">No data available</td></tr>';
     }
@@ -297,10 +297,10 @@ export function renderDiagnostics(d) {
             const daysLeft = Math.floor((new Date(cert.not_after) - new Date()) / (1000 * 60 * 60 * 24));
             certInfo.innerHTML = `
                  <div class="diag-item"><span>Status</span><span class="badge ${cert.valid ? 'success' : 'danger'}">${cert.valid ? 'Valid' : 'Expired'}</span></div>
-                 <div class="diag-item"><span>Subject</span><span title="${cert.subject || ''}">${cert.subject || '-'}</span></div>
-                 <div class="diag-item"><span>Issuer</span><span title="${cert.issuer || ''}">${cert.issuer || '-'}</span></div>
+                 <div class="diag-item"><span>Subject</span><span title="${helpers.escapeHTML(cert.subject || '')}">${helpers.escapeHTML(cert.subject || '-')}</span></div>
+                 <div class="diag-item"><span>Issuer</span><span title="${helpers.escapeHTML(cert.issuer || '')}">${helpers.escapeHTML(cert.issuer || '-')}</span></div>
                  <div class="diag-item"><span>Expires</span><span>${new Date(cert.not_after).toLocaleString()} (${daysLeft} days left)</span></div>
-                 <div class="diag-item"><span>SANs</span><span style="white-space: normal; word-break: break-all;">${(cert.dns_names || []).join(', ') || '-'}</span></div>
+                 <div class="diag-item"><span>SANs</span><span style="white-space: normal; word-break: break-all;">${(cert.dns_names || []).map(n => helpers.escapeHTML(n)).join(', ') || '-'}</span></div>
              `;
         }
     }

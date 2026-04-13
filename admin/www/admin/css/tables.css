@@ -1,0 +1,57 @@
+.query-log-container {
+    background-color: var(--card-bg);
+    padding: 32px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    margin-top: 24px;
+}
+
+.query-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+.query-table th, .query-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.query-table th {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.query-table td {
+    font-size: 0.875rem;
+}
+
+.overflow-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+    width: 100%;
+    max-width: 100%;
+    display: block;
+    min-width: 0;
+}
+
+/* Modal specific table optimizations */
+.modal-content .query-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.modal-content .query-table th, .modal-content .query-table td {
+    padding: 10px 8px;
+    font-size: 0.8rem;
+}
+
+.minimal-list {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}

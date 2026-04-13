@@ -107,91 +107,20 @@ if is_port_busy "${DOT_PORT}"; then
 fi
 
 # ------------------------------------------------------------------------------
-# 3. Multiplexed Port 443 Configuration (DoH + Admin UI)
+# 3. ShieldDNS Execution Environment
 # ------------------------------------------------------------------------------
-INTERNAL_DOH_PORT="5553"
-ADMIN_BACKEND_PORT="8080"
-
-echo "🌍 Unifying DoH and Admin UI on Port ${DOH_PORT} (multiplexed via Nginx)..."
-
-mkdir -p /run/nginx /etc/nginx/http.d
-
-cat <<EOF >/etc/nginx/http.d/default.conf
-server {
-    listen 80;
-    server_name _;
-    
-    location / {
-        proxy_pass http://127.0.0.1:${ADMIN_BACKEND_PORT};
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
-
-server {
-    listen ${DOH_PORT} ssl;
-    http2 on;
-    server_name _;
-
-    ssl_certificate ${CERT_FILE};
-    ssl_certificate_key ${KEY_FILE};
-    ssl_protocols TLSv1.2 TLSv1.3;
-
-    error_log /dev/stderr info;
-    access_log /dev/stdout;
-
-    location /dns-query {
-        proxy_pass https://127.0.0.1:${INTERNAL_DOH_PORT};
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header User-Agent \$http_user_agent;
-        proxy_http_version 1.1;
-        proxy_ssl_verify off;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:${ADMIN_BACKEND_PORT};
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-
-        # SSE optimization
-        proxy_set_header Connection '';
-        proxy_http_version 1.1;
-        proxy_buffering off;
-        proxy_cache off;
-        proxy_read_timeout 24h;
-        gzip off;
-    }
-}
-EOF
-
-nginx -g 'daemon off;' &
-NGINX_PID=$!
-
-# ------------------------------------------------------------------------------
-# 4. ShieldDNS Admin & CoreDNS Execution
-# ------------------------------------------------------------------------------
-mkdir -p /etc/shielddns /var/www/admin
-
-# Dynamically set GOMAXPROCS to match the available CPU count.
-# This prevents CoreDNS's automaxprocs from printing the
-# "CPU quota undefined" warning when no cgroup CPU limit is set.
-export GOMAXPROCS=$(nproc 2>/dev/null || echo 1)
+echo "🌍 Starting ShieldDNS backend on Port ${DOH_PORT}..."
 
 # Export for Go backend
 export CERT_FILE
 export KEY_FILE
-export INTERNAL_DOH_PORT
-export ADMIN_PORT=${ADMIN_BACKEND_PORT}
+export INTERNAL_DOH_PORT=${INTERNAL_DOH_PORT:-"5553"}
+export ADMIN_PORT=${DOH_PORT} # Listen directly on the public port
 export DNS_PORT
 export DOT_PORT
+export GOMAXPROCS=$(nproc 2>/dev/null || echo 1)
 
-/usr/bin/shielddns-admin &
-ADMIN_PID=$!
+mkdir -p /etc/shielddns
 
 # Initial Corefile (if backend hasn't generated one yet)
 ACTUAL_COREDNS_PORT="${INTERNAL_DOH_PORT}"
@@ -218,10 +147,13 @@ https://.:${ACTUAL_COREDNS_PORT} {
 EOF
 fi
 
+/usr/bin/shielddns-admin &
+ADMIN_PID=$!
+
 # CoreDNS is managed by the Go backend (shielddns-admin)
 # so it handles log parsing and restarts automatically.
 
-wait -n $ADMIN_PID $NGINX_PID
+wait -n $ADMIN_PID
 echo "⏹️  Shutting down services..."
 # Kill all background jobs gracefully
 kill -TERM $(jobs -p) 2>/dev/null || true

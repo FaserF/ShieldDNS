@@ -836,6 +836,19 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="form-group checkbox-group">
+                        <div class="checkbox-text">
+                            <div class="label-with-info">
+                                <label>Verify Upstream TLS</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Enforces strict TLS certificate verification for DoT upstream servers. Disable this if you use self-signed local upstreams."></i>
+                            </div>
+                            <p class="help">Ensure upstream servers provide valid, trusted certificates.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="verify-upstream-tls-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <div class="form-group">
                         <label>System Backup & Restore</label>
                         <p class="help">Download a full system backup (.zip) or restore your configuration (.json).</p>

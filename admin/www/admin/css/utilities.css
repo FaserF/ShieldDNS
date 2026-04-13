@@ -1,0 +1,69 @@
+/* Utilities & Helper Classes */
+
+.preferred-row {
+    background: hsla(var(--hue), 75%, 68%, 0.08) !important;
+    border-left: 3px solid var(--accent);
+}
+
+body.light .preferred-row {
+    background: hsla(var(--hue), 85%, 55%, 0.05) !important;
+}
+
+.ip-link {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(92, 107, 192, 0.3);
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.ip-link:hover {
+    color: white;
+    border-bottom-color: var(--accent);
+    background: rgba(92, 107, 192, 0.1);
+    border-radius: 4px;
+    padding: 0 4px;
+    margin: 0 -4px;
+}
+
+.auth-box {
+    text-align: center;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.search-box {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.search-box i {
+    position: absolute;
+    left: 12px;
+    color: var(--text-secondary);
+}
+
+.search-box input {
+    padding-left: 36px;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border);
+    border-top: 4px solid var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.mt-2 { margin-top: 0.5rem; }
+.pl-4 { padding-left: 1.5rem; }

@@ -10,8 +10,8 @@ export const renderAPIKeys = (tokens, allTokens, apiKeysListContainer, editAPIKe
     tokens.forEach(k => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${k.name}</td>
-            <td>${(k.permissions || []).map(p => `<span class="badge secondary">${p}</span>`).join(' ')}</td>
+            <td>${helpers.escapeHTML(k.name)}</td>
+            <td>${(k.permissions || []).map(p => `<span class="badge secondary">${helpers.escapeHTML(p)}</span>`).join(' ')}</td>
             <td>${new Date(k.created_at).toLocaleDateString()}</td>
             <td>${!k.last_used || k.last_used === '0001-01-01T00:00:00Z' ? 'Never' : new Date(k.last_used).toLocaleString()}</td>
             <td>
@@ -43,7 +43,7 @@ export const createListItem = (list, index, type, removeList, toggleList, openDe
     item.innerHTML = `
         <div class="list-info">
             <div class="list-status-pill ${statusClass}">${statusText}</div>
-            <div class="list-name">${list.name}</div>
+            <div class="list-name">${helpers.escapeHTML(list.name)}</div>
             <div class="list-meta">${(list.entries || 0).toLocaleString()} entries • Updated ${helpers.formatDate(list.updated_at)}</div>
         </div>
         <div class="list-actions">

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"strings"
 	"sync"
@@ -215,41 +216,45 @@ func blockClientAuto(ip, reason string) {
 	go updateCorefile() // Instantly apply ACL update
 }
 
-// startAbuseCleanup runs every 5 minutes and removes entirely stale counter data
-// to prevent memory leaks from one-off clients.
-func startAbuseCleanup() {
+func startAbuseCleanup(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Minute)
-	for range ticker.C {
-		now := time.Now()
-		
-		abuseMu.Lock()
-		for ip, counters := range abuseCounters {
-			// 1. Prune nested domain counters and remove empty ones
-			for domain, dTimes := range counters.domainTimes {
-				counters.domainTimes[domain] = pruneWindow(dTimes, now, 10*time.Minute)
-				if len(counters.domainTimes[domain]) == 0 {
-					delete(counters.domainTimes, domain)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := time.Now()
+			
+			abuseMu.Lock()
+			for ip, counters := range abuseCounters {
+				// 1. Prune nested domain counters and remove empty ones
+				for domain, dTimes := range counters.domainTimes {
+					counters.domainTimes[domain] = pruneWindow(dTimes, now, 10*time.Minute)
+					if len(counters.domainTimes[domain]) == 0 {
+						delete(counters.domainTimes, domain)
+					}
+				}
+
+				// 2. Prune TLD counters
+				for tld, tTimes := range counters.tldCounts {
+					counters.tldCounts[tld] = pruneWindow(tTimes, now, 10*time.Minute)
+					if len(counters.tldCounts[tld]) == 0 {
+						delete(counters.tldCounts, tld)
+					}
+				}
+
+				// 3. Prune general counters
+				counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 10*time.Minute)
+				counters.nxdomainTimes = pruneWindow(counters.nxdomainTimes, now, 10*time.Minute)
+				counters.dgaTimes = pruneWindow(counters.dgaTimes, now, 10*time.Minute)
+
+				// 4. If no activity at all in last 10 mins, remove the client from map
+				if len(counters.allQueryTimes) == 0 && len(counters.domainTimes) == 0 && len(counters.nxdomainTimes) == 0 && len(counters.dgaTimes) == 0 {
+					delete(abuseCounters, ip)
 				}
 			}
-
-			// 2. Prune TLD counters
-			for tld, tTimes := range counters.tldCounts {
-				counters.tldCounts[tld] = pruneWindow(tTimes, now, 10*time.Minute)
-				if len(counters.tldCounts[tld]) == 0 {
-					delete(counters.tldCounts, tld)
-				}
-			}
-
-			// 3. Prune general counters
-			counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 10*time.Minute)
-			counters.nxdomainTimes = pruneWindow(counters.nxdomainTimes, now, 10*time.Minute)
-			counters.dgaTimes = pruneWindow(counters.dgaTimes, now, 10*time.Minute)
-
-			// 4. If no activity at all in last 10 mins, remove the client from map
-			if len(counters.allQueryTimes) == 0 && len(counters.domainTimes) == 0 && len(counters.nxdomainTimes) == 0 && len(counters.dgaTimes) == 0 {
-				delete(abuseCounters, ip)
-			}
+			abuseMu.Unlock()
 		}
-		abuseMu.Unlock()
 	}
 }

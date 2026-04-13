@@ -1,0 +1,38 @@
+:root {
+    /* Base Hue: Professional Deep Indigo */
+    --hue: 228;
+    
+    /* Dark Theme (Default) */
+    --bg-color: hsl(var(--hue), 24%, 5%);
+    --sidebar-bg: hsla(var(--hue), 24%, 8%, 0.8);
+    --card-bg: hsla(var(--hue), 20%, 12%, 0.6);
+    --accent: hsl(var(--hue), 75%, 68%);
+    --accent-hover: hsl(var(--hue), 85%, 75%);
+    --text-primary: hsl(var(--hue), 15%, 96%);
+    --text-secondary: hsl(var(--hue), 10%, 65%);
+    --success: hsl(158, 64%, 52%);
+    --danger: hsl(0, 72%, 60%);
+    --border: hsla(var(--hue), 10%, 100%, 0.08);
+    --glass-blur: blur(14px);
+    --glass-shadow: 0 12px 40px -10px hsla(0, 0%, 0%, 0.5);
+    --inner-glow: inset 0 1px 1px 0 hsla(0, 0%, 100%, 0.05);
+    
+    --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    --primary: var(--accent);
+    --chart-grid: hsla(0, 0%, 100%, 0.05);
+}
+
+body.light {
+    --hue: 228;
+    --bg-color: hsl(var(--hue), 20%, 97%);
+    --sidebar-bg: hsla(var(--hue), 20%, 100%, 0.85);
+    --card-bg: hsla(var(--hue), 20%, 100%, 0.9);
+    --accent: hsl(var(--hue), 85%, 55%);
+    --accent-hover: hsl(var(--hue), 95%, 45%);
+    --text-primary: hsl(var(--hue), 30%, 15%);
+    --text-secondary: hsl(var(--hue), 15%, 45%);
+    --border: hsla(var(--hue), 20%, 0%, 0.06);
+    --glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    --inner-glow: inset 0 1px 1px 0 hsla(0, 0%, 100%, 1);
+    --chart-grid: hsla(var(--hue), 20%, 0%, 0.05);
+}

@@ -51,6 +51,7 @@ func loadConfig() {
 		ServeStale:                 true,
 		DNSSECEnabled:              true,
 		SignMobileConfig:           true,
+		VerifyUpstreamTLS:          true,
 		AbuseDetectionEnabled:      true,
 		AbuseDGAThreshold:          3.8,
 		AbuseDGAMinLen:             8,
@@ -422,6 +423,15 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 
 	if strings.HasPrefix(list.URL, "file://") {
 		path := strings.TrimPrefix(list.URL, "file://")
+
+		// Security: Restrict local file access to within DataDir
+		absDataDir, _ := filepath.Abs(DataDir)
+		absPath, _ := filepath.Abs(path)
+		if !strings.HasPrefix(absPath, absDataDir) {
+			slog.Warn("Access denied: local list file must be within DataDir", "name", list.Name, "path", path)
+			return
+		}
+
 		file, err := os.Open(path)
 		if err != nil {
 			slog.Warn("Could not open local list file", "name", list.Name, "path", path, "error", err)
@@ -528,10 +538,16 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 	}
 }
 
-func startBackgroundUpdater() {
+func startBackgroundUpdater(ctx context.Context) {
 	ticker := time.NewTicker(24 * time.Hour)
-	for range ticker.C {
-		go updateBlocklist(nil)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			updateBlocklist(nil)
+		}
 	}
 }
 
@@ -542,19 +558,27 @@ var (
 
 // startMetadataUpdater periodically refreshes metadata for all lists and presets.
 // Uses a 24h ticker for full refresh and a 1h ticker for missing information retries.
-func startMetadataUpdater() {
+func startMetadataUpdater(ctx context.Context) {
 	fullTicker := time.NewTicker(24 * time.Hour)
 	missingTicker := time.NewTicker(1 * time.Hour)
+	defer fullTicker.Stop()
+	defer missingTicker.Stop()
 	
 	go func() {
 		// Initial wait to let main startup finish
-		time.Sleep(10 * time.Second)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+		}
 		
 		// Run once on startup
 		refreshAllMetadata(false)
 		
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-fullTicker.C:
 				refreshAllMetadata(false) // Full refresh
 			case <-missingTicker.C:
@@ -698,6 +722,8 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 					if err := json.NewDecoder(resp.Body).Decode(&commitInfo); err == nil && len(commitInfo) > 0 {
 						return commitInfo[0].Commit.Committer.Date
 					}
+				} else if resp.StatusCode == http.StatusForbidden {
+					slog.Debug("GitHub API rate limited while fetching list metadata", "url", rawURL)
 				}
 			}
 		}

@@ -635,6 +635,7 @@ export async function saveConfig(fetchConfig) {
         abuse_dga_min_len: parseInt(getEl('abuse-dga-min-len-input')?.value) || 8,
         malicious_ip_blocking_enabled: getEl('malicious-check')?.checked,
         malicious_ip_interval: parseInt(getEl('malicious-interval-input')?.value) || 8,
+        verify_upstream_tls: getEl('verify-upstream-tls-check')?.checked,
     };
 
     try {

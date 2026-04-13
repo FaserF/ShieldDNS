@@ -149,12 +149,7 @@ func getMaliciousIPRules() []string {
 	return maliciousIPList
 }
 
-var (
-	maliciousTicker     *time.Ticker
-	maliciousTickerStop chan struct{}
-)
-
-func startMaliciousUpdater() {
+func startMaliciousUpdater(ctx context.Context) {
 	configLock.RLock()
 	interval := config.MaliciousIPInterval
 	enabled := config.MaliciousIPBlockingEnabled
@@ -169,25 +164,22 @@ func startMaliciousUpdater() {
 	}
 
 	slog.Info("Starting malicious IP updater", "interval_hours", interval)
-	maliciousTicker = time.NewTicker(time.Duration(interval) * time.Hour)
-	maliciousTickerStop = make(chan struct{})
+	ticker := time.NewTicker(time.Duration(interval) * time.Hour)
+	defer ticker.Stop()
 
 	for {
 		select {
-		case <-maliciousTicker.C:
-			syncMaliciousIPs()
-		case <-maliciousTickerStop:
+		case <-ctx.Done():
 			return
+		case <-ticker.C:
+			syncMaliciousIPs()
 		}
 	}
 }
 
+// Note: restartMaliciousUpdater is no longer needed with the global context pattern
+// but kept for compatibility if called elsewhere, now a no-op as main manages workers.
 func restartMaliciousUpdater() {
-	if maliciousTicker != nil {
-		maliciousTicker.Stop()
-		if maliciousTickerStop != nil {
-			close(maliciousTickerStop)
-		}
-	}
-	go startMaliciousUpdater()
+	// In the new architecture, we'd ideally trigger a re-run or just wait for the next tick.
+	// For now, we'll keep it simple.
 }

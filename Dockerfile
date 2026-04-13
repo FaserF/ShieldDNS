@@ -13,18 +13,16 @@ RUN GOOS=linux GOARCH=$TARGETARCH go build -o shielddns-admin .
 FROM alpine:3.23@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
 
 # Install dependencies
-RUN apk add --no-cache jq ca-certificates bash curl nginx dos2unix openssl
+RUN apk add --no-cache jq ca-certificates bash curl dos2unix openssl
 
-# Create web root and required directories
-RUN mkdir -p /var/www/html /run/nginx /ssl
+# Create required directories
+RUN mkdir -p /etc/shielddns /ssl
 RUN ln -s /ssl /certs
 
-# Copy Web Assets
-COPY admin/www /var/www/admin
 # Copy CoreDNS binary
 COPY --from=binary /coredns /usr/bin/coredns
 
-# Copy Admin binary
+# Copy Admin binary (contains embedded web assets)
 COPY --from=admin-build /app/shielddns-admin /usr/bin/shielddns-admin
 
 # Expose ports

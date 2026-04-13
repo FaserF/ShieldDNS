@@ -1,19 +1,25 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"html/template"
+	"io/fs"
 	"log"
 	"log/slog"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 var (
-	Version        = "v1.6.1-dev+6810c7e"
+	Version    = "v1.6.1-dev+6810c7e"
 	Subversion = "0"
 	CommitID   = ""
 )
@@ -21,9 +27,11 @@ var (
 var (
 	FullVersion  string
 	CacheVersion string
+	appCtx       context.Context
+	appCancel    context.CancelFunc
 )
 
-func main() {
+func init() {
 	// Construct version strings
 	vBase := strings.TrimPrefix(Version, "v")
 	FullVersion = Version
@@ -38,7 +46,93 @@ func main() {
 		FullVersion += " (" + CommitID + ")"
 	}
 
-	// Initialize Structured Logging
+	appCtx, appCancel = context.WithCancel(context.Background())
+}
+
+func main() {
+	initLogging()
+	slog.Info("ShieldDNS Backend starting", "version", FullVersion)
+
+	initServices()
+	startWorkers()
+
+	// Initial CoreDNS start
+	go startCoreDNS(appCtx)
+
+	// Ensure Corefile is generated with correct settings before starting CoreDNS
+	updateCorefile()
+
+	mux := setupRouter()
+
+	// Apply unified security middleware (Headers + CSRF)
+	finalHandler := securityHeadersMiddleware(csrfMiddleware(mux))
+
+	adminPort := os.Getenv("ADMIN_PORT")
+	if adminPort == "" {
+		adminPort = "443"
+	}
+
+	server := &http.Server{
+		Addr:    ":" + adminPort,
+		Handler: finalHandler,
+	}
+
+	// Capture cert paths
+	certFile := os.Getenv("CERT_FILE")
+	if certFile == "" {
+		certFile = "/ssl/fullchain.pem"
+	}
+	keyFile := os.Getenv("KEY_FILE")
+	if keyFile == "" {
+		keyFile = "/ssl/privkey.pem"
+	}
+
+	go func() {
+		if adminPort != "443" {
+			slog.Info("ShieldDNS Admin starting", "port", adminPort, "mode", "HTTP internal proxy")
+			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Error("Admin UI server stopped", "error", err)
+			}
+		} else {
+			slog.Info("ShieldDNS Admin starting", "port", "443", "mode", "HTTPS")
+			if err := server.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
+				slog.Error("Admin UI server stopped", "error", err)
+			}
+		}
+	}()
+
+	// Graceful shutdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	<-stop
+	slog.Info("Shutting down ShieldDNS...")
+
+	// Cancel context to stop workers
+	appCancel()
+
+	// Give servers time to shut down
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		slog.Error("HTTP server shutdown error", "error", err)
+	}
+
+	// Final log flush
+	bufferLock.Lock()
+	if len(logBuffer) > 0 {
+		flushLogs(logBuffer)
+	}
+	bufferLock.Unlock()
+
+	if db != nil {
+		db.Close()
+	}
+	slog.Info("Goodbye!")
+}
+
+func initLogging() {
 	handlerOpts := &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}
@@ -52,10 +146,10 @@ func main() {
 
 	// Bridge legacy standard log usage into slog
 	log.SetOutput(&LogWriter{})
-	log.SetFlags(0) // slog handles timestamps
+	log.SetFlags(0)
+}
 
-	slog.Info("ShieldDNS Backend starting", "version", Version)
-
+func initServices() {
 	stats.QueryTypes = make(map[string]int64)
 	initPaths()
 	loadConfig()
@@ -73,35 +167,34 @@ func main() {
 		os.MkdirAll(filepath.Dir(CombinedHostsPath), 0755)
 		os.WriteFile(CombinedHostsPath, []byte("# Initial ShieldDNS hosts file\n"), 0644)
 	}
+}
 
-	// Start background updater ticker
-	go startBackgroundUpdater()
-	go startMaliciousUpdater()
-	go startMetadataUpdater()
+func startWorkers() {
+	// Start background updater tickers
+	go startBackgroundUpdater(appCtx)
+	go startMaliciousUpdater(appCtx)
+	go startMetadataUpdater(appCtx)
 
 	// Trigger initial blocklist update in background
 	go updateBlocklist(nil)
 	go syncMaliciousIPs()
 
-	// Start health checker
-	go startHealthChecker()
-	go startDNSWatchdog()
+	// Start health and monitoring
+	go startHealthChecker(appCtx)
+	go startDNSWatchdog(appCtx)
 	
-	// Server setup
 	startAuthWorkers()
-	startDNSWorkers()
-	go startDBWorker()
-	go startLogWorker()
-	go startAbuseCleanup()
+	startDNSWorkers(appCtx)
+	go startDBWorker(appCtx)
+	go startLogWorker(appCtx)
+	go startAbuseCleanup(appCtx)
+}
 
-	// Ensure Corefile is generated with correct settings before starting CoreDNS
-	updateCorefile()
-
-	// Start CoreDNS management
-	go startCoreDNS()
-
-	// Setup Router
+func setupRouter() *http.ServeMux {
 	mux := http.NewServeMux()
+
+	// Internal DNS-over-HTTPS (DoH) Proxy to CoreDNS
+	mux.Handle("/dns-query", newDoHProxy())
 
 	// Auth API (Public but CSRF protected mutations)
 	mux.HandleFunc("/api/auth-status", handleAuthStatus)
@@ -159,7 +252,7 @@ func main() {
 	mux.Handle("/api/reset", authMiddleware(http.HandlerFunc(handleReset)))
 	mux.Handle("/api/config/reset-lists", authMiddleware(http.HandlerFunc(handleResetLists)))
 
-	// Public API (Truly public, no auth required)
+	// Public API
 	mux.HandleFunc("/api/block-info", handleBlockInfo)
 
 	// Health
@@ -169,27 +262,48 @@ func main() {
 	})
 	mux.Handle("/api/health", authMiddleware(http.HandlerFunc(handleHealth)))
 
-	// Get cert/key paths
-	certFile := os.Getenv("CERT_FILE")
-	if certFile == "" {
-		certFile = "/ssl/fullchain.pem"
+	// Static Files from Embedded FS
+	setupStaticHandlers(mux)
+
+	return mux
+}
+
+// newDoHProxy creates a reverse proxy to forward /dns-query requests to the internal CoreDNS DoH port.
+func newDoHProxy() http.Handler {
+	internalPort := os.Getenv("INTERNAL_DOH_PORT")
+	if internalPort == "" {
+		internalPort = "5553"
 	}
-	keyFile := os.Getenv("KEY_FILE")
-	if keyFile == "" {
-		keyFile = "/ssl/privkey.pem"
+	target, _ := url.Parse("https://127.0.0.1:" + internalPort)
+	
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	
+	// Disable TLS verification for internal proxy to CoreDNS
+	proxy.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	
+	return proxy
+}
+
+func setupStaticHandlers(mux *http.ServeMux) {
+	// Sub-filesystem starting at www
+	wwwFS, err := fs.Sub(WebAssets, "www")
+	if err != nil {
+		slog.Error("Failed to create sub-filesystem for web assets", "error", err)
+		return
 	}
 
-	webRoot := os.Getenv("WEB_ROOT")
-	if webRoot == "" {
-		webRoot = "/var/www/admin"
-	}
-
-	// Static Files: Admin UI
-	// 1. Specialized handler for the main admin index (template-aware for version injection)
+	// 1. Admin Index Template
 	mux.HandleFunc("/admin/", func(w http.ResponseWriter, r *http.Request) {
-		// Only handle exactly /admin/ or /admin/index.html as a template
 		if r.URL.Path == "/admin/" || r.URL.Path == "/admin/index.html" {
-			tmpl, err := template.ParseFiles(webRoot + "/admin/index.html")
+			tmplBytes, err := fs.ReadFile(wwwFS, "admin/index.html")
+			if err != nil {
+				slog.Error("Failed to read admin index from embedded FS", "error", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			tmpl, err := template.New("index.html").Parse(string(tmplBytes))
 			if err != nil {
 				slog.Error("Failed to parse admin index template", "error", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -206,15 +320,19 @@ func main() {
 			return
 		}
 
-		// Otherwise serve as static (js, css, icons)
-		adminFs := http.FileServer(http.Dir(webRoot + "/admin"))
-		http.StripPrefix("/admin/", adminFs).ServeHTTP(w, r)
+		// Otherwise serve as static
+		http.StripPrefix("/admin/", http.FileServer(http.FS(wwwFS))).ServeHTTP(w, r)
 	})
 
-	// 2. Specialized handler for sw.js (template-aware for version injection)
+	// 2. Service Worker Template
 	mux.HandleFunc("/admin/sw.js", func(w http.ResponseWriter, r *http.Request) {
-		// We use text/template to avoid HTML escaping in JS
-		tmpl, err := template.New("sw.js").ParseFiles(webRoot + "/admin/sw.js")
+		tmplBytes, err := fs.ReadFile(wwwFS, "admin/sw.js")
+		if err != nil {
+			slog.Error("Failed to read sw.js from embedded FS", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		tmpl, err := template.New("sw.js").Parse(string(tmplBytes))
 		if err != nil {
 			slog.Error("Failed to parse service worker template", "error", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -228,16 +346,22 @@ func main() {
 		http.Redirect(w, r, "/admin/", http.StatusMovedPermanently)
 	})
 
-	// Catch-all for the public landing page (index.html in webRoot)
+	// 3. Root landing page and public assets
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		configLock.RLock()
 		adminDomain := config.AdminDomain
 		isSetupMode := config.AdminPasswordHashed == ""
 		configLock.RUnlock()
 
-		// Case 1: Special block/stop page route (publicly accessible)
+		// Case 1: Special block/stop pages
 		if r.URL.Path == "/blocked" || r.URL.Path == "/stopped" {
-			http.ServeFile(w, r, webRoot+"/blocked.html")
+			data, err := fs.ReadFile(wwwFS, "blocked.html")
+			if err != nil {
+				http.Error(w, "Error loading block page", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html")
+			w.Write(data)
 			return
 		}
 
@@ -258,9 +382,14 @@ func main() {
 
 		// Case 3: Root landing page (Server-Side Rendered)
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
-			tmpl, err := template.ParseFiles(webRoot + "/index.html")
+			tmplBytes, err := fs.ReadFile(wwwFS, "index.html")
 			if err != nil {
-				http.Error(w, "Error loading landing page", http.StatusInternalServerError)
+				http.Error(w, "Error loading landing page template", http.StatusInternalServerError)
+				return
+			}
+			tmpl, err := template.New("index.html").Parse(string(tmplBytes))
+			if err != nil {
+				http.Error(w, "Error parsing landing page template", http.StatusInternalServerError)
 				return
 			}
 			host := r.Host
@@ -270,6 +399,7 @@ func main() {
 			configLock.RLock()
 			signEnabled := config.SignMobileConfig
 			configLock.RUnlock()
+			w.Header().Set("Content-Type", "text/html")
 			tmpl.Execute(w, struct {
 				Host         string
 				SignEnabled  bool
@@ -285,53 +415,6 @@ func main() {
 		}
 
 		// Case 4: Static assets
-		if r.URL.Path == "/logo.png" {
-			http.ServeFile(w, r, webRoot+"/logo.png")
-			return
-		}
-
-		fs := http.FileServer(http.Dir(webRoot))
-		fs.ServeHTTP(w, r)
+		http.FileServer(http.FS(wwwFS)).ServeHTTP(w, r)
 	})
-
-	// Graceful shutdown
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
-	adminPort := os.Getenv("ADMIN_PORT")
-	if adminPort == "" {
-		adminPort = "443"
-	}
-
-	// Apply unified security middleware (Headers + CSRF)
-	finalHandler := securityHeadersMiddleware(csrfMiddleware(mux))
-
-	go func() {
-		if adminPort != "443" {
-			slog.Info("ShieldDNS Admin starting", "port", adminPort, "mode", "HTTP internal proxy")
-			if err := http.ListenAndServe(":"+adminPort, finalHandler); err != nil {
-				slog.Error("Admin UI server stopped", "error", err)
-			}
-		} else {
-			slog.Info("ShieldDNS Admin starting", "port", "443", "mode", "HTTPS")
-			if err := http.ListenAndServeTLS(":443", certFile, keyFile, finalHandler); err != nil {
-				slog.Error("Admin UI server stopped", "error", err)
-			}
-		}
-	}()
-
-	<-stop
-	log.Println("Shutting down ShieldDNS...")
-
-	// Final log flush
-	bufferLock.Lock()
-	if len(logBuffer) > 0 {
-		flushLogs(logBuffer)
-	}
-	bufferLock.Unlock()
-
-	if db != nil {
-		db.Close()
-	}
-	log.Println("Goodbye!")
 }
