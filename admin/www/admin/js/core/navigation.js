@@ -111,7 +111,7 @@ export function stopSystemLogStream() {
     }
 }
 
-export function startSSE(createQueryRow, updateDashboardFeed, scroller) {
+export function startSSE(createQueryRow, updateDashboardFeed) {
     if (state.queryEventSource) state.queryEventSource.close();
     
     state.queryEventSource = new EventSource(api.endpoints.events);
@@ -123,8 +123,9 @@ export function startSSE(createQueryRow, updateDashboardFeed, scroller) {
             
             updateDashboardFeed(query);
             
-            if (scroller) {
-                scroller.prepend(query);
+            // Dynamically check for scroller in state to avoid stale closure
+            if (state.fullQueryScroller) {
+                state.fullQueryScroller.prepend(query);
             }
         } catch (err) {
             console.error('SSE JSON parse error:', err, event.data);

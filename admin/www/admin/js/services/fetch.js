@@ -215,7 +215,7 @@ export async function fetchIPDetails(ip) {
         
         // Merge IP info into stats for the renderer
         const mergedStats = { ...stats, ...ipInfo };
-        render.renderIPDetails(ip, mergedStats, topDomains, topBlocked, history.data || history || []);
+        render.renderIPDetails(ip, mergedStats, topDomains, topBlocked, history || []);
     } catch (e) {
         console.error('IP details fetch failed', e);
         helpers.showAlert('Failed to fetch IP details: ' + e.message);
@@ -230,7 +230,7 @@ export async function fetchDomainDetails(domain) {
             api.apiFetch(`${api.endpoints.blockInfo}?domain=${domain}`),
             api.apiFetch(`${api.endpoints.queries}?search=${domain}&limit=20`)
         ]);
-        render.renderDomainDetails(domain, stats, clients, blockInfo, queries.data || []);
+        render.renderDomainDetails(domain, stats, clients, blockInfo, queries || []);
     } catch (e) {
         console.error('Domain details fetch failed', e);
         helpers.showAlert('Failed to fetch domain details: ' + e.message);

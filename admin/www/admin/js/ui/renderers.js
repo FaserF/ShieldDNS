@@ -403,7 +403,7 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const toggleEl = (id, show) => { const el = getEl(id); if (el) el.style.display = show ? '' : 'none'; };
 
     // Hostname visibility
-    const hasHostname = stats.hostname && stats.hostname !== '-' && stats.hostname !== 'none';
+    const hasHostname = stats.hostname && stats.hostname !== '-' && stats.hostname !== 'none' && !stats.hostname.toLowerCase().includes('no hostname');
     setTxt('ip-info-hostname', hasHostname ? stats.hostname : '');
     toggleEl('ip-info-hostname', hasHostname);
 
@@ -414,13 +414,27 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
 
     const deviceCard = getEl('ip-info-device-card');
     if (deviceCard) {
-        if (!manufacturer && !os && !mac) {
+        // Hide entire card if all significant fields are generic/unavailable
+        const isManufacturerUnknown = !manufacturer || manufacturer.toLowerCase().includes('unknown');
+        const isOSUnknown = !os || os.toLowerCase().includes('unknown');
+        const isMACUnavailable = !mac || mac.toLowerCase().includes('unavailable') || mac === '-';
+
+        if (isManufacturerUnknown && isOSUnknown && isMACUnavailable) {
             deviceCard.style.display = 'none';
         } else {
             deviceCard.style.display = 'block';
-            getEl('ip-info-manufacturer').innerHTML = manufacturer || '<span class="info-empty">Unknown Device</span>';
-            getEl('ip-info-os').innerHTML = os || '<span class="info-empty">Generic OS</span>';
-            getEl('ip-info-mac').innerHTML = mac || '<span class="info-empty">MAC Hidden</span>';
+            getEl('ip-info-manufacturer').innerHTML = isManufacturerUnknown ? '' : manufacturer;
+            toggleEl('ip-info-manufacturer', !isManufacturerUnknown);
+
+            getEl('ip-info-os').innerHTML = isOSUnknown ? '' : os;
+            toggleEl('ip-info-os', !isOSUnknown);
+
+            getEl('ip-info-mac').innerHTML = isMACUnavailable ? '' : mac;
+            toggleEl('ip-info-mac', !isMACUnavailable);
+            
+            // Hide the dot separator if items are missing
+            const dot = deviceCard.querySelector('span[style*="opacity: 0.5"]');
+            if (dot) dot.style.display = (!os || isOSUnknown || !mac || isMACUnavailable) ? 'none' : '';
         }
     }
 

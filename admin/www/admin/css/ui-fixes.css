@@ -972,3 +972,65 @@ a:hover {
 .full-width {
     width: 100% !important;
 }
+
+/* ── Query Log Scrollability & Virtual Scroller Fix ──────────────── */
+
+#queries .query-log-container {
+    max-height: 75vh;
+    overflow-y: auto;
+    overflow-x: auto;
+    position: relative;
+    padding-top: 0 !important; /* Move padding to inner table if needed */
+}
+
+#queries .query-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--card-bg);
+}
+
+#queries .query-table thead th {
+    border-bottom: 2px solid var(--border);
+}
+
+/* ── IP Details Modal Polish ───────────────────────────────────── */
+
+.info-empty {
+    opacity: 0.4;
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+.device-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+#ip-info-device-card .device-info-main {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.diag-item-interactive {
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: 10px;
+    padding: 12px 10px !important;
+    margin: 0 -10px;
+}
+
+.diag-item-interactive:hover {
+    background: rgba(var(--accent-rgb), 0.08);
+    transform: translateX(6px);
+    border-bottom-color: transparent;
+}
+
+.diag-item-interactive:hover span:first-child {
+    color: var(--accent) !important;
+}

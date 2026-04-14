@@ -42,6 +42,7 @@ export class VirtualScroller {
         this.data.unshift(item);
         if (this.data.length > 2000) this.data.pop();
         this._lastStartIndex = -1; // Force re-render
+        this._lastEndIndex = -1;
         this.render();
     }
 

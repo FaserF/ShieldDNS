@@ -638,8 +638,8 @@ func ClearQueryLogs() error {
 	return nil
 }
 func ParseFlexibleTime(ts string) (time.Time, error) {
-	// Try RFC3339 first (our new standard)
-	if t, err := time.Parse(time.RFC3339, ts); err == nil {
+	// Use SQLite-native format for reliable date functions (strftime, datetime)
+	if t, err := time.Parse("2006-01-02 15:04:05", ts); err == nil {
 		return t, nil
 	}
 	// Fallback to legacy SQL format

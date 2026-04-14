@@ -171,13 +171,12 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Optimization: If a specific client_ip is provided, we can skip the subquery/limit-2000 optimization
-	// because client_ip is indexed and exact matches are very fast.
+	// Optimization: If searching or filtering by client, we search the full table.
+	// Only for general overview (no filters) we limit to the latest 2000 for performance.
 	var baseQuery string
-	if clientIP != "" {
+	if search != "" || clientIP != "" {
 		baseQuery = "SELECT timestamp, domain, type, status, client_ip FROM queries WHERE 1=1"
 	} else {
-		// General search/overview: only search within last 2000 for performance
 		baseQuery = "SELECT timestamp, domain, type, status, client_ip FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) WHERE 1=1"
 	}
 	
@@ -221,7 +220,7 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 		var q Query
 		var ts string
 		rows.Scan(&ts, &q.Domain, &q.Type, &q.Status, &q.ClientIP)
-		q.Time, _ = time.Parse(time.RFC3339, ts)
+		q.Time, _ = ParseFlexibleTime(ts)
 		if aliases != nil {
 			q.ClientAlias = aliases[q.ClientIP]
 		}

@@ -130,10 +130,15 @@ export function initEvents(fetchConfig) {
     });
 
     // Config Save
-    getEl('settings-form')?.addEventListener('submit', async (e) => {
+    const settingsForm = getEl('settings-form');
+    settingsForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
         saveConfig(fetchConfig);
     });
+
+    // Monitor all inputs in the settings form for changes to show the save bar
+    settingsForm?.addEventListener('input', () => setSettingsDirty(true));
+    settingsForm?.addEventListener('change', () => setSettingsDirty(true));
 
     // API Key creation
     getEl('create-api-key-btn')?.addEventListener('click', () => {

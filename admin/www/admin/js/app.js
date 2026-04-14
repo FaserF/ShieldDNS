@@ -62,7 +62,7 @@ function initializeApp() {
     refreshAll();
     
     // 4. Start real-time stream
-    nav.startSSE(render.createQueryRow, updateDashboardFeed, state.fullQueryScroller);
+    nav.startSSE(render.createQueryRow, updateDashboardFeed);
     
     // 5. Auto-refresh loops
     setInterval(fetchService.fetchStats, 10000);
