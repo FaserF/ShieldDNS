@@ -310,6 +310,12 @@ func newDoHProxy() http.Handler {
 	proxy.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
+
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		slog.Error("DoH Proxy Error", "target", target.String(), "error", err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("ShieldDNS Error: DNS engine (CoreDNS) unreachable. Please check logs."))
+	}
 	
 	return proxy
 }

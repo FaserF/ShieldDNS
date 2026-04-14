@@ -11,7 +11,8 @@ export const state = {
     queryEventSource: null,
     allCountries: {},
     diagnosticsInterval: null,
-    systemLogStream: null
+    systemLogStream: null,
+    isDirty: false
 };
 
 export const getEl = (id) => document.getElementById(id);

@@ -139,7 +139,18 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		IsPrivate: isPrivate,
 	}
 
-	// Handle special internal clients with hardcoded metadata
+	// Use context with timeout for all network-dependent lookups
+	LookupCtx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
+	defer cancel()
+
+	// Reverse DNS with Resolver to support timeouts
+	if info.Hostname == "" {
+		resolver := &net.Resolver{}
+		names, err := resolver.LookupAddr(LookupCtx, ip)
+		if err == nil && len(names) > 0 {
+			info.Hostname = strings.TrimSuffix(names[0], ".")
+		}
+	}
 	if ip == "DoH Proxy" {
 		info.Hostname = "ShieldDNS Internal Proxy"
 		info.ISP = "Local Forwarder"
@@ -158,13 +169,6 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		info.OS = "ShieldDNS Native"
 	}
 
-	// Reverse DNS (only if not already handled by special cases)
-	if info.Hostname == "" {
-		names, _ := net.LookupAddr(ip)
-		if len(names) > 0 {
-			info.Hostname = strings.TrimSuffix(names[0], ".")
-		}
-	}
 
 	// GeoIP for public IPs
 	if !isPrivate {

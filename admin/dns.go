@@ -35,6 +35,7 @@ type CorefileData struct {
 	CertFile        string
 	KeyFile         string
 	FilteringEnabled bool
+	HasCerts        bool
 }
 
 const CorefileTemplate = `.:{{.DNSPort}} {
@@ -65,6 +66,7 @@ const CorefileTemplate = `.:{{.DNSPort}} {
     errors
 }
 
+{{if .HasCerts}}
 tls://.:{{.DOTPort}} {
     bind 0.0.0.0
     tls {{.CertFile}} {{.KeyFile}}
@@ -141,6 +143,7 @@ quic://.:{{.DOTPort}} {
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
 }
+{{end}}
 `
 
 func startHealthChecker(ctx context.Context) {
@@ -517,6 +520,14 @@ func updateCorefile() {
 		keyFile = "/ssl/privkey.pem"
 	}
 
+	// Only enable encrypted listeners if certificates exist
+	hasCerts := false
+	if _, err := os.Stat(certFile); err == nil {
+		if _, err := os.Stat(keyFile); err == nil {
+			hasCerts = true
+		}
+	}
+
 	dnsPort := os.Getenv("DNS_PORT")
 	if dnsPort == "" {
 		dnsPort = "53"
@@ -544,6 +555,7 @@ func updateCorefile() {
 		CertFile:        certFile,
 		KeyFile:         keyFile,
 		FilteringEnabled: filtering,
+		HasCerts:        hasCerts,
 	}
 
 	tmpl, err := template.New("corefile").Parse(CorefileTemplate)
@@ -576,11 +588,11 @@ func startCoreDNS(ctx context.Context) {
 			stderr, _ := dnsCmd.StderrPipe()
 
 			if err := dnsCmd.Start(); err != nil {
-				slog.Error("Error starting CoreDNS", "error", err)
+				slog.Error("Error starting CoreDNS (executable missing or permission denied?)", "error", err)
 				select {
 				case <-ctx.Done():
 					return
-				case <-time.After(5 * time.Second):
+				case <-time.After(10 * time.Second):
 					continue
 				}
 			}
@@ -952,6 +964,18 @@ func DoHRateLimitMiddleware(next http.Handler) http.Handler {
 			slog.Warn("DoH Rate limit exceeded", "ip", clientIP, "limit", limit)
 			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
 			return
+		}
+
+		// Proactively harvest User-Agent and Metadata for the client info dashboard
+		ua := r.Header.Get("User-Agent")
+		if ua != "" && ua != "-" && ua != "none" {
+			oldUA, _ := ipToUA.Swap(clientIP, ua)
+			if oldUA == nil || oldUA.(string) != ua {
+				// Record seen clients for dashboard usage
+				go func(ip, userAgent string) {
+					saveClientUA(ip, userAgent)
+				}(clientIP, ua)
+			}
 		}
 
 		next.ServeHTTP(w, r)

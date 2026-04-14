@@ -869,14 +869,26 @@
                         <button id="block-high-risk-countries-btn" class="btn btn-sm danger-outline" style="width: fit-content;">
                             <i class="fas fa-shield-virus"></i> Block High-Risk Countries (Threat Intelligence)
                         </button>
-                        <p id="server-location-warning" class="help" style="font-size: 0.75rem; color: #10b981; font-style: italic; display: none; margin-top: 5px; opacity: 0.9;">
-                            <i class="fas fa-server"></i> Detected ShieldDNS Server country: <span id="server-country-name">...</span> - This country is protected and cannot be blocked.
-                        </p>
-                        <div id="manual-server-country-box" class="form-group hidden" style="margin-top: 10px; padding: 12px; background: rgba(var(--accent-rgb), 0.05); border-radius: 8px; border: 1px dashed var(--border);">
-                            <label style="font-size: 0.8rem; margin-bottom: 5px; display: block;">Manual Server Location (Fallback)</label>
-                            <p class="help" style="font-size: 0.7rem; margin-bottom: 8px;">If automatic detection fails, select the country where this server is hosted to protect it from being blocked.</p>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <select id="manual-server-country-select" class="select-filter" style="flex: 1; padding: 5px;">
+                        <div id="server-location-card" class="info-card mt-3 hidden">
+                            <div class="info-card-content">
+                                <i class="fas fa-server info-card-icon"></i>
+                                <div class="info-card-text">
+                                    <p id="server-location-msg">
+                                        Server country: <span id="server-country-name" class="font-bold">...</span>
+                                    </p>
+                                    <p class="help text-xs opacity-70">This country is protected and cannot be blocked.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="manual-server-country-box" class="settings-subsection hidden mt-3">
+                            <div class="subsection-header">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <h3>Manual Server Location (Fallback)</h3>
+                            </div>
+                            <p class="help mb-3">If automatic detection fails, select the country where this server is hosted to protect it from being blocked.</p>
+                            <div class="form-group mb-0">
+                                <select id="manual-server-country-select" class="select-premium full-width">
                                     <option value="">-- No manual override --</option>
                                     <!-- Options will be populated via JS -->
                                 </select>

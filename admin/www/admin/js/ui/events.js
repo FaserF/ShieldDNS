@@ -8,6 +8,27 @@ import { renderConfig } from './renderers.js';
 import { showActivityOverlay, hideActivityOverlay } from './activity.js';
 import * as fetchService from '../services/fetch.js';
 
+function setSettingsDirty(dirty) {
+    state.isDirty = dirty;
+    const footer = document.querySelector('.settings-save-footer');
+    const status = getEl('settings-save-status');
+    if (!footer) return;
+
+    if (dirty) {
+        footer.classList.add('visible');
+        if (status) {
+            status.innerHTML = `<strong>UNSAVED</strong> Configuration changed. Please save to apply.`;
+            status.classList.add('dirty');
+        }
+    } else {
+        footer.classList.remove('visible');
+        if (status) {
+            status.classList.remove('dirty');
+            status.innerHTML = `All changes must be saved. Reboot might be required for core changes.`;
+        }
+    }
+}
+
 export function initEvents(fetchConfig) {
     // Domain Protection Switcher
     const searchBtn = getEl('search-btn');
@@ -697,6 +718,15 @@ export function initEvents(fetchConfig) {
             }
         });
     }
+
+    // Settings Change Tracking
+    const settingsForm = getEl('settings-form');
+    if (settingsForm) {
+        ['input', 'change'].forEach(evt => {
+            settingsForm.addEventListener(evt, () => setSettingsDirty(true));
+        });
+        settingsForm.addEventListener('reset', () => setSettingsDirty(false));
+    }
 }
 
 export async function saveConfig(fetchConfig) {
@@ -739,6 +769,7 @@ export async function saveConfig(fetchConfig) {
         });
         state.currentConfig = newConfig;
         helpers.showToast('Configuration saved successfully!');
+        setSettingsDirty(false);
         renderConfig(state.currentConfig);
     } catch (e) {
         helpers.showAlert('Failed to save configuration: ' + e.message);
@@ -750,7 +781,7 @@ export async function saveConfig(fetchConfig) {
 export async function detectServerLocation() {
     try {
         const res = await api.apiFetch(api.endpoints.serverCountry);
-        const warning = getEl('server-location-warning');
+        const card = getEl('server-location-card');
         const nameEl = getEl('server-country-name');
         const manualBox = getEl('manual-server-country-box');
         const manualSelect = getEl('manual-server-country-select');
@@ -772,20 +803,25 @@ export async function detectServerLocation() {
         if (res.detected || res.manual) {
             state.serverCountryCodeDetected = res.detected;
             state.serverCountryCode = res.manual || res.detected;
-            if (warning && nameEl) {
+            if (card && nameEl) {
                 const effectiveCode = res.manual || res.detected;
                 const countryName = (state.allCountries || {})[effectiveCode] || effectiveCode;
                 nameEl.textContent = countryName;
-                warning.style.display = 'block';
-                warning.style.color = res.manual ? '#f59e0b' : '#10b981'; // Orange for manual, green for detected
+                getEl('server-location-msg').innerHTML = `Server country: <span id="server-country-name" class="font-bold">${countryName}</span>`;
+                card.classList.remove('hidden', 'success', 'warning', 'danger');
+                card.classList.add(res.manual ? 'warning' : 'success');
+                const helpText = card.querySelector('.help');
+                if (helpText) helpText.textContent = 'This country is protected and cannot be blocked.';
             }
             if (manualBox) manualBox.classList.remove('hidden');
         } else {
             // Detection failed AND no manual entry
-            if (warning && nameEl) {
-                nameEl.textContent = 'None (Auto-detection failed)';
-                warning.style.display = 'block';
-                warning.style.color = '#ef4444'; // Red for failure
+            if (card && nameEl) {
+                getEl('server-location-msg').innerHTML = `<span class="font-bold">Action Required:</span> Set Manual Location`;
+                card.classList.remove('hidden', 'success', 'warning', 'danger');
+                card.classList.add('danger');
+                const helpText = card.querySelector('.help');
+                if (helpText) helpText.textContent = 'Auto-detection failed. Protect your server by selecting its location below.';
             }
             if (manualBox) manualBox.classList.remove('hidden');
         }
