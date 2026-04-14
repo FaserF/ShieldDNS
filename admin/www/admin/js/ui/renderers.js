@@ -400,8 +400,12 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const sanitize = (val, fallback = 'N/A') => (!val || val === '-' || val === 'geo' || val === 'none') ? fallback : val;
 
     const fallbackSpan = (txt) => `<span class="info-empty">${txt}</span>`;
+    const toggleEl = (id, show) => { const el = getEl(id); if (el) el.style.display = show ? '' : 'none'; };
 
-    setTxt('ip-info-hostname', stats.hostname && stats.hostname !== '-' ? stats.hostname : 'No Hostname Resolved');
+    // Hostname visibility
+    const hasHostname = stats.hostname && stats.hostname !== '-' && stats.hostname !== 'none';
+    setTxt('ip-info-hostname', hasHostname ? stats.hostname : '');
+    toggleEl('ip-info-hostname', hasHostname);
 
     // Device Info Processing
     const manufacturer = sanitize(stats.manufacturer, '');
@@ -411,41 +415,45 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const deviceCard = getEl('ip-info-device-card');
     if (deviceCard) {
         if (!manufacturer && !os && !mac) {
-             // If totally unknown, show generic info instead of hiding
-             getEl('ip-info-manufacturer').innerHTML = fallbackSpan('Generic Device');
-             getEl('ip-info-os').innerHTML = fallbackSpan('OS Unknown');
-             getEl('ip-info-mac').innerHTML = fallbackSpan('MAC Unavailable');
+            deviceCard.style.display = 'none';
         } else {
             deviceCard.style.display = 'block';
-            getEl('ip-info-manufacturer').innerHTML = manufacturer || fallbackSpan('Unknown Device');
-            getEl('ip-info-os').innerHTML = os || fallbackSpan('Unknown OS');
-            getEl('ip-info-mac').innerHTML = mac || fallbackSpan('MAC Unavailable');
+            getEl('ip-info-manufacturer').innerHTML = manufacturer || '<span class="info-empty">Unknown Device</span>';
+            getEl('ip-info-os').innerHTML = os || '<span class="info-empty">Generic OS</span>';
+            getEl('ip-info-mac').innerHTML = mac || '<span class="info-empty">MAC Hidden</span>';
         }
     }
 
     // Provider & ASN
-    const provider = stats.isp || stats.org || (stats.is_private ? 'Local Area Network' : 'Unknown Provider');
-    setTxt('ip-info-isp', provider);
-    setTxt('ip-info-as', stats.as && stats.as !== '-' ? stats.as : 'ASN Not Resolved');
+    const provider = stats.isp || stats.org;
+    const hasProvider = !!provider;
+    setTxt('ip-info-isp', provider || (stats.is_private ? 'Local Network' : 'Unknown Provider'));
+    
+    const hasAS = stats.as && stats.as !== '-' && stats.as !== 'none';
+    setTxt('ip-info-as', hasAS ? stats.as : '');
+    toggleEl('ip-info-as', hasAS);
 
     // Type Tag
     const typeTag = getEl('ip-info-type-tag');
     if (typeTag) {
-        typeTag.textContent = stats.is_private ? 'Local Network' : 'Public Network';
+        typeTag.textContent = stats.is_private ? 'Private Network' : 'Public Network';
         typeTag.className = 'badge ' + (stats.is_private ? 'badge-sm success' : 'badge-sm warning');
     }
 
     // Location Info
-    let countryDisplay = stats.country;
-    if (!countryDisplay || countryDisplay === '-' || countryDisplay === 'geo') {
-        countryDisplay = stats.is_private ? 'Locally Connected' : 'Unknown Location';
-    }
+    const hasCountry = stats.country && stats.country !== '-' && stats.country !== 'geo';
+    let countryDisplay = hasCountry ? stats.country : (stats.is_private ? 'Local Environment' : 'Global Origin');
     setTxt('ip-info-country', countryDisplay);
-    setTxt('ip-info-city', stats.city && stats.city !== '-' ? stats.city : 'City Not Resolved');
+
+    const hasCity = stats.city && stats.city !== '-' && stats.city !== 'none';
+    setTxt('ip-info-city', hasCity ? stats.city : '');
+    toggleEl('ip-info-city', hasCity);
+
     const flagEl = getEl('ip-info-flag');
     if (flagEl) {
-        flagEl.innerHTML = getFlagHTML(stats.country_code, 'w40');
+        flagEl.innerHTML = hasCountry ? getFlagHTML(stats.country_code, 'w40') : '<i class="fas fa-globe-europe opacity-40"></i>';
     }
+
 
     // IP Activity Chart
     const canvas = getEl('ip-info-chart');

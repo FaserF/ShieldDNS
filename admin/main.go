@@ -200,9 +200,12 @@ func startWorkers() {
 	go startMetadataUpdater(appCtx)
 	go StartQPSWorker(appCtx)
 
-	// Trigger initial blocklist update in background
-	go updateBlocklist(nil)
-	go syncMaliciousIPs()
+	// Trigger initial blocklist and malicious updates in background 
+	// Sequential execution prevents multiple concurrent CoreDNS restarts
+	go func() {
+		updateBlocklist(nil)
+		syncMaliciousIPs()
+	}()
 
 	// Start health and monitoring
 	go startHealthChecker(appCtx)
@@ -312,7 +315,12 @@ func newDoHProxy() http.Handler {
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		slog.Error("DoH Proxy Error", "target", target.String(), "error", err)
+		// Suppress error logging if it's just a temporary connection refusal (likely during restart)
+		if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "i/o timeout") {
+			slog.Debug("DoH Proxy temporary unavailability", "error", err)
+		} else {
+			slog.Error("DoH Proxy Error", "target", target.String(), "error", err)
+		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 		w.Write([]byte("ShieldDNS Error: DNS engine (CoreDNS) unreachable. Please check logs."))
 	}
