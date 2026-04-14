@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -60,7 +60,7 @@ jobs:
           # Get the network name of the current job container
           NETWORK_NAME=$(docker inspect $(hostname) -f '{{range $net,$v := .NetworkSettings.Networks}}{{$net}}{{end}}')
           echo "Joining network: $NETWORK_NAME"
-          
+
           # Start ShieldDNS in the SAME network as the job runner
           docker run -d --name shielddns \
             --network "$NETWORK_NAME" \
@@ -81,7 +81,7 @@ jobs:
             echo 'Waiting for CoreDNS to start...'
             sleep 5
           done
-          
+
           docker ps -a
           docker logs shielddns
 
@@ -128,7 +128,7 @@ jobs:
           npm install playwright
           cat << 'EOF' > verify_layout.js
           const { chromium } = require('playwright');
-          
+
           async function testPage(url, pageName) {
               console.log(`\n========== Testing ${pageName} ==========`);
               const browser = await chromium.launch();
@@ -138,7 +138,7 @@ jobs:
                   { width: 375, height: 667, name: 'iPhone 6/7/8' },
                   { width: 1200, height: 800, name: 'Desktop' }
               ];
-              
+
               console.log(`Navigating to ${pageName}...`);
               try {
                   await page.goto(url, { waitUntil: 'load', timeout: 60000 });
@@ -147,43 +147,47 @@ jobs:
                   await browser.close();
                   return false;
               }
-              
+
               let failed = false;
               const issues = [];
-          
+
               for (const vp of viewports) {
                   console.log(`Checking viewport: ${vp.width}x${vp.height} (${vp.name})`);
                   await page.setViewportSize({ width: vp.width, height: vp.height });
-                  await new Promise(r => setTimeout(r, 1500));
-                  
+                  await new Promise(r => setTimeout(r, 2000));
+
                   const overflow = await page.evaluate(() => {
                       const scrollWidth = document.documentElement.scrollWidth;
                       const clientWidth = document.documentElement.clientWidth;
-                      
+
                       const overflowingElements = [];
                       const allElements = document.querySelectorAll('*');
                       allElements.forEach(el => {
-                          if (el.getBoundingClientRect().right > document.documentElement.clientWidth) {
+                          const rect = el.getBoundingClientRect();
+                          if (rect.right > document.documentElement.clientWidth) {
                               overflowingElements.push({
                                   tagName: el.tagName,
                                   className: el.className,
                                   id: el.id,
-                                  right: el.getBoundingClientRect().right
+                                  right: rect.right,
+                                  width: rect.width
                               });
                           }
                       });
-                      
+
+                      overflowingElements.sort((a, b) => b.width - a.width);
+
                       return {
                           hasOverflow: scrollWidth > clientWidth,
                           scrollWidth,
                           clientWidth,
-                          overflowingElements: overflowingElements.slice(0, 5)
+                          overflowingElements: overflowingElements.slice(0, 10)
                       };
                   });
-          
+
                   if (overflow.hasOverflow) {
                       console.error(`  ❌ Horizontal overflow at ${vp.width}px: ${overflow.scrollWidth}px vs ${overflow.clientWidth}px (${overflow.scrollWidth - overflow.clientWidth}px overflow)`);
-                      console.error(`  Top overflowing elements:`, JSON.stringify(overflow.overflowingElements, null, 2));
+                      console.error(`  Top overflowing elements (sorted by width):`, JSON.stringify(overflow.overflowingElements, null, 2));
                       issues.push({
                           viewport: `${vp.width}x${vp.height}`,
                           name: vp.name,
@@ -194,9 +198,9 @@ jobs:
                       console.log(`  ✅ No overflow at ${vp.width}px.`);
                   }
               }
-              
+
               await browser.close();
-              
+
               if (failed) {
                   console.error(`\n❌ ${pageName} layout verification FAILED!`);
                   issues.forEach(issue => {
@@ -205,12 +209,12 @@ jobs:
               }
               return !failed;
           }
-          
+
           (async () => {
               const results = [];
               results.push(await testPage('http://shielddns:8080/', 'Landing Page'));
               results.push(await testPage('http://shielddns:8080/admin/', 'Admin Dashboard'));
-              
+
               if (results.every(r => r)) {
                   console.log('\n✅ All pages pass layout verification!');
                   process.exit(0);
