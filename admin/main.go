@@ -315,17 +315,25 @@ func newDoHProxy() http.Handler {
 }
 
 func setupStaticHandlers(mux *http.ServeMux) {
-	// Sub-filesystem starting at www
+	// Root filesystem for everything under www/
 	wwwFS, err := fs.Sub(WebAssets, "www")
 	if err != nil {
 		slog.Error("Failed to create sub-filesystem for web assets", "error", err)
 		return
 	}
 
+	// Specialized filesystem for the admin subdirectory
+	adminFS, err := fs.Sub(wwwFS, "admin")
+	if err != nil {
+		slog.Error("Failed to create sub-filesystem for admin assets", "error", err)
+		// Fallback to searching manually if Sub fails, but it shouldn't
+	}
+
 	// 1. Admin Index Template
 	mux.HandleFunc("/admin/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/admin/" || r.URL.Path == "/admin/index.html" {
-			tmplBytes, err := fs.ReadFile(wwwFS, "admin/index.html")
+			// Read from adminFS (which is rooted at www/admin)
+			tmplBytes, err := fs.ReadFile(adminFS, "index.html")
 			if err != nil {
 				slog.Error("Failed to read admin index from embedded FS", "error", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -348,13 +356,13 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			return
 		}
 
-		// Otherwise serve as static
-		http.StripPrefix("/admin/", http.FileServer(http.FS(wwwFS))).ServeHTTP(w, r)
+		// Use the specialized adminFS for all requests under /admin/
+		http.StripPrefix("/admin/", http.FileServer(http.FS(adminFS))).ServeHTTP(w, r)
 	})
 
 	// 2. Service Worker Template
 	mux.HandleFunc("/admin/sw.js", func(w http.ResponseWriter, r *http.Request) {
-		tmplBytes, err := fs.ReadFile(wwwFS, "admin/sw.js")
+		tmplBytes, err := fs.ReadFile(adminFS, "sw.js")
 		if err != nil {
 			slog.Error("Failed to read sw.js from embedded FS", "error", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
