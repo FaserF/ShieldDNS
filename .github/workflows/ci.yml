@@ -27,21 +27,20 @@ jobs:
     name: DNS & UI Integration Tests
     runs-on: ubuntu-latest
     needs: go-tests
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.0-noble
+      options: --user root -v /var/run/docker.sock:/var/run/docker.sock --network host
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+      - name: Install Docker CLI & DNS Tools
+        run: |
+          apt-get update && apt-get install -y docker.io knot-dnsutils net-tools curl openssl
 
       - name: Build Docker Image
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
-        with:
-          context: .
-          load: true
-          tags: shielddns:test
+        run: |
+          # Simple local build is enough for integration testing
+          docker build -t shielddns:test .
 
       - name: Generate Self-Signed Certs for Testing
         run: |
@@ -66,15 +65,12 @@ jobs:
             echo 'Waiting for CoreDNS to start...'
             sleep 5
           done
-          
+
           docker ps -a
           docker logs shielddns
 
       - name: Verify DNS Resolution (DoT)
         run: |
-          # Install dependencies for verification
-          sudo apt-get update && sudo apt-get install -y knot-dnsutils net-tools
-
           # Wait for Port 853 to be active (Health Check)
           echo "Verifying DNS listener availability..."
           for i in {1..12}; do
@@ -92,7 +88,6 @@ jobs:
           done
 
           # Query localhost on port 853 using DoT
-          # We disable cert verification (+tls-ca) because we used a self-signed cert
           if ! kdig -d @127.0.0.1 -p 853 +tls-hostname=localhost +tls-ca=ssl/fullchain.pem google.com | grep -q "NOERROR"; then
             echo "❌ DNS Resolution Failed"
             echo "--- Container Network State (Netstat) ---"
@@ -114,23 +109,13 @@ jobs:
             sleep 2
           done
 
-      - name: Set up Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
-        with:
-          node-version: 24.14.1
-
-      - name: Install Playwright
+      - name: Run Layout Verification
         run: |
           npm init -y
           npm install playwright
-          npx playwright install-deps
-          npx playwright install chromium
-
-      - name: Run Layout Verification
-        run: |
           cat << 'EOF' > verify_layout.js
           const { chromium } = require('playwright');
-          
+
           async function testPage(url, pageName) {
               console.log(`\n========== Testing ${pageName} ==========`);
               const browser = await chromium.launch();
@@ -140,7 +125,7 @@ jobs:
                   { width: 375, height: 667, name: 'iPhone 6/7/8' },
                   { width: 1200, height: 800, name: 'Desktop' }
               ];
-              
+
               console.log(`Navigating to ${pageName}...`);
               try {
                   await page.goto(url, { waitUntil: 'load', timeout: 60000 });
@@ -149,26 +134,26 @@ jobs:
                   await browser.close();
                   return false;
               }
-              
+
               let failed = false;
               const issues = [];
-          
+
               for (const vp of viewports) {
                   console.log(`Checking viewport: ${vp.width}x${vp.height} (${vp.name})`);
                   await page.setViewportSize({ width: vp.width, height: vp.height });
                   await new Promise(r => setTimeout(r, 500));
-                  
+
                   const overflow = await page.evaluate(() => {
                       const scrollWidth = document.documentElement.scrollWidth;
                       const clientWidth = document.documentElement.clientWidth;
-                      
+
                       return {
                           hasOverflow: scrollWidth > clientWidth,
                           scrollWidth,
                           clientWidth
                       };
                   });
-          
+
                   if (overflow.hasOverflow) {
                       console.error(`  ❌ Horizontal overflow at ${vp.width}px: ${overflow.scrollWidth}px vs ${overflow.clientWidth}px (${overflow.scrollWidth - overflow.clientWidth}px overflow)`);
                       issues.push({
@@ -181,9 +166,9 @@ jobs:
                       console.log(`  ✅ No overflow at ${vp.width}px.`);
                   }
               }
-              
+
               await browser.close();
-              
+
               if (failed) {
                   console.error(`\n❌ ${pageName} layout verification FAILED!`);
                   issues.forEach(issue => {
@@ -192,12 +177,12 @@ jobs:
               }
               return !failed;
           }
-          
+
           (async () => {
               const results = [];
               results.push(await testPage('http://localhost:8080/', 'Landing Page'));
               results.push(await testPage('http://localhost:8080/admin/', 'Admin Dashboard'));
-              
+
               if (results.every(r => r)) {
                   console.log('\n✅ All pages pass layout verification!');
                   process.exit(0);
