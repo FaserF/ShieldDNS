@@ -15,7 +15,7 @@ DEFAULT_UPSTREAM="1.1.1.1"
 echo "Starting ShieldDNS Initialization..."
 
 # ------------------------------------------------------------------------------
-# 0. Permission & Privilege Management
+# 0. Helper Functions
 # ------------------------------------------------------------------------------
 fix_permissions() {
     local TARGET_DIR=$1
@@ -26,27 +26,14 @@ fix_permissions() {
     fi
 }
 
-# If we are root, fix permissions and drop to shielddns user
-# This allows Docker mounts from the host to "just work" without manual CHOWN
-if [ "$(id -u)" = "0" ]; then
-    mkdir -p /etc/shielddns /data
-    [ ! -d "/ssl" ] && mkdir -p /ssl
-    fix_permissions "/etc/shielddns"
-    fix_permissions "/ssl"
-    fix_permissions "/data"
-    
-    echo "Successfully prepared environment. Dropping privileges to 'shielddns' user."
-    # Re-execute this script as the shielddns user via su-exec
-    # This preserves capabilities like cap_net_bind_service
-    exec su-exec shielddns "$0" "$@"
-fi
+echo "Starting ShieldDNS Initialization..."
 
 # ------------------------------------------------------------------------------
 # 1. Environment Detection & Configuration
 # ------------------------------------------------------------------------------
 if [ -f "/data/options.json" ] && [ -n "$(command -v bashio::config)" ]; then
     bashio::log.info "ℹ️  Home Assistant Addon environment detected."
-    
+
     UPSTREAM_DNS=$(bashio::config 'upstream_dns')
     UPSTREAM_DOT=$(bashio::config 'upstream_dot')
     PREFER_ENCRYPTED=$(bashio::config 'prefer_encrypted')
@@ -82,6 +69,35 @@ else
     export BLOCK_PAGE_IP
 fi
 
+# ------------------------------------------------------------------------------
+# 2. Permission & Privilege Management
+# ------------------------------------------------------------------------------
+# If we are root, fix permissions and drop to shielddns user
+if [ "$(id -u)" = "0" ]; then
+    mkdir -p /etc/shielddns /data
+    [ ! -d "/ssl" ] && mkdir -p /ssl
+    fix_permissions "/etc/shielddns"
+    fix_permissions "/ssl"
+    fix_permissions "/data"
+
+    # Smart SSL handling: If certs exist but are not readable by the shielddns user
+    # (common with Let's Encrypt / live mounts), copy them to internal storage.
+    if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
+        if ! su-exec shielddns test -r "$CERT_FILE" 2>/dev/null; then
+            echo "ℹ️  Certs found but not readable by 'shielddns' user. Copying to internal storage..."
+            mkdir -p /etc/shielddns/ssl
+            cp -L "$CERT_FILE" /etc/shielddns/ssl/fullchain.pem
+            cp -L "$KEY_FILE" /etc/shielddns/ssl/privkey.pem
+            chown -R shielddns:shielddns /etc/shielddns/ssl
+            export CERT_FILE="/etc/shielddns/ssl/fullchain.pem"
+            export KEY_FILE="/etc/shielddns/ssl/privkey.pem"
+        fi
+    fi
+
+    echo "Successfully prepared environment. Dropping privileges to 'shielddns' user."
+    exec su-exec shielddns "$0" "$@"
+fi
+
 # Sanitize upstreams (replace commas with spaces)
 UPSTREAM_DNS=$(echo "${UPSTREAM_DNS}" | tr ',' ' ')
 UPSTREAM_DOT=$(echo "${UPSTREAM_DOT}" | tr ',' ' ')
@@ -92,18 +108,18 @@ UPSTREAM_DOT=$(echo "${UPSTREAM_DOT}" | tr ',' ' ')
 if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
     echo "⚠️  WARNING: SSL Certificates not found at ${CERT_FILE} or ${KEY_FILE}!"
     echo "⚙️  Generating self-signed fallback certificate..."
-    
+
     mkdir -p "${DATA_DIR:-/etc/shielddns}/ssl"
     FALLBACK_CERT="${DATA_DIR:-/etc/shielddns}/ssl/selfsigned.crt"
     FALLBACK_KEY="${DATA_DIR:-/etc/shielddns}/ssl/selfsigned.key"
-    
+
     if [ ! -f "$FALLBACK_CERT" ]; then
         openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
             -keyout "$FALLBACK_KEY" -out "$FALLBACK_CERT" \
             -subj "/C=DE/ST=ShieldDNS/L=ShieldDNS/O=ShieldDNS/OU=ShieldDNS/CN=shielddns.local" \
             2>/dev/null
     fi
-    
+
     CERT_FILE="$FALLBACK_CERT"
     KEY_FILE="$FALLBACK_KEY"
     echo "✅  ShieldDNS will continue with self-signed certificates (Insecure)."
