@@ -720,13 +720,17 @@ export function initEvents(fetchConfig) {
     }
 
     // Settings Change Tracking
-    const settingsForm = getEl('settings-form');
-    if (settingsForm) {
+    const settingsContainer = getEl('settings');
+    if (settingsContainer) {
         ['input', 'change'].forEach(evt => {
-            settingsForm.addEventListener(evt, () => setSettingsDirty(true));
+            settingsContainer.addEventListener(evt, () => setSettingsDirty(true));
         });
-        settingsForm.addEventListener('reset', () => setSettingsDirty(false));
+        // Catch resets specifically if any
+        settingsContainer.addEventListener('reset', () => setSettingsDirty(false));
     }
+
+    // Export for external components (like country picker) to trigger dirty state
+    window.setSettingsDirty = setSettingsDirty;
 }
 
 export async function saveConfig(fetchConfig) {

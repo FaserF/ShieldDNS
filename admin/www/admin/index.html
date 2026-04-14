@@ -674,24 +674,6 @@
                         </div>
                     </div>
 
-                </form>
-
-
-                <div class="settings-section">
-                    <h2>Security</h2>
-                    <form id="password-form">
-                        <div class="form-group">
-                            <label>Current Password</label>
-                            <input type="password" id="current-password" required>
-                        </div>
-                        <div class="form-group">
-                            <label>New Password (min 12 chars)</label>
-                            <input type="password" id="new-password" required minlength="12">
-                        </div>
-                        <button type="submit" class="btn secondary">Update Password</button>
-                    </form>
-                </div>
-
                 <div class="settings-section">
                     <h2>API Keys</h2>
                     <p class="help">Manage API keys for third-party monitoring and automation. Tokens are shown only
@@ -937,11 +919,26 @@
                         Trigger Full System Refresh</button>
                 </div>
 
+                </form>
+
+                <div class="settings-section">
+                    <h2>Security 🔐</h2>
+                    <form id="password-form">
+                        <div class="form-group">
+                            <label>Current Password</label>
+                            <input type="password" id="current-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label>New Password (min 12 chars)</label>
+                            <input type="password" id="new-password" required minlength="12">
+                        </div>
+                        <button type="submit" class="btn secondary">Update Password</button>
+                    </form>
+                </div>
+
                 <div class="settings-section">
                     <button id="logout-btn" class="btn danger">Logout</button>
                 </div>
-
-                </form>
 
                 <div class="settings-save-footer">
                     <div class="save-status help" id="settings-save-status"

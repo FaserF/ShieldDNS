@@ -87,8 +87,9 @@ func main() {
 
 	// 1. Primary Server (Admin UI + DoH)
 	primaryServer := &http.Server{
-		Addr:    ":" + adminPort,
-		Handler: finalHandler,
+		Addr:     ":" + adminPort,
+		Handler:  finalHandler,
+		ErrorLog: log.New(&LogWriter{}, "", 0),
 	}
 
 	go func() {

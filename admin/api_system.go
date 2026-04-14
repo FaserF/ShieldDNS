@@ -103,8 +103,11 @@ func (w *LogWriter) Write(p []byte) (n int, err error) {
 		return len(p), nil
 	}
 
-	// Suppress noisy TLS handshake errors (e.g. from probes or premature client disconnects)
-	if strings.Contains(msg, "http: TLS handshake error") && (strings.Contains(msg, "EOF") || strings.Contains(msg, "i/o timeout")) {
+	// Suppress noisy TLS handshake errors (e.g. from probes, self-signed cert rejections, or premature client disconnects)
+	if strings.Contains(msg, "http: TLS handshake error") && 
+		(strings.Contains(msg, "EOF") || strings.Contains(msg, "i/o timeout") || 
+		 strings.Contains(msg, "unknown certificate") || strings.Contains(msg, "bad certificate") ||
+		 strings.Contains(msg, "remote error")) {
 		return len(p), nil
 	}
 

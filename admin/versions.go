@@ -107,13 +107,7 @@ func getLatestVersions() VersionInfo {
 }
 
 func updateVersions() {
-	// Simple lock to avoid multiple concurrent updates
-	versionLock.Lock()
-	if time.Since(latestVersions.LastCheck) < 5*time.Minute && latestVersions.ShieldDNS != "" {
-		versionLock.Unlock()
-		return
-	}
-	// Mark as checking
+	// Mark as checking immediately to prevent rapid re-entry on failure
 	latestVersions.LastCheck = time.Now()
 	versionLock.Unlock()
 
@@ -153,7 +147,7 @@ func updateVersions() {
 	}()
 
 	wg.Wait()
-	slog.Info("Update check complete",
+	slog.Debug("Update check complete",
 		"ShieldDNS", latestVersions.ShieldDNS,
 		"CoreDNS", latestVersions.CoreDNS,
 		"Alpine", latestVersions.Alpine)
