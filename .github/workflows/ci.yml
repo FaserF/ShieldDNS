@@ -151,11 +151,10 @@ jobs:
               ];
 
               console.log(`Navigating to ${pageName}...`);
-              // Bypassing cache to ensure latest CSS
               await page.route('**/*.css', route => route.continue());
 
               try {
-                  await page.goto(url, { waitUntil: 'load', timeout: 60000, referer: 'no-cache' });
+                  await page.goto(url, { waitUntil: 'load', timeout: 60000 });
               } catch (err) {
                   console.error(`❌ Failed to load ${pageName}:`, err.message);
                   await browser.close();
@@ -168,25 +167,27 @@ jobs:
               for (const vp of viewports) {
                   console.log(`Checking viewport: ${vp.width}x${vp.height} (${vp.name})`);
                   await page.setViewportSize({ width: vp.width, height: vp.height });
-                  // 3 seconds to be absolutely sure everything is rendered
-                  await new Promise(r => setTimeout(r, 3000));
+                  // 4 seconds - let's be extremely patient
+                  await new Promise(r => setTimeout(r, 4000));
 
                   const overflow = await page.evaluate(() => {
                       const scrollWidth = document.documentElement.scrollWidth;
                       const clientWidth = document.documentElement.clientWidth;
 
-                      let widestElement = { width: 0 };
+                      let outmostElement = { right: 0 };
                       const allElements = document.querySelectorAll('*');
                       allElements.forEach(el => {
-                          const width = el.offsetWidth;
-                          if (width > widestElement.width) {
-                              widestElement = {
+                          const rect = el.getBoundingClientRect();
+                          if (rect.right > outmostElement.right) {
+                              outmostElement = {
                                   tagName: el.tagName,
                                   className: el.className,
                                   id: el.id,
-                                  width: width,
-                                  scrollWidth: el.scrollWidth,
-                                  rectRight: el.getBoundingClientRect().right
+                                  width: el.offsetWidth,
+                                  left: rect.left,
+                                  right: rect.right,
+                                  visibility: window.getComputedStyle(el).visibility,
+                                  display: window.getComputedStyle(el).display
                               };
                           }
                       });
@@ -195,13 +196,13 @@ jobs:
                           hasOverflow: scrollWidth > clientWidth,
                           scrollWidth,
                           clientWidth,
-                          widestElement
+                          outmostElement
                       };
                   });
 
                   if (overflow.hasOverflow) {
                       console.error(`  ❌ Horizontal overflow at ${vp.width}px: ${overflow.scrollWidth}px vs ${overflow.clientWidth}px (${overflow.scrollWidth - overflow.clientWidth}px overflow)`);
-                      console.error(`  WIDEST ELEMENT FOUND:`, JSON.stringify(overflow.widestElement, null, 2));
+                      console.error(`  RIGHTMOST ELEMENT:`, JSON.stringify(overflow.outmostElement, null, 2));
                       issues.push({
                           viewport: `${vp.width}x${vp.height}`,
                           name: vp.name,

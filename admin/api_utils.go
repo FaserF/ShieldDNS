@@ -114,8 +114,13 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		isPrivate = true
 	}
 
+	configLock.RLock()
+	alias := config.ClientAliases[ip]
+	configLock.RUnlock()
+
 	info := IPInfo{
 		IP:        ip,
+		Alias:     alias,
 		IsPrivate: isPrivate,
 	}
 
@@ -201,14 +206,26 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 
 	if ua != "" && ua != "-" && ua != "none" {
 		info.UserAgent = ua
-		info.OS = detectOS(ua)
+		if detectedOS := detectOS(ua); detectedOS != "" {
+			info.OS = detectedOS
+		}
 
 		// If it's a mobile/smart device, improve the manufacturer field
-		if info.Manufacturer == "" || info.Manufacturer == "Unknown" {
-			dev := detectDevice(ua)
-			if dev != "" {
+		if info.Manufacturer == "" || info.Manufacturer == "Unknown" || info.Manufacturer == "-" {
+			if dev := detectDevice(ua); dev != "" {
 				info.Manufacturer = dev
 			}
+		}
+	}
+
+	// Inference from Hostname (last resort, only if info is still unknown)
+	if info.Hostname != "" {
+		hostOS, hostMan := inferFromHostname(info.Hostname)
+		if info.OS == "" || info.OS == "Unknown OS" {
+			info.OS = hostOS
+		}
+		if info.Manufacturer == "" || info.Manufacturer == "Unknown" || info.Manufacturer == "-" {
+			info.Manufacturer = hostMan
 		}
 	}
 
@@ -313,8 +330,63 @@ func detectDevice(ua string) string {
 		return "Ubiquiti Unifi"
 	case strings.Contains(ua, "samsung") || strings.Contains(ua, "sm-"):
 		return "Samsung Device"
+	case strings.Contains(ua, "oneplus"):
+		return "OnePlus Phone"
+	case strings.Contains(ua, "huawei") || strings.Contains(ua, "honor"):
+		return "Huawei/Honor Device"
 	}
 	return ""
+}
+
+func inferFromHostname(h string) (os, manufacturer string) {
+	h = strings.ToLower(h)
+	switch {
+	case strings.Contains(h, "iphone"):
+		return "iOS", "Apple (iPhone)"
+	case strings.Contains(h, "ipad"):
+		return "iOS", "Apple (iPad)"
+	case strings.Contains(h, "macbook") || strings.Contains(h, "mac-") || strings.Contains(h, "imac"):
+		return "macOS", "Apple (Mac)"
+	case strings.Contains(h, "apple-watch") || strings.Contains(h, "watchos"):
+		return "watchOS", "Apple Watch"
+	case strings.Contains(h, "android"):
+		return "Android", "Android Device"
+	case strings.Contains(h, "pixel"):
+		return "Android", "Google Pixel"
+	case strings.Contains(h, "galaxy") || strings.Contains(h, "samsung"):
+		return "Android", "Samsung Device"
+	case strings.Contains(h, "windows"):
+		return "Windows", "PC/Laptop"
+	case strings.Contains(h, "nintendo"):
+		return "Nintendo OS", "Nintendo Console"
+	case strings.Contains(h, "playstation") || strings.Contains(h, "ps4") || strings.Contains(h, "ps5"):
+		return "PlayStation OS", "Sony PlayStation"
+	case strings.Contains(h, "xbox"):
+		return "Xbox OS", "Microsoft Xbox"
+	case strings.Contains(h, "sonos"):
+		return "Sonos OS", "Sonos Speaker"
+	case strings.Contains(h, "shelly"):
+		return "Shelly Native", "Shelly IoT"
+	case strings.Contains(h, "esphome") || strings.Contains(h, "tasmota") || strings.Contains(h, "esp32"):
+		return "ESP-based", "IoT Device"
+	case strings.Contains(h, "raspberry") || strings.Contains(h, "raspi"):
+		return "Linux", "Raspberry Pi"
+	case strings.Contains(h, "synology") || strings.Contains(h, "diskstation"):
+		return "DSM", "Synology NAS"
+	case strings.Contains(h, "unifi"):
+		return "Unifi OS", "Ubiquiti Device"
+	case strings.Contains(h, "fritz.box") || strings.Contains(h, "fritz.nas") || strings.Contains(h, "fritz-box"):
+		return "FRITZ!OS", "AVM"
+	case strings.Contains(h, "hp-printer") || strings.Contains(h, "hp_printer") || strings.Contains(h, "hpsmart"):
+		return "Embedded", "HP Printer"
+	case strings.Contains(h, "bridge") || strings.Contains(h, "gateway"):
+		return "Embedded", "Network Bridge"
+	case strings.Contains(h, "camera") || strings.Contains(h, "cam-"):
+		return "Embedded", "Security Camera"
+	case strings.Contains(h, "echo") || strings.Contains(h, "alexa") || strings.Contains(h, "amazon"):
+		return "Fire OS", "Amazon Echo"
+	}
+	return "", ""
 }
 
 func getMACByIP(ip string) string {
@@ -357,25 +429,30 @@ func getManufacturerByMAC(mac string) string {
 		"000C29": "VMware", "080027": "VirtualBox",
 		"000420": "Slim Devices (Logitech)",
 		"00096B": "IBM",
-		"001F3B": "Nintendo",
+		"001F3B": "Nintendo", "98415C": "Nintendo", "E0E751": "Nintendo",
 		"C0EEFB": "OnePlus",
-		"000FB5": "Netgear",
+		"000FB5": "Netgear", "288088": "Netgear", "BCF685": "Netgear",
 		"0014BF": "Linksys",
-		"0018E7": "TP-Link", "F4F26D": "TP-Link",
-		"24A160": "Espressif (IoT)", "30AEA4": "Espressif (IoT)", "A4CF12": "Espressif (IoT)",
-		"BCDD26": "Shelly/Allterco", "C049EF": "Shelly/Allterco",
-		"00032F": "Sonos", "B8E937": "Sonos",
-		"00156D": "Ubiquiti", "0418D6": "Ubiquiti", "B4FBE4": "Ubiquiti", "7483C2": "Ubiquiti",
-		"0004F2": "Polycom",
-		"00E062": "Brother",
-		"001788": "Philips Hue",
+		"0018E7": "TP-Link", "F4F26D": "TP-Link", "002719": "TP-Link", "50D4F7": "TP-Link", "D807B6": "TP-Link",
+		"24A160": "Espressif (IoT)", "30AEA4": "Espressif (IoT)", "A4CF12": "Espressif (IoT)", "84F3EB": "Espressif (IoT)",
+		"BCDD26": "Shelly/Allterco", "C049EF": "Shelly/Allterco", "40F520": "Shelly/Allterco",
+		"00032F": "Sonos", "B8E937": "Sonos", "5C56D0": "Sonos", "949F3E": "Sonos",
+		"00156D": "Ubiquiti", "0418D6": "Ubiquiti", "B4FBE4": "Ubiquiti", "7483C2": "Ubiquiti", "68D79A": "Ubiquiti",
+		"0004F2": "Polycom", "64167F": "Polycom",
+		"00E062": "Brother", "3C2AF4": "Brother", "E4A7A0": "Brother",
+		"001788": "Philips Hue", "ECB5FA": "Philips Hue",
 		"603197": "Netatmo",
+		"002686": "AVM (FritzBox)", "0896D7": "AVM (FritzBox)", "3431C4": "AVM (FritzBox)", "3810D5": "AVM (FritzBox)",
+		"444E6D": "AVM (FritzBox)", "7CC709": "AVM (FritzBox)", "9C28BF": "AVM (FritzBox)", "BC0543": "AVM (FritzBox)",
+		"E0286D": "AVM (FritzBox)", "FCFBFB": "AVM (FritzBox)",
+		"D4AD70": "Tesla", "44FB42": "Tesla",
+		"0024E4": "Withings",
 	}
 
 	if m, ok := ouis[prefix]; ok {
 		return m
 	}
-	return "Unknown"
+	return "-"
 }
 
 func handleQR(w http.ResponseWriter, r *http.Request) {

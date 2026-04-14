@@ -389,17 +389,52 @@ export function initEvents(fetchConfig) {
         }
     };
 
-    window.addCustomRule = async (type, domain) => {
-        const action = type === 'blocked' ? 'block' : 'allow';
+    window.addCustomRule = async (action, domainArg, event) => {
+        const type = action === 'blocked' ? 'block' : (action === 'allowed' ? 'allow' : action);
+        const inputId = action === 'blocked' ? 'custom-block-input' : 'custom-allow-input';
+        const domain = domainArg || getEl(inputId)?.value.trim();
+        
+        if (!domain) return;
+        
+        const btn = event?.currentTarget;
+        helpers.setBtnLoading(btn, true, 'Saving...');
+        
         try {
             await api.apiFetch(api.endpoints.addRule, {
                 method: 'POST',
-                body: JSON.stringify({ domain, action })
+                body: JSON.stringify({ domain, type })
             });
-            helpers.showToast(`${domain} added to ${type} list`);
-            setTimeout(fetchConfig, 500);
+            if (getEl(inputId)) getEl(inputId).value = '';
+            helpers.showToast(`${domain} added to ${action} list.`);
+            fetchConfig();
         } catch (err) {
             helpers.showAlert('Failed to add rule: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    };
+
+    window.addCustomMapping = async (event) => {
+        const domain = getEl('custom-map-domain')?.value.trim();
+        const ip = getEl('custom-map-ip')?.value.trim();
+        if (!domain || !ip) return helpers.showAlert('Both Domain and IP are required.');
+        
+        const btn = event?.currentTarget;
+        helpers.setBtnLoading(btn, true, 'Adding Mapping...');
+
+        try {
+            await api.apiFetch(api.endpoints.addRule, {
+                method: 'POST',
+                body: JSON.stringify({ domain, ip, type: 'mapping' })
+            });
+            if (getEl('custom-map-domain')) getEl('custom-map-domain').value = '';
+            if (getEl('custom-map-ip')) getEl('custom-map-ip').value = '';
+            helpers.showToast(`Mapping ${domain} -> ${ip} created.`);
+            fetchConfig();
+        } catch (err) { 
+            helpers.showAlert('Failed to add mapping: ' + err.message); 
+        } finally {
+            helpers.setBtnLoading(btn, false);
         }
     };
 

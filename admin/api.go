@@ -18,6 +18,7 @@ var (
 // IPInfo represents detailed information about a client IP.
 type IPInfo struct {
 	IP           string    `json:"ip"`
+	Alias        string    `json:"alias,omitempty"`
 	IsPrivate    bool      `json:"is_private"`
 	Hostname     string    `json:"hostname"`
 	Country      string    `json:"country"`

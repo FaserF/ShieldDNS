@@ -13,3 +13,6 @@
 @@||emmikochteinfach.de^
 @@||api.ipify.org^
 @@||fabiseitz.de^
+@@||dynamics.com^
+@@||objectstorage.eu-frankfurt-1.oraclecloud.com^
+@@||web.facebook.com^

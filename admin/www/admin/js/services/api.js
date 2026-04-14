@@ -4,8 +4,9 @@
 export async function apiFetch(endpoint, options = {}) {
     // Inject CSRF protection header for state-changing requests
     const method = options.method?.toUpperCase();
-    if (['POST', 'PUT', 'DELETE'].includes(method)) {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
         options.headers = {
+            'Content-Type': 'application/json',
             ...options.headers,
             'X-Shield-Request': 'true'
         };

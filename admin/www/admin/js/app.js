@@ -303,7 +303,7 @@ function initModals() {
         const domain = getEl('domain-info-title').textContent;
         if (!domain || !await helpers.showConfirm(`Block domain ${domain}?`, 'Block Domain', true)) return;
         try {
-            await api.apiFetch(api.endpoints.addRule, { method: 'POST', body: JSON.stringify({ domain, action: 'block' }) });
+            await api.apiFetch(api.endpoints.addRule, { method: 'POST', body: JSON.stringify({ domain, type: 'block' }) });
             helpers.showToast(`${domain} blocked`);
             closeModals();
             fetchService.fetchConfig();
@@ -313,7 +313,7 @@ function initModals() {
     getEl('domain-allow-btn')?.addEventListener('click', async () => {
         const domain = getEl('domain-info-title').textContent;
         try {
-            await api.apiFetch(api.endpoints.addRule, { method: 'POST', body: JSON.stringify({ domain, action: 'allow' }) });
+            await api.apiFetch(api.endpoints.addRule, { method: 'POST', body: JSON.stringify({ domain, type: 'allow' }) });
             helpers.showToast(`${domain} allowed`);
             closeModals();
             fetchService.fetchConfig();
@@ -380,54 +380,7 @@ window.removeList = async (idx, type, event) => {
 };
 
 
-window.addCustomRule = async (action, domainArg, event) => {
-    const type = action === 'blocked' ? 'block' : 'allow';
-    const inputId = action === 'blocked' ? 'custom-block-input' : 'custom-allow-input';
-    const domain = domainArg || getEl(inputId)?.value.trim();
-    
-    if (!domain) return;
-    
-    const btn = event?.currentTarget;
-    helpers.setBtnLoading(btn, true, 'Saving...');
-    
-    try {
-        await api.apiFetch('/api/rules/add', {
-            method: 'POST',
-            body: JSON.stringify({ domain, type })
-        });
-        if (getEl(inputId)) getEl(inputId).value = '';
-        helpers.showToast(`${domain} added to ${action} list.`);
-        fetchService.fetchConfig();
-    } catch (e) {
-        helpers.showAlert(`Failed to add rule: ${e.message}`);
-    } finally {
-        helpers.setBtnLoading(btn, false);
-    }
-};
 
-window.addCustomMapping = async (event) => {
-    const domain = getEl('custom-map-domain')?.value.trim();
-    const ip = getEl('custom-map-ip')?.value.trim();
-    if (!domain || !ip) return helpers.showAlert('Both Domain and IP are required.');
-    
-    const btn = event?.currentTarget;
-    helpers.setBtnLoading(btn, true, 'Adding Mapping...');
-
-    try {
-        await api.apiFetch('/api/rules/add', {
-            method: 'POST',
-            body: JSON.stringify({ domain, ip, type: 'mapping' })
-        });
-        getEl('custom-map-domain').value = '';
-        getEl('custom-map-ip').value = '';
-        helpers.showToast(`Mapping ${domain} -> ${ip} created.`);
-        fetchService.fetchConfig();
-    } catch (e) { 
-        helpers.showAlert(`Failed to add mapping: ${e.message}`); 
-    } finally {
-        helpers.setBtnLoading(btn, false);
-    }
-};
 
 window.removeCustomRule = async (domain, event) => {
     if (!await helpers.showConfirm(`Are you sure you want to remove the rule for ${domain}?`, 'Remove Rule', true)) return;

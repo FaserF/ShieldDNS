@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -728,6 +729,60 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 					}
 				} else if resp.StatusCode == http.StatusForbidden {
 					slog.Debug("GitHub API rate limited while fetching list metadata", "url", rawURL)
+				}
+			}
+		}
+	}
+
+	// 4. Specialized support for GitLab Raw Content
+	// gitlab.com does not send Last-Modified, so we check the Commits API
+	if strings.Contains(rawURL, "gitlab.com") && (strings.Contains(rawURL, "/raw/") || strings.Contains(rawURL, "/-/raw/")) {
+		// Example: https://gitlab.com/curben/urlhaus-filter/raw/master/urlhaus-filter-hosts.txt
+		// or https://gitlab.com/group/project/-/raw/ref/path/file.txt
+		
+		separator := "/raw/"
+		if strings.Contains(rawURL, "/-/raw/") {
+			separator = "/-/raw/"
+		}
+		
+		parts := strings.Split(rawURL, separator)
+		if len(parts) == 2 {
+			// Extract project path (e.g. curben/urlhaus-filter)
+			// Remove domain and any leading slashes
+			projectPath := parts[0]
+			for _, prefix := range []string{"https://gitlab.com/", "http://gitlab.com/", "gitlab.com/"} {
+				projectPath = strings.TrimPrefix(projectPath, prefix)
+			}
+			projectPath = strings.Trim(projectPath, "/")
+			
+			refPath := parts[1]
+			refParts := strings.Split(refPath, "/")
+			if len(refParts) >= 2 {
+				ref := refParts[0]
+				filePath := strings.Join(refParts[1:], "/")
+				
+				// GitLab Project ID is the URL-encoded path
+				projectID := url.PathEscape(projectPath)
+				committedURL := fmt.Sprintf("https://gitlab.com/api/v4/projects/%s/repository/commits?path=%s&ref_name=%s&per_page=1", 
+					projectID, url.PathEscape(filePath), url.PathEscape(ref))
+
+				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+
+				req, _ := http.NewRequestWithContext(ctx, "GET", committedURL, nil)
+				req.Header.Set("User-Agent", "ShieldDNS-Update-Tracker")
+
+				resp, err := http.DefaultClient.Do(req)
+				if err == nil {
+					defer resp.Body.Close()
+					if resp.StatusCode == http.StatusOK {
+						var commitInfo []struct {
+							CreatedAt time.Time `json:"created_at"`
+						}
+						if err := json.NewDecoder(resp.Body).Decode(&commitInfo); err == nil && len(commitInfo) > 0 {
+							return commitInfo[0].CreatedAt
+						}
+					}
 				}
 			}
 		}

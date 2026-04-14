@@ -375,7 +375,7 @@
                     <div class="header-actions">
                         <div class="search-box">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="query-search" placeholder="Search domain..."
+                            <input type="text" id="query-search" placeholder="Search domain or Client IP..."
                                 oninput="fetchQueries()">
                         </div>
                         <select id="query-filter-status" class="select-filter" onchange="fetchQueries()">
@@ -1420,7 +1420,7 @@
                     </div>
                 </div>
                 <!-- New Device Card -->
-                <div class="stat-card card">
+                <div class="stat-card card" id="ip-info-device-card">
                     <label>Device Info</label>
                     <div id="ip-info-manufacturer" class="value" style="font-size: 0.9rem; font-weight: 600;">-</div>
                     <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
@@ -1578,7 +1578,7 @@
                         <table class="query-table" style="font-size: 0.85rem;">
                             <thead>
                                 <tr>
-                                    <th>Client IP</th>
+                                    <th>Client</th>
                                     <th style="text-align:right">Hits</th>
                                 </tr>
                             </thead>

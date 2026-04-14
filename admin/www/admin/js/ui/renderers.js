@@ -401,13 +401,27 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
 
     setTxt('ip-info-hostname', sanitize(stats.hostname, 'No Hostname'));
 
+    // Device Info Processing
+    const manufacturer = sanitize(stats.manufacturer, '');
+    const os = sanitize(stats.os, '');
+    const mac = sanitize(stats.mac, '');
+
+    const deviceCard = getEl('ip-info-device-card');
+    if (deviceCard) {
+        if (!manufacturer && !os && !mac) {
+            deviceCard.style.display = 'none';
+        } else {
+            deviceCard.style.display = 'block';
+            setTxt('ip-info-manufacturer', manufacturer || 'Unknown Device');
+            setTxt('ip-info-os', os || 'Unknown OS');
+            setTxt('ip-info-mac', mac || 'MAC Unavailable');
+        }
+    }
+
     // Provider & ASN
     const provider = stats.isp || stats.org || (stats.is_private ? 'Local Network' : 'Unknown Provider');
     setTxt('ip-info-isp', provider);
     setTxt('ip-info-as', sanitize(stats.as, ''));
-    setTxt('ip-info-mac', sanitize(stats.mac, 'Unknown MAC'));
-    setTxt('ip-info-manufacturer', sanitize(stats.manufacturer, 'Unknown Manufacturer'));
-    setTxt('ip-info-os', sanitize(stats.os, 'Unknown OS'));
 
     // Type Tag
     const typeTag = getEl('ip-info-type-tag');
@@ -509,13 +523,15 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
         getEl('domain-info-subtitle').textContent = domain;
     }
 
-    getEl('domain-info-clients-list').innerHTML = (clients || []).map(c => `
-        <tr>
-            <td><a href="#" onclick="window.showIPDetails('${helpers.escapeHTML(c.ip)}'); return false;" style="color: var(--accent);">${helpers.escapeHTML(c.ip)}</a></td>
-            <td>${helpers.escapeHTML(c.alias) || '-'}</td>
-            <td style="text-align:right">${c.count}</td>
-        </tr>
-    `).join('') || '<tr><td colspan="3">No data</td></tr>';
+    getEl('domain-info-clients-list').innerHTML = (clients || []).map(c => {
+        const display = c.alias ? `${helpers.escapeHTML(c.alias)} (${helpers.escapeHTML(c.ip)})` : helpers.escapeHTML(c.ip);
+        return `
+            <tr>
+                <td><a href="#" onclick="window.showIPDetails('${helpers.escapeHTML(c.ip)}'); return false;" style="color: var(--accent);">${display}</a></td>
+                <td style="text-align:right">${c.count}</td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="2">No data</td></tr>';
 
     getEl('domain-info-history').innerHTML = (history || []).map(q => `
         <tr>
