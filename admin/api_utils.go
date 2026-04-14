@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"net"
@@ -188,6 +189,18 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 			geoCtx, geoCancel := context.WithTimeout(r.Context(), 5*time.Second)
 			defer geoCancel()
 			
+			
+			var geoData struct {
+				Country     string `json:"country"`
+				CountryCode string `json:"countryCode"`
+				City        string `json:"city"`
+				ISP         string `json:"isp"`
+				Org         string `json:"org"`
+				AS          string `json:"as"`
+				Status      string `json:"status"`
+				Message     string `json:"message"`
+			}
+
 			// Multiple providers for client IP resolution
 			providers := []struct {
 				url    string
