@@ -206,3 +206,8 @@ jobs:
           })();
           EOF
           node verify_layout.js
+
+      - name: Stop & Cleanup ShieldDNS
+        if: always()
+        run: |
+          docker rm -f shielddns || true
