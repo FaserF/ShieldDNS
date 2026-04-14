@@ -108,6 +108,7 @@ func getLatestVersions() VersionInfo {
 
 func updateVersions() {
 	// Mark as checking immediately to prevent rapid re-entry on failure
+	versionLock.Lock()
 	latestVersions.LastCheck = time.Now()
 	versionLock.Unlock()
 
@@ -119,34 +120,37 @@ func updateVersions() {
 	go func() {
 		defer wg.Done()
 		v := fetchGitHubLatestTag("FaserF/ShieldDNS")
-		versionLock.Lock()
 		if v != "" {
+			versionLock.Lock()
 			latestVersions.ShieldDNS = v
+			versionLock.Unlock()
 		}
-		versionLock.Unlock()
 	}()
 
 	go func() {
 		defer wg.Done()
 		v := fetchGitHubLatestTag("coredns/coredns")
-		versionLock.Lock()
 		if v != "" {
+			versionLock.Lock()
 			latestVersions.CoreDNS = v
+			versionLock.Unlock()
 		}
-		versionLock.Unlock()
 	}()
 
 	go func() {
 		defer wg.Done()
 		v := fetchAlpineLatest()
-		versionLock.Lock()
 		if v != "" {
+			versionLock.Lock()
 			latestVersions.Alpine = v
+			versionLock.Unlock()
 		}
-		versionLock.Unlock()
 	}()
 
 	wg.Wait()
+
+	versionLock.RLock()
+	defer versionLock.RUnlock()
 	slog.Debug("Update check complete",
 		"ShieldDNS", latestVersions.ShieldDNS,
 		"CoreDNS", latestVersions.CoreDNS,
