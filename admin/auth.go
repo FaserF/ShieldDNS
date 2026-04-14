@@ -246,11 +246,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Security: Bind session to IP and User-Agent
-		clientIP := strings.Split(r.RemoteAddr, ":")[0]
-		// Handle X-Forwarded-For if behind a proxy like HA Ingress
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			clientIP = strings.Split(xff, ",")[0]
-		}
+		clientIP := getClientIP(r)
 		
 		if sess.RemoteIP != clientIP || sess.UserAgent != r.UserAgent() {
 			slog.Warn("Session identity mismatch: possibly hijaked or changed connection", 
@@ -326,7 +322,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
-	ip := strings.Split(r.RemoteAddr, ":")[0]
+	ip := getClientIP(r)
 
 	failureLock.Lock()
 	if loginFailures[ip] >= 10 {
@@ -466,6 +462,16 @@ func renderError(w http.ResponseWriter, message, code string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": message, "code": code})
+}
+
+func getClientIP(r *http.Request) string {
+	clientIP := strings.Split(r.RemoteAddr, ":")[0]
+	// Handle X-Forwarded-For if behind a proxy like HA Ingress
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For can contain a list of IPs, take the first one
+		clientIP = strings.TrimSpace(strings.Split(xff, ",")[0])
+	}
+	return clientIP
 }
 
 func hashToken(token string) string {
