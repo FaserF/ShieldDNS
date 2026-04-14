@@ -173,7 +173,7 @@ export function renderConfig(cfg) {
         el.innerHTML = items?.map(domain => `
             <div class="preset-selection-item">
                 <span>${helpers.escapeHTML(domain)}</span>
-                <button class="btn danger-text" onclick="removeCustomRule('${helpers.escapeHTML(domain)}', event)"><i class="fas fa-trash"></i></button>
+                <button class="btn btn-sm secondary" onclick="removeCustomRule('${helpers.escapeHTML(domain)}', event)" title="Remove Rule"><i class="fas fa-trash"></i></button>
             </div>
         `).join('') || '';
     };
@@ -187,7 +187,7 @@ export function renderConfig(cfg) {
             <div class="preset-selection-item">
                 <span style="flex:1">${helpers.escapeHTML(domain)}</span>
                 <span class="badge secondary" style="font-family:monospace; margin-right: 15px;">${helpers.escapeHTML(ip)}</span>
-                <button class="btn danger-text" onclick="removeCustomMapping('${helpers.escapeHTML(domain)}', event)"><i class="fas fa-trash"></i></button>
+                <button class="btn btn-sm secondary" onclick="removeCustomMapping('${helpers.escapeHTML(domain)}', event)" title="Remove Mapping"><i class="fas fa-trash"></i></button>
             </div>
         `).join('');
     }
@@ -200,7 +200,7 @@ export function renderConfig(cfg) {
                 <div class="list-info"><h3>${helpers.escapeHTML(list.name)}</h3><p>${helpers.escapeHTML(list.url)}</p></div>
                 <div class="list-actions">
                     <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'block', event)">${list.enabled ? 'Disable' : 'Enable'}</button>
-                    <button class="btn btn-sm danger" onclick="event.stopPropagation(); window.removeList(${i}, 'block', event)"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-sm secondary danger" onclick="event.stopPropagation(); window.removeList(${i}, 'block', event)" title="Remove List"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         `).join('') || '<p class="help">No active blocklists.</p>';
@@ -213,7 +213,7 @@ export function renderConfig(cfg) {
                 <div class="list-info"><h3>${helpers.escapeHTML(list.name)}</h3><p>${helpers.escapeHTML(list.url)}</p></div>
                 <div class="list-actions">
                     <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'allow', event)">${list.enabled ? 'Disable' : 'Enable'}</button>
-                    <button class="btn btn-sm danger" onclick="event.stopPropagation(); window.removeList(${i}, 'allow', event)"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-sm secondary danger" onclick="event.stopPropagation(); window.removeList(${i}, 'allow', event)" title="Remove List"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         `).join('') || '<p class="help">No active allowlists.</p>';
@@ -377,7 +377,7 @@ export function renderDiagnostics(d) {
                 <td>
                     <div style="display:flex; gap:8px;">
                         <button class="btn btn-sm secondary" onclick="window.editAPIKey('${k.id}')"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm danger" onclick="window.deleteAPIKey('${k.id}')"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-sm secondary danger" onclick="window.deleteAPIKey('${k.id}')" title="Delete Key"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             </tr>
@@ -399,7 +399,9 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
 
     const sanitize = (val, fallback = 'N/A') => (!val || val === '-' || val === 'geo' || val === 'none') ? fallback : val;
 
-    setTxt('ip-info-hostname', sanitize(stats.hostname, 'No Hostname'));
+    const fallbackSpan = (txt) => `<span class="info-empty">${txt}</span>`;
+
+    setTxt('ip-info-hostname', stats.hostname && stats.hostname !== '-' ? stats.hostname : 'No Hostname Resolved');
 
     // Device Info Processing
     const manufacturer = sanitize(stats.manufacturer, '');
@@ -409,34 +411,37 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const deviceCard = getEl('ip-info-device-card');
     if (deviceCard) {
         if (!manufacturer && !os && !mac) {
-            deviceCard.style.display = 'none';
+             // If totally unknown, show generic info instead of hiding
+             getEl('ip-info-manufacturer').innerHTML = fallbackSpan('Generic Device');
+             getEl('ip-info-os').innerHTML = fallbackSpan('OS Unknown');
+             getEl('ip-info-mac').innerHTML = fallbackSpan('MAC Unavailable');
         } else {
             deviceCard.style.display = 'block';
-            setTxt('ip-info-manufacturer', manufacturer || 'Unknown Device');
-            setTxt('ip-info-os', os || 'Unknown OS');
-            setTxt('ip-info-mac', mac || 'MAC Unavailable');
+            getEl('ip-info-manufacturer').innerHTML = manufacturer || fallbackSpan('Unknown Device');
+            getEl('ip-info-os').innerHTML = os || fallbackSpan('Unknown OS');
+            getEl('ip-info-mac').innerHTML = mac || fallbackSpan('MAC Unavailable');
         }
     }
 
     // Provider & ASN
-    const provider = stats.isp || stats.org || (stats.is_private ? 'Local Network' : 'Unknown Provider');
+    const provider = stats.isp || stats.org || (stats.is_private ? 'Local Area Network' : 'Unknown Provider');
     setTxt('ip-info-isp', provider);
-    setTxt('ip-info-as', sanitize(stats.as, ''));
+    setTxt('ip-info-as', stats.as && stats.as !== '-' ? stats.as : 'ASN Not Resolved');
 
     // Type Tag
     const typeTag = getEl('ip-info-type-tag');
     if (typeTag) {
-        typeTag.textContent = stats.is_private ? 'Private Network' : 'Public Network';
-        typeTag.className = 'badge ' + (stats.is_private ? 'success' : 'warning');
+        typeTag.textContent = stats.is_private ? 'Local Network' : 'Public Network';
+        typeTag.className = 'badge ' + (stats.is_private ? 'badge-sm success' : 'badge-sm warning');
     }
 
     // Location Info
     let countryDisplay = stats.country;
     if (!countryDisplay || countryDisplay === '-' || countryDisplay === 'geo') {
-        countryDisplay = stats.is_private ? 'Local Network' : 'Unknown Location';
+        countryDisplay = stats.is_private ? 'Locally Connected' : 'Unknown Location';
     }
     setTxt('ip-info-country', countryDisplay);
-    setTxt('ip-info-city', sanitize(stats.city, 'Unknown City'));
+    setTxt('ip-info-city', stats.city && stats.city !== '-' ? stats.city : 'City Not Resolved');
     const flagEl = getEl('ip-info-flag');
     if (flagEl) {
         flagEl.innerHTML = getFlagHTML(stats.country_code, 'w40');

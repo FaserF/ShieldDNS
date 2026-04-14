@@ -5,7 +5,47 @@
 
 /* ── CSS Custom Properties ───────────────────────────────── */
 
-:root {
+
+/* ── Global Input Overrides ────────────────────────────── */
+input[type="text"], 
+input[type="url"], 
+input[type="password"], 
+select {
+    background-color: hsla(var(--hue), 20%, 100%, 0.04) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-primary) !important;
+    border-radius: 12px !important;
+    padding: 10px 14px !important;
+    font-size: 0.9rem !important;
+    transition: all 0.2s ease !important;
+}
+
+input:focus {
+    background-color: hsla(var(--hue), 20%, 100%, 0.07) !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 4px hsla(var(--hue), 75%, 68%, 0.15) !important;
+}
+
+input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+/* Fix for mapping trash buttons (legacy ones were white) */
+.preset-selection-item .btn {
+    padding: 6px 12px !important;
+    background: hsla(var(--hue), 20%, 100%, 0.05) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    color: var(--danger) !important;
+    width: auto !important;
+    height: auto !important;
+}
+
+.preset-selection-item .btn:hover {
+    background: hsla(0, 75%, 60%, 0.1) !important;
+    border-color: var(--danger) !important;
+}
     --accent-rgb: 99, 102, 241;
     --danger-rgb: 239, 68, 68;
 }
@@ -552,17 +592,24 @@ a:hover {
     margin-top: 2px;
 }
 
+.info-empty {
+    color: var(--text-secondary);
+    opacity: 0.5;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
 .device-info-main {
-    font-size: 0.9rem;
     font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
 }
 
 .device-info-row {
     display: flex;
-    gap: 8px;
     align-items: center;
-    margin-top: 4px;
-    font-size: 0.75rem;
+    gap: 8px;
+    font-size: 0.8rem;
     color: var(--text-secondary);
 }
 

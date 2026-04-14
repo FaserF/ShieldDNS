@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="style.css?v={{.CacheVersion}}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script type="module" src="js/app.js?v={{.CacheVersion}}"></script>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="manifest" href="manifest.json">
@@ -151,14 +151,15 @@
                             </p>
                         </div>
                     </div>
+                </div> <!-- Closing protection-status-card -->
 
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <label>
-                                Total Queries (24h)
-                                <i class="fas fa-info-circle info-icon"
-                                    data-tooltip="Total number of DNS requests processed in the last 24 hours. Includes both blocked and allowed queries."></i>
-                            </label>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <label>
+                            Total Queries (24h)
+                            <i class="fas fa-info-circle info-icon"
+                                data-tooltip="Total number of DNS requests processed in the last 24 hours. Includes both blocked and allowed queries."></i>
+                        </label>
                             <div class="value" id="stat-total">-</div>
                         </div>
                         <div class="stat-card blocked">
@@ -514,7 +515,6 @@
                 </div>
                 <div id="search-result" class="hidden">
                     <!-- Result will be shown here -->
-                </div>
                 </div>
 
                 <div class="list-section">
@@ -1632,12 +1632,12 @@
                                 await navigator.clipboard.writeText(host);
                                 btn.textContent = 'Copied! Opening Settings...';
                                 setTimeout(() => {
-                                    window.location.href = 'intent:#Intent;action=android.settings.WIRELESS_SETTINGS;end';
+                                    window.location.href = 'intent:#Intent;action=android.settings.DNS_SETTINGS;end';
                                 }, 300);
                             }
                         } catch (err) {
                             console.error('Copy failed', err);
-                            window.location.href = 'intent:#Intent;action=android.settings.WIRELESS_SETTINGS;end';
+                            window.location.href = 'intent:#Intent;action=android.settings.DNS_SETTINGS;end';
                         }
 
                         setTimeout(() => {

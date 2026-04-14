@@ -115,7 +115,7 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Content-Security-Policy", csp)
 
 		// 7. Permissions Policy (Disable unneeded browser features)
-		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), vr=()")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), xr-spatial-tracking=()")
 		
 		next.ServeHTTP(w, r)
 	})

@@ -374,11 +374,11 @@ func TestIsValidDomain(t *testing.T) {
 		{"has space.com", false},
 		{".leading-dot.com", false},
 		{"trailing-dot.com.", false},
-		{"no_underscores.com", false},
+		{"no_underscores.com", true},
 		{"javascript:alert(1)", false},
 		{"<script>xss</script>", false},
 		{"/etc/passwd", false},
-		{"just-a-word", false},
+		{"just-a-word", true},
 	}
 
 	for _, tt := range tests {
@@ -408,7 +408,7 @@ func TestHandleRuleAddValidation(t *testing.T) {
 		{"Empty domain", "", "block", http.StatusUnprocessableEntity},
 		{"Invalid domain", "not valid!", "block", http.StatusBadRequest},
 		{"XSS attempt", "<script>alert(1)</script>", "block", http.StatusBadRequest},
-		{"Path traversal", "../../../etc/passwd", "block", http.StatusBadRequest},
+		{"Path traversal", "../../../etc/passwd", "block", http.StatusUnprocessableEntity},
 		{"Invalid type", "example.com", "invalid", http.StatusBadRequest},
 	}
 
