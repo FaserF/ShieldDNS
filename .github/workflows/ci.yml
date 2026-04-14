@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -33,13 +33,20 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Install Docker CLI & DNS Tools
+      - name: Install Docker, Buildx & DNS Tools
         run: |
-          apt-get update && apt-get install -y docker.io knot-dnsutils net-tools curl openssl
+          apt-get update && apt-get install -y \
+            docker.io \
+            docker-buildx-plugin \
+            knot-dnsutils \
+            net-tools \
+            curl \
+            openssl
 
       - name: Build Docker Image
         run: |
-          docker build -t shielddns:test .
+          # Buildx is required to support the --platform flag in the Dockerfile
+          docker buildx build --load -t shielddns:test .
 
       - name: Generate Self-Signed Certs for Testing
         run: |
@@ -74,7 +81,7 @@ jobs:
             echo 'Waiting for CoreDNS to start...'
             sleep 5
           done
-
+          
           docker ps -a
           docker logs shielddns
 
@@ -82,7 +89,6 @@ jobs:
         run: |
           echo "Verifying DNS listener availability..."
           for i in {1..12}; do
-            # Use 'shielddns' hostname instead of 127.0.0.1
             if nc -z shielddns 853; then
               echo "✅ Port 853 is listening."
               break
@@ -122,7 +128,7 @@ jobs:
           npm install playwright
           cat << 'EOF' > verify_layout.js
           const { chromium } = require('playwright');
-
+          
           async function testPage(url, pageName) {
               console.log(`\n========== Testing ${pageName} ==========`);
               const browser = await chromium.launch();
@@ -132,7 +138,7 @@ jobs:
                   { width: 375, height: 667, name: 'iPhone 6/7/8' },
                   { width: 1200, height: 800, name: 'Desktop' }
               ];
-
+              
               console.log(`Navigating to ${pageName}...`);
               try {
                   await page.goto(url, { waitUntil: 'load', timeout: 60000 });
@@ -141,27 +147,26 @@ jobs:
                   await browser.close();
                   return false;
               }
-
+              
               let failed = false;
               const issues = [];
-
+          
               for (const vp of viewports) {
                   console.log(`Checking viewport: ${vp.width}x${vp.height} (${vp.name})`);
                   await page.setViewportSize({ width: vp.width, height: vp.height });
-                  // Slightly longer wait for charts/animations
-                  await new Promise(r => setTimeout(r, 800));
-
+                  await new Promise(r => setTimeout(r, 1000));
+                  
                   const overflow = await page.evaluate(() => {
                       const scrollWidth = document.documentElement.scrollWidth;
                       const clientWidth = document.documentElement.clientWidth;
-
+                      
                       return {
                           hasOverflow: scrollWidth > clientWidth,
                           scrollWidth,
                           clientWidth
                       };
                   });
-
+          
                   if (overflow.hasOverflow) {
                       console.error(`  ❌ Horizontal overflow at ${vp.width}px: ${overflow.scrollWidth}px vs ${overflow.clientWidth}px (${overflow.scrollWidth - overflow.clientWidth}px overflow)`);
                       issues.push({
@@ -174,9 +179,9 @@ jobs:
                       console.log(`  ✅ No overflow at ${vp.width}px.`);
                   }
               }
-
+              
               await browser.close();
-
+              
               if (failed) {
                   console.error(`\n❌ ${pageName} layout verification FAILED!`);
                   issues.forEach(issue => {
@@ -185,13 +190,12 @@ jobs:
               }
               return !failed;
           }
-
+          
           (async () => {
               const results = [];
-              // Use 'shielddns' as hostname
               results.push(await testPage('http://shielddns:8080/', 'Landing Page'));
               results.push(await testPage('http://shielddns:8080/admin/', 'Admin Dashboard'));
-
+              
               if (results.every(r => r)) {
                   console.log('\n✅ All pages pass layout verification!');
                   process.exit(0);
