@@ -45,8 +45,8 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          # Buildx is required to support the --platform flag in the Dockerfile
-          docker buildx build --load -t shielddns:test .
+          # Use --no-cache to ensure Go embeds the LATEST CSS files from the repository
+          docker buildx build --no-cache --load -t shielddns:test .
 
       - name: Generate Self-Signed Certs for Testing
         run: |
@@ -121,13 +121,6 @@ jobs:
             echo "Waiting for Admin UI..."
             sleep 2
           done
-
-      - name: Debug CSS Content
-        run: |
-          echo "--- admin/www/admin/css/base.css ---"
-          cat admin/www/admin/css/base.css
-          echo "--- admin/www/admin/css/responsive.css ---"
-          cat admin/www/admin/css/responsive.css
 
       - name: Run Layout Verification
         run: |
