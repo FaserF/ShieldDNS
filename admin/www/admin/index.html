@@ -477,15 +477,14 @@
                         </div>
                         <div id="custom-allowed-list" class="minimal-list"></div>
                     </div>
-                    <div class="stat-card card" style="grid-column: 1 / -1">
+                    <div class="stat-card card full-width">
                         <h3>Local DNS Mappings</h3>
                         <p class="help">Map domains to local IP addresses (A Records). Useful for local devices like
                             routers.</p>
-                        <div class="form-group row">
-                            <input type="text" id="custom-map-domain" placeholder="Domain (e.g. fritz.box)">
-                            <input type="text" id="custom-map-ip" placeholder="IP (e.g. 192.168.178.1)"
-                                style="width:200px">
-                            <button class="btn primary" onclick="addCustomMapping(event)">Add Mapping</button>
+                        <div class="mapping-input-group">
+                            <input type="text" id="custom-map-domain" placeholder="Domain (e.g. fritz.box)" class="mapping-input-domain">
+                            <input type="text" id="custom-map-ip" placeholder="IP (e.g. 192.168.178.1)" class="mapping-input-ip">
+                            <button class="btn primary mapping-btn" onclick="addCustomMapping(event)">Add Mapping</button>
                         </div>
                         <div id="custom-mappings-list" class="minimal-list"></div>
                     </div>
@@ -505,19 +504,17 @@
                     </div>
                 </header>
 
-                <div class="search-section card">
-                    <div class="search-box">
-                        <input type="text" id="domain-search" placeholder="Search for a domain (e.g. google.com)">
-                        <button class="btn secondary" id="search-btn" onclick="checkProtection()">Check
-                            Protection</button>
-                    </div>
-                    <div id="search-loading" class="hidden" style="text-align:center; padding: 20px;">
-                        <div class="spinner"></div>
-                        <p style="margin-top:10px; color:var(--text-secondary);">Analyzing domain reputation...</p>
-                    </div>
-                    <div id="search-result" class="hidden">
-                        <!-- Result will be shown here -->
-                    </div>
+                <div class="search-bar-integrated mb-4">
+                    <input type="text" id="domain-search" placeholder="Search for a domain (e.g. google.com)">
+                    <button class="btn primary" id="search-btn" onclick="checkProtection()">Check Protection</button>
+                </div>
+                <div id="search-loading" class="hidden search-loading-container">
+                    <div class="spinner"></div>
+                    <p class="search-loading-text">Analyzing domain reputation...</p>
+                </div>
+                <div id="search-result" class="hidden">
+                    <!-- Result will be shown here -->
+                </div>
                 </div>
 
                 <div class="list-section">
@@ -953,7 +950,7 @@
                 <div class="analytics-grid">
                     <div class="stat-card card">
                         <h3>Environment</h3>
-                        <div class="list-info" style="margin-top:15px">
+                        <div class="diag-list">
                             <div class="diag-item">
                                 <span>ShieldDNS Version</span>
                                 <span id="about-shielddns-ver" class="badge official">{{.FullVersion}}</span>
@@ -990,7 +987,7 @@
                     </div>
                 </div>
 
-                <div class="query-log-container card" style="margin-top:24px; text-align:center">
+                <div class="query-log-container card about-footer">
                     <p>Developed with &hearts; for Privacy and Performance.</p>
                     <p class="help">&copy; 2026 ShieldDNS Project</p>
                 </div>
@@ -1369,12 +1366,11 @@
                 </div>
             </div>
             <p id="ip-info-subtitle" class="help" style="margin-top: -15px; margin-bottom: 10px;"></p>
-            <div id="ip-info-abuse-reason-badge" class="badge danger mt-1"
-                style="display: none; padding: 4px 8px; font-size: 0.75rem; margin-bottom: 15px; width: fit-content;">
+            <div id="ip-info-abuse-reason-badge" class="badge danger mt-1 hidden">
                 <!-- Abuse reason text injected here -->
             </div>
 
-            <div class="analytics-grid analytics-grid-compact" style="margin-bottom: 24px;">
+            <div class="analytics-grid-compact">
                 <div class="stat-card card">
                     <label>Total Queries</label>
                     <div class="value" id="ip-info-total">0</div>
@@ -1382,64 +1378,52 @@
                 <div class="stat-card card blocked">
                     <label>Blocked</label>
                     <div class="value" id="ip-info-blocked">0</div>
-                    <div class="progress-bar-container"
-                        style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 8px; overflow: hidden;">
-                        <div id="ip-info-blocked-bar"
-                            style="height: 100%; background: var(--danger); width: 0%; transition: width 0.5s ease;">
-                        </div>
+                    <div class="progress-bar-small">
+                        <div id="ip-info-blocked-bar" style="background: var(--danger); width: 0%;"></div>
                     </div>
                 </div>
                 <div class="stat-card card">
                     <label>Network Info</label>
-                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                    <div class="badge-group">
                         <span id="ip-info-type-tag" class="badge badge-sm primary" style="width: fit-content;">-</span>
-                        <div class="value" id="ip-info-hostname"
-                            style="font-size: 0.85rem; word-break: break-all; font-weight: 500;">-</div>
-                        <div id="ip-info-isp"
-                            style="font-size: 0.725rem; color: var(--text-secondary); line-height: 1.2;">-</div>
-                        <div id="ip-info-as"
-                            style="font-size: 0.65rem; color: rgba(255,255,255,0.4); line-height: 1.2; margin-top: 2px;">-</div>
+                        <div class="client-info-value" id="ip-info-hostname">-</div>
+                        <div class="client-info-sub" id="ip-info-isp">-</div>
+                        <div class="client-info-extra" id="ip-info-as">-</div>
                     </div>
                 </div>
                 <!-- New Device Card -->
                 <div class="stat-card card" id="ip-info-device-card">
                     <label>Device Info</label>
-                    <div id="ip-info-manufacturer" class="value" style="font-size: 0.9rem; font-weight: 600;">-</div>
-                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
-                        <div id="ip-info-os" style="font-size: 0.75rem; color: var(--text-secondary);">Unknown OS</div>
-                        <span style="color: var(--text-secondary); opacity: 0.5;">•</span>
-                        <div id="ip-info-mac"
-                            style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace;">-</div>
+                    <div id="ip-info-manufacturer" class="device-info-main">-</div>
+                    <div class="device-info-row">
+                        <div id="ip-info-os">Unknown OS</div>
+                        <span style="opacity: 0.5;">•</span>
+                        <div id="ip-info-mac" style="font-family: monospace;">-</div>
                     </div>
                 </div>
                 <!-- New Location Card -->
                 <div class="stat-card card">
                     <label>Location</label>
-                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+                    <div class="location-row">
                         <div id="ip-info-flag"></div>
-                        <div id="ip-info-country" class="value" style="font-size: 0.9rem; font-weight: 600;">-</div>
+                        <div id="ip-info-country" class="device-info-main">-</div>
                     </div>
-                    <div id="ip-info-city" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">-
-                    </div>
+                    <div id="ip-info-city" class="device-info-row">-</div>
                 </div>
                 <!-- Client Timeline -->
-                <div class="stat-card card" style="padding: 10px; grid-column: span 2;">
-                    <label
-                        style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 5px; display: block;">Activity
-                        (Last 24h)</label>
+                <div class="stat-card card activity-timeline-card">
+                    <label style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 5px; display: block;">Activity (Last 24h)</label>
                     <div style="height: 50px; position: relative;">
                         <canvas id="ip-info-chart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <div class="analytics-row"
-                style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                <div class="query-log-container card" style="padding: 16px; margin-top: 0;">
-                    <h3 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--accent);">Top 10 Domains (Allowed)
-                    </h3>
+            <div class="analytics-row-compact">
+                <div class="query-log-container card card-layout-compact">
+                    <h3 class="card-title-accent">Top 10 Domains (Allowed)</h3>
                     <div class="overflow-x">
-                        <table class="query-table" style="font-size: 0.75rem;">
+                        <table class="query-table table-mini">
                             <thead>
                                 <tr>
                                     <th>Domain</th>
@@ -1453,10 +1437,10 @@
                     </div>
                 </div>
 
-                <div class="query-log-container card" style="padding: 16px; margin-top: 0;">
-                    <h3 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--danger);">Top Blocked Domains</h3>
+                <div class="query-log-container card card-layout-compact">
+                    <h3 class="card-title-danger">Top Blocked Domains</h3>
                     <div class="overflow-x">
-                        <table class="query-table" style="font-size: 0.75rem;">
+                        <table class="query-table table-mini">
                             <thead>
                                 <tr>
                                     <th>Domain</th>
@@ -1471,10 +1455,10 @@
                 </div>
             </div>
 
-            <div class="query-log-container card" style="padding: 16px; margin-top: 0; margin-bottom: 20px;">
-                <h3 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--text-secondary);">Recent Activity</h3>
+            <div class="query-log-container card card-layout-compact" style="margin-bottom: 20px;">
+                <h3 class="card-title-secondary">Recent Activity</h3>
                 <div class="overflow-x">
-                    <table class="query-table" style="font-size: 0.75rem;">
+                    <table class="query-table table-mini">
                         <thead>
                             <tr>
                                 <th>Time</th>
@@ -1489,8 +1473,7 @@
                 </div>
             </div>
 
-            <div
-                style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+            <div class="modal-footer-actions">
                 <button class="btn secondary" id="ip-info-view-all-btn">View full log for this client</button>
                 <button class="btn primary" id="ip-info-done-btn" style="min-width: 120px;">Done</button>
             </div>

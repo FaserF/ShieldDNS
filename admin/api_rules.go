@@ -69,11 +69,11 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 
 	domain := NormalizeDomain(req.Domain)
 	if domain == "" {
-		http.Error(w, "Domain required", http.StatusUnprocessableEntity)
+		sendJSONError(w, "Domain required", http.StatusUnprocessableEntity)
 		return
 	}
 	if !isValidDomain(domain) {
-		http.Error(w, "Invalid domain format", http.StatusBadRequest)
+		sendJSONError(w, "Invalid domain format", http.StatusBadRequest)
 		return
 	}
 
@@ -125,11 +125,11 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	} else if req.Type == "mapping" {
 		ip := strings.TrimSpace(req.IP)
 		if ip == "" {
-			http.Error(w, "IP address required for mapping", http.StatusBadRequest)
+			sendJSONError(w, "IP address required for mapping", http.StatusBadRequest)
 			return
 		}
 		if net.ParseIP(ip) == nil {
-			http.Error(w, "Invalid IP address format", http.StatusBadRequest)
+			sendJSONError(w, "Invalid IP address format", http.StatusBadRequest)
 			return
 		}
 
@@ -156,7 +156,7 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		}
 		config.CustomMappings[domain] = ip
 	} else {
-		http.Error(w, "Type must be 'block', 'allow' or 'mapping'", http.StatusBadRequest)
+		sendJSONError(w, "Type must be 'block', 'allow' or 'mapping'", http.StatusBadRequest)
 		return
 	}
 
@@ -182,7 +182,7 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 
 	domain := NormalizeDomain(req.Domain)
 	if domain == "" {
-		http.Error(w, "Domain required", http.StatusUnprocessableEntity)
+		sendJSONError(w, "Domain required", http.StatusUnprocessableEntity)
 		return
 	}
 

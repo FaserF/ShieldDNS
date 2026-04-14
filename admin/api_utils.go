@@ -22,7 +22,8 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 )
 
-var domainRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z0-9-]{2,63}$`)
+// domainRegex allows standard domains, wildcards (*.domain.com), underscores, and single-label local hostnames.
+var domainRegex = regexp.MustCompile(`^(\*\.)?([a-zA-Z0-9_]([a-zA-Z0-9-_]{0,61}[a-zA-Z0-9_])?\.)*[a-zA-Z0-9_]([a-zA-Z0-9-_]{0,61}[a-zA-Z0-9_])?$`)
 
 // isValidDomain checks if a string is a valid domain name or IP address.
 func isValidDomain(s string) bool {
@@ -41,7 +42,20 @@ func isValidDomain(s string) bool {
 	if strings.ContainsAny(s, " \n\r\t{}()<>\\\"'`|") {
 		return false
 	}
-	return domainRegex.MatchString(s)
+	
+	// Fast path for common domains
+	if domainRegex.MatchString(s) {
+		return true
+	}
+	
+	return false
+}
+
+// sendJSONError sends a machine-readable error response.
+func sendJSONError(w http.ResponseWriter, message string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
 // isValidUpstream checks if a string is a valid DNS upstream (IP or Hostname).
@@ -90,6 +104,7 @@ func NormalizeDomain(s string) string {
 			s = s[:idx]
 		}
 	}
+	s = strings.TrimPrefix(s, ".")
 	return strings.TrimSuffix(s, ".")
 }
 

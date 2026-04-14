@@ -499,7 +499,227 @@ a:hover {
 }
 
 
-/* ── Mobile fixes for forms ──────────────────────────────── */
+
+/* ── Client Details Modal (IP Info) ───────────────────────── */
+
+.analytics-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card.blocked .value {
+    color: var(--danger);
+}
+
+.progress-bar-small {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+
+.progress-bar-small > div {
+    height: 100%;
+    transition: width 0.5s ease;
+}
+
+.badge-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.client-info-value {
+    font-size: 0.85rem;
+    word-break: break-all;
+    font-weight: 500;
+}
+
+.client-info-sub {
+    font-size: 0.725rem;
+    color: var(--text-secondary);
+    line-height: 1.2;
+}
+
+.client-info-extra {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.2;
+    margin-top: 2px;
+}
+
+.device-info-main {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.device-info-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.location-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.activity-timeline-card {
+    padding: 12px;
+    grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+    .activity-timeline-card {
+        grid-column: span 1;
+    }
+}
+
+
+/* ── Modal Section Headers & Lists ───────────────────────── */
+
+.analytics-row-compact {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+    .analytics-row-compact {
+        grid-template-columns: 1fr;
+    }
+}
+
+.card-title-accent {
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: var(--accent);
+}
+
+.card-title-danger {
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: var(--danger);
+}
+
+.card-title-secondary {
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+
+/* ── Custom Rules & Mappings ────────────────────────────── */
+
+.mapping-input-group {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    flex-wrap: wrap;
+}
+
+.mapping-input-domain {
+    flex: 2;
+    min-width: 180px;
+}
+
+.mapping-input-ip {
+    flex: 1;
+    min-width: 140px;
+}
+
+.mapping-btn {
+    flex-shrink: 0;
+    min-width: 120px;
+}
+
+@media (max-width: 600px) {
+    .mapping-input-group > * {
+        flex: 1 1 100% !important;
+    }
+}
+
+
+/* ── About & Environment View ────────────────────────────── */
+
+.diag-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.diag-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.diag-item:last-child {
+    border-bottom: none;
+}
+
+.diag-item span:first-child {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.about-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 24px;
+    padding: 32px;
+}
+
+
+/* ── Search & Filter Bars ───────────────────────────────── */
+
+.search-bar-integrated {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    background: hsla(var(--hue), 20%, 100%, 0.02);
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+}
+
+.search-bar-integrated input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 10px;
+    color: var(--text-primary);
+}
+
+.search-bar-integrated input:focus {
+    outline: none;
+}
+
+.search-loading-container {
+    text-align: center;
+    padding: 32px;
+}
+
+.search-loading-text {
+    margin-top: 12px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
 
 @media (max-width: 600px) {
     .form-group.row {

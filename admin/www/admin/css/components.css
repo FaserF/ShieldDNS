@@ -202,15 +202,23 @@
     font-weight: 500;
 }
 
-.form-group input, .form-group select {
+.form-group input, .form-group select, .search-box input, .select-filter {
     width: 100%;
-    padding: 14px 16px;
+    padding: 12px 16px;
     background-color: hsla(var(--hue), 20%, 100%, 0.03);
     border: 1px solid var(--border);
     color: var(--text-primary);
-    border-radius: 12px;
+    border-radius: 14px;
     font-size: 0.95rem;
     transition: var(--transition-smooth);
+    outline: none;
+    font-family: inherit;
+}
+
+.search-box input:focus, .form-group input:focus, .select-filter:focus {
+    background-color: hsla(var(--hue), 20%, 100%, 0.06);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px hsla(var(--hue), 75%, 68%, 0.15);
 }
 
 .switch {

@@ -26,20 +26,24 @@ export async function apiFetch(endpoint, options = {}) {
         throw new Error('UNAUTHORIZED');
     }
     
-    if (response.status === 204) {
-        return {};
-    }
-    
     const text = await response.text();
-    if (!text) {
-        return {};
+    let data = {};
+    if (text) {
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            // If it's not JSON, use the raw text if it's an error status
+            if (!response.ok) {
+                throw new Error(text.substring(0, 100) || response.statusText);
+            }
+        }
+    }
+
+    if (!response.ok) {
+        throw new Error(data.error || data.message || `Server error: ${response.status}`);
     }
     
-    try {
-        return JSON.parse(text);
-    } catch (e) {
-        throw new Error(`Invalid JSON response: ${text.substring(0, 100)}`);
-    }
+    return data;
 }
 
 export const endpoints = {

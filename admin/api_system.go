@@ -99,9 +99,16 @@ type LogWriter struct{}
 
 func (w *LogWriter) Write(p []byte) (n int, err error) {
 	msg := strings.TrimSpace(string(p))
-	if msg != "" {
-		slog.Info(msg)
+	if msg == "" {
+		return len(p), nil
 	}
+
+	// Suppress noisy TLS handshake errors (e.g. from probes or premature client disconnects)
+	if strings.Contains(msg, "http: TLS handshake error") && (strings.Contains(msg, "EOF") || strings.Contains(msg, "i/o timeout")) {
+		return len(p), nil
+	}
+
+	slog.Info(msg)
 	return len(p), nil
 }
 
