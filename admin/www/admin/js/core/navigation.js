@@ -6,13 +6,21 @@ import { state, getEl } from './state.js';
 
 export function initNavigation(viewHandlers) {
     const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-        item.addEventListener('click', () => {
+    const viewTriggers = document.querySelectorAll('[data-view]');
+
+    viewTriggers.forEach(item => {
+        item.addEventListener('click', (e) => {
             const target = item.getAttribute('data-view');
             if (!target) return;
+
+            // Prevent default for anchor tags (like the logo)
+            if (item.tagName === 'A') e.preventDefault();
             
+            // Update active state in sidebar
             navItems.forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
+            const matchedNav = document.querySelector(`.nav-item[data-view="${target}"]`);
+            if (matchedNav) matchedNav.classList.add('active');
+            else item.classList.add('active');
             
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
             getEl(target)?.classList.remove('hidden');

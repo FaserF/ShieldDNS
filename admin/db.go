@@ -281,7 +281,8 @@ func flushLogs(toFlush []Query) {
 	defer stmt.Close()
 
 	for _, q := range toFlush {
-		_, err = stmt.Exec(q.Time.UTC().Format("2006-01-02 15:04:05"), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs)
+		// Use RFC3339 for storage to ensure consistency
+		_, err = stmt.Exec(q.Time.UTC().Format(time.RFC3339), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs)
 		if err != nil {
 			slog.Error("Error executing log statement", "domain", q.Domain, "error", err)
 		}
@@ -635,4 +636,12 @@ func ClearQueryLogs() error {
 	_, _ = db.Exec("VACUUM")
 	slog.Info("All query logs cleared manually")
 	return nil
+}
+func ParseFlexibleTime(ts string) (time.Time, error) {
+	// Try RFC3339 first (our new standard)
+	if t, err := time.Parse(time.RFC3339, ts); err == nil {
+		return t, nil
+	}
+	// Fallback to legacy SQL format
+	return time.Parse("2006-01-02 15:04:05", ts)
 }

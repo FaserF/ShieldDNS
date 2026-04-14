@@ -777,7 +777,7 @@ func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
 		var hp HistoryPoint
 		var ts string
 		rows.Scan(&ts, &hp.Total, &hp.Blocked, &hp.CacheHits)
-		hp.Time, _ = time.Parse("2006-01-02 15:04:05", ts)
+		hp.Time, _ = ParseFlexibleTime(ts)
 		history = append(history, hp)
 	}
 
