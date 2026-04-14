@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: go-tests
     container:
-      image: mcr.microsoft.com/playwright:v1.59.0-noble
+      image: mcr.microsoft.com/playwright:v1.59.1-noble@sha256:b0ab6f3cb99aa7803adbc14d9027ec1785fc6e433b97e134e0f8fe61683b6b53
       options: --user root -v /var/run/docker.sock:/var/run/docker.sock
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
