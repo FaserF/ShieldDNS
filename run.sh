@@ -15,6 +15,31 @@ DEFAULT_UPSTREAM="1.1.1.1"
 echo "➡️  Starting ShieldDNS Initialization..."
 
 # ------------------------------------------------------------------------------
+# 0. Permission & Privilege Management
+# ------------------------------------------------------------------------------
+fix_permissions() {
+    local TARGET_DIR=$1
+    if [ -d "$TARGET_DIR" ]; then
+        echo "🔧 Ensuring correct permissions for $TARGET_DIR..."
+        chown -R shielddns:shielddns "$TARGET_DIR"
+    fi
+}
+
+# If we are root, fix permissions and drop to shielddns user
+# This allows Docker mounts from the host to "just work" without manual CHOWN
+if [ "$(id -u)" = "0" ]; then
+    mkdir -p /etc/shielddns /ssl /data
+    fix_permissions "/etc/shielddns"
+    fix_permissions "/ssl"
+    fix_permissions "/data"
+    
+    echo "👥 Successfully prepared environment. Dropping privileges to 'shielddns' user."
+    # Re-execute this script as the shielddns user via su-exec
+    # This preserves capabilities like cap_net_bind_service
+    exec su-exec shielddns "$0" "$@"
+fi
+
+# ------------------------------------------------------------------------------
 # 1. Environment Detection & Configuration
 # ------------------------------------------------------------------------------
 if [ -f "/data/options.json" ] && [ -n "$(command -v bashio::config)" ]; then
@@ -119,8 +144,6 @@ export ADMIN_PORT=${DOH_PORT} # Listen directly on the public port
 export DNS_PORT
 export DOT_PORT
 export GOMAXPROCS=$(nproc 2>/dev/null || echo 1)
-
-mkdir -p /etc/shielddns
 
 # Initial Corefile (if backend hasn't generated one yet)
 ACTUAL_COREDNS_PORT="${INTERNAL_DOH_PORT}"

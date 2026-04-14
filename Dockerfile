@@ -13,10 +13,10 @@ RUN GOOS=linux GOARCH=$TARGETARCH go build -o shielddns-admin .
 FROM alpine:3.23@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
 
 # Install dependencies including libcap for setcap
-RUN apk add --no-cache jq ca-certificates bash curl dos2unix openssl libcap
+RUN apk add --no-cache jq ca-certificates bash curl dos2unix openssl libcap su-exec
 
-# Create shielddns user and group
-RUN addgroup -S shielddns && adduser -S shielddns -G shielddns
+# Create shielddns user and group with fixed IDs for easier volume permissions
+RUN addgroup -g 1000 -S shielddns && adduser -u 1000 -S shielddns -G shielddns
 
 # Create required directories and ensure correct ownership for non-root user
 RUN mkdir -p /etc/shielddns /ssl /data && \
@@ -44,8 +44,8 @@ VOLUME ["/etc/shielddns", "/ssl"]
 COPY run.sh /run.sh
 RUN dos2unix /run.sh && chmod +x /run.sh && chown shielddns:shielddns /run.sh
 
-# Switch to non-root user
-USER shielddns
+# Switch to non-root user (initially root to fix volume permissions)
+# USER shielddns
 
 # The entrypoint will explicitly call bash to avoid shebang issues
 ENTRYPOINT ["/bin/bash", "/run.sh"]
