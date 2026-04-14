@@ -78,6 +78,7 @@ async function refreshAll() {
         fetchService.fetchAPIKeys(),
         fetchService.fetchCountries()
     ]);
+    events.detectServerLocation();
 }
 
 function updateDashboardFeed(query) {

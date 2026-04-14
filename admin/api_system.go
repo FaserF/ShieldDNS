@@ -616,6 +616,19 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if len(newConfig.BlockedClients) == 0 && len(config.BlockedClients) > 0 {
 			newConfig.BlockedClients = config.BlockedClients
 		}
+
+		// Security: Prevent blocking the server's host country
+		if detectedServerCountry != "" || newConfig.ServerCountry != "" {
+			for _, bc := range newConfig.BlockedCountries {
+				if (detectedServerCountry != "" && strings.EqualFold(bc, detectedServerCountry)) ||
+					(newConfig.ServerCountry != "" && strings.EqualFold(bc, newConfig.ServerCountry)) {
+					http.Error(w, fmt.Sprintf("Cannot block the country where ShieldDNS is running (%s). This country is protected to ensure system accessibility.", bc), http.StatusBadRequest)
+					configLock.Unlock()
+					return
+				}
+			}
+		}
+
 		// Validate that critical clients are not being blocked manually via config
 		for _, bip := range newConfig.BlockedClients {
 			if bip == "DoH Proxy" || bip == "127.0.0.1" || bip == "::1" || bip == "localhost" {

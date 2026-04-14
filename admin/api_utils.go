@@ -736,3 +736,55 @@ func extractQuotes(s string) []string {
 	}
 	return quotes
 }
+
+var detectedServerCountry string
+
+func detectServerCountry() {
+	// Try multiple services for reliability
+	services := []string{
+		"https://ip-api.com/json/",
+		"https://api.ipify.org?format=json",
+	}
+
+	for _, svc := range services {
+		resp, err := http.Get(svc)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+
+		if strings.Contains(svc, "ip-api.com") {
+			var data struct {
+				CountryCode string `json:"countryCode"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&data); err == nil && data.CountryCode != "" {
+				detectedServerCountry = data.CountryCode
+				slog.Info("Server country detected via IP-API", "country", detectedServerCountry)
+				return
+			}
+		} else {
+			// Basic IP check if Geo fails, though we won't get country code here easily without another lookup
+		}
+	}
+	slog.Warn("Failed to detect server country. Self-blocking protection will be limited to manual checks.")
+}
+
+func handleHighRiskCountries(w http.ResponseWriter, r *http.Request) {
+	// Curated list based on 2026 threat intelligence (high volume of botnets, malware distribution, and state-sponsored activity)
+	highRisk := []string{"CN", "RU", "IR", "KP", "VN", "BR", "BY"}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(highRisk)
+}
+
+func handleServerCountry(w http.ResponseWriter, r *http.Request) {
+	configLock.RLock()
+	manual := config.ServerCountry
+	configLock.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"detected": detectedServerCountry,
+		"manual":   manual,
+	})
+}

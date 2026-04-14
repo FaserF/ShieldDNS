@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	Version    = "v1.6.1-dev+layout-fix"
+	Version    = "v1.6.1-dev+id-fix"
 	Subversion = "0"
 	CommitID   = ""
 )
@@ -207,6 +207,7 @@ func startWorkers() {
 	// Start health and monitoring
 	go startHealthChecker(appCtx)
 	go startDNSWatchdog(appCtx)
+	go detectServerCountry()
 	
 	startAuthWorkers()
 	startDNSWorkers(appCtx)
@@ -240,6 +241,8 @@ func setupRouter() *http.ServeMux {
 	mux.HandleFunc("/api/presets", handlePresets)
 	mux.HandleFunc("/api/presets/allow", handlePresetAllowlists)
 	mux.HandleFunc("/api/countries", handleGetCountries)
+	mux.Handle("/api/system/high-risk-countries", authMiddleware(http.HandlerFunc(handleHighRiskCountries)))
+	mux.Handle("/api/system/server-country", authMiddleware(http.HandlerFunc(handleServerCountry)))
 	mux.Handle("/api/clients", authMiddleware(http.HandlerFunc(handleGetAllClients)))
 	mux.Handle("/api/metrics", authMiddleware(http.HandlerFunc(handleMetrics)))
 

@@ -518,6 +518,63 @@ export function initEvents(fetchConfig) {
                 countryDropdown.classList.add('hidden');
             }
         });
+
+        // High-Risk Countries Button
+        const highRiskBtn = getEl('block-high-risk-countries-btn');
+        highRiskBtn?.addEventListener('click', async (e) => {
+            const btn = e.target;
+            helpers.setBtnLoading(btn, true, 'Analyzing...');
+            try {
+                const highRisk = await api.apiFetch(api.endpoints.highRiskCountries);
+                if (!highRisk || highRisk.length === 0) return;
+
+                if (!state.currentConfig.blocked_countries) state.currentConfig.blocked_countries = [];
+                let added = 0;
+                highRisk.forEach(code => {
+                    if (!state.currentConfig.blocked_countries.includes(code)) {
+                        // Skip if it's the server's own country (double protection UI-side)
+                        if (state.serverCountryCode && code === state.serverCountryCode) return;
+                        state.currentConfig.blocked_countries.push(code);
+                        added++;
+                    }
+                });
+
+                if (added > 0) {
+                    await saveConfig(fetchConfig);
+                    helpers.showToast(`Blocked ${added} high-risk countries`, 'success');
+                } else {
+                    helpers.showToast('All high-risk countries are already blocked', 'info');
+                }
+            } catch (err) {
+                helpers.showAlert('Failed to block high-risk countries: ' + err.message);
+            } finally {
+                helpers.setBtnLoading(btn, false);
+            }
+        });
+
+        const manualSelect = getEl('manual-server-country-select');
+        manualSelect?.addEventListener('change', (e) => {
+            const code = e.target.value;
+            const warning = getEl('server-location-warning');
+            const nameEl = getEl('server-country-name');
+            if (warning && nameEl) {
+                if (code) {
+                    const countryName = (state.allCountries || {})[code] || code;
+                    nameEl.textContent = countryName;
+                    warning.style.display = 'block';
+                    warning.style.color = '#f59e0b';
+                } else if (state.serverCountryCodeDetected) {
+                    const countryName = (state.allCountries || {})[state.serverCountryCodeDetected] || state.serverCountryCodeDetected;
+                    nameEl.textContent = countryName;
+                    warning.style.display = 'block';
+                    warning.style.color = '#10b981';
+                } else {
+                    nameEl.textContent = 'None (Auto-detection failed)';
+                    warning.style.display = 'block';
+                    warning.style.color = '#ef4444';
+                }
+            }
+        });
     }
 
     getEl('backup-btn')?.addEventListener('click', async () => {
@@ -672,6 +729,7 @@ export async function saveConfig(fetchConfig) {
         malicious_ip_blocking_enabled: getEl('malicious-check')?.checked,
         malicious_ip_interval: parseInt(getEl('malicious-interval-input')?.value) || 8,
         verify_upstream_tls: getEl('verify-upstream-tls-check')?.checked,
+        server_country: getEl('manual-server-country-select')?.value || ''
     };
 
     try {
@@ -686,5 +744,53 @@ export async function saveConfig(fetchConfig) {
         helpers.showAlert('Failed to save configuration: ' + e.message);
     } finally {
         helpers.setBtnLoading(saveBtn, false);
+    }
+}
+
+export async function detectServerLocation() {
+    try {
+        const res = await api.apiFetch(api.endpoints.serverCountry);
+        const warning = getEl('server-location-warning');
+        const nameEl = getEl('server-country-name');
+        const manualBox = getEl('manual-server-country-box');
+        const manualSelect = getEl('manual-server-country-select');
+
+        // Populate manual select if not already done
+        if (manualSelect && manualSelect.options.length <= 1) {
+            const countries = state.allCountries || {};
+            const sorted = Object.entries(countries).sort((a, b) => a[1].localeCompare(b[1]));
+            sorted.forEach(([code, name]) => {
+                const opt = document.createElement('option');
+                opt.value = code;
+                opt.textContent = name;
+                manualSelect.appendChild(opt);
+            });
+        }
+
+        if (manualSelect) manualSelect.value = res.manual || '';
+
+        if (res.detected || res.manual) {
+            state.serverCountryCodeDetected = res.detected;
+            state.serverCountryCode = res.manual || res.detected;
+            if (warning && nameEl) {
+                const effectiveCode = res.manual || res.detected;
+                const countryName = (state.allCountries || {})[effectiveCode] || effectiveCode;
+                nameEl.textContent = countryName;
+                warning.style.display = 'block';
+                warning.style.color = res.manual ? '#f59e0b' : '#10b981'; // Orange for manual, green for detected
+            }
+            if (manualBox) manualBox.classList.remove('hidden');
+        } else {
+            // Detection failed AND no manual entry
+            if (warning && nameEl) {
+                nameEl.textContent = 'None (Auto-detection failed)';
+                warning.style.display = 'block';
+                warning.style.color = '#ef4444'; // Red for failure
+            }
+            if (manualBox) manualBox.classList.remove('hidden');
+        }
+    } catch (e) {
+        console.warn('Failed to detect server location:', e);
+        getEl('manual-server-country-box')?.classList.remove('hidden');
     }
 }

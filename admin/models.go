@@ -49,6 +49,7 @@ type Config struct {
 	VerifyUpstreamTLS          bool              `json:"verify_upstream_tls"`
 	DoHRateLimit               int               `json:"doh_rate_limit"`
 	DebugMode                  bool              `json:"debug_mode"`
+	ServerCountry              string            `json:"server_country"`
 	LastLogin                  time.Time         `json:"last_login"`
 	PreviousLogin              time.Time         `json:"previous_login"`
 }

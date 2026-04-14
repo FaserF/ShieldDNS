@@ -44,6 +44,22 @@
             animation: fadeIn 0.3s ease-out;
         }
 
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        .btn.danger-outline {
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            background: rgba(var(--danger-rgb), 0.05);
+        }
+
+        .btn.danger-outline:hover {
+            background: var(--danger);
+            color: white;
+        }
+
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -935,6 +951,24 @@
                         </div>
                         <div id="blocked-countries-tags" class="tag-container"></div>
                     </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                        <button id="block-high-risk-countries-btn" class="btn btn-sm danger-outline" style="width: fit-content;">
+                            <i class="fas fa-shield-virus"></i> Block High-Risk Countries (Threat Intelligence)
+                        </button>
+                        <p id="server-location-warning" class="help" style="font-size: 0.75rem; color: #10b981; font-style: italic; display: none; margin-top: 5px; opacity: 0.9;">
+                            <i class="fas fa-server"></i> Detected ShieldDNS Server country: <span id="server-country-name">...</span> - This country is protected and cannot be blocked.
+                        </p>
+                        <div id="manual-server-country-box" class="form-group hidden" style="margin-top: 10px; padding: 12px; background: rgba(var(--accent-rgb), 0.05); border-radius: 8px; border: 1px dashed var(--border);">
+                            <label style="font-size: 0.8rem; margin-bottom: 5px; display: block;">Manual Server Location (Fallback)</label>
+                            <p class="help" style="font-size: 0.7rem; margin-bottom: 8px;">If automatic detection fails, select the country where this server is hosted to protect it from being blocked.</p>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <select id="manual-server-country-select" class="select-filter" style="flex: 1; padding: 5px;">
+                                    <option value="">-- No manual override --</option>
+                                    <!-- Options will be populated via JS -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="settings-section">
@@ -1683,35 +1717,9 @@
             }
         }
     </script>
-    <!-- System Activity Modal -->
-    <div id="activity-modal" class="modal hidden">
-        <div class="modal-content"
-            style="max-width: 700px; padding: 0; overflow: hidden; border: none; border-radius: 20px;">
-            <div style="padding: 24px; background: var(--bg-card);">
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-                    <div id="activity-icon-container"
-                        style="width: 48px; height: 48px; border-radius: 12px; background: rgba(var(--accent-rgb), 0.1); display: flex; align-items: center; justify-content: center; color: var(--accent);">
-                        <i class="fas fa-cog fa-spin fa-lg"></i>
-                    </div>
-                    <div>
-                        <h2 id="activity-title" style="margin: 0; font-size: 1.25rem;">Processing Activity...</h2>
-                        <p id="activity-desc" style="margin: 5px 0 0; font-size: 0.9rem; color: var(--text-secondary);">
-                            Real-time system feedback</p>
-                    </div>
-                </div>
-
-                <div id="activity-log-stream"
-                    style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; height: 300px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.8rem; line-height: 1.6; color: #cbd5e1; border: 1px solid var(--border);">
-                    <!-- Logs stream here -->
-                </div>
-
-                <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
-                    <button id="activity-done-btn" class="btn primary hidden">Done</button>
-                    <button id="activity-close-btn" class="btn secondary hidden">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <button id="scrollToTop" class="scroll-btn hidden">
+        <i class="fas fa-arrow-up"></i>
+    </button>
 </body>
 
 </html>
