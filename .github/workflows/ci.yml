@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -37,7 +37,7 @@ jobs:
         run: |
           apt-get update && apt-get install -y \
             docker.io \
-            docker-buildx-plugin \
+            docker-buildx \
             knot-dnsutils \
             net-tools \
             curl \
