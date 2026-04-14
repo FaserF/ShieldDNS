@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	Version    = "v1.6.1-dev+id-fix"
+	Version    = "v1.6.1-dev+layout-ultimate"
 	Subversion = "0"
 	CommitID   = ""
 )

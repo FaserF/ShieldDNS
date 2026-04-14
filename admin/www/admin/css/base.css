@@ -10,8 +10,8 @@ html {
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     overflow-x: hidden !important;
-    width: 100%;
-    max-width: 100%;
+    width: 100vw;
+    max-width: 100vw;
 }
 
 body {
@@ -20,8 +20,8 @@ body {
     color: var(--text-primary);
     line-height: 1.5;
     overflow-x: hidden !important;
-    width: 100%;
-    max-width: 100%;
+    width: 100vw;
+    max-width: 100vw;
     position: relative;
     -webkit-overflow-scrolling: touch;
 }
@@ -37,8 +37,18 @@ h1 {
     margin-bottom: 8px;
 }
 
-.hidden {
+.hidden, [hidden], .modal.hidden, .btn.hidden, .scroll-btn.hidden {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    left: -9999px !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
 }
 
 .separator {
