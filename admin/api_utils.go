@@ -172,33 +172,50 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 
 	// GeoIP for public IPs
 	if !isPrivate {
-		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-		defer cancel()
+		geoCtx, geoCancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer geoCancel()
 		
-		req, _ := http.NewRequestWithContext(ctx, "GET", "https://ip-api.com/json/"+ip, nil)
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err == nil {
-			defer resp.Body.Close()
-			var geoData struct {
-				Country     string `json:"country"`
-				CountryCode string `json:"countryCode"`
-				City        string `json:"city"`
-				ISP         string `json:"isp"`
-				Org         string `json:"org"`
-				AS          string `json:"as"`
-				Status      string `json:"status"`
+		// Try HTTPS first, then fallback to HTTP
+		endpoints := []string{
+			"https://ip-api.com/json/" + ip,
+			"http://ip-api.com/json/" + ip,
+		}
+
+		var geoData struct {
+			Country     string `json:"country"`
+			CountryCode string `json:"countryCode"`
+			City        string `json:"city"`
+			ISP         string `json:"isp"`
+			Org         string `json:"org"`
+			AS          string `json:"as"`
+			Status      string `json:"status"`
+			Message     string `json:"message"`
+		}
+
+		for _, url := range endpoints {
+			req, _ := http.NewRequestWithContext(geoCtx, "GET", url, nil)
+			req.Header.Set("User-Agent", "ShieldDNS-Admin/v1.14 (https://github.com/faserf/ShieldDNS)")
+			
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				slog.Debug("GeoIP request failed", "url", url, "error", err)
+				continue
 			}
-			if err := json.NewDecoder(resp.Body).Decode(&geoData); err == nil && geoData.Status == "success" {
+			
+			err = json.NewDecoder(resp.Body).Decode(&geoData)
+			resp.Body.Close()
+			
+			if err == nil && geoData.Status == "success" {
 				info.Country = geoData.Country
 				info.CountryCode = geoData.CountryCode
 				info.City = geoData.City
 				info.ISP = geoData.ISP
 				info.Org = geoData.Org
 				info.AS = geoData.AS
+				break
+			} else if geoData.Status == "fail" {
+				slog.Warn("GeoIP provider returned failure", "ip", ip, "msg", geoData.Message)
 			}
-		} else {
-			slog.Warn("GeoIP lookup failed", "ip", ip, "error", err)
 		}
 	}
 
@@ -759,33 +776,63 @@ func extractQuotes(s string) []string {
 var detectedServerCountry string
 
 func detectServerCountry() {
-	// Try multiple services for reliability
-	services := []string{
-		"https://ip-api.com/json/",
-		"https://api.ipify.org?format=json",
-	}
-
-	for _, svc := range services {
-		resp, err := http.Get(svc)
-		if err != nil {
-			continue
+	// Periodic check to handle network readiness and dynamic IPs
+	for {
+		// Try multiple services for reliability
+		endpoints := []string{
+			"https://ip-api.com/json/",
+			"http://ip-api.com/json/",
+			"https://ipwho.is/",
 		}
-		defer resp.Body.Close()
 
-		if strings.Contains(svc, "ip-api.com") {
-			var data struct {
-				CountryCode string `json:"countryCode"`
+		success := false
+		for _, url := range endpoints {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+			req.Header.Set("User-Agent", "ShieldDNS-Admin/v1.14")
+			
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				cancel()
+				continue
 			}
-			if err := json.NewDecoder(resp.Body).Decode(&data); err == nil && data.CountryCode != "" {
-				detectedServerCountry = data.CountryCode
-				slog.Info("Server country detected via IP-API", "country", detectedServerCountry)
-				return
+			
+			if strings.Contains(url, "ip-api.com") {
+				var data struct {
+					CountryCode string `json:"countryCode"`
+					Status      string `json:"status"`
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&data); err == nil && data.Status == "success" {
+					detectedServerCountry = data.CountryCode
+					success = true
+				}
+			} else if strings.Contains(url, "ipwho.is") {
+				var data struct {
+					CountryCode string `json:"country_code"`
+					Success     bool   `json:"success"`
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&data); err == nil && data.Success {
+					detectedServerCountry = data.CountryCode
+					success = true
+				}
 			}
+			resp.Body.Close()
+			cancel()
+			
+			if success {
+				slog.Info("Server country detected", "country", detectedServerCountry, "source", url)
+				break
+			}
+		}
+
+		if success {
+			// Refresh every 6 hours if successful
+			time.Sleep(6 * time.Hour)
 		} else {
-			// Basic IP check if Geo fails, though we won't get country code here easily without another lookup
+			slog.Warn("Failed to detect server country. Retrying in 1 minute...")
+			time.Sleep(1 * time.Minute)
 		}
 	}
-	slog.Warn("Failed to detect server country. Self-blocking protection will be limited to manual checks.")
 }
 
 func handleHighRiskCountries(w http.ResponseWriter, r *http.Request) {

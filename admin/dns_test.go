@@ -264,7 +264,19 @@ func TestUpdateCorefileTemplate(t *testing.T) {
 	defer os.Unsetenv("DOT_PORT")
 	defer os.Unsetenv("INTERNAL_DOH_PORT")
 
-	// 3. Setup mock config
+	// 3. Setup mock config and certs
+	certFile := "test_cert.pem"
+	keyFile := "test_key.pem"
+	os.WriteFile(certFile, []byte("cert"), 0644)
+	os.WriteFile(keyFile, []byte("key"), 0644)
+	defer os.Remove(certFile)
+	defer os.Remove(keyFile)
+
+	os.Setenv("CERT_FILE", certFile)
+	os.Setenv("KEY_FILE", keyFile)
+	defer os.Unsetenv("CERT_FILE")
+	defer os.Unsetenv("KEY_FILE")
+
 	configLock.Lock()
 	oldConfig := config
 	config = Config{
