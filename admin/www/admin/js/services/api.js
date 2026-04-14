@@ -84,7 +84,10 @@ export const endpoints = {
     ipInfo: '/api/ip-info',
     clients: '/api/clients',
     metrics: '/api/metrics',
-    export: '/api/export',
+    exportLogs: '/api/export',
+    clearLogs: '/api/logs/clear',
     filteringStatus: '/api/filtering/status',
-    health: '/api/health'
+    health: '/api/health',
+    highRiskCountries: '/api/system/high-risk-countries',
+    serverCountry: '/api/system/server-country'
 };

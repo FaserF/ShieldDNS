@@ -139,6 +139,11 @@
     </div>
 
     <script>
+        // Hide QR codes on mobile devices as they cannot scan their own screen
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            document.querySelectorAll('.qr-section').forEach(el => el.style.display = 'none');
+        }
+
         // Detection for Android shortcut
         if (/Android/i.test(navigator.userAgent)) {
             const androidSetup = document.getElementById('android-setup-container');
@@ -156,12 +161,12 @@
                                 await navigator.clipboard.writeText(host);
                                 btn.textContent = 'Copied! Opening Settings...';
                                 setTimeout(() => {
-                                    window.location.href = 'intent:#Intent;action=android.settings.NETWORK_OPERATOR_SETTINGS;end';
+                                    window.location.href = 'intent:#Intent;action=android.settings.WIRELESS_SETTINGS;end';
                                 }, 300);
                             }
                         } catch (err) {
                             console.error('Copy failed', err);
-                            window.location.href = 'intent:#Intent;action=android.settings.NETWORK_OPERATOR_SETTINGS;end';
+                            window.location.href = 'intent:#Intent;action=android.settings.WIRELESS_SETTINGS;end';
                         }
                         
                         setTimeout(() => {

@@ -140,7 +140,13 @@ export async function finishSetup() {
         const upstreams = getEl('setup-upstreams').value.split(',').map(s => s.trim()).filter(s => s);
         const dotUpstreams = getEl('setup-dot-upstreams').value.split(',').map(s => s.trim()).filter(s => s);
         const adminDomain = getEl('setup-admin-domain').value.trim() || 'shielddns.local';
-        const preferEncrypted = getEl('setup-prefer-encrypted').checked;
+        const preferEncrypted = getEl('setup-prefer-encrypted')?.checked ?? true;
+        
+        const abuseDetection = getEl('setup-abuse-detection')?.checked ?? true;
+        const maliciousBlocking = getEl('setup-malicious-blocking')?.checked ?? true;
+        const serveStale = getEl('setup-serve-stale')?.checked ?? true;
+        const verifyTls = getEl('setup-verify-tls')?.checked ?? true;
+        const signProfiles = getEl('setup-sign-profiles')?.checked ?? true;
         
         const selectedLists = [];
         document.querySelectorAll('#setup-presets input:checked').forEach(input => {
@@ -158,6 +164,11 @@ export async function finishSetup() {
                 upstream_dot: dotUpstreams,
                 admin_domain: adminDomain,
                 prefer_encrypted: preferEncrypted,
+                abuse_detection_enabled: abuseDetection,
+                malicious_ip_blocking_enabled: maliciousBlocking,
+                serve_stale: serveStale,
+                verify_upstream_tls: verifyTls,
+                sign_mobileconfig: signProfiles,
                 lists: selectedLists,
                 setup_done: true
             })

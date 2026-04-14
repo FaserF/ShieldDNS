@@ -18,162 +18,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ShieldDNS">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-    <style>
-        :root {
-            --accent-rgb: 99, 102, 241;
-            /* Indigo-500 equivalent */
-        }
-
-        #activity-log-stream {
-            scrollbar-width: thin;
-            scrollbar-color: var(--border) transparent;
-        }
-
-        #activity-log-stream::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        #activity-log-stream::-webkit-scrollbar-thumb {
-            background-color: var(--border);
-            border-radius: 10px;
-        }
-
-        .log-line {
-            padding: 2px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 0.85rem;
-        }
-
-        .btn.danger-outline {
-            border: 1px solid var(--danger);
-            color: var(--danger);
-            background: rgba(var(--danger-rgb), 0.05);
-        }
-
-        .btn.danger-outline:hover {
-            background: var(--danger);
-            color: white;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(5px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .success-text {
-            color: var(--success);
-            font-weight: 600;
-        }
-
-        .danger-text {
-            color: var(--danger);
-            font-weight: 600;
-        }
-
-        .pulse {
-            animation: pulse-glow 2s infinite;
-        }
-
-        @keyframes pulse-glow {
-            0% {
-                box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.4);
-            }
-
-            70% {
-                box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0);
-            }
-        }
-
-        /* Wizard Steps */
-        .wizard-steps {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-bottom: 32px;
-            padding: 10px;
-        }
-
-        .w-step {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: var(--border);
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 0.9rem;
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-            border: 1px solid var(--border);
-        }
-
-        .w-step.active {
-            background: var(--accent);
-            color: white;
-            border-color: var(--accent);
-            box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.3);
-            transform: scale(1.1);
-        }
-
-        .setup-pane h2 {
-            margin-bottom: 8px;
-            font-size: 1.5rem;
-        }
-
-        .setup-pane p {
-            margin-bottom: 24px;
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-        }
-
-        .auth-box {
-            overflow: hidden;
-            border-top: 4px solid var(--accent);
-        }
-
-        .setup-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .setup-header img {
-            width: 60px;
-            height: 60px;
-            margin-bottom: 12px;
-            filter: drop-shadow(0 4px 10px rgba(var(--accent-rgb), 0.3));
-        }
-
-        .setup-header h1 {
-            font-size: 1.6rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff 0%, var(--text-secondary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        #auth-overlay {
-            backdrop-filter: blur(20px) brightness(0.4);
-            -webkit-backdrop-filter: blur(20px) brightness(0.4);
-            background-color: rgba(0, 0, 0, 0.7);
-        }
-    </style>
+    <!-- All styles are in css/ directory. See style.css for imports. -->
 </head>
 
 <body class="dark">
@@ -462,23 +307,21 @@
             <section id="queries" class="view hidden">
                 <header>
                     <h1>Query Log</h1>
-                    <div class="header-actions">
+                    <div class="header-actions" style="flex-wrap: wrap; gap: 8px;">
                         <div class="search-box">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="query-search" placeholder="Search domain or Client IP..."
+                            <input type="text" id="query-search" placeholder="Search domain or IP..."
                                 oninput="fetchQueries()">
                         </div>
-                        <select id="query-filter-status" class="select-filter" onchange="fetchQueries()">
+                        <select id="query-filter-status" class="select-filter" onchange="fetchQueries()" style="min-width: 140px;">
                             <option value="">All Traffic</option>
                             <option value="Blocked">Blocked Only</option>
                             <option value="Allowed">Allowed Only</option>
                         </select>
-                        <button class="btn secondary" onclick="exportLogs('csv', event)"><i class="fas fa-file-csv"></i>
-                            Export
-                            CSV</button>
-                        <button class="btn secondary" onclick="exportLogs('json', event)"><i
-                                class="fas fa-file-code"></i>
-                            JSON</button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-sm secondary" onclick="exportLogs('csv', event)"><i class="fas fa-file-csv"></i> CSV</button>
+                            <button class="btn btn-sm secondary" onclick="exportLogs('json', event)"><i class="fas fa-file-code"></i> JSON</button>
+                        </div>
                     </div>
                 </header>
                 <div class="query-log-container card overflow-x">
@@ -1204,6 +1047,29 @@
                         <input type="checkbox" id="setup-prefer-encrypted" checked>
                         <label for="setup-prefer-encrypted">Prefer Encrypted Upstreams</label>
                     </div>
+                    
+                    <div style="margin-top: 15px; grid-template-columns: 1fr 1fr; display: grid; gap: 8px;">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="setup-abuse-detection" checked>
+                            <label for="setup-abuse-detection">Abuse Detection</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="setup-malicious-blocking" checked>
+                            <label for="setup-malicious-blocking">Malicious IP Blocking</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="setup-serve-stale" checked>
+                            <label for="setup-serve-stale">Enable Serve Stale</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="setup-verify-tls" checked>
+                            <label for="setup-verify-tls">Verify Upstream TLS</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="setup-sign-profiles" checked>
+                            <label for="setup-sign-profiles">Sign Apple Profiles</label>
+                        </div>
+                    </div>
                     <div class="modal-actions">
                         <button class="btn secondary" onclick="nextSetupStep(1)">Back</button>
                         <button class="btn primary" onclick="nextSetupStep(3)">Next Step</button>
@@ -1636,26 +1502,22 @@
     <div id="domain-info-modal" class="modal hidden">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <div>
-                    <h2 id="domain-info-title" style="margin-bottom: 4px;">Domain Details</h2>
-                    <div id="domain-info-subtitle" style="color: var(--accent); font-family: monospace; font-size: 0.9rem; opacity: 0.8;">domain.com</div>
+                <div class="modal-header-title">
+                    <h2 id="domain-info-title">Domain Details</h2>
+                    <div id="domain-info-subtitle" class="modal-header-subtitle">domain.com</div>
                 </div>
-                <div style="display: flex; gap: 12px; align-items: center;">
+                <div class="modal-header-actions">
                     <div id="domain-status-badge" class="badge">Checking...</div>
-                    <button id="domain-block-btn" class="btn btn-sm danger" style="padding: 8px 16px; display: none;">Block Domain</button>
-                    <button id="domain-allow-btn" class="btn btn-sm secondary" style="padding: 8px 16px; display: none;">Allow Domain</button>
+                    <button id="domain-block-btn" class="btn btn-sm danger hidden">Block Domain</button>
+                    <button id="domain-allow-btn" class="btn btn-sm secondary hidden">Allow Domain</button>
                     <button class="modal-close-btn" id="domain-info-close-btn">&times;</button>
                 </div>
             </div>
 
-            <div class="stats-grid-details"
-                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px;">
-                <div class="stat-card card" style="padding: 16px;">
-                    <label
-                        style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Category</label>
-                    <div class="value" id="domain-info-category"
-                        style="font-size: 1.1rem; font-weight: 700; margin-top: 8px; color: var(--accent);">General
-                    </div>
+            <div class="stats-grid-details">
+                <div class="stat-card card">
+                    <label>Category</label>
+                    <div class="value" id="domain-info-category" style="color: var(--accent);">General</div>
                 </div>
                 <div class="stat-card card" style="padding: 16px;">
                     <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Total
@@ -1768,6 +1630,11 @@
         }
     </script>
     <script>
+        // Hide QR codes on mobile devices as they cannot scan their own screen
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            document.querySelectorAll('.qr-section').forEach(el => el.style.display = 'none');
+        }
+
         // Detection for Android shortcut in Dashboard
         if (/Android/i.test(navigator.userAgent)) {
             const androidShortcut = document.getElementById('android-settings-shortcut');
@@ -1782,12 +1649,12 @@
                                 await navigator.clipboard.writeText(host);
                                 btn.textContent = 'Copied! Opening Settings...';
                                 setTimeout(() => {
-                                    window.location.href = 'intent:#Intent;action=android.settings.NETWORK_OPERATOR_SETTINGS;end';
+                                    window.location.href = 'intent:#Intent;action=android.settings.WIRELESS_SETTINGS;end';
                                 }, 300);
                             }
                         } catch (err) {
                             console.error('Copy failed', err);
-                            window.location.href = 'intent:#Intent;action=android.settings.NETWORK_OPERATOR_SETTINGS;end';
+                            window.location.href = 'intent:#Intent;action=android.settings.WIRELESS_SETTINGS;end';
                         }
 
                         setTimeout(() => {
