@@ -29,7 +29,7 @@ jobs:
     needs: go-tests
     container:
       image: mcr.microsoft.com/playwright:v1.59.0-noble
-      options: --user root -v /var/run/docker.sock:/var/run/docker.sock --network host
+      options: --user root -v /var/run/docker.sock:/var/run/docker.sock
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -39,7 +39,6 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          # Simple local build is enough for integration testing
           docker build -t shielddns:test .
 
       - name: Generate Self-Signed Certs for Testing
@@ -51,12 +50,22 @@ jobs:
 
       - name: Start Container
         run: |
-          docker run -d --name shielddns -p 853:853 -p 8080:8080 -v ${{ github.workspace }}/ssl:/ssl -e UPSTREAM_DNS=8.8.8.8 -e CERT_FILE=/ssl/fullchain.pem -e KEY_FILE=/ssl/privkey.pem -e DOH_PORT=8080 shielddns:test
+          # Get the network name of the current job container
+          NETWORK_NAME=$(docker inspect $(hostname) -f '{{range $net,$v := .NetworkSettings.Networks}}{{$net}}{{end}}')
+          echo "Joining network: $NETWORK_NAME"
+          
+          # Start ShieldDNS in the SAME network as the job runner
+          docker run -d --name shielddns \
+            --network "$NETWORK_NAME" \
+            -v ${{ github.workspace }}/ssl:/ssl \
+            -e UPSTREAM_DNS=8.8.8.8 \
+            -e CERT_FILE=/ssl/fullchain.pem \
+            -e KEY_FILE=/ssl/privkey.pem \
+            -e DOH_PORT=8080 shielddns:test
           sleep 10
 
       - name: Check Container Status & Logs
         run: |
-          # Wait up to 60 seconds for CoreDNS to start (first boot downloads blocklists & GeoIP)
           for i in {1..12}; do
             if docker logs shielddns 2>&1 | grep -q 'Starting CoreDNS...'; then
               echo 'CoreDNS has started.'
@@ -71,10 +80,10 @@ jobs:
 
       - name: Verify DNS Resolution (DoT)
         run: |
-          # Wait for Port 853 to be active (Health Check)
           echo "Verifying DNS listener availability..."
           for i in {1..12}; do
-            if nc -z 127.0.0.1 853; then
+            # Use 'shielddns' hostname instead of 127.0.0.1
+            if nc -z shielddns 853; then
               echo "✅ Port 853 is listening."
               break
             fi
@@ -87,12 +96,10 @@ jobs:
             fi
           done
 
-          # Query localhost on port 853 using DoT
-          if ! kdig -d @127.0.0.1 -p 853 +tls-hostname=localhost +tls-ca=ssl/fullchain.pem google.com | grep -q "NOERROR"; then
+          # Query 'shielddns' on port 853 using DoT
+          if ! kdig -d @shielddns -p 853 +tls-hostname=localhost +tls-ca=ssl/fullchain.pem google.com | grep -q "NOERROR"; then
             echo "❌ DNS Resolution Failed"
-            echo "--- Container Network State (Netstat) ---"
-            docker exec shielddns netstat -tunlp || true
-            echo "--- Container Logs ---"
+            echo "--- Container logs ---"
             docker logs shielddns
             exit 1
           fi
@@ -101,7 +108,7 @@ jobs:
       - name: Wait for Admin UI
         run: |
           for i in {1..20}; do
-            if curl -s http://localhost:8080/admin/index.html | grep -q "ShieldDNS"; then
+            if curl -s http://shielddns:8080/admin/index.html | grep -q "ShieldDNS"; then
               echo "Admin UI is up."
               break
             fi
@@ -141,7 +148,8 @@ jobs:
               for (const vp of viewports) {
                   console.log(`Checking viewport: ${vp.width}x${vp.height} (${vp.name})`);
                   await page.setViewportSize({ width: vp.width, height: vp.height });
-                  await new Promise(r => setTimeout(r, 500));
+                  // Slightly longer wait for charts/animations
+                  await new Promise(r => setTimeout(r, 800));
 
                   const overflow = await page.evaluate(() => {
                       const scrollWidth = document.documentElement.scrollWidth;
@@ -180,8 +188,9 @@ jobs:
 
           (async () => {
               const results = [];
-              results.push(await testPage('http://localhost:8080/', 'Landing Page'));
-              results.push(await testPage('http://localhost:8080/admin/', 'Admin Dashboard'));
+              // Use 'shielddns' as hostname
+              results.push(await testPage('http://shielddns:8080/', 'Landing Page'));
+              results.push(await testPage('http://shielddns:8080/admin/', 'Admin Dashboard'));
 
               if (results.every(r => r)) {
                   console.log('\n✅ All pages pass layout verification!');
