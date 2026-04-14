@@ -35,6 +35,10 @@ def get_changelog(from_tag=None):
         if any(x in sl for x in ["chore: release", "chore: bump", "merge ", "[skip ci]"]):
             continue
         
+        # Exclude "update filename.ext" (lazy commits)
+        if re.match(r"^update [^ ]+\.[^ ]+$", sl):
+            continue
+        
         # Pull request link
         sub = re.sub(r"\(#(\d+)\)", rf"([#\1]({repo_url}/pull/\1))", sub)
         entry = f"- {sub} ([{sh}]({repo_url}/commit/{fh}))"

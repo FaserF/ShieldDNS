@@ -12,7 +12,7 @@ set -e
 COREFILE_PATH="/etc/shielddns/Corefile"
 DEFAULT_UPSTREAM="1.1.1.1"
 
-echo "➡️  Starting ShieldDNS Initialization..."
+echo "Starting ShieldDNS Initialization..."
 
 # ------------------------------------------------------------------------------
 # 0. Permission & Privilege Management
@@ -20,20 +20,22 @@ echo "➡️  Starting ShieldDNS Initialization..."
 fix_permissions() {
     local TARGET_DIR=$1
     if [ -d "$TARGET_DIR" ]; then
-        echo "🔧 Ensuring correct permissions for $TARGET_DIR..."
-        chown -R shielddns:shielddns "$TARGET_DIR"
+        echo "Ensuring correct permissions for $TARGET_DIR..."
+        # Try to fix permissions, but don't fail if the filesystem is read-only
+        chown -R shielddns:shielddns "$TARGET_DIR" 2>/dev/null || echo "Note: Could not change ownership of $TARGET_DIR (likely a read-only mount). Continuing..."
     fi
 }
 
 # If we are root, fix permissions and drop to shielddns user
 # This allows Docker mounts from the host to "just work" without manual CHOWN
 if [ "$(id -u)" = "0" ]; then
-    mkdir -p /etc/shielddns /ssl /data
+    mkdir -p /etc/shielddns /data
+    [ ! -d "/ssl" ] && mkdir -p /ssl
     fix_permissions "/etc/shielddns"
     fix_permissions "/ssl"
     fix_permissions "/data"
     
-    echo "👥 Successfully prepared environment. Dropping privileges to 'shielddns' user."
+    echo "Successfully prepared environment. Dropping privileges to 'shielddns' user."
     # Re-execute this script as the shielddns user via su-exec
     # This preserves capabilities like cap_net_bind_service
     exec su-exec shielddns "$0" "$@"

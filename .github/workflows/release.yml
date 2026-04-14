@@ -115,7 +115,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🗑️ Delete existing Docker image version (if any)
-        if: github.event.inputs.recreate_release == 'true'
         run: |
           PACKAGE_NAME="${{ env.IMAGE_NAME }}"
           VERSION_TAG="v${{ env.NEW_VERSION }}"
@@ -161,7 +160,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🚀 Bump to next Development Version
-        if: github.event.inputs.recreate_release != 'true'
+        if: ${{ !github.event.inputs.recreate_release }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
