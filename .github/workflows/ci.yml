@@ -154,21 +154,36 @@ jobs:
               for (const vp of viewports) {
                   console.log(`Checking viewport: ${vp.width}x${vp.height} (${vp.name})`);
                   await page.setViewportSize({ width: vp.width, height: vp.height });
-                  await new Promise(r => setTimeout(r, 1000));
+                  await new Promise(r => setTimeout(r, 1500));
                   
                   const overflow = await page.evaluate(() => {
                       const scrollWidth = document.documentElement.scrollWidth;
                       const clientWidth = document.documentElement.clientWidth;
                       
+                      const overflowingElements = [];
+                      const allElements = document.querySelectorAll('*');
+                      allElements.forEach(el => {
+                          if (el.getBoundingClientRect().right > document.documentElement.clientWidth) {
+                              overflowingElements.push({
+                                  tagName: el.tagName,
+                                  className: el.className,
+                                  id: el.id,
+                                  right: el.getBoundingClientRect().right
+                              });
+                          }
+                      });
+                      
                       return {
                           hasOverflow: scrollWidth > clientWidth,
                           scrollWidth,
-                          clientWidth
+                          clientWidth,
+                          overflowingElements: overflowingElements.slice(0, 5)
                       };
                   });
           
                   if (overflow.hasOverflow) {
                       console.error(`  ❌ Horizontal overflow at ${vp.width}px: ${overflow.scrollWidth}px vs ${overflow.clientWidth}px (${overflow.scrollWidth - overflow.clientWidth}px overflow)`);
+                      console.error(`  Top overflowing elements:`, JSON.stringify(overflow.overflowingElements, null, 2));
                       issues.push({
                           viewport: `${vp.width}x${vp.height}`,
                           name: vp.name,
