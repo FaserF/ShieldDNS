@@ -122,6 +122,13 @@ jobs:
             sleep 2
           done
 
+      - name: Debug CSS Content
+        run: |
+          echo "--- admin/www/admin/css/base.css ---"
+          cat admin/www/admin/css/base.css
+          echo "--- admin/www/admin/css/responsive.css ---"
+          cat admin/www/admin/css/responsive.css
+
       - name: Run Layout Verification
         run: |
           npm init -y
@@ -132,7 +139,13 @@ jobs:
           async function testPage(url, pageName) {
               console.log(`\n========== Testing ${pageName} ==========`);
               const browser = await chromium.launch();
-              const page = await browser.newPage();
+              const context = await browser.newContext({
+                  viewport: { width: 1200, height: 800 },
+                  ignoreHTTPSErrors: true,
+                  bypassServiceWorker: true
+              });
+              const page = await context.newPage();
+
               const viewports = [
                   { width: 320, height: 568, name: 'iPhone SE' },
                   { width: 375, height: 667, name: 'iPhone 6/7/8' },
@@ -140,8 +153,11 @@ jobs:
               ];
 
               console.log(`Navigating to ${pageName}...`);
+              // Bypassing cache to ensure latest CSS
+              await page.route('**/*.css', route => route.continue());
+
               try {
-                  await page.goto(url, { waitUntil: 'load', timeout: 60000 });
+                  await page.goto(url, { waitUntil: 'load', timeout: 60000, referer: 'no-cache' });
               } catch (err) {
                   console.error(`❌ Failed to load ${pageName}:`, err.message);
                   await browser.close();
