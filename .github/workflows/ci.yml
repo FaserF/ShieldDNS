@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -154,40 +154,40 @@ jobs:
               for (const vp of viewports) {
                   console.log(`Checking viewport: ${vp.width}x${vp.height} (${vp.name})`);
                   await page.setViewportSize({ width: vp.width, height: vp.height });
-                  await new Promise(r => setTimeout(r, 2000));
+                  // 3 seconds to be absolutely sure everything is rendered
+                  await new Promise(r => setTimeout(r, 3000));
 
                   const overflow = await page.evaluate(() => {
                       const scrollWidth = document.documentElement.scrollWidth;
                       const clientWidth = document.documentElement.clientWidth;
 
-                      const overflowingElements = [];
+                      let widestElement = { width: 0 };
                       const allElements = document.querySelectorAll('*');
                       allElements.forEach(el => {
-                          const rect = el.getBoundingClientRect();
-                          if (rect.right > document.documentElement.clientWidth) {
-                              overflowingElements.push({
+                          const width = el.offsetWidth;
+                          if (width > widestElement.width) {
+                              widestElement = {
                                   tagName: el.tagName,
                                   className: el.className,
                                   id: el.id,
-                                  right: rect.right,
-                                  width: rect.width
-                              });
+                                  width: width,
+                                  scrollWidth: el.scrollWidth,
+                                  rectRight: el.getBoundingClientRect().right
+                              };
                           }
                       });
-
-                      overflowingElements.sort((a, b) => b.width - a.width);
 
                       return {
                           hasOverflow: scrollWidth > clientWidth,
                           scrollWidth,
                           clientWidth,
-                          overflowingElements: overflowingElements.slice(0, 10)
+                          widestElement
                       };
                   });
 
                   if (overflow.hasOverflow) {
                       console.error(`  ❌ Horizontal overflow at ${vp.width}px: ${overflow.scrollWidth}px vs ${overflow.clientWidth}px (${overflow.scrollWidth - overflow.clientWidth}px overflow)`);
-                      console.error(`  Top overflowing elements (sorted by width):`, JSON.stringify(overflow.overflowingElements, null, 2));
+                      console.error(`  WIDEST ELEMENT FOUND:`, JSON.stringify(overflow.widestElement, null, 2));
                       issues.push({
                           viewport: `${vp.width}x${vp.height}`,
                           name: vp.name,
