@@ -27,26 +27,21 @@ jobs:
     name: DNS & UI Integration Tests
     runs-on: ubuntu-latest
     needs: go-tests
-    container:
-      image: mcr.microsoft.com/playwright:v1.59.1-noble@sha256:b0ab6f3cb99aa7803adbc14d9027ec1785fc6e433b97e134e0f8fe61683b6b53
-      options: --user root -v /var/run/docker.sock:/var/run/docker.sock
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Install Docker, Buildx & DNS Tools
-        run: |
-          apt-get update && apt-get install -y \
-            docker.io \
-            docker-buildx \
-            knot-dnsutils \
-            net-tools \
-            curl \
-            openssl
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Build Docker Image
-        run: |
-          # Use --no-cache to ensure Go embeds the LATEST CSS files from the repository
-          docker buildx build --no-cache --load -t shielddns:test .
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
+        with:
+          context: .
+          load: true
+          tags: shielddns:test
 
       - name: Generate Self-Signed Certs for Testing
         run: |
@@ -57,22 +52,12 @@ jobs:
 
       - name: Start Container
         run: |
-          # Get the network name of the current job container
-          NETWORK_NAME=$(docker inspect $(hostname) -f '{{range $net,$v := .NetworkSettings.Networks}}{{$net}}{{end}}')
-          echo "Joining network: $NETWORK_NAME"
-
-          # Start ShieldDNS in the SAME network as the job runner
-          docker run -d --name shielddns \
-            --network "$NETWORK_NAME" \
-            -v ${{ github.workspace }}/ssl:/ssl \
-            -e UPSTREAM_DNS=8.8.8.8 \
-            -e CERT_FILE=/ssl/fullchain.pem \
-            -e KEY_FILE=/ssl/privkey.pem \
-            -e DOH_PORT=8080 shielddns:test
+          docker run -d --name shielddns -p 853:853 -p 8080:8080 -v ${{ github.workspace }}/ssl:/ssl -e UPSTREAM_DNS=8.8.8.8 -e CERT_FILE=/ssl/fullchain.pem -e KEY_FILE=/ssl/privkey.pem -e DOH_PORT=8080 shielddns:test
           sleep 10
 
       - name: Check Container Status & Logs
         run: |
+          # Wait up to 60 seconds for CoreDNS to start (first boot downloads blocklists & GeoIP)
           for i in {1..12}; do
             if docker logs shielddns 2>&1 | grep -q 'Starting CoreDNS...'; then
               echo 'CoreDNS has started.'
@@ -87,9 +72,13 @@ jobs:
 
       - name: Verify DNS Resolution (DoT)
         run: |
+          # Install dependencies for verification
+          sudo apt-get update && sudo apt-get install -y knot-dnsutils net-tools
+
+          # Wait for Port 853 to be active (Health Check)
           echo "Verifying DNS listener availability..."
           for i in {1..12}; do
-            if nc -z shielddns 853; then
+            if nc -z 127.0.0.1 853; then
               echo "✅ Port 853 is listening."
               break
             fi
@@ -102,10 +91,13 @@ jobs:
             fi
           done
 
-          # Query 'shielddns' on port 853 using DoT
-          if ! kdig -d @shielddns -p 853 +tls-hostname=localhost +tls-ca=ssl/fullchain.pem google.com | grep -q "NOERROR"; then
+          # Query localhost on port 853 using DoT
+          # We disable cert verification (+tls-ca) because we used a self-signed cert
+          if ! kdig -d @127.0.0.1 -p 853 +tls-hostname=localhost +tls-ca=ssl/fullchain.pem google.com | grep -q "NOERROR"; then
             echo "❌ DNS Resolution Failed"
-            echo "--- Container logs ---"
+            echo "--- Container Network State (Netstat) ---"
+            docker exec shielddns netstat -tunlp || true
+            echo "--- Container Logs ---"
             docker logs shielddns
             exit 1
           fi
@@ -114,7 +106,7 @@ jobs:
       - name: Wait for Admin UI
         run: |
           for i in {1..20}; do
-            if curl -s http://shielddns:8080/admin/index.html | grep -q "ShieldDNS"; then
+            if curl -s http://localhost:8080/admin/index.html | grep -q "ShieldDNS"; then
               echo "Admin UI is up."
               break
             fi
@@ -122,28 +114,27 @@ jobs:
             sleep 2
           done
 
-      - name: Run Layout Verification
+      - name: Set up Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 24.14.1
+
+      - name: Install Playwright
         run: |
           npm init -y
           npm install playwright
+          npx playwright install-deps
+          npx playwright install chromium
+
+      - name: Run Layout Verification
+        run: |
           cat << 'EOF' > verify_layout.js
           const { chromium } = require('playwright');
 
           async function testPage(url, pageName) {
               console.log(`\n========== Testing ${pageName} ==========`);
               const browser = await chromium.launch();
-              const context = await browser.newContext({
-                  viewport: { width: 1200, height: 800 },
-                  ignoreHTTPSErrors: true,
-                  bypassServiceWorker: true,
-                  extraHTTPHeaders: {
-                      'Cache-Control': 'no-cache, no-store, must-revalidate',
-                      'Pragma': 'no-cache',
-                      'Expires': '0'
-                  }
-              });
-              const page = await context.newPage();
-
+              const page = await browser.newPage();
               const viewports = [
                   { width: 320, height: 568, name: 'iPhone SE' },
                   { width: 375, height: 667, name: 'iPhone 6/7/8' },
@@ -151,8 +142,6 @@ jobs:
               ];
 
               console.log(`Navigating to ${pageName}...`);
-              await page.route('**/*.css', route => route.continue());
-
               try {
                   await page.goto(url, { waitUntil: 'load', timeout: 60000 });
               } catch (err) {
@@ -167,42 +156,21 @@ jobs:
               for (const vp of viewports) {
                   console.log(`Checking viewport: ${vp.width}x${vp.height} (${vp.name})`);
                   await page.setViewportSize({ width: vp.width, height: vp.height });
-                  // 4 seconds - let's be extremely patient
-                  await new Promise(r => setTimeout(r, 4000));
+                  await new Promise(r => setTimeout(r, 500));
 
                   const overflow = await page.evaluate(() => {
                       const scrollWidth = document.documentElement.scrollWidth;
                       const clientWidth = document.documentElement.clientWidth;
 
-                      let outmostElement = { right: 0 };
-                      const allElements = document.querySelectorAll('*');
-                      allElements.forEach(el => {
-                          const rect = el.getBoundingClientRect();
-                          if (rect.right > outmostElement.right) {
-                              outmostElement = {
-                                  tagName: el.tagName,
-                                  className: el.className,
-                                  id: el.id,
-                                  width: el.offsetWidth,
-                                  left: rect.left,
-                                  right: rect.right,
-                                  visibility: window.getComputedStyle(el).visibility,
-                                  display: window.getComputedStyle(el).display
-                              };
-                          }
-                      });
-
                       return {
                           hasOverflow: scrollWidth > clientWidth,
                           scrollWidth,
-                          clientWidth,
-                          outmostElement
+                          clientWidth
                       };
                   });
 
                   if (overflow.hasOverflow) {
                       console.error(`  ❌ Horizontal overflow at ${vp.width}px: ${overflow.scrollWidth}px vs ${overflow.clientWidth}px (${overflow.scrollWidth - overflow.clientWidth}px overflow)`);
-                      console.error(`  RIGHTMOST ELEMENT:`, JSON.stringify(overflow.outmostElement, null, 2));
                       issues.push({
                           viewport: `${vp.width}x${vp.height}`,
                           name: vp.name,
@@ -227,8 +195,8 @@ jobs:
 
           (async () => {
               const results = [];
-              results.push(await testPage('http://shielddns:8080/', 'Landing Page'));
-              results.push(await testPage('http://shielddns:8080/admin/', 'Admin Dashboard'));
+              results.push(await testPage('http://localhost:8080/', 'Landing Page'));
+              results.push(await testPage('http://localhost:8080/admin/', 'Admin Dashboard'));
 
               if (results.every(r => r)) {
                   console.log('\n✅ All pages pass layout verification!');
@@ -240,8 +208,3 @@ jobs:
           })();
           EOF
           node verify_layout.js
-
-      - name: Stop & Cleanup ShieldDNS
-        if: always()
-        run: |
-          docker rm -f shielddns || true

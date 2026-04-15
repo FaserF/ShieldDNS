@@ -9,30 +9,6 @@
     position: sticky;
     top: 0;
     z-index: 1000;
-    width: 100%;
-    max-width: 100vw;
-    box-sizing: border-box;
-}
-
-.mobile-logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--text-primary);
-    text-decoration: none;
-}
-
-.mobile-logo img {
-    height: 32px;
-    width: 32px;
-    object-fit: contain;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-}
-
-.mobile-logo span {
-    font-weight: 700;
-    font-size: 1.1rem;
-    letter-spacing: -0.01em;
 }
 
 .hamburger {
@@ -171,11 +147,11 @@
     .header-actions .btn {
         width: 100%;
     }
-    
+
     .copy-input {
         flex-direction: column;
     }
-    
+
     .copy-btn {
         border-left: none;
         border-top: 1px solid var(--border);
@@ -199,7 +175,7 @@
         padding: 0 8px;
     }
 }
-    
+
 @media (max-width: 360px) {
     .content {
         padding: 16px 12px;
@@ -222,7 +198,7 @@
         width: 160px;
         height: 160px;
     }
-    
+
     header h1 {
         font-size: 1.5rem;
     }
@@ -269,7 +245,7 @@
         align-items: stretch;
         gap: 16px;
     }
-    
+
     .form-group.row {
         flex-direction: column;
         align-items: stretch;

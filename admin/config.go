@@ -319,11 +319,21 @@ func updateBlocklist(cfg *Config) {
 }
 
 func applyCurrentRules(attribution map[string][]string, allowSet map[string]struct{}, mappings map[string]string, blockIP string) {
-	// Remove allowlisted domains from attribution and populate blockDomains for .hosts file
-	blockDomains := make(map[string]struct{})
+	// Remove allowlisted domains (and their subdomains) from attribution and populate blockDomains for .hosts file
 	for d := range allowSet {
+		// Exact match
 		delete(attribution, d)
+		
+		// Wildcard match for subdomains
+		// This ensures that an allowlist entry for "google.com" also allows "www.google.com"
+		for ad := range attribution {
+			if strings.HasSuffix(ad, "."+d) {
+				delete(attribution, ad)
+			}
+		}
 	}
+
+	blockDomains := make(map[string]struct{})
 
 	// Always enforce blocking for the built-in test domain regardless of allowlists
 	attribution["shielddns-maleware.test"] = []string{"ShieldDNS Built-in Test Domain"}
@@ -496,7 +506,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		// AdGuard / AdBlock: ||domain^
 		if strings.HasPrefix(line, "||") {
 			domain = strings.Split(strings.TrimPrefix(line, "||"), "^")[0]
-		} else if strings.HasPrefix(line, "0.0.0.0 ") || strings.HasPrefix(line, "127.0.0.1 ") || strings.HasPrefix(line, "::1 ") {
+		} else if strings.HasPrefix(line, "0.0.0.0 ") || strings.HasPrefix(line, "127.0.0.1 ") || strings.HasPrefix(line, "::1 ") || strings.HasPrefix(line, ":: ") {
 			// Hosts: 0.0.0.0 domain
 			parts := strings.Fields(line)
 			if len(parts) >= 2 {
@@ -508,13 +518,26 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			if len(parts) >= 3 {
 				domain = parts[1]
 			}
-		} else if !strings.Contains(line, "/") && !strings.Contains(line, " ") && strings.Contains(line, ".") {
-			// Raw domain
-			domain = line
+		} else {
+			// Raw domain, potentially with comments or multiple fields
+			// Remove comments first
+			lineContent := strings.Split(line, "#")[0]
+			lineContent = strings.Split(lineContent, "!")[0]
+			parts := strings.Fields(lineContent)
+			if len(parts) > 0 {
+				potentialDomain := parts[0]
+				// Basic check for a domain-like string
+				if strings.Contains(potentialDomain, ".") && !strings.Contains(potentialDomain, "/") {
+					domain = potentialDomain
+				}
+			}
 		}
 
 		if domain != "" {
-			domain = strings.Trim(domain, ".") // Some lists have trailing dots
+			domain = NormalizeDomain(domain)
+			if domain == "" {
+				continue
+			}
 			count++
 			if isAllowlist {
 				allowMap[domain] = struct{}{}

@@ -97,6 +97,7 @@ func escapeXML(s string) string {
 }
 
 // NormalizeDomain strips protocols, paths, fragments, and trailing dots to return a clean domain.
+// NormalizeDomain strips protocols, paths, fragments, and trailing dots to return a clean domain in lowercase.
 func NormalizeDomain(s string) string {
 	s = strings.TrimSpace(s)
 	s = strings.ToLower(s)

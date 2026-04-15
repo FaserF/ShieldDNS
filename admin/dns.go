@@ -704,7 +704,7 @@ func parseLogLine(line string) {
 			qFields := strings.Fields(quotes[0]) // "query_info" usually is "TYPE CLASS NAME +flags"
 			if len(qFields) >= 3 {
 				qType = qFields[0]
-				qDomain = strings.TrimSuffix(qFields[2], ".")
+				qDomain = NormalizeDomain(qFields[2])
 			}
 
 			// Suffix after the last quote
@@ -721,7 +721,7 @@ func parseLogLine(line string) {
 			// FORMAT A (ShieldDNS specific custom format)
 			remote = pFields[0]
 			qType = pFields[1]
-			qDomain = strings.TrimSuffix(pFields[2], ".")
+			qDomain = NormalizeDomain(pFields[2])
 			rcode = pFields[3]
 			rflags = pFields[4]
 			durationStr = pFields[5]
@@ -889,6 +889,9 @@ func parseLogLine(line string) {
 		DurationMs:  duration,
 	}
 
+	// Record real-time metrics and QPS
+	RecordQuery(q)
+	
 	bufferLock.Lock()
 	logBuffer = append(logBuffer, q)
 	bufferLock.Unlock()
