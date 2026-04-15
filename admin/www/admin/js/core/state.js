@@ -12,7 +12,8 @@ export const state = {
     allCountries: {},
     diagnosticsInterval: null,
     systemLogStream: null,
-    isDirty: false
+    isDirty: false,
+    liveUpdatesEnabled: true
 };
 
 export const getEl = (id) => document.getElementById(id);

@@ -118,6 +118,7 @@ export function startSSE(createQueryRow, updateDashboardFeed) {
     
     state.queryEventSource.onmessage = (event) => {
         try {
+            if (!state.liveUpdatesEnabled) return;
             const query = JSON.parse(event.data);
             if (query.type === 'ping') return;
             

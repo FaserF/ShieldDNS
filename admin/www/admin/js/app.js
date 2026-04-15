@@ -137,6 +137,20 @@ window.refreshAll = refreshAll;
 window.showDomainDetails = (domain) => fetchService.fetchDomainDetails(domain);
 window.showIPDetails = (ip) => fetchService.fetchIPDetails(ip);
 
+window.toggleLiveUpdate = () => {
+    state.liveUpdatesEnabled = !state.liveUpdatesEnabled;
+    const btn = document.getElementById('live-update-toggle');
+    if (btn) {
+        if (state.liveUpdatesEnabled) {
+            btn.innerHTML = '<i class="fas fa-pause"></i> <span>Pause Live</span>';
+            btn.classList.remove('primary');
+        } else {
+            btn.innerHTML = '<i class="fas fa-play"></i> <span>Resume Live</span>';
+            btn.classList.add('primary');
+        }
+    }
+};
+
 window.addPreset = async (name, url, event) => {
     const listUrl = (url || '').toLowerCase().trim();
     if ((state.currentConfig.lists || []).some(l => (l.url || '').toLowerCase().trim() === listUrl)) {

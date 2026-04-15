@@ -163,6 +163,8 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	statusFilter := r.URL.Query().Get("status")
 	clientIP := r.URL.Query().Get("client_ip")
 	limitStr := r.URL.Query().Get("limit")
+	fromTime := r.URL.Query().Get("from_time")
+	toTime := r.URL.Query().Get("to_time")
 
 	limit := 100
 	if limitStr != "" {
@@ -174,7 +176,7 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	// Optimization: If searching or filtering by client, we search the full table.
 	// Only for general overview (no filters) we limit to the latest 2000 for performance.
 	var baseQuery string
-	if search != "" || clientIP != "" {
+	if search != "" || clientIP != "" || fromTime != "" || toTime != "" {
 		baseQuery = "SELECT timestamp, domain, type, status, client_ip FROM queries WHERE 1=1"
 	} else {
 		baseQuery = "SELECT timestamp, domain, type, status, client_ip FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) WHERE 1=1"
@@ -199,6 +201,15 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	if clientIP != "" {
 		query += " AND client_ip = ?"
 		args = append(args, clientIP)
+	}
+	if fromTime != "" {
+		// Replace 'T' with space for SQLite datetime comparison
+		query += " AND timestamp >= ?"
+		args = append(args, strings.ReplaceAll(fromTime, "T", " "))
+	}
+	if toTime != "" {
+		query += " AND timestamp <= ?"
+		args = append(args, strings.ReplaceAll(toTime, "T", " "))
 	}
 
 	query += fmt.Sprintf(" ORDER BY timestamp DESC LIMIT %d", limit)

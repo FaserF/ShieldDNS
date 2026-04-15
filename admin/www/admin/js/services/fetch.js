@@ -41,6 +41,8 @@ export async function fetchHistory() {
 export async function fetchQueries(immediate = false) {
     const search = getEl('query-search')?.value.trim() || '';
     const status = getEl('query-filter-status')?.value || '';
+    const fromTime = getEl('query-time-from')?.value || '';
+    const toTime = getEl('query-time-to')?.value || '';
     
     const fetchId = ++state.activeFetchId;
     if (uiRefs.fullQueryLogItems) {
@@ -48,7 +50,7 @@ export async function fetchQueries(immediate = false) {
     }
 
     try {
-        const queries = await api.apiFetch(`${api.endpoints.queries}?search=${encodeURIComponent(search)}&status=${status}`);
+        const queries = await api.apiFetch(`${api.endpoints.queries}?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}&from_time=${encodeURIComponent(fromTime)}&to_time=${encodeURIComponent(toTime)}`);
         if (fetchId === state.activeFetchId) {
             render.renderQueries(queries);
         }

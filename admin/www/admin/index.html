@@ -319,6 +319,14 @@
                             <option value="Blocked">Blocked Only</option>
                             <option value="Allowed">Allowed Only</option>
                         </select>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="datetime-local" id="query-time-from" title="From Time" onchange="fetchQueries()" class="select-filter">
+                            <span>-</span>
+                            <input type="datetime-local" id="query-time-to" title="To Time" onchange="fetchQueries()" class="select-filter">
+                        </div>
+                        <button id="live-update-toggle" class="btn secondary" onclick="toggleLiveUpdate()" style="min-width: 120px;" title="Toggle Live Updates">
+                            <i class="fas fa-pause"></i> <span>Pause Live</span>
+                        </button>
                         <div style="display: flex; gap: 8px;">
                             <button class="btn btn-sm secondary" onclick="exportLogs('csv', event)"><i class="fas fa-file-csv"></i> CSV</button>
                             <button class="btn btn-sm secondary" onclick="exportLogs('json', event)"><i class="fas fa-file-code"></i> JSON</button>
