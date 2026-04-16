@@ -23,7 +23,8 @@ It features a **State-of-the-art Premium Admin Dashboard** with a modern Glassmo
 - ⚡ **1-Click Allow / Block**: Directly allow or block any domain from the live Query Log table.
 - 🔍 **Client IP Diagnostics**: Clickable Client IPs in logs with detailed GeoIP, Reverse DNS, and history preview.
 - 🚫 **Client IP Blocking**: Block any client IP from using your DNS server directly from the Client Details view.
-- 🤖 **Abuse Detection Engine**: Automatically detects and blocks clients exhibiting malicious behaviors (e.g., Domain Floods, Rate Limit abuse, NXDOMAIN floods by DGA bots).
+- 🤖 **Abuse Detection Engine**: Automatically detects and blocks clients exhibiting malicious behaviors. Includes **intelligent log suppression** to keep system logs clean from repeater bot handshake errors.
+- 🔍 **Settings Search**: Instant search functionality within the Admin Settings to find specific options across multiple categories.
 - 🧹 **Optimized Default Lists**: Ships with a single, curated default (HaGeZi Multi Normal) for maximum protection with minimal RAM usage on any hardware.
 - 📜 **Performant Query Logs**: Virtual scrolling implementation allows silky-smooth browsing through thousands of query entries without DOM lag.
 - 🪵 **Structured Logging**: Native `log/slog` integration provides machine-readable JSON logs for Docker/Loki while maintaining human-friendly Admin UI logs via a custom handler bridge.
@@ -200,6 +201,7 @@ ShieldDNS now stores your query history in a persistent SQLite database:
 - **Client Aliasing**: Assign friendly names to IPs for easier identification across all views.
 - **Hourly Trends**: 24-hour traffic visualization shows you exactly when your network is most active.
 - **Live Logs**: Zero-latency query streaming via Server-Sent Events (SSE).
+- **Blocked Domains Count**: Real-time counter showing the total number of unique domains blocked across all filter lists and custom rules.
 - **Client IP Diagnostics**: Interactive query logs where clicking an IP reveals GeoIP location, Reverse DNS hostname, and a client-specific query history preview.
 - **Cache Hit Ratio & Upstream Performance**: Real-time diagnostic trackers showing local cache efficiency and a live upstream latency chart.
 

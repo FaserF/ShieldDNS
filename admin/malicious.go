@@ -17,7 +17,7 @@ import (
 
 var (
 	maliciousIPList []string
-	maliciousIPMap  sync.Map // ip -> struct{}
+	maliciousIPMap  = &sync.Map{} // *sync.Map
 	maliciousMu     sync.RWMutex
 	maliciousPath   = filepath.Join(DataDir, "malicious.hosts")
 )
@@ -114,8 +114,8 @@ func updateMaliciousMemory(ips []string) {
 	maliciousIPList = ips
 	maliciousMu.Unlock()
 
-	// Clear Map and rebuild
-	newMap := sync.Map{}
+	// Rebuild and swap pointer
+	newMap := &sync.Map{}
 	for _, ip := range ips {
 		newMap.Store(ip, struct{}{})
 	}

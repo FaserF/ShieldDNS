@@ -64,6 +64,36 @@ export function initEvents(fetchConfig) {
     // Support legacy onclick handlers
     window.checkProtection = handleCheck;
 
+    // Settings Search
+    const settingsSearchInput = getEl('settings-search-input');
+    settingsSearchInput?.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        const sections = document.querySelectorAll('#settings-form .settings-section, #settings .settings-section');
+        
+        sections.forEach(section => {
+            let sectionHasMatch = false;
+            const groups = section.querySelectorAll('.form-group, .checkbox-group, .table-header-actions, .card.overflow-x');
+            const h2 = section.querySelector('h2');
+            
+            // Check section title itself
+            const titleMatch = h2 && h2.textContent.toLowerCase().includes(query);
+            
+            if (titleMatch && query !== "") {
+                sectionHasMatch = true;
+                groups.forEach(g => g.style.display = '');
+            } else {
+                groups.forEach(group => {
+                    const text = group.textContent.toLowerCase();
+                    const isMatch = query === "" || text.includes(query);
+                    group.style.display = isMatch ? '' : 'none';
+                    if (isMatch) sectionHasMatch = true;
+                });
+            }
+            
+            section.style.display = sectionHasMatch ? '' : 'none';
+        });
+    });
+
     // General Update/Refresh
     const refreshBtn = getEl('refresh-btn');
     refreshBtn?.addEventListener('click', async () => {
