@@ -11,6 +11,26 @@
     z-index: 1000;
 }
 
+.mobile-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mobile-logo img {
+    height: 32px;
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+.mobile-logo span {
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
 .hamburger {
     background: none;
     border: none;
@@ -72,7 +92,9 @@
     header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 16px;
+        gap: 12px;
+        margin-top: 0;
+        margin-bottom: 24px;
     }
 
     .stats-grid {
@@ -89,15 +111,16 @@
     }
 
     .protection-status-card {
-        padding: 24px;
+        padding: 20px;
         border-radius: 20px;
+        margin-bottom: 24px;
     }
 
     .status-header {
         flex-direction: column;
         align-items: center;
         text-align: center;
-        gap: 20px;
+        gap: 16px;
         margin-bottom: 24px;
     }
 
@@ -105,6 +128,7 @@
         grid-template-columns: 1fr;
         gap: 20px;
         padding: 16px;
+        margin-bottom: 24px;
     }
 
     .apple-setup-qr {
@@ -114,7 +138,7 @@
     .stats-grid {
         grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
         gap: 12px;
-        margin-bottom: 40px;
+        margin-bottom: 24px;
     }
 
     .stat-card {
