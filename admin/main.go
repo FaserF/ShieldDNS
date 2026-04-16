@@ -29,6 +29,7 @@ var (
 	CacheVersion string
 	appCtx       context.Context
 	appCancel    context.CancelFunc
+	testMode     = false
 )
 
 func init() {

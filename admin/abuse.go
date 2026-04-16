@@ -184,7 +184,11 @@ func extractTLD(domain string) string {
 }
 
 func blockClientAuto(ip, reason string) {
-	if IsCriticalIP(ip) {
+	configLock.RLock()
+	bpIP := config.BlockPageIP
+	configLock.RUnlock()
+
+	if IsCriticalIP(ip, bpIP) {
 		slog.Info("Skipping auto-block for critical IP", "ip", ip, "reason", reason)
 		return
 	}

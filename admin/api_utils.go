@@ -102,9 +102,19 @@ func NormalizeDomain(s string) string {
 	if s == "" {
 		return ""
 	}
+
+	// Heuristic: If it contains a slash but no protocol delimiter, it's a path traversal or absolute path
+	// e.g. "../../../etc/passwd" or "/etc/passwd"
+	// but "http://google.com" is fine.
+	firstSlash := strings.Index(s, "/")
+	protocolIdx := strings.Index(s, "://")
+	if firstSlash != -1 && (protocolIdx == -1 || firstSlash < protocolIdx) {
+		return ""
+	}
+
 	// Strip protocols
-	if idx := strings.Index(s, "://"); idx != -1 {
-		s = s[idx+3:]
+	if protocolIdx != -1 {
+		s = s[protocolIdx+3:]
 	}
 	// Strip paths and query strings
 	if idx := strings.IndexAny(s, "/?#"); idx != -1 {
@@ -116,13 +126,10 @@ func NormalizeDomain(s string) string {
 }
 
 // IsCriticalIP checks if an IP belongs to core infrastructure that should never be blocked.
-func IsCriticalIP(ip string) bool {
+func IsCriticalIP(ip string, blockPageIP string) bool {
 	if ip == "DoH Proxy" || ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
 		return true
 	}
-	configLock.RLock()
-	blockPageIP := config.BlockPageIP
-	configLock.RUnlock()
 
 	if ip != "" && ip == blockPageIP {
 		return true

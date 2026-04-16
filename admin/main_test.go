@@ -33,6 +33,7 @@ func TestMain(m *testing.M) {
 
 	// Initialize subsystems
 	initDB()
+	testMode = true
 
 	// Run tests
 	exitCode := m.Run()
