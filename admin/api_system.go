@@ -736,6 +736,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		// Security: Validate Upstreams and UpstreamDoT for malicious injections
 		validatedUpstreams := make([]string, 0, len(newConfig.Upstreams))
 		for _, u := range newConfig.Upstreams {
+			u = strings.TrimSpace(u)
 			if isValidUpstream(u) {
 				validatedUpstreams = append(validatedUpstreams, u)
 			} else if u != "" {
@@ -748,6 +749,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		validatedDoT := make([]string, 0, len(newConfig.UpstreamDoT))
 		for _, u := range newConfig.UpstreamDoT {
+			u = strings.TrimSpace(u)
 			if isValidUpstream(u) {
 				validatedDoT = append(validatedDoT, u)
 			} else if u != "" {

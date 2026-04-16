@@ -67,6 +67,23 @@
             results.push(`⚠️ Touch Targets: ${touchIssues} elements are smaller than 32x32px and may be hard to tap on mobile.`);
         }
 
+        // 5. Flex-Nowrap Overflow Audit (Crucial for button groups)
+        const allDivs = document.querySelectorAll('div, section, aside, header, nav');
+        allDivs.forEach(el => {
+            const style = window.getComputedStyle(el);
+            if (style.display === 'flex' && style.flexWrap === 'nowrap') {
+                // If it's a flex container that doesn't wrap, check if it's wider than its parent or viewport
+                if (el.scrollWidth > el.clientWidth + 2) { // 2px buffer
+                    const isExplicitlyScrollable = el.classList.contains('overflow-x') || el.style.overflowX === 'auto' || el.style.overflowX === 'scroll';
+                    if (!isExplicitlyScrollable) {
+                        const description = el.id ? `#${el.id}` : (el.className ? `.${el.className.split(' ').join('.')}` : `<${el.tagName.toLowerCase()}>`);
+                        results.push(`❌ Non-Wrapping Flex Container Overflow: ${description} (Width: ${el.scrollWidth}px). Use 'flex-wrap: wrap' for mobile safety.`);
+                        passed = false;
+                    }
+                }
+            }
+        });
+
         // Final Report
         results.forEach(r => {
             if (r.startsWith('✅')) console.log(`%c${r}`, 'color: #10b981; font-weight: bold;');

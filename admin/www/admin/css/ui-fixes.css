@@ -146,10 +146,36 @@ input::placeholder {
 
 .success-text { color: var(--success); font-weight: 600; }
 .danger-text  { color: var(--danger);  font-weight: 600; }
-.mt-3 { margin-top: 1rem; }
 
+/* Margin Utilities */
+.mt-1 { margin-top: 0.25rem !important; }
+.mt-2 { margin-top: 0.5rem  !important; }
+.mt-3 { margin-top: 1rem    !important; }
+.mt-4 { margin-top: 1.5rem  !important; }
+.mt-5 { margin-top: 2.5rem  !important; }
 
-/* ── Button Variants ──────────────────────────────────────── */
+.mb-0 { margin-bottom: 0      !important; }
+.mb-1 { margin-bottom: 0.25rem !important; }
+.mb-2 { margin-bottom: 0.5rem  !important; }
+.mb-3 { margin-bottom: 1rem    !important; }
+.mb-4 { margin-bottom: 2.5rem !important; }
+.mb-5 { margin-bottom: 4rem    !important; }
+
+/* Flex & Layout Utilities */
+.flex-wrap { flex-wrap: wrap !important; }
+.flex-nowrap { flex-wrap: nowrap !important; }
+.flex-gap-sm { gap: 8px !important; }
+.flex-gap-md { gap: 12px !important; }
+.flex-gap-lg { gap: 20px !important; }
+
+.btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+/* ──────────────── Button Variants ────────────────────────── */
 
 .btn-sm {
     padding: 6px 14px;
@@ -809,9 +835,18 @@ a:hover {
     gap: 12px;
     align-items: stretch;
     background: hsla(var(--hue), 20%, 100%, 0.02);
-    padding: 16px;
+    padding: 16px 20px;
     border-radius: 16px;
     border: 1px solid var(--border);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.search-bar-integrated:focus-within {
+    background: hsla(var(--hue), 20%, 100%, 0.04);
+    border-color: var(--accent);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
 }
 
 .search-bar-integrated input {

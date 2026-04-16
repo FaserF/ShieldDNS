@@ -42,6 +42,11 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	s.BlockedDomains = int64(len(blockAttribution))
 	blockAttributionLock.RUnlock()
 
+	// Keep global stats in sync
+	statsLock.Lock()
+	stats.BlockedDomains = s.BlockedDomains
+	statsLock.Unlock()
+
 	// Query unique clients (cached for 1 minute)
 	statsLock.RLock()
 	lastUpdate := lastUniqueUpdate

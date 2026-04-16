@@ -510,7 +510,7 @@
 
             <section id="lists" class="view hidden">
                 <header>
-                    <h1>Filtering Lists</h1>
+                    <h1>Filtering Lists <span class="badge secondary" id="stat-blocked-domains-list-badge" style="margin-left: 12px; font-size: 0.85rem; vertical-align: middle; opacity: 0.8;">- domains</span></h1>
                     <div class="header-actions">
                         <button id="add-allowlist-btn" class="btn secondary">Add Allowlist</button>
                         <button id="apply-recommended-btn" class="btn secondary">Apply All Recommended</button>
@@ -819,7 +819,7 @@
                     <div class="form-group">
                         <label>System Backup & Restore</label>
                         <p class="help">Download a full system backup (.zip) or restore your configuration (.json).</p>
-                        <div style="display:flex;gap:12px;align-items:center;">
+                        <div class="btn-group mt-3">
                             <button type="button" class="btn secondary" id="backup-btn">Download Full Backup</button>
                             <input type="file" id="restore-file-input" accept=".json" style="display:none">
                             <button type="button" class="btn secondary" id="restore-btn"

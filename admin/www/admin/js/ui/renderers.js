@@ -36,6 +36,10 @@ export function renderDashStats(data) {
     }
 
     helpers.countTo(c.blockedDomains, data.blocked_domains || 0);
+    const badge = getEl('stat-blocked-domains-list-badge');
+    if (badge) {
+        badge.textContent = (data.blocked_domains || 0).toLocaleString() + ' domains';
+    }
 
     const appVer = getEl('app-version');
     if (appVer) appVer.textContent = data.version;

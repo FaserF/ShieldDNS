@@ -212,6 +212,7 @@ func startWorkers() {
 	go func() {
 		updateBlocklist(nil)
 		syncMaliciousIPs()
+		slog.Info("ShieldDNS Ready: Blocklists and Threat Intelligence loaded")
 	}()
 
 	// Start health and monitoring

@@ -345,6 +345,7 @@ func applyCurrentRules(attribution map[string][]string, allowSet map[string]stru
 	// Update global attribution map
 	blockAttributionLock.Lock()
 	blockAttribution = attribution
+	slog.Info("Blocklist attribution updated", "total_blocked_domains", len(blockAttribution))
 	blockAttributionLock.Unlock()
 
 	// Write Combined Hosts File for CoreDNS

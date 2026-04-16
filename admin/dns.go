@@ -147,6 +147,9 @@ quic://.:{{.DOTPort}} {
 `
 
 func startHealthChecker(ctx context.Context) {
+	// Run an initial check immediately so stats aren't empty for the first minute
+	checkAll()
+
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
