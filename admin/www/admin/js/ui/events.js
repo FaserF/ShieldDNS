@@ -758,7 +758,11 @@ export function initEvents(fetchConfig) {
     const settingsContainer = getEl('settings');
     if (settingsContainer) {
         ['input', 'change'].forEach(evt => {
-            settingsContainer.addEventListener(evt, () => setSettingsDirty(true));
+            settingsContainer.addEventListener(evt, (e) => {
+                // Ignore search typing for change tracking
+                if (e.target.id === 'settings-search-input') return;
+                setSettingsDirty(true);
+            });
         });
         // Catch resets specifically if any
         settingsContainer.addEventListener('reset', () => setSettingsDirty(false));
