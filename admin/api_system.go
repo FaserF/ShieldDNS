@@ -103,12 +103,51 @@ func (w *LogWriter) Write(p []byte) (n int, err error) {
 		return len(p), nil
 	}
 
-	// Suppress noisy TLS handshake errors (e.g. from probes, self-signed cert rejections, or premature client disconnects)
-	if strings.Contains(msg, "http: TLS handshake error") && 
-		(strings.Contains(msg, "EOF") || strings.Contains(msg, "i/o timeout") || 
-		 strings.Contains(msg, "unknown certificate") || strings.Contains(msg, "bad certificate") ||
-		 strings.Contains(msg, "remote error")) {
-		return len(p), nil
+	// Suppress noisy TLS and HTTP/2 handshake errors (e.g. from probes, bots, or premature client disconnects)
+	// These are handled by the standard library but logged to the error log, creating unnecessary noise.
+	isTLS := strings.Contains(msg, "http: TLS handshake error")
+	isHTTP2 := strings.Contains(msg, "http2: server: error reading preface")
+
+	if isTLS || isHTTP2 {
+		noisePatterns := []string{
+			"EOF",
+			"i/o timeout",
+			"connection reset by peer",
+			"unknown certificate",
+			"bad certificate",
+			"bad record MAC",
+			"remote error",
+			"broken pipe",
+		}
+
+		isNoise := isHTTP2
+		if !isNoise {
+			for _, pattern := range noisePatterns {
+				if strings.Contains(msg, pattern) {
+					isNoise = true
+					break
+				}
+			}
+		}
+
+		if isNoise {
+			// Extract IP from log message to allow automated blocking
+			ip := extractIPFromLog(msg)
+
+			// Log as Info with an English explanation as requested by the user
+			slog.Info("[Bot/Scanner Activity] " + msg + " -- Note: This message is typically caused by automated scanners, bots, or interrupted connections. It does not indicate a problem with ShieldDNS.")
+
+			// Auto-block if Abuse Detection is enabled and it's not a critical IP
+			if ip != "" {
+				configLock.RLock()
+				abuseEnabled := config.AbuseDetectionEnabled
+				configLock.RUnlock()
+				if abuseEnabled {
+					go blockClientAuto(ip, "threat:bot_scanner")
+				}
+			}
+			return len(p), nil
+		}
 	}
 
 	slog.Info(msg)

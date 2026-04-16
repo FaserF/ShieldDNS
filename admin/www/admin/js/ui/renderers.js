@@ -234,9 +234,9 @@ export function renderConfig(cfg) {
     const blockedClientsList = getEl('settings-blocked-clients-list');
     if (blockedClientsList) {
         blockedClientsList.innerHTML = (cfg.blocked_clients || []).map(ip => `
-            <div class="tag danger">
-                <span>${helpers.escapeHTML(ip)}</span>
-                <span class="remove-tag" onclick="unblockClient('${helpers.escapeHTML(ip)}')">&times;</span>
+            <div class="tag danger" style="padding-left: 12px;">
+                <span style="cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font-weight: 500;" onclick="showIPDetails('${helpers.escapeHTML(ip)}')">${helpers.escapeHTML(ip)}</span>
+                <span class="remove-tag" onclick="unblockClient('${helpers.escapeHTML(ip)}')" title="Unblock"><i class="fas fa-times"></i></span>
             </div>
         `).join('') || '<p class="help">No clients are currently blocked.</p>';
     }
@@ -515,6 +515,25 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const isCritical = ['DoH Proxy', '127.0.0.1', '::1', 'localhost'].includes(ip);
     getEl('ip-block-btn').style.display = (isBlocked || isCritical) ? 'none' : 'block';
     getEl('ip-unblock-btn').style.display = isBlocked ? 'block' : 'none';
+
+    // Show block reason if blocked
+    const blockInfo = (state.currentConfig.blocked_clients_info || {})[ip];
+    const abuseBadge = getEl('ip-info-abuse-reason-badge');
+    if (abuseBadge) {
+        if (blockInfo) {
+            abuseBadge.classList.remove('hidden');
+            const type = blockInfo.auto ? 'Threat Intelligence' : 'Manual Block';
+            abuseBadge.innerHTML = `<i class="fas ${blockInfo.auto ? 'fa-robot' : 'fa-user-shield'}"></i> <strong>${type}</strong>: ${blockInfo.reason}`;
+            abuseBadge.className = 'badge ' + (blockInfo.auto ? 'danger' : 'secondary');
+        } else if (isBlocked) {
+            // Fallback for cases where reason is missing
+            abuseBadge.classList.remove('hidden');
+            abuseBadge.innerHTML = `<i class="fas fa-user-shield"></i> <strong>Manual Block</strong>`;
+            abuseBadge.className = 'badge secondary';
+        } else {
+            abuseBadge.classList.add('hidden');
+        }
+    }
 
     getEl('ip-info-modal').classList.remove('hidden');
 }

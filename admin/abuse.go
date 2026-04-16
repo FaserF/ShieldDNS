@@ -184,6 +184,10 @@ func extractTLD(domain string) string {
 }
 
 func blockClientAuto(ip, reason string) {
+	if IsCriticalIP(ip) {
+		slog.Info("Skipping auto-block for critical IP", "ip", ip, "reason", reason)
+		return
+	}
 	slog.Warn("Abuse Detection triggered", "ip", ip, "reason", reason)
 
 	configLock.Lock()

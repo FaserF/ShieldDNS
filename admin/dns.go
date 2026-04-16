@@ -779,6 +779,12 @@ func parseLogLine(line string) {
 		clientIP = "DoH Proxy"
 	}
 
+	// Filter out internal health checks for our built-in test domain from statistics and logs.
+	// We only show these if they come from external clients (not from the internal DoH proxy or the watchdog).
+	if qDomain == "shielddns-maleware.test" && clientIP == "DoH Proxy" {
+		return
+	}
+
 	slog.Debug("Parsed Query", "type", qType, "domain", qDomain, "client", clientIP, "duration", durationStr)
 
 	// Update latest User-Agent for this IP with throttling

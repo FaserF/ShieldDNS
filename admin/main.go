@@ -90,6 +90,11 @@ func main() {
 		Addr:     ":" + adminPort,
 		Handler:  finalHandler,
 		ErrorLog: log.New(&LogWriter{}, "", 0),
+		TLSConfig: &tls.Config{
+			MinVersion:               tls.VersionTLS12,
+			PreferServerCipherSuites: true,
+			CurvePreferences:         []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384, tls.CurveP521},
+		},
 	}
 
 	go func() {

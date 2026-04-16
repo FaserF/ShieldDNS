@@ -96,21 +96,73 @@ func escapeXML(s string) string {
 	return s
 }
 
-// NormalizeDomain strips protocols, paths, fragments, and trailing dots to return a clean domain.
 // NormalizeDomain strips protocols, paths, fragments, and trailing dots to return a clean domain in lowercase.
 func NormalizeDomain(s string) string {
-	s = strings.TrimSpace(s)
-	s = strings.ToLower(s)
-	s = strings.TrimPrefix(s, "http://")
-	s = strings.TrimPrefix(s, "https://")
-	// Strip paths, queries, fragments
-	for _, sep := range []string{"/", "?", "#"} {
-		if idx := strings.Index(s, sep); idx != -1 {
-			s = s[:idx]
-		}
+	s = strings.TrimSpace(strings.ToLower(s))
+	if s == "" {
+		return ""
 	}
-	s = strings.TrimPrefix(s, ".")
-	return strings.TrimSuffix(s, ".")
+	// Strip protocols
+	if idx := strings.Index(s, "://"); idx != -1 {
+		s = s[idx+3:]
+	}
+	// Strip paths and query strings
+	if idx := strings.IndexAny(s, "/?#"); idx != -1 {
+		s = s[:idx]
+	}
+	// Strip trailing dot
+	s = strings.TrimSuffix(s, ".")
+	return s
+}
+
+// IsCriticalIP checks if an IP belongs to core infrastructure that should never be blocked.
+func IsCriticalIP(ip string) bool {
+	if ip == "DoH Proxy" || ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
+		return true
+	}
+	configLock.RLock()
+	blockPageIP := config.BlockPageIP
+	configLock.RUnlock()
+
+	if ip != "" && ip == blockPageIP {
+		return true
+	}
+
+	return false
+}
+
+// extractIPFromLog attempts to parse an IP address from common Go HTTP server error messages.
+func extractIPFromLog(msg string) string {
+	// Look for "from <ip>:<port>" or "from client <ip>:<port>"
+	// Examples:
+	// "http: TLS handshake error from 1.2.3.4:123"
+	// "http2: server: error reading preface from client 1.2.3.4:123"
+
+	idx := strings.Index(msg, "from ")
+	if idx == -1 {
+		return ""
+	}
+
+	part := msg[idx+5:]
+	if strings.HasPrefix(part, "client ") {
+		part = part[7:]
+	}
+
+	// Find the last colon (it separates IP and Port)
+	lastColon := strings.LastIndex(part, ":")
+	if lastColon == -1 {
+		return ""
+	}
+
+	// The IP is between the start and the last colon
+	ip := part[:lastColon]
+
+	// Basic validation
+	if net.ParseIP(ip) != nil {
+		return ip
+	}
+
+	return ""
 }
 
 func handleIPInfo(w http.ResponseWriter, r *http.Request) {
