@@ -35,6 +35,8 @@ export function renderDashStats(data) {
         c.qps.textContent = (data.active_qps || 0).toFixed(1);
     }
 
+    helpers.countTo(c.blockedDomains, data.blocked_domains || 0);
+
     const appVer = getEl('app-version');
     if (appVer) appVer.textContent = data.version;
     const aboutAppVer = getEl('about-shielddns-ver');

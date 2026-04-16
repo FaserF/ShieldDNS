@@ -101,6 +101,7 @@ type Stats struct {
 	CPUUsage             float64          `json:"cpu_usage"`
 	NumAutoBlocked       int              `json:"num_auto_blocked"`
 	ActiveQPS            float64          `json:"active_qps"`
+	BlockedDomains       int64            `json:"blocked_domains"`
 	CoreDNSAlive         bool             `json:"coredns_alive"`
 	
 	// Internal Cache Metadata

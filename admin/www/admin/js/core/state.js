@@ -31,7 +31,8 @@ export const uiRefs = {
         cache: getEl('stat-cache'),
         latency: getEl('stat-latency'),
         clients: getEl('stat-clients'),
-        qps: getEl('stat-qps')
+        qps: getEl('stat-qps'),
+        blockedDomains: getEl('stat-blocked-domains')
     },
     guide: {
         mobileBtn: getEl('guide-mobileconfig-btn'),
@@ -56,6 +57,7 @@ export const updateUIRefs = () => {
     uiRefs.statsContainer.latency = getEl('stat-latency');
     uiRefs.statsContainer.clients = getEl('stat-clients');
     uiRefs.statsContainer.qps = getEl('stat-qps');
+    uiRefs.statsContainer.blockedDomains = getEl('stat-blocked-domains');
     
     uiRefs.guide.mobileBtn = getEl('guide-mobileconfig-btn');
     uiRefs.guide.mobileQR = getEl('guide-mobileconfig-qr');

@@ -95,6 +95,8 @@ func (h *SlogUIHandler) WithGroup(name string) slog.Handler {
 	return &SlogUIHandler{jsonHandler: h.jsonHandler.WithGroup(name)}
 }
 
+var noiseLogTracker sync.Map // IP -> lastLogTime
+
 type LogWriter struct{}
 
 func (w *LogWriter) Write(p []byte) (n int, err error) {
@@ -134,9 +136,22 @@ func (w *LogWriter) Write(p []byte) (n int, err error) {
 			// Extract IP from log message to allow automated blocking
 			ip := extractIPFromLog(msg)
 
-			// Log as Info with an English explanation as requested by the user
-			slog.Info("[Bot/Scanner Activity] " + msg + " -- Note: This message is typically caused by automated scanners, bots, or interrupted connections. It does not indicate a problem with ShieldDNS.")
+			if ip != "" {
+				// Suppression: Only log once every 5 minutes per IP to avoid "log-flooding" by bots
+				now := time.Now()
+				if last, ok := noiseLogTracker.Load(ip); ok {
+					if now.Sub(last.(time.Time)) < 5*time.Minute {
+						// still allow auto-block check below, but skip the Info log
+						goto blockCheck
+					}
+				}
+				noiseLogTracker.Store(ip, now)
 
+				// Log as Info with an English explanation as requested by the user
+				slog.Info("[Bot/Scanner Activity] " + msg + " -- Note: This message is typically caused by automated scanners, bots, or interrupted connections. It does not indicate a problem with ShieldDNS.")
+			}
+
+		blockCheck:
 			// Auto-block if Abuse Detection is enabled and it's not a critical IP
 			if ip != "" {
 				configLock.RLock()

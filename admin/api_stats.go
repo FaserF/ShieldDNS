@@ -37,6 +37,10 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 		s.QueryTypes = newQt
 	}
 	statsLock.RUnlock()
+	
+	blockAttributionLock.RLock()
+	s.BlockedDomains = int64(len(blockAttribution))
+	blockAttributionLock.RUnlock()
 
 	// Query unique clients (cached for 1 minute)
 	statsLock.RLock()
