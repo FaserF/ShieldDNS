@@ -12,15 +12,21 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 var (
 	maliciousIPList []string
-	maliciousIPMap  = &sync.Map{} // *sync.Map
+	maliciousIPMap  atomic.Value // holds *sync.Map
 	maliciousMu     sync.RWMutex
 	maliciousPath   = filepath.Join(DataDir, "malicious.hosts")
+	maliciousSignal = make(chan struct{}, 1)
 )
+
+func init() {
+	maliciousIPMap.Store(&sync.Map{})
+}
 
 func initMalicious() {
 	loadMaliciousFromDisk()
@@ -56,7 +62,7 @@ func syncMaliciousIPs() error {
 	}
 
 	slog.Info("Syncing malicious IP list from blocklist.de")
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -105,7 +111,7 @@ func syncMaliciousIPs() error {
 	// Re-generate Corefile to apply changes
 	updateCorefile()
 	restartCoreDNS()
-	
+
 	return nil
 }
 
@@ -119,7 +125,7 @@ func updateMaliciousMemory(ips []string) {
 	for _, ip := range ips {
 		newMap.Store(ip, struct{}{})
 	}
-	maliciousIPMap = newMap
+	maliciousIPMap.Store(newMap)
 }
 
 func IsMaliciousIP(ip string) bool {
@@ -131,7 +137,8 @@ func IsMaliciousIP(ip string) bool {
 		return false
 	}
 
-	_, found := maliciousIPMap.Load(ip)
+	m := maliciousIPMap.Load().(*sync.Map)
+	_, found := m.Load(ip)
 	return found
 }
 
@@ -150,36 +157,49 @@ func getMaliciousIPRules() []string {
 }
 
 func startMaliciousUpdater(ctx context.Context) {
-	configLock.RLock()
-	interval := config.MaliciousIPInterval
-	enabled := config.MaliciousIPBlockingEnabled
-	configLock.RUnlock()
-
-	if !enabled {
-		return
-	}
-
-	if interval < 8 {
-		interval = 8
-	}
-
-	slog.Info("Starting malicious IP updater", "interval_hours", interval)
-	ticker := time.NewTicker(time.Duration(interval) * time.Hour)
-	defer ticker.Stop()
-
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			syncMaliciousIPs()
+		configLock.RLock()
+		interval := config.MaliciousIPInterval
+		enabled := config.MaliciousIPBlockingEnabled
+		configLock.RUnlock()
+
+		if !enabled {
+			// If disabled, wait for a signal to potentially re-enable or context to end
+			select {
+			case <-ctx.Done():
+				return
+			case <-maliciousSignal:
+				continue
+			}
+		}
+
+		if interval < 8 {
+			interval = 8
+		}
+
+		slog.Info("Starting malicious IP updater", "interval_hours", interval)
+		ticker := time.NewTicker(time.Duration(interval) * time.Hour)
+
+		stopTicker := false
+		for !stopTicker {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			case <-maliciousSignal:
+				slog.Info("Malicious IP updater received restart signal")
+				ticker.Stop()
+				stopTicker = true
+			case <-ticker.C:
+				syncMaliciousIPs()
+			}
 		}
 	}
 }
 
-// Note: restartMaliciousUpdater is no longer needed with the global context pattern
-// but kept for compatibility if called elsewhere, now a no-op as main manages workers.
 func restartMaliciousUpdater() {
-	// In the new architecture, we'd ideally trigger a re-run or just wait for the next tick.
-	// For now, we'll keep it simple.
+	select {
+	case maliciousSignal <- struct{}{}:
+	default:
+	}
 }

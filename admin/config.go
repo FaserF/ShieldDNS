@@ -319,16 +319,22 @@ func updateBlocklist(cfg *Config) {
 }
 
 func applyCurrentRules(attribution map[string][]string, allowSet map[string]struct{}, mappings map[string]string, blockIP string) {
-	// Remove allowlisted domains (and their subdomains) from attribution and populate blockDomains for .hosts file
-	for d := range allowSet {
+	// Remove allowlisted domains (and their subdomains) from attribution in O(N) time
+	for ad := range attribution {
 		// Exact match
-		delete(attribution, d)
-		
-		// Wildcard match for subdomains
-		// This ensures that an allowlist entry for "google.com" also allows "www.google.com"
-		for ad := range attribution {
-			if strings.HasSuffix(ad, "."+d) {
+		if _, ok := allowSet[ad]; ok {
+			delete(attribution, ad)
+			continue
+		}
+
+		// Wildcard match for subdomains (check parent domains)
+		// e.g., for "www.google.com", check "google.com" and "com"
+		parts := strings.Split(ad, ".")
+		for i := 1; i < len(parts); i++ {
+			parentDomain := strings.Join(parts[i:], ".")
+			if _, ok := allowSet[parentDomain]; ok {
 				delete(attribution, ad)
+				break
 			}
 		}
 	}
@@ -592,7 +598,7 @@ func startMetadataUpdater(ctx context.Context) {
 	missingTicker := time.NewTicker(1 * time.Hour)
 	defer fullTicker.Stop()
 	defer missingTicker.Stop()
-	
+
 	go func() {
 		// Initial wait to let main startup finish
 		select {
@@ -600,10 +606,10 @@ func startMetadataUpdater(ctx context.Context) {
 			return
 		case <-time.After(10 * time.Second):
 		}
-		
+
 		// Run once on startup
 		refreshAllMetadata(false)
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -623,12 +629,12 @@ func refreshAllMetadata(onlyMissing bool) {
 		mode = "Missing-Only"
 	}
 	slog.Info("Starting background metadata refresh", "mode", mode)
-	
+
 	configLock.RLock()
 	allLists := append([]List{}, config.Lists...)
 	allLists = append(allLists, config.Allowlists...)
 	configLock.RUnlock()
-	
+
 	// Also include all presets
 	allLists = append(allLists, DefaultPresets...)
 	allLists = append(allLists, DefaultAllowlists...)
@@ -674,7 +680,7 @@ func refreshAllMetadata(onlyMissing bool) {
 
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusPartialContent {
 				list.RemoteUpdatedAt = getRemoteUpdateTime(list.URL, resp.Header)
-				
+
 				// Quick entry estimate if entries are 0
 				if list.Entries == 0 {
 					scanner := bufio.NewScanner(resp.Body)
@@ -711,11 +717,11 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 	// The Date header is just when the server sent the response, not when the file changed.
 	// Returning empty time is better than a false "now" timestamp.
 	/*
-	if d := headers.Get("Date"); d != "" {
-		if t, err := http.ParseTime(d); err == nil {
-			return t
+		if d := headers.Get("Date"); d != "" {
+			if t, err := http.ParseTime(d); err == nil {
+				return t
+			}
 		}
-	}
 	*/
 
 	// 3. Specialized support for GitHub Raw Content
@@ -763,12 +769,12 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 	if strings.Contains(rawURL, "gitlab.com") && (strings.Contains(rawURL, "/raw/") || strings.Contains(rawURL, "/-/raw/")) {
 		// Example: https://gitlab.com/curben/urlhaus-filter/raw/master/urlhaus-filter-hosts.txt
 		// or https://gitlab.com/group/project/-/raw/ref/path/file.txt
-		
+
 		separator := "/raw/"
 		if strings.Contains(rawURL, "/-/raw/") {
 			separator = "/-/raw/"
 		}
-		
+
 		parts := strings.Split(rawURL, separator)
 		if len(parts) == 2 {
 			// Extract project path (e.g. curben/urlhaus-filter)
@@ -778,16 +784,16 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 				projectPath = strings.TrimPrefix(projectPath, prefix)
 			}
 			projectPath = strings.Trim(projectPath, "/")
-			
+
 			refPath := parts[1]
 			refParts := strings.Split(refPath, "/")
 			if len(refParts) >= 2 {
 				ref := refParts[0]
 				filePath := strings.Join(refParts[1:], "/")
-				
+
 				// GitLab Project ID is the URL-encoded path
 				projectID := url.PathEscape(projectPath)
-				committedURL := fmt.Sprintf("https://gitlab.com/api/v4/projects/%s/repository/commits?path=%s&ref_name=%s&per_page=1", 
+				committedURL := fmt.Sprintf("https://gitlab.com/api/v4/projects/%s/repository/commits?path=%s&ref_name=%s&per_page=1",
 					projectID, url.PathEscape(filePath), url.PathEscape(ref))
 
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

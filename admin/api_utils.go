@@ -46,12 +46,12 @@ func isValidDomain(s string) bool {
 	if strings.ContainsAny(s, " \n\r\t{}()<>\\\"'`|") {
 		return false
 	}
-	
+
 	// Fast path for common domains
 	if domainRegex.MatchString(s) {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -73,7 +73,7 @@ func isValidUpstream(s string) bool {
 	if idx := strings.Index(s, "://"); idx != -1 {
 		clean = s[idx+3:]
 	}
-	
+
 	host := clean
 	if strings.Contains(clean, ":") {
 		var err error
@@ -122,6 +122,14 @@ func NormalizeDomain(s string) string {
 	}
 	// Strip trailing dot
 	s = strings.TrimSuffix(s, ".")
+
+	// Final safety: Detect any characters that don't belong in a domain.
+	// If any invalid character is found, the entire domain is rejected.
+	for _, r := range s {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '.' || r == '-' || r == '_' || r == '*') {
+			return "" // Reject invalid domains completely
+		}
+	}
 	return s
 }
 
@@ -189,7 +197,12 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	isPrivate := false
-	if strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "172.") || ip == "127.0.0.1" || ip == "::1" || strings.HasPrefix(ip, "fd") || ip == "DoH Proxy" || ip == "localhost" {
+	parsedIP := net.ParseIP(ip)
+	if parsedIP != nil {
+		if parsedIP.IsPrivate() || parsedIP.IsLoopback() || parsedIP.IsLinkLocalUnicast() {
+			isPrivate = true
+		}
+	} else if ip == "DoH Proxy" || ip == "localhost" {
 		isPrivate = true
 	}
 
@@ -233,7 +246,6 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		info.OS = "ShieldDNS Native"
 	}
 
-
 	// GeoIP for public IPs
 	if !isPrivate {
 		// Check cache first
@@ -248,8 +260,7 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 		} else {
 			geoCtx, geoCancel := context.WithTimeout(r.Context(), 5*time.Second)
 			defer geoCancel()
-			
-			
+
 			var geoData struct {
 				Country     string `json:"country"`
 				CountryCode string `json:"countryCode"`
@@ -310,7 +321,7 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 			for _, p := range providers {
 				req, _ := http.NewRequestWithContext(geoCtx, "GET", p.url, nil)
 				req.Header.Set("User-Agent", "ShieldDNS-Admin/v1.14")
-				
+
 				resp, err := http.DefaultClient.Do(req)
 				if err != nil {
 					continue
@@ -325,7 +336,7 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 					info.ISP = geoData.ISP
 					info.Org = geoData.Org
 					info.AS = geoData.AS
-					
+
 					// Store in cache
 					geoCache.Store(ip, info)
 					break
@@ -643,14 +654,29 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build ServerAddresses XML block
+	// Build ServerAddresses XML block (Bootstrap IPs)
+	// We should use the actual server IP that the client can reach.
+	bootstrapIP := blockPageIP
+	if bootstrapIP == "" || bootstrapIP == "127.0.0.1" || bootstrapIP == "0.0.0.0" {
+		// Fallback: Try to get the IP from the host header if it's an IP
+		h := r.Host
+		if strings.Contains(h, ":") {
+			h, _, _ = net.SplitHostPort(h)
+		}
+		if net.ParseIP(h) != nil {
+			bootstrapIP = h
+		} else {
+			bootstrapIP = "" // No bootstrap IP available
+		}
+	}
+
 	serverAddrsXML := ""
-	if blockPageIP != "" && blockPageIP != "127.0.0.1" {
+	if bootstrapIP != "" && bootstrapIP != "127.0.0.1" {
 		serverAddrsXML = fmt.Sprintf(`
 			<key>ServerAddresses</key>
 			<array>
 				<string>%s</string>
-			</array>`, blockPageIP)
+			</array>`, bootstrapIP)
 	}
 
 	// Certificate handling - check if self-signed
@@ -906,13 +932,13 @@ func detectServerCountry() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
 			req.Header.Set("User-Agent", "ShieldDNS-Admin/v1.14")
-			
+
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				cancel()
 				continue
 			}
-			
+
 			if strings.Contains(url, "ip-api.com") {
 				var data struct {
 					CountryCode string `json:"countryCode"`
@@ -960,7 +986,7 @@ func detectServerCountry() {
 			}
 			resp.Body.Close()
 			cancel()
-			
+
 			if success {
 				slog.Info("Server country detected", "country", detectedServerCountry, "source", url)
 				break

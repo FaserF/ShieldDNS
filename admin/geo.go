@@ -26,7 +26,7 @@ func initGeo() {
 // syncCountryIPs downloads the CIDR list for a given country code (e.g., "cn", "ru")
 func syncCountryIPs(countryCode string) error {
 	countryCode = strings.ToLower(countryCode)
-	url := fmt.Sprintf("http://www.ipdeny.com/ipblocks/data/aggregated/%s-aggregated.zone", countryCode)
+	url := fmt.Sprintf("https://www.ipdeny.com/ipblocks/data/aggregated/%s-aggregated.zone", countryCode)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -100,12 +100,23 @@ func getGeoACLRules() string {
 	// Add malicious IPs from threat feed
 	rules = append(rules, getMaliciousIPRules()...)
 
-	if len(rules) == 0 {
+	// Validate rule formats to prevent Corefile injection
+	var safeRules []string
+	for _, rule := range rules {
+		rule = strings.TrimSpace(rule)
+		// Ensure it only contains valid characters for IP/CIDR to prevent escaping the acl block
+		// Specifically block whitespace to prevent injecting statements like "} server { "
+		if rule != "" && !strings.ContainsAny(rule, " \t\n\r{}#;\"'") {
+			safeRules = append(safeRules, rule)
+		}
+	}
+
+	if len(safeRules) == 0 {
 		return ""
 	}
 
 	// Join all CIDRs/IPs into an acl block
-	return fmt.Sprintf("\n    acl {\n        block net %s\n    }", strings.Join(rules, " "))
+	return fmt.Sprintf("\n    acl {\n        block net %s\n    }", strings.Join(safeRules, " "))
 }
 
 // GetCountryList returns a map of ISO codes to names for the UI

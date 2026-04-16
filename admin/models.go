@@ -15,27 +15,27 @@ const (
 )
 
 type Config struct {
-	Upstreams                  []string          `json:"upstreams"`
-	UpstreamDoT                []string          `json:"upstream_dot"`
-	PreferEncrypted            bool              `json:"prefer_encrypted"`
-	UseFastestUpstream         bool              `json:"use_fastest_upstream"`
-	RetentionDays              int               `json:"retention_days"`
-	Lists                      []List            `json:"lists"`
-	Allowlists                 []List            `json:"allowlists"`
-	CustomBlocked              []string          `json:"custom_blocked"`
-	CustomAllowed              []string          `json:"custom_allowed"`
-	CustomMappings             map[string]string `json:"custom_mappings"`
-	SetupDone                  bool              `json:"setup_done"`
-	AdminPasswordHashed        string            `json:"admin_password_hashed"`
-	APIKeys                    []APIKey          `json:"api_keys"`
-	FilteringEnabled           bool              `json:"filtering_enabled"`
-	AdminDomain                string            `json:"admin_domain"`  // e.g. dns.fabiseitz.de
-	BlockPageIP                string            `json:"block_page_ip"` // IP of the ShieldDNS server
-	LatencyTestInterval        int               `json:"latency_test_interval"`
-	SmartSelectionPolicy       string            `json:"smart_selection_policy"` // "fastest" or "random"
-	DiagnosticsRefreshInterval int               `json:"diagnostics_refresh_interval"`
-	ServeStale                 bool              `json:"serve_stale"`
-	DNSSECEnabled              bool              `json:"dnssec_enabled"`
+	Upstreams                  []string                     `json:"upstreams"`
+	UpstreamDoT                []string                     `json:"upstream_dot"`
+	PreferEncrypted            bool                         `json:"prefer_encrypted"`
+	UseFastestUpstream         bool                         `json:"use_fastest_upstream"`
+	RetentionDays              int                          `json:"retention_days"`
+	Lists                      []List                       `json:"lists"`
+	Allowlists                 []List                       `json:"allowlists"`
+	CustomBlocked              []string                     `json:"custom_blocked"`
+	CustomAllowed              []string                     `json:"custom_allowed"`
+	CustomMappings             map[string]string            `json:"custom_mappings"`
+	SetupDone                  bool                         `json:"setup_done"`
+	AdminPasswordHashed        string                       `json:"admin_password_hashed"`
+	APIKeys                    []APIKey                     `json:"api_keys"`
+	FilteringEnabled           bool                         `json:"filtering_enabled"`
+	AdminDomain                string                       `json:"admin_domain"`  // e.g. dns.fabiseitz.de
+	BlockPageIP                string                       `json:"block_page_ip"` // IP of the ShieldDNS server
+	LatencyTestInterval        int                          `json:"latency_test_interval"`
+	SmartSelectionPolicy       string                       `json:"smart_selection_policy"` // "fastest" or "random"
+	DiagnosticsRefreshInterval int                          `json:"diagnostics_refresh_interval"`
+	ServeStale                 bool                         `json:"serve_stale"`
+	DNSSECEnabled              bool                         `json:"dnssec_enabled"`
 	BlockedCountries           []string                     `json:"blocked_countries"`
 	BlockedClients             []string                     `json:"blocked_clients"`
 	BlockedClientsInfo         map[string]BlockedClientInfo `json:"blocked_clients_info"`
@@ -45,13 +45,13 @@ type Config struct {
 	ClientAliases              map[string]string            `json:"client_aliases"`
 	MaliciousIPBlockingEnabled bool                         `json:"malicious_ip_blocking_enabled"`
 	MaliciousIPInterval        int                          `json:"malicious_ip_interval"`
-	SignMobileConfig           bool              `json:"sign_mobileconfig"`
-	VerifyUpstreamTLS          bool              `json:"verify_upstream_tls"`
-	DoHRateLimit               int               `json:"doh_rate_limit"`
-	DebugMode                  bool              `json:"debug_mode"`
-	ServerCountry              string            `json:"server_country"`
-	LastLogin                  time.Time         `json:"last_login"`
-	PreviousLogin              time.Time         `json:"previous_login"`
+	SignMobileConfig           bool                         `json:"sign_mobileconfig"`
+	VerifyUpstreamTLS          bool                         `json:"verify_upstream_tls"`
+	DoHRateLimit               int                          `json:"doh_rate_limit"`
+	DebugMode                  bool                         `json:"debug_mode"`
+	ServerCountry              string                       `json:"server_country"`
+	LastLogin                  time.Time                    `json:"last_login"`
+	PreviousLogin              time.Time                    `json:"previous_login"`
 }
 
 type BlockedClientInfo struct {
@@ -70,11 +70,11 @@ type APIKey struct {
 }
 
 type List struct {
-	Name          string    `json:"name"`
-	URL           string    `json:"url"`
-	Enabled       bool      `json:"enabled"`
-	Category      string    `json:"category,omitempty"`
-	IsRecommended bool      `json:"is_recommended"`
+	Name            string    `json:"name"`
+	URL             string    `json:"url"`
+	Enabled         bool      `json:"enabled"`
+	Category        string    `json:"category,omitempty"`
+	IsRecommended   bool      `json:"is_recommended"`
 	Entries         int       `json:"entries"`
 	UpdatedAt       time.Time `json:"updated_at"`
 	RemoteUpdatedAt time.Time `json:"remote_updated_at"`
@@ -94,18 +94,18 @@ type Stats struct {
 	AlpineVersion        string           `json:"alpine_version"`
 	LatestAlpineVersion  string           `json:"latest_alpine_version,omitempty"`
 	// Enhanced Stats
-	UptimeSeconds        int64            `json:"uptime_seconds"`
-	DBSizeMB             float64          `json:"db_size_mb"`
-	RAMUsedMB            float64          `json:"ram_used_mb"`
-	RAMTotalMB           float64          `json:"ram_total_mb"`
-	CPUUsage             float64          `json:"cpu_usage"`
-	NumAutoBlocked       int              `json:"num_auto_blocked"`
-	ActiveQPS            float64          `json:"active_qps"`
-	BlockedDomains       int64            `json:"blocked_domains"`
-	CoreDNSAlive         bool             `json:"coredns_alive"`
-	
+	UptimeSeconds  int64   `json:"uptime_seconds"`
+	DBSizeMB       float64 `json:"db_size_mb"`
+	RAMUsedMB      float64 `json:"ram_used_mb"`
+	RAMTotalMB     float64 `json:"ram_total_mb"`
+	CPUUsage       float64 `json:"cpu_usage"`
+	NumAutoBlocked int     `json:"num_auto_blocked"`
+	ActiveQPS      float64 `json:"active_qps"`
+	BlockedDomains int64   `json:"blocked_domains"`
+	CoreDNSAlive   bool    `json:"coredns_alive"`
+
 	// Internal Cache Metadata
-	LastUpdate           time.Time        `json:"-"`
+	LastUpdate time.Time `json:"-"`
 }
 
 type Query struct {
@@ -151,16 +151,14 @@ type ClientCount struct {
 }
 
 var (
-	config       Config
-	configLock   sync.RWMutex
-	stats        Stats
-	statsLock    sync.RWMutex
-	dnsCmd       *exec.Cmd
-	
+	config     Config
+	configLock sync.RWMutex
+	stats      Stats
+	statsLock  sync.RWMutex
+	dnsCmd     *exec.Cmd
+
 	sessionStore sync.Map // token -> Session
 	sessionLock  sync.RWMutex
-	history      [24]HourStats
-	historyLock  sync.RWMutex
 
 	// Health monitoring
 	healthyUpstreams []string

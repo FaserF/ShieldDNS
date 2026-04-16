@@ -9,6 +9,7 @@ import (
 )
 
 type clientAbuseCounters struct {
+	sync.Mutex
 	domainTimes   map[string][]time.Time
 	allQueryTimes []time.Time
 	nxdomainTimes []time.Time
@@ -24,35 +25,23 @@ var (
 // analyzeQuery is the entry point for the abuse detection engine.
 // It checks the query against four patterns: domain flood, rate limit, NXDOMAIN flood, and TLD scan.
 func analyzeQuery(clientIP, domain, status string) {
-	configLock.RLock()
-	enabled := config.AbuseDetectionEnabled
-	disabledList := config.BlockedClients
-	isBlocked := false
-	for _, blockedIP := range disabledList {
-		if blockedIP == clientIP {
-			isBlocked = true
-			break
-		}
-	}
-	configLock.RUnlock()
-
-	if !enabled || isBlocked {
-		return
-	}
-
-	now := time.Now()
-	
+	// 1. Get or create counter (with global lock only for map access)
 	abuseMu.Lock()
-	defer abuseMu.Unlock()
-
 	counters, exists := abuseCounters[clientIP]
 	if !exists {
 		counters = &clientAbuseCounters{
-			domainTimes:   make(map[string][]time.Time),
-			tldCounts:     make(map[string][]time.Time),
+			domainTimes: make(map[string][]time.Time),
+			tldCounts:   make(map[string][]time.Time),
 		}
 		abuseCounters[clientIP] = counters
 	}
+	abuseMu.Unlock()
+
+	// 2. Perform client-specific analysis with per-client lock
+	counters.Lock()
+	defer counters.Unlock()
+
+	now := time.Now()
 
 	// --- 1. Total Query Rate Limit (>= 1000 queries / 60s) ---
 	counters.allQueryTimes = append(counters.allQueryTimes, now)
@@ -85,14 +74,14 @@ func analyzeQuery(clientIP, domain, status string) {
 	if tld != "" {
 		counters.tldCounts[tld] = append(counters.tldCounts[tld], now)
 		counters.tldCounts[tld] = pruneWindow(counters.tldCounts[tld], now, 5*time.Minute)
-		
+
 		// For TLD checks, we need total queries in the last 5 mins. Since allQueryTimes only tracks 60s,
 		// we'll just sum all tldCounts (approx. total queries in 5m).
 		total5m := 0
 		for _, times := range counters.tldCounts {
 			total5m += len(times)
 		}
-		
+
 		if len(counters.tldCounts[tld]) >= 1000 && float64(len(counters.tldCounts[tld]))/float64(total5m) >= 0.90 {
 			go blockClientAuto(clientIP, "auto:tld_scan")
 			return
@@ -109,13 +98,13 @@ func analyzeQuery(clientIP, domain, status string) {
 	parts := strings.Split(domain, ".")
 	if len(parts) >= 2 {
 		sub := parts[0]
-		
+
 		// Bypass DGA check for internal domains and common high-entropy providers
 		bypass := false
 		suffix := strings.ToLower(domain)
 		for _, b := range []string{
-			".local", ".lan", ".home.arpa", "googleusercontent.com", "amazonaws.com", 
-			"cloudfront.net", "akamaized.net", "vimeocdn.com", "duckdns.org", 
+			".local", ".lan", ".home.arpa", "googleusercontent.com", "amazonaws.com",
+			"cloudfront.net", "akamaized.net", "vimeocdn.com", "duckdns.org",
 			"no-ip.org", "dyndns.org", "dynamic-dns.net",
 		} {
 			if strings.HasSuffix(suffix, b) {
@@ -140,7 +129,7 @@ func pruneWindow(times []time.Time, now time.Time, window time.Duration) []time.
 		return times
 	}
 	cutoff := now.Add(-window)
-	
+
 	// Fast path: if the oldest entry is within the window, nothing to prune
 	if !times[0].Before(cutoff) {
 		return times
@@ -154,7 +143,7 @@ func pruneWindow(times []time.Time, now time.Time, window time.Duration) []time.
 			break
 		}
 	}
-	
+
 	if idx == -1 {
 		return nil
 	}
@@ -166,20 +155,20 @@ func extractTLD(domain string) string {
 	if len(parts) < 2 {
 		return ""
 	}
-	
+
 	last := parts[len(parts)-1]
 	secondLast := parts[len(parts)-2]
-	
+
 	// Handle common two-part TLDs (e.g., co.uk, gv.at, com.br)
 	// This is a heuristic; for perfect accuracy one would need the Public Suffix List
 	twoPartTLDs := map[string]bool{
 		"co": true, "com": true, "net": true, "org": true, "gov": true, "gv": true, "ac": true, "edu": true,
 	}
-	
+
 	if len(parts) >= 3 && twoPartTLDs[secondLast] && len(last) == 2 {
 		return secondLast + "." + last
 	}
-	
+
 	return last
 }
 
@@ -206,7 +195,7 @@ func blockClientAuto(ip, reason string) {
 	for _, c := range config.BlockedClients {
 		if c == ip {
 			configLock.Unlock()
-			return 
+			return
 		}
 	}
 
@@ -233,7 +222,7 @@ func startAbuseCleanup(ctx context.Context) {
 			return
 		case <-ticker.C:
 			now := time.Now()
-			
+
 			abuseMu.Lock()
 			for ip, counters := range abuseCounters {
 				// 1. Prune nested domain counters and remove empty ones

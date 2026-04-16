@@ -13,7 +13,7 @@ import (
 var startupTime = time.Now()
 
 var (
-	kernel32            = syscall.NewLazyDLL("kernel32.dll")
+	kernel32             = syscall.NewLazyDLL("kernel32.dll")
 	procGetDiskFreeSpace = kernel32.NewProc("GetDiskFreeSpaceExW")
 )
 
@@ -26,10 +26,10 @@ func fillCPUStats(stats map[string]interface{}) {
 func fillRAMStats(stats map[string]interface{}) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	total := uint64(16 * 1024 * 1024 * 1024) // 16GB Mock
 	used := m.Sys
-	
+
 	stats["ram"] = map[string]interface{}{
 		"total": total / 1024, // in KB
 		"used":  used / 1024,  // in KB

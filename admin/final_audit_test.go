@@ -18,7 +18,7 @@ func TestDGAWhitelist(t *testing.T) {
 	// Test case 1: Whitelisted suffix should NOT be blocked even with high entropy
 	domain := "aksjdhawksjdh.googleusercontent.com"
 	clientIP := "1.2.3.4"
-	
+
 	// Reset counters for this IP
 	abuseMu.Lock()
 	delete(abuseCounters, clientIP)
@@ -45,7 +45,7 @@ func TestDGAWhitelist(t *testing.T) {
 	// Test case 2: Non-whitelisted high entropy domain SHOULD be blocked
 	domain2 := "v8n2m9p1q6w5x3z0l0k7j4.com"
 	clientIP2 := "5.6.7.8"
-	
+
 	for i := 0; i < 30; i++ {
 		analyzeQuery(clientIP2, domain2, "Allowed")
 	}

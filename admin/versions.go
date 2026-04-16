@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -23,6 +24,8 @@ var (
 	versionLock    sync.RWMutex
 	coreDNSVersion string
 	coreDNSLock    sync.RWMutex
+	alpineVersion  string
+	alpineLock     sync.RWMutex
 )
 
 func getCoreDNSVersion() string {
@@ -88,6 +91,30 @@ func getCoreDNSVersion() string {
 	coreDNSVersion = strings.ToLower(coreDNSVersion)
 
 	return coreDNSVersion
+}
+
+func getOSVersion() string {
+	alpineLock.RLock()
+	if alpineVersion != "" {
+		defer alpineLock.RUnlock()
+		return alpineVersion
+	}
+	alpineLock.RUnlock()
+
+	alpineLock.Lock()
+	defer alpineLock.Unlock()
+
+	if alpineVersion != "" {
+		return alpineVersion
+	}
+
+	// Try to read Alpine version
+	ver := "3.23" // Fallback
+	if b, err := os.ReadFile("/etc/alpine-release"); err == nil {
+		ver = strings.TrimSpace(string(b))
+	}
+	alpineVersion = ver
+	return alpineVersion
 }
 
 func getLatestVersions() VersionInfo {

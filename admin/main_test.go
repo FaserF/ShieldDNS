@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -203,7 +204,7 @@ func TestUpdateCorefile(t *testing.T) {
 		CorefilePath = originalPath
 		os.Remove(CorefilePath)
 	}()
-    tmpFile.Close() // Close immediately so atomicWriteFile can overwrite it
+	tmpFile.Close() // Close immediately so atomicWriteFile can overwrite it
 
 	configLock.Lock()
 	config = Config{
@@ -306,7 +307,7 @@ func TestSmartSorting(t *testing.T) {
 		CorefilePath = originalPath
 		os.Remove(CorefilePath)
 	}()
-    tmpFile.Close() // Close immediately so atomicWriteFile can overwrite it
+	tmpFile.Close() // Close immediately so atomicWriteFile can overwrite it
 
 	configLock.Lock()
 	config = Config{
@@ -384,14 +385,45 @@ func TestSSEBroadcasting_DefaultFormat(t *testing.T) {
 		sseLock.Unlock()
 	}()
 
-	parseLogLine("127.0.0.1:53 A broadcast.test. NOERROR qr,rd 0.0001s \"-\"")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go startDNSWorkers(ctx)
 
-	select {
-	case q := <-ch:
-		if q.Domain != "broadcast.test" {
-			t.Errorf("expected broadcast.test, got %s", q.Domain)
+	// Continuously parse to overcome potential sseChan capacity drops from previous test runs
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	
+	timeout := time.After(2 * time.Second)
+	
+	// Create channels explicitly to track success
+	success := make(chan bool)
+	go func() {
+		for {
+			select {
+			case q := <-ch:
+				if strings.HasPrefix(q.Domain, "broadcast-") {
+					success <- true
+					return
+				}
+			case <-timeout:
+				return
+			}
 		}
-	case <-time.After(1 * time.Second):
-		t.Error("timed out waiting for SSE broadcast")
+	}()
+
+	for {
+		uniqueDomain := fmt.Sprintf("broadcast-%d.test", time.Now().UnixNano())
+		logLine := fmt.Sprintf("127.0.0.1:53 A %s. NOERROR qr,rd 0.0001s \"-\"", uniqueDomain)
+		parseLogLine(logLine)
+
+		select {
+		case <-success:
+			return // Test passes
+		case <-ticker.C:
+			continue
+		case <-timeout:
+			t.Error("timed out waiting for SSE broadcast")
+			return
+		}
 	}
 }

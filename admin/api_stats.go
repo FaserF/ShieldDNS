@@ -22,7 +22,7 @@ var (
 func handleStats(w http.ResponseWriter, r *http.Request) {
 	statsLock.RLock()
 	s := stats
-	
+
 	// Reload atomic counters to get latest values safely
 	s.TotalQueries = atomic.LoadInt64(&stats.TotalQueries)
 	s.BlockedQueries = atomic.LoadInt64(&stats.BlockedQueries)
@@ -37,7 +37,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 		s.QueryTypes = newQt
 	}
 	statsLock.RUnlock()
-	
+
 	blockAttributionLock.RLock()
 	s.BlockedDomains = int64(len(blockAttribution))
 	blockAttributionLock.RUnlock()
@@ -64,20 +64,14 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 			slog.Debug("Failed to query unique clients for stats", "error", err)
 		}
 	}
-	
+
 	statsLock.RLock()
 	s.UniqueClients = cachedUniqueClients
 	statsLock.RUnlock()
 
 	s.Version = Version
 	s.CoreDNSVersion = getCoreDNSVersion()
-
-	// Try to read Alpine version
-	alpineVer := "3.23"
-	if b, err := os.ReadFile("/etc/alpine-release"); err == nil {
-		alpineVer = strings.TrimSpace(string(b))
-	}
-	s.AlpineVersion = alpineVer
+	s.AlpineVersion = getOSVersion()
 
 	// Get latest versions for update check
 	latest := getLatestVersions()
@@ -185,12 +179,13 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	// Optimization: If searching or filtering by client, we search the full table.
 	// Only for general overview (no filters) we limit to the latest 2000 for performance.
 	var baseQuery string
+	fields := "timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms"
 	if search != "" || clientIP != "" || fromTime != "" || toTime != "" {
-		baseQuery = "SELECT timestamp, domain, type, status, client_ip FROM queries WHERE 1=1"
+		baseQuery = "SELECT " + fields + " FROM queries WHERE 1=1"
 	} else {
-		baseQuery = "SELECT timestamp, domain, type, status, client_ip FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) WHERE 1=1"
+		baseQuery = "SELECT " + fields + " FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) WHERE 1=1"
 	}
-	
+
 	query := baseQuery
 	var args []interface{}
 
@@ -239,7 +234,9 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var q Query
 		var ts string
-		rows.Scan(&ts, &q.Domain, &q.Type, &q.Status, &q.ClientIP)
+		if err := rows.Scan(&ts, &q.Domain, &q.Type, &q.Status, &q.ClientIP, &q.IsCacheHit, &q.DurationMs); err != nil {
+			continue
+		}
 		q.Time, _ = ParseFlexibleTime(ts)
 		if aliases != nil {
 			q.ClientAlias = aliases[q.ClientIP]
@@ -254,11 +251,10 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
 		SELECT
 			strftime('%H', timestamp) as hr,
-			COUNT(*) as total,
-			SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END) as blocked
-		FROM queries
+			total,
+			blocked
+		FROM hourly_stats
 		WHERE timestamp > datetime('now', '-24 hours')
-		GROUP BY hr
 		ORDER BY timestamp ASC
 	`)
 	if err != nil {
@@ -291,7 +287,7 @@ func handleTopBlocked(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
 		SELECT domain, COUNT(*) as count
 		FROM queries
-		WHERE status LIKE 'Blocked%'
+		WHERE status LIKE 'Blocked%' AND timestamp > datetime('now', '-24 hours')
 		GROUP BY domain
 		ORDER BY count DESC
 		LIMIT 10
@@ -317,6 +313,7 @@ func handleTopClients(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
 		SELECT client_ip, COUNT(*) as count
 		FROM queries
+		WHERE timestamp > datetime('now', '-24 hours')
 		GROUP BY client_ip
 		ORDER BY count DESC
 		LIMIT 10
@@ -363,7 +360,7 @@ func handleTopDomainsForClient(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
 		SELECT domain, COUNT(*) as count
 		FROM queries
-		WHERE client_ip = ?
+		WHERE client_ip = ? AND timestamp > datetime('now', '-24 hours')
 		GROUP BY domain
 		ORDER BY count DESC
 		LIMIT 10
@@ -481,7 +478,7 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 		configLock.RLock()
 		defer configLock.RUnlock()
 		w.Header().Set("Content-Type", "application/json")
-		
+
 		info := config.BlockedClientsInfo
 		if info == nil {
 			info = make(map[string]BlockedClientInfo)
@@ -632,7 +629,7 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 	if format == "csv" {
 		w.Header().Set("Content-Type", "text/csv")
 		w.Header().Set("Content-Disposition", "attachment;filename=shielddns_export.csv")
-		
+
 		writer := csv.NewWriter(w)
 		defer writer.Flush()
 
@@ -648,11 +645,11 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Disposition", "attachment;filename=shielddns_export.json")
-		
+
 		// Use a streaming JSON encoder
 		enc := json.NewEncoder(w)
 		w.Write([]byte("["))
-		
+
 		first := true
 		for rows.Next() {
 			var ts, domain, qtype, status, ip string

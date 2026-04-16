@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	Version        = "v1.6.2"
+	Version    = "v1.6.2"
 	Subversion = "0"
 	CommitID   = ""
 )
@@ -88,9 +88,12 @@ func main() {
 
 	// 1. Primary Server (Admin UI + DoH)
 	primaryServer := &http.Server{
-		Addr:     ":" + adminPort,
-		Handler:  finalHandler,
-		ErrorLog: log.New(&LogWriter{}, "", 0),
+		Addr:         ":" + adminPort,
+		Handler:      finalHandler,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+		ErrorLog:     log.New(&LogWriter{}, "", 0),
 		TLSConfig: &tls.Config{
 			MinVersion:               tls.VersionTLS12,
 			PreferServerCipherSuites: true,
@@ -116,8 +119,11 @@ func main() {
 	var auxiliaryServer *http.Server
 	if ingressPort != "" && ingressPort != adminPort {
 		auxiliaryServer = &http.Server{
-			Addr:    ":" + ingressPort,
-			Handler: finalHandler, // Shared handler for both ports
+			Addr:         ":" + ingressPort,
+			Handler:      finalHandler, // Shared handler for both ports
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  120 * time.Second,
 		}
 		go func() {
 			slog.Info("Ingress secondary server starting", "port", ingressPort)
@@ -207,7 +213,7 @@ func startWorkers() {
 	go startMetadataUpdater(appCtx)
 	go StartQPSWorker(appCtx)
 
-	// Trigger initial blocklist and malicious updates in background 
+	// Trigger initial blocklist and malicious updates in background
 	// Sequential execution prevents multiple concurrent CoreDNS restarts
 	go func() {
 		updateBlocklist(nil)
@@ -219,7 +225,7 @@ func startWorkers() {
 	go startHealthChecker(appCtx)
 	go startDNSWatchdog(appCtx)
 	go detectServerCountry()
-	
+
 	startAuthWorkers()
 	startDNSWorkers(appCtx)
 	go startDBWorker(appCtx)
@@ -314,9 +320,9 @@ func newDoHProxy() http.Handler {
 		internalPort = "5553"
 	}
 	target, _ := url.Parse("https://127.0.0.1:" + internalPort)
-	
+
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	
+
 	// Disable TLS verification for internal proxy to CoreDNS
 	proxy.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -332,7 +338,7 @@ func newDoHProxy() http.Handler {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		w.Write([]byte("ShieldDNS Error: DNS engine (CoreDNS) unreachable. Please check logs."))
 	}
-	
+
 	return proxy
 }
 

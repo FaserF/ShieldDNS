@@ -24,7 +24,7 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 
 	ip := "1.2.3.4"
 	domain := "flood.com"
-	
+
 	// Send 119 queries (threshold is 120)
 	for i := 0; i < 119; i++ {
 		analyzeQuery(ip, domain, "NOERROR")
@@ -98,7 +98,7 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 	abuseMu.Unlock()
 
 	ip := "5.5.5.5"
-	
+
 	// Send 299 queries (threshold is 300)
 	for i := 0; i < 299; i++ {
 		// Use unique domains to avoid triggering Single Domain Flood logic (120 queries/domain)
@@ -148,7 +148,7 @@ func TestAbuseDetectionDisabled(t *testing.T) {
 	configLock.Unlock()
 
 	ip := "9.9.9.9"
-	
+
 	for i := 0; i < 100; i++ {
 		analyzeQuery(ip, "safe.com", "NOERROR")
 	}

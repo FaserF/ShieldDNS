@@ -58,6 +58,7 @@ func initDB() {
 		CREATE INDEX IF NOT EXISTS idx_domain ON queries(domain);
 		CREATE INDEX IF NOT EXISTS idx_timestamp_status ON queries(timestamp, status);
 		CREATE INDEX IF NOT EXISTS idx_queries_client_ts ON queries(client_ip, timestamp);
+		CREATE INDEX IF NOT EXISTS idx_queries_ts_client ON queries(timestamp, client_ip);
 		CREATE INDEX IF NOT EXISTS idx_queries_domain_ts ON queries(domain, timestamp);
 		CREATE TABLE IF NOT EXISTS clients (
 			ip TEXT PRIMARY KEY,
@@ -177,7 +178,7 @@ func startDBWorker(ctx context.Context) {
 	}
 
 	go cleanup() // Initial cleanup
-	
+
 	// Start hourly aggregation ticker
 	aggTicker := time.NewTicker(1 * time.Hour)
 	defer aggTicker.Stop()
@@ -211,7 +212,7 @@ func aggregateHourlyStats(ctx context.Context) {
 
 	// Aggregate the full previous hour (e.g., if now is 14:05, aggregate 13:00-14:00)
 	targetHour := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-	
+
 	slog.Debug("Starting hourly aggregation", "hour", targetHour)
 
 	_, err := db.ExecContext(ctx, `
@@ -266,6 +267,11 @@ func startLogWorker(ctx context.Context) {
 }
 
 func flushLogs(toFlush []Query) {
+	if db == nil {
+		slog.Warn("Log flush skipped: database connection is closed")
+		return
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		slog.Error("Error starting log transaction", "error", err)
@@ -342,48 +348,7 @@ func initializeStatsFromDB() {
 	stats.AverageLatency = avgLatency
 	stats.LastUpdate = time.Now()
 
-	// 2. Populate History (bars for chart)
-	historyLock.Lock()
-	defer historyLock.Unlock()
-
-	// Reset history
-	for i := range history {
-		history[i] = HourStats{}
-	}
-
-	rows, err := db.QueryContext(ctx, `
-		SELECT 
-			(23 - (strftime('%H', 'now') - strftime('%H', timestamp) + 24) % 24) as hour_index,
-			total,
-			blocked
-		FROM hourly_stats
-		WHERE timestamp > datetime('now', '-24 hours')
-		UNION ALL
-		SELECT
-			23 as hour_index,
-			COUNT(*),
-			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0)
-		FROM queries
-		WHERE timestamp >= ?
-		GROUP BY hour_index
-	`, curHour)
-
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var idx int
-			var hTotal, hBlocked int64
-			if err := rows.Scan(&idx, &hTotal, &hBlocked); err == nil {
-				if idx >= 0 && idx < 24 {
-					history[idx] = HourStats{Total: hTotal, Blocked: hBlocked}
-				}
-			}
-		}
-	} else {
-		slog.Error("Error initializing history from DB", "error", err)
-	}
-
-	// 3. Query Types (last 24h)
+	// 2. Query Types (last 24h)
 	if stats.QueryTypes == nil {
 		stats.QueryTypes = make(map[string]int64)
 	}
@@ -636,10 +601,14 @@ func ClearQueryLogs() error {
 	return nil
 }
 func ParseFlexibleTime(ts string) (time.Time, error) {
-	// Use SQLite-native format for reliable date functions (strftime, datetime)
+	// 1. Try RFC3339 (modern Go/SQLite storage format)
+	if t, err := time.Parse(time.RFC3339, ts); err == nil {
+		return t, nil
+	}
+	// 2. Try SQLite native format (no T, no timezone)
 	if t, err := time.Parse("2006-01-02 15:04:05", ts); err == nil {
 		return t, nil
 	}
-	// Fallback to legacy SQL format
-	return time.Parse("2006-01-02 15:04:05", ts)
+	// 3. Fallback to ISO-8601 without timezone
+	return time.Parse("2006-01-02T15:04:05", ts)
 }

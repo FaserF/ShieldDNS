@@ -3,9 +3,9 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
 	"time"
-    "fmt"
 )
 
 var startupTime = time.Now()
@@ -19,10 +19,10 @@ func fillCPUStats(stats map[string]interface{}) {
 func fillRAMStats(stats map[string]interface{}) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-    
-    total := uint64(16 * 1024 * 1024 * 1024) // 16GB Mock
-    used := m.Sys
-    
+
+	total := uint64(16 * 1024 * 1024 * 1024) // 16GB Mock
+	used := m.Sys
+
 	stats["ram"] = map[string]interface{}{
 		"total": total / 1024,
 		"used":  used / 1024,
@@ -41,7 +41,7 @@ func fillDiskStats(stats map[string]interface{}) {
 }
 
 func getWindowsDiskStats() (total, free, used uint64, err error) {
-    // We use a separate helper or syscall directly
-    // This part is only called when GOOS == windows
-    return 0, 0, 0, fmt.Errorf("not implemented")
+	// We use a separate helper or syscall directly
+	// This part is only called when GOOS == windows
+	return 0, 0, 0, fmt.Errorf("not implemented")
 }

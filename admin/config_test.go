@@ -78,7 +78,7 @@ func TestProcessList_AllowlistSupport(t *testing.T) {
 func TestLoadConfig_BlockPageIPEnv(t *testing.T) {
 	// Simulate initial startup by removing any existing config
 	os.Remove(ConfigPath)
-	
+
 	t.Setenv("BLOCK_PAGE_IP", "192.168.1.100")
 	loadConfig()
 

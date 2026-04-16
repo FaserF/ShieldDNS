@@ -212,7 +212,7 @@ func TestBlockedClientsPreservedInConfigUpdate(t *testing.T) {
 func TestGetGeoACLRulesIncludesBlockedClients(t *testing.T) {
 	configLock.Lock()
 	config = Config{
-		BlockedCountries: []string{},        // no country blocks
+		BlockedCountries: []string{}, // no country blocks
 		BlockedClients:   []string{"1.2.3.4", "10.20.30.40"},
 	}
 	configLock.Unlock()

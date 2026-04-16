@@ -228,7 +228,7 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
 			if req.Action == "recommended" {
 				configLock.Lock()
-				
+
 				// Apply Recommended Blocklists
 				for _, rec := range DefaultPresets {
 					if !rec.IsRecommended {
@@ -303,11 +303,11 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 
 func handlePresets(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Merge metadata from cache if available
 	response := make([]List, len(DefaultPresets))
 	copy(response, DefaultPresets)
-	
+
 	metadataMu.RLock()
 	for i, p := range response {
 		if m, ok := metadataCache[p.URL]; ok {
@@ -323,11 +323,11 @@ func handlePresets(w http.ResponseWriter, r *http.Request) {
 
 func handlePresetAllowlists(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Merge metadata from cache if available
 	response := make([]List, len(DefaultAllowlists))
 	copy(response, DefaultAllowlists)
-	
+
 	metadataMu.RLock()
 	for i, p := range response {
 		if m, ok := metadataCache[p.URL]; ok {

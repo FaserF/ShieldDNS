@@ -29,25 +29,27 @@ func startDNSWatchdog(ctx context.Context) {
 				},
 			}
 
-			// Try to resolve our built-in test domain to verify filtering is active
+			// Try to resolve a known stable domain to verify connectivity.
+			// Using a malware domain for health checks is risky because a successful block
+			// (NXDOMAIN) would be interpreted as a failure by LookupHost.
 			checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			_, err := r.LookupHost(checkCtx, "shielddns-maleware.test")
+			_, err := r.LookupHost(checkCtx, "google.com")
 			cancel()
 
 			if err != nil {
 				failureCount++
 				slog.Warn("DNS health check failed", "error", err, "failures", failureCount)
-				
+
 				// Critical failure: CoreDNS might be hung or crashed
 				if failureCount >= 3 {
 					statsLock.Lock()
 					stats.CoreDNSAlive = false
 					statsLock.Unlock()
-					
+
 					slog.Error("DNS health check failed 3 consecutive times. Initiating CoreDNS restart...")
 					restartCoreDNS()
 					failureCount = 0 // Reset after restart attempt
-					
+
 					// Extra wait to allow restart to settle
 					select {
 					case <-ctx.Done():
@@ -60,7 +62,7 @@ func startDNSWatchdog(ctx context.Context) {
 					slog.Info("DNS health check recovered")
 				}
 				failureCount = 0
-				
+
 				statsLock.Lock()
 				stats.CoreDNSAlive = true
 				statsLock.Unlock()

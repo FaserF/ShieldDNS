@@ -35,6 +35,7 @@ func startAuthWorkers() {
 		for range ticker.C {
 			cleanupLoginFailures()
 			cleanupSessions()
+			cleanupRateLimits()
 		}
 	}()
 }
@@ -63,6 +64,27 @@ func cleanupSessions() {
 	})
 }
 
+func cleanupRateLimits() {
+	now := time.Now()
+	// Cleanup API rate limit quotas that haven't been reset in over 1 hour
+	apiRateLimit.Range(func(key, value interface{}) bool {
+		quota := value.(*apiKeyQuota)
+		if now.After(quota.Reset.Add(1 * time.Hour)) {
+			apiRateLimit.Delete(key)
+		}
+		return true
+	})
+
+	// Cleanup API last write timestamps older than 24h
+	apiLastWrite.Range(func(key, value interface{}) bool {
+		lastUpdate := value.(time.Time)
+		if now.Sub(lastUpdate) > 24*time.Hour {
+			apiLastWrite.Delete(key)
+		}
+		return true
+	})
+}
+
 func securityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1. Strict Transport Security (HSTS)
@@ -71,14 +93,14 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 		}
-		
+
 		// 2. Prevent MIME-Type Sniffing
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		
+
 		// 3. Clickjacking Protection
 		// SAMEORIGIN allows the page to be displayed in a frame on the same origin as the page itself.
 		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
-		
+
 		// 4. XSS Protection (Legacy but still useful for some browsers)
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 
@@ -111,12 +133,12 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 			"manifest-src 'self'; " +
 			"frame-ancestors 'self'" + dynamicHosts + "; " +
 			"base-uri 'none';"
-		
+
 		w.Header().Set("Content-Security-Policy", csp)
 
 		// 7. Permissions Policy (Disable unneeded browser features)
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), xr-spatial-tracking=()")
-		
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -247,9 +269,9 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		// Security: Bind session to IP and User-Agent
 		clientIP := getClientIP(r)
-		
+
 		if sess.RemoteIP != clientIP || sess.UserAgent != r.UserAgent() {
-			slog.Warn("Session identity mismatch: possibly hijaked or changed connection", 
+			slog.Warn("Session identity mismatch: possibly hijaked or changed connection",
 				"expected_ip", sess.RemoteIP, "actual_ip", clientIP,
 				"expected_ua", sess.UserAgent, "actual_ua", r.UserAgent())
 			sessionStore.Delete(cookie.Value)
@@ -260,7 +282,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		// 3. API Authorization check
 		required := getRequiredPermission(r)
 		// (Session user has all permissions essentially, but we could add role checks here)
-		_ = required 
+		_ = required
 
 		next.ServeHTTP(w, r)
 	})
@@ -316,7 +338,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 	config.AdminPasswordHashed = string(hash)
 	saveConfigNoLock()
 	slog.Info("Admin setup completed", "ip", strings.Split(r.RemoteAddr, ":")[0])
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
@@ -353,12 +375,12 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		failureLock.Unlock()
 
 		slog.Warn("Failed login attempt", "ip", ip, "failure_count", count+1)
-		
+
 		// Brute-force cooling: Artificial delay for repeated failures
 		if count >= 3 && !testMode {
 			time.Sleep(2 * time.Second)
 		}
-		
+
 		renderError(w, "Invalid password", "INVALID_PASSWORD", http.StatusUnauthorized)
 		return
 	}
@@ -379,12 +401,13 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionStore.Store(token, sess)
 
+	isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   isSecure,
 		MaxAge:   int(SessionDuration.Seconds()),
 		SameSite: http.SameSiteLaxMode,
 	})
@@ -399,7 +422,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	configLock.Unlock()
 
 	slog.Info("Admin logged in", "ip", ip)
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }

@@ -18,7 +18,7 @@ func TestHandleLoginRateLimit(t *testing.T) {
 	// Mock password in config
 	password := "testpassword123"
 	hashed, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	
+
 	configLock.Lock()
 	config.AdminPasswordHashed = string(hashed)
 	configLock.Unlock()

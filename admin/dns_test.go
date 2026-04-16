@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -22,8 +23,12 @@ func TestParseLogLine_Structured(t *testing.T) {
 	logBuffer = nil
 	bufferLock.Unlock()
 
+	recentQueriesLock.Lock()
+	recentQueries = make(map[string]querySignature)
+	recentQueriesLock.Unlock()
+
 	// Test allowed query in new structured CoreDNS format (with User-Agent)
-	parseLogLine(`127.0.0.1:46111 A google.com. NOERROR qr,rd,ra 0.00123s "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" "-"`)
+	parseLogLine(`127.0.0.1:46111 A apple.com. NOERROR qr,rd,ra 0.00123s "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" "-"`)
 
 	bufferLock.Lock()
 	length := len(logBuffer)
@@ -43,8 +48,8 @@ func TestParseLogLine_Structured(t *testing.T) {
 	if q.Type != "A" {
 		t.Errorf("Expected Type A, got %s", q.Type)
 	}
-	if q.Domain != "google.com" {
-		t.Errorf("Expected Domain google.com, got %s", q.Domain)
+	if q.Domain != "apple.com" {
+		t.Errorf("Expected Domain apple.com, got %s", q.Domain)
 	}
 	if q.Status != "Allowed" {
 		t.Errorf("Expected Status Allowed, got %s", q.Status)
@@ -213,6 +218,14 @@ func TestParseLogLine_SSEBroadcast(t *testing.T) {
 		delete(sseClients, ch)
 		sseLock.Unlock()
 	}()
+
+	importContext, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go startDNSWorkers(importContext)
+
+	recentQueriesLock.Lock()
+	recentQueries = make(map[string]querySignature)
+	recentQueriesLock.Unlock()
 
 	parseLogLine(`192.168.1.10:4321 A example.com. NOERROR qr,rd 0.001s "-"`)
 

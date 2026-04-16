@@ -22,7 +22,7 @@ var (
 		},
 		[]string{"status", "type"},
 	)
-	
+
 	// Atomic counter for QPS calculation
 	recentQueryCount atomic.Int64
 
@@ -112,7 +112,7 @@ func UpdateSystemMetrics(s *Stats) {
 	activeClients.Set(float64(s.UniqueClients))
 	// DBSizeMB to Bytes
 	dbSizeBytes.Set(s.DBSizeMB * 1024 * 1024)
-	
+
 	cpuUsage.Set(s.CPUUsage)
 	ramUsage.Set(s.RAMUsedMB * 1024 * 1024)
 	uptimeSeconds.Set(float64(s.UptimeSeconds))
@@ -145,7 +145,7 @@ func StartQPSWorker(ctx context.Context) {
 		case <-ticker.C:
 			count := recentQueryCount.Swap(0)
 			qps := float64(count) / float64(intervalSeconds)
-			
+
 			statsLock.Lock()
 			stats.ActiveQPS = qps
 			statsLock.Unlock()

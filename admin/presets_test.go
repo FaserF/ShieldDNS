@@ -28,7 +28,7 @@ func TestPresetsAvailability(t *testing.T) {
 
 			resp, err := client.Do(req)
 			if err != nil {
-				// If it's a timeout or a network error, we log it and skip to avoid breaking CI 
+				// If it's a timeout or a network error, we log it and skip to avoid breaking CI
 				// on flaky external dependencies.
 				t.Logf("⚠️ External service %s (%s) unreachable: %v", list.Name, list.URL, err)
 				t.Skip("Skipping due to unreachable external service")

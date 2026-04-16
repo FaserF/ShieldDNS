@@ -31,7 +31,7 @@ func AddSystemLog(line string) {
 	if !strings.HasPrefix(line, "[") {
 		line = fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), line)
 	}
-	
+
 	systemLogLock.Lock()
 	systemLogBuffer = append(systemLogBuffer, line)
 	if len(systemLogBuffer) > 500 {
@@ -60,7 +60,7 @@ func DebugLog(msg string) {
 	}
 }
 
-// SlogUIHandler is a custom slog.Handler that writes JSON to a writer 
+// SlogUIHandler is a custom slog.Handler that writes JSON to a writer
 // and plain text to the ShieldDNS UI system log buffer.
 type SlogUIHandler struct {
 	jsonHandler slog.Handler
@@ -609,7 +609,7 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 		if restoreDBPath != "" {
 			defer os.Remove(restoreDBPath)
 			closeDB()
-			
+
 			// Move the temp DB into place
 			if err := os.Rename(restoreDBPath, DBPath); err != nil {
 				// Fallback to atomicWrite if rename fails (e.g. cross-device)
@@ -621,7 +621,7 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 
 		updateCorefile()
 		go updateBlocklist(nil)
-		
+
 		ip := r.Header.Get("X-Real-IP")
 		if ip == "" {
 			ip, _, _ = net.SplitHostPort(r.RemoteAddr)

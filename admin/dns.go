@@ -22,20 +22,20 @@ import (
 )
 
 type CorefileData struct {
-	DNSPort         string
-	DOTPort         string
-	InternalDOHPort string
-	DNSSEC          bool
-	ServeStale      bool
-	Upstreams       string
-	TLSServerName   string
-	Policy          string
-	HostsPath       string
-	GeoACLRules     string
-	CertFile        string
-	KeyFile         string
+	DNSPort          string
+	DOTPort          string
+	InternalDOHPort  string
+	DNSSEC           bool
+	ServeStale       bool
+	Upstreams        string
+	TLSServerName    string
+	Policy           string
+	HostsPath        string
+	GeoACLRules      string
+	CertFile         string
+	KeyFile          string
 	FilteringEnabled bool
-	HasCerts        bool
+	HasCerts         bool
 }
 
 const CorefileTemplate = `.:{{.DNSPort}} {
@@ -310,11 +310,11 @@ func checkDNSOnce(addr string) bool {
 
 	resp := make([]byte, 512)
 	n, err := conn.Read(resp)
-	if err != nil || n < 2 {
+	if err != nil || n < 12 { // DNS header is 12 bytes minimum
 		return false
 	}
-	// Verify Transaction ID (first 2 bytes)
-	return resp[0] == 0x12 && resp[1] == 0x34
+	// Verify Transaction ID (first 2 bytes) AND that it is a response (bit 7 of 3rd byte set)
+	return resp[0] == 0x12 && resp[1] == 0x34 && (resp[2]&0x80 != 0)
 }
 
 func checkDoT(addr, serverName string) bool {
@@ -338,12 +338,51 @@ func checkDoTOnce(addr, serverName string) bool {
 		InsecureSkipVerify: !verify,
 		ServerName:         serverName,
 	}
-	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 3 * time.Second}, "tcp", addr, conf)
+
+	dialer := &net.Dialer{Timeout: 3 * time.Second}
+	conn, err := tls.DialWithDialer(dialer, "tcp", addr, conf)
 	if err != nil {
 		return false
 	}
-	conn.Close()
-	return true
+	defer conn.Close()
+
+	// Perform a minimal DNS query over DoT to ensure the resolver is alive
+	// DoT adds a 2-byte length prefix (RFC 7858)
+	query := []byte{
+		0x00, 0x1c, // Length (28 bytes)
+		0xab, 0xcd, // Transaction ID
+		0x01, 0x00, // Flags: Standard query
+		0x00, 0x01, // Questions: 1
+		0x00, 0x00, // Answer RRs: 0
+		0x00, 0x00, // Authority RRs: 0
+		0x00, 0x00, // Additional RRs: 0
+		0x06, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x03, 0x63, 0x6f, 0x6d, 0x00, // google.com
+		0x00, 0x01, // Type: A
+		0x00, 0x01, // Class: IN
+	}
+
+	conn.SetDeadline(time.Now().Add(2 * time.Second))
+	if _, err := conn.Write(query); err != nil {
+		return false
+	}
+
+	respHeader := make([]byte, 2)
+	if _, err := io.ReadFull(conn, respHeader); err != nil {
+		return false
+	}
+
+	respLen := int(respHeader[0])<<8 | int(respHeader[1])
+	if respLen < 12 || respLen > 512 {
+		return false
+	}
+
+	resp := make([]byte, respLen)
+	if _, err := io.ReadFull(conn, resp); err != nil {
+		return false
+	}
+
+	// Verify Transaction ID and QR bit
+	return resp[0] == 0xab && resp[1] == 0xcd && (resp[2]&0x80 != 0)
 }
 
 func equal(a, b []string) bool {
@@ -376,10 +415,11 @@ type querySignature struct {
 var (
 	recentQueries     = make(map[string]querySignature)
 	recentQueriesLock sync.Mutex
+	sseChan           = make(chan Query, 1024)
 )
 
 func startDNSWorkers(ctx context.Context) {
-	// Background cleanup for recent query signatures
+	// 1. Background cleanup for recent query signatures
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
@@ -392,13 +432,50 @@ func startDNSWorkers(ctx context.Context) {
 			}
 		}
 	}()
+
+	// 2. Central SSE Broadcaster
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case q := <-sseChan:
+				broadcastSSE(q)
+			}
+		}
+	}()
+
+	// 3. Abuse Detection Analyzer
+	go startAbuseAnalyzer(ctx)
+}
+
+func broadcastSSE(query Query) {
+	sseLock.Lock()
+	if len(sseClients) == 0 {
+		sseLock.Unlock()
+		return
+	}
+	// Create a local copy of clients to broadcast outside the lock
+	clients := make([]chan Query, 0, len(sseClients))
+	for ch := range sseClients {
+		clients = append(clients, ch)
+	}
+	sseLock.Unlock()
+
+	for _, ch := range clients {
+		select {
+		case ch <- query:
+		default:
+			// Full channel, skip to avoid stalling the broadcaster
+		}
+	}
 }
 
 func cleanupRecentQueries() {
 	now := time.Now()
 	recentQueriesLock.Lock()
 	defer recentQueriesLock.Unlock()
-	
+
 	// Keep if less than 10s old
 	for k, v := range recentQueries {
 		if now.Sub(v.time) > 10*time.Second {
@@ -545,20 +622,20 @@ func updateCorefile() {
 	}
 
 	data := CorefileData{
-		DNSPort:         dnsPort,
-		DOTPort:         dotPort,
-		InternalDOHPort: internalDOHPort,
-		DNSSEC:          dnssec,
-		ServeStale:      serveStale,
-		Upstreams:       upstreamStr,
-		TLSServerName:   dotServerName,
-		Policy:          policyVal,
-		HostsPath:       CombinedHostsPath,
-		GeoACLRules:     getGeoACLRules(),
-		CertFile:        certFile,
-		KeyFile:         keyFile,
+		DNSPort:          dnsPort,
+		DOTPort:          dotPort,
+		InternalDOHPort:  internalDOHPort,
+		DNSSEC:           dnssec,
+		ServeStale:       serveStale,
+		Upstreams:        upstreamStr,
+		TLSServerName:    dotServerName,
+		Policy:           policyVal,
+		HostsPath:        CombinedHostsPath,
+		GeoACLRules:      getGeoACLRules(),
+		CertFile:         certFile,
+		KeyFile:          keyFile,
 		FilteringEnabled: filtering,
-		HasCerts:        hasCerts,
+		HasCerts:         hasCerts,
 	}
 
 	tmpl, err := template.New("corefile").Parse(CorefileTemplate)
@@ -595,7 +672,7 @@ func startCoreDNS(ctx context.Context) {
 				select {
 				case <-ctx.Done():
 					return
-				case <-time.After(10 * time.Second):
+				case <-time.After(1 * time.Second):
 					continue
 				}
 			}
@@ -628,7 +705,7 @@ func startCoreDNS(ctx context.Context) {
 			}(stderr)
 
 			dnsCmd.Wait()
-			
+
 			select {
 			case <-ctx.Done():
 				return
@@ -645,12 +722,15 @@ func restartCoreDNS() {
 		slog.Info("Restarting CoreDNS to flush cache and apply updated lists")
 		// Try graceful termination first (SIGINT/SIGTERM)
 		dnsCmd.Process.Signal(os.Interrupt)
-		
+
 		// Start a watchdog to force kill if it hangs
 		go func(p *os.Process) {
 			time.Sleep(2 * time.Second)
 			p.Kill() // Fallback
 		}(dnsCmd.Process)
+
+		// Give the old process a moment to release ports before the main loop restarts it
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -661,7 +741,7 @@ func parseLogLine(line string) {
 		if line == "" {
 			return
 		}
-		
+
 		prefixes := []string{"[INFO]", "[DEBUG]", "[ERROR]", "[CoreDNS]", "[CoreDNS-ERR]"}
 		found := false
 		for _, p := range prefixes {
@@ -671,13 +751,13 @@ func parseLogLine(line string) {
 				break
 			}
 		}
-		
+
 		// Handle timestamp prefix like [16:23:02]
 		if !found && len(line) > 10 && line[0] == '[' && line[9] == ']' {
 			line = strings.TrimSpace(line[10:])
 			found = true
 		}
-		
+
 		if !found {
 			break
 		}
@@ -728,7 +808,7 @@ func parseLogLine(line string) {
 			rcode = pFields[3]
 			rflags = pFields[4]
 			durationStr = pFields[5]
-			
+
 			userAgent = quotes[0]
 			if len(quotes) >= 2 {
 				realIP = quotes[1]
@@ -782,9 +862,9 @@ func parseLogLine(line string) {
 		clientIP = "DoH Proxy"
 	}
 
-	// Filter out internal health checks for our built-in test domain from statistics and logs.
-	// We only show these if they come from external clients (not from the internal DoH proxy or the watchdog).
-	if qDomain == "shielddns-maleware.test" && clientIP == "DoH Proxy" {
+	// Filter out internal health checks (the watchdog) from statistics and logs.
+	// We only show these if they come from actual external clients.
+	if (qDomain == "shielddns-maleware.test" || qDomain == "google.com") && clientIP == "DoH Proxy" {
 		return
 	}
 
@@ -793,7 +873,7 @@ func parseLogLine(line string) {
 	// Update latest User-Agent for this IP with throttling
 	if userAgent != "" && userAgent != "-" && userAgent != "none" && userAgent != "{>User-Agent}" {
 		oldUA, _ := ipToUA.Swap(clientIP, userAgent)
-		
+
 		shouldPersist := false
 		if oldUA == nil || oldUA.(string) != userAgent {
 			shouldPersist = true
@@ -856,7 +936,9 @@ func parseLogLine(line string) {
 		configLock.RUnlock()
 	}
 
-	isCacheHit := !isBlocked && duration < 5.0
+	// Heuristic for Cache Hit: Very low latency (< 1.5ms) and valid response.
+	// In local container environments, 5ms is often too high for a real cache hit threshold.
+	isCacheHit := !isBlocked && duration > 0 && duration < 1.5
 
 	// Update memory stats for real-time dashboard (Atomic for core counters)
 	atomic.AddInt64(&stats.TotalQueries, 1)
@@ -900,43 +982,52 @@ func parseLogLine(line string) {
 
 	// Record real-time metrics and QPS
 	RecordQuery(q)
-	
+
 	bufferLock.Lock()
 	logBuffer = append(logBuffer, q)
 	bufferLock.Unlock()
 
-	// Feed query to Abuse Detection Engine
-	go analyzeQuery(clientIP, qDomain, status)
+	// Feed query to Abuse Detection Engine via worker channel to avoid goroutine churn
+	select {
+	case abuseChan <- abuseJob{ip: clientIP, domain: qDomain, status: status}:
+	default:
+		// Drop if analyzer is overwhelmed
+	}
 
-	// Broadcast to SSE clients
-	go func(query Query) {
-		sseLock.Lock()
-		if len(sseClients) == 0 {
-			sseLock.Unlock()
+	// Broadcast to SSE clients via central channel
+	select {
+	case sseChan <- q:
+	default:
+		// Drop broadcast if internal channel is full
+	}
+}
+
+type abuseJob struct {
+	ip, domain, status string
+}
+
+var abuseChan = make(chan abuseJob, 1000)
+
+func startAbuseAnalyzer(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
 			return
-		}
-		// Create a local copy of clients to broadcast outside the lock
-		clients := make([]chan Query, 0, len(sseClients))
-		for ch := range sseClients {
-			clients = append(clients, ch)
-		}
-		sseLock.Unlock()
-
-		for _, ch := range clients {
-			select {
-			case ch <- query:
-			default:
-				// If channel is full, we skip this query for this client to avoid stalling the broadcaster
-				// This might happen during massive bursts
-				// DebugLog("SSE channel full, skipping query broadcast for one client")
+		case job := <-abuseChan:
+			configLock.RLock()
+			enabled := config.AbuseDetectionEnabled
+			configLock.RUnlock()
+			if enabled {
+				analyzeQuery(job.ip, job.domain, job.status)
 			}
 		}
-	}(q)
+	}
 }
 
 type rateLimitEntry struct {
 	Count      int
 	LastAccess time.Time
+	mu         sync.Mutex
 }
 
 var (
@@ -960,19 +1051,22 @@ func DoHRateLimitMiddleware(next http.Handler) http.Handler {
 		v, _ := dohRateLimits.LoadOrStore(clientIP, &rateLimitEntry{LastAccess: now})
 		entry := v.(*rateLimitEntry)
 
-		// Simple fixed-window rate limit: 30 requests per 1 second
+		entry.mu.Lock()
+		// Simple fixed-window rate limit: X requests per 1 second
 		if now.Sub(entry.LastAccess) > 1*time.Second {
 			entry.Count = 1
 			entry.LastAccess = now
 		} else {
 			entry.Count++
 		}
+		currentCount := entry.Count
+		entry.mu.Unlock()
 
 		configLock.RLock()
 		limit := config.DoHRateLimit
 		configLock.RUnlock()
 
-		if entry.Count > limit {
+		if currentCount > limit {
 			slog.Warn("DoH Rate limit exceeded", "ip", clientIP, "limit", limit)
 			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
 			return
