@@ -119,17 +119,10 @@ jobs:
         with:
           node-version: 24.14.1
 
-      - name: Install Playwright
-        run: |
-          npm init -y
-          npm install playwright
-          npx playwright install-deps
-          npx playwright install chromium
-
-      - name: Run Layout Verification
+      - name: Prepare Layout Verification Script
         run: |
           cat << 'EOF' > verify_layout.js
-          const { chromium } = require('playwright');
+          const { chromium } = require('playwright-core');
 
           async function testPage(url, pageName) {
               console.log(`\n========== Testing ${pageName} ==========`);
@@ -207,4 +200,25 @@ jobs:
               }
           })();
           EOF
-          node verify_layout.js
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('verify_layout.js') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm install playwright-core chromium
+          # Only install system dependencies for Chromium (much faster!)
+          npx playwright install-deps chromium
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
+            npx playwright install chromium
+          fi
+
+      - name: Run Layout Verification
+        run: node verify_layout.js
