@@ -583,110 +583,116 @@
                     <h1>Settings</h1>
                 </header>
                 <form id="settings-form">
-                    <div class="checkbox-group">
-                        <div class="checkbox-text">
-                            <label>Debug Mode</label>
-                            <p class="help">Write detailed diagnostic information to the system logs.</p>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="debug-mode-check">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Upstream DNS Servers (Standard)</label>
-                        <p class="help">Comma separated IP addresses (Max 5)</p>
-                        <input type="text" id="upstreams-input" placeholder="1.1.1.1, 8.8.8.8">
-                    </div>
-                    <div class="form-group">
-                        <label>Upstream DoT Servers (DNS over TLS)</label>
-                        <p class="help">Comma separated hostnames (Max 5). Example: unfiltered.joindns4.eu</p>
-                        <input type="text" id="dot-upstreams-input"
-                            placeholder="unfiltered.joindns4.eu, one.one.one.one">
-                    </div>
-                    <div class="form-group">
-                        <label>Admin Domain (for Block Page)</label>
-                        <p class="help">The domain used for the Admin UI (e.g., dns.mydomain.de). Used for professional
-                            redirects.</p>
-                        <input type="text" id="admin-domain-input" placeholder="dns.mydomain.de">
-                    </div>
-                    <div class="form-group">
-                        <div class="label-with-info">
-                            <label>Default IPv4 Block Page IP</label>
-                            <i class="fas fa-info-circle info-icon" data-tooltip="The IP address clients are sent to when a domain is blocked. Use 0.0.0.0 for null routing (recommended) or your server IP for a custom block page."></i>
-                        </div>
-                        <input type="text" id="block-ip-input" placeholder="1.2.3.4 or 127.0.0.1">
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <div class="checkbox-text">
-                            <div class="label-with-info">
-                                <label>Prefer Encrypted Upstreams (DoT)</label>
-                                <i class="fas fa-info-circle info-icon" data-tooltip="Always use DNS-over-TLS (DoT) for upstream queries to ensure privacy and prevent ISP snooping."></i>
+                    <div class="settings-section">
+                        <h2>Global DNS Settings ⚙️</h2>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <label>Debug Mode</label>
+                                <p class="help">Write detailed diagnostic information to the system logs.</p>
                             </div>
-                            <p class="help">Always try to use DNS-over-TLS if available.</p>
+                            <label class="switch">
+                                <input type="checkbox" id="debug-mode-check">
+                                <span class="slider"></span>
+                            </label>
                         </div>
-                        <label class="switch">
-                            <input type="checkbox" id="prefer-encrypted-check">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <div class="checkbox-text">
-                            <div class="label-with-info">
-                                <label>Sign Apple Profiles (.mobileconfig)</label>
-                                <i class="fas fa-info-circle info-icon" data-tooltip="Uses your server SSL certificate to cryptographically sign generated profiles. This prevents the 'Not Verified' warning on iOS devices."></i>
-                            </div>
-                            <p class="help">Use the server's SSL certificate to sign generated profiles for a "Verified"
-                                status on iOS.</p>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="sign-mobileconfig-check">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <div class="checkbox-text">
-                            <div class="label-with-info">
-                                <label>Abuse Detection Engine (Auto-Blocking)</label>
-                                <i class="fas fa-info-circle info-icon" data-tooltip="A security layer that monitors query patterns to detect and block DNS amplification, flooding, or DGA-based botnet behavior."></i>
-                            </div>
-                            <p class="help">Automatically block clients abusing the server with floods or DGA bots.</p>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="abuse-detection-check">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
 
-                    <div class="form-group">
-                        <div class="label-with-info">
-                            <label>DoH Query Rate Limit (req/s)</label>
-                            <i class="fas fa-info-circle info-icon" data-tooltip="The maximum number of DNS-over-HTTPS queries allowed per client per second. Prevents flood-based DoS attacks. Default: 30."></i>
-                        </div>
-                        <p class="help">Max requests per client per second on the DoH endpoint (Default: 30).</p>
-                        <input type="number" id="doh-rate-limit-input" min="1" max="1000" value="30">
-                    </div>
-
-                    <div id="abuse-dga-settings" class="mt-2 pl-4"
-                        style="border-left: 2px solid var(--accent); margin-left: 10px; padding-left: 20px;">
                         <div class="form-group">
-                            <div class="label-with-info">
-                                <label>DGA Sensitivity Threshold</label>
-                                <i class="fas fa-info-circle info-icon" data-tooltip="Lower values are more restrictive. Detects algorithms used by malware to generate pseudo-random domains. Default: 3.8."></i>
-                            </div>
-                            <p class="help">Lower is more sensitive (Default: 3.8). Blocks domains with high entropy.
-                            </p>
-                            <input type="number" id="abuse-dga-threshold-input" step="0.1" min="1.0" max="10.0"
-                                value="3.8">
+                            <label>Upstream DNS Servers (Standard)</label>
+                            <p class="help">Comma separated IP addresses (Max 5)</p>
+                            <input type="text" id="upstreams-input" placeholder="1.1.1.1, 8.8.8.8">
+                        </div>
+                        <div class="form-group">
+                            <label>Upstream DoT Servers (DNS over TLS)</label>
+                            <p class="help">Comma separated hostnames (Max 5). Example: unfiltered.joindns4.eu</p>
+                            <input type="text" id="dot-upstreams-input"
+                                placeholder="unfiltered.joindns4.eu, one.one.one.one">
+                        </div>
+                        <div class="form-group">
+                            <label>Admin Domain (for Block Page)</label>
+                            <p class="help">The domain used for the Admin UI (e.g., dns.mydomain.de). Used for professional
+                                redirects.</p>
+                            <input type="text" id="admin-domain-input" placeholder="dns.mydomain.de">
                         </div>
                         <div class="form-group">
                             <div class="label-with-info">
-                                <label>DGA Minimum Length</label>
-                                <i class="fas fa-info-circle info-icon" data-tooltip="Ignores very short subdomains to reduce false positives in DGA detection."></i>
+                                <label>Default IPv4 Block Page IP</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="The IP address clients are sent to when a domain is blocked. Use 0.0.0.0 for null routing (recommended) or your server IP for a custom block page."></i>
                             </div>
-                            <p class="help">Ignores subdomains shorter than this (Default: 8).</p>
-                            <input type="number" id="abuse-dga-min-len-input" min="3" max="50" value="8">
+                            <input type="text" id="block-ip-input" placeholder="1.2.3.4 or 127.0.0.1">
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Prefer Encrypted Upstreams (DoT)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Always use DNS-over-TLS (DoT) for upstream queries to ensure privacy and prevent ISP snooping."></i>
+                                </div>
+                                <p class="help">Always try to use DNS-over-TLS if available.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="prefer-encrypted-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h2>Security & Abuse Detection 🛡️</h2>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Sign Apple Profiles (.mobileconfig)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Uses your server SSL certificate to cryptographically sign generated profiles. This prevents the 'Not Verified' warning on iOS devices."></i>
+                                </div>
+                                <p class="help">Use the server's SSL certificate to sign generated profiles for a "Verified"
+                                    status on iOS.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="sign-mobileconfig-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Abuse Detection Engine (Auto-Blocking)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="A security layer that monitors query patterns to detect and block DNS amplification, flooding, or DGA-based botnet behavior."></i>
+                                </div>
+                                <p class="help">Automatically block clients abusing the server with floods or DGA bots.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="abuse-detection-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div id="abuse-dga-settings" class="mt-3">
+                            <div class="form-group">
+                                <div class="label-with-info">
+                                    <label>DGA Sensitivity Threshold</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Lower values are more restrictive. Detects algorithms used by malware to generate pseudo-random domains. Default: 3.8."></i>
+                                </div>
+                                <p class="help">Lower is more sensitive (Default: 3.8). Blocks domains with high entropy.
+                                </p>
+                                <input type="number" id="abuse-dga-threshold-input" step="0.1" min="1.0" max="10.0"
+                                    value="3.8">
+                            </div>
+                            <div class="form-group">
+                                <div class="label-with-info">
+                                    <label>DGA Minimum Length</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Ignores very short subdomains to reduce false positives in DGA detection."></i>
+                                </div>
+                                <p class="help">Ignores subdomains shorter than this (Default: 8).</p>
+                                <input type="number" id="abuse-dga-min-len-input" min="3" max="50" value="8">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="label-with-info">
+                                <label>DoH Query Rate Limit (req/s)</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="The maximum number of DNS-over-HTTPS queries allowed per client per second. Prevents flood-based DoS attacks. Default: 30."></i>
+                            </div>
+                            <p class="help">Max requests per client per second on the DoH endpoint (Default: 30).</p>
+                            <input type="number" id="doh-rate-limit-input" min="1" max="1000" value="30">
                         </div>
                     </div>
 
