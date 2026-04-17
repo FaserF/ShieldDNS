@@ -168,7 +168,6 @@ ACTUAL_COREDNS_PORT="${INTERNAL_DOH_PORT}"
 if [ ! -f "$COREFILE_PATH" ]; then
     cat <<EOF > $COREFILE_PATH
 .:${DNS_PORT} {
-    bind 0.0.0.0
     forward . ${UPSTREAM_DNS}
     log
     errors

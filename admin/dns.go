@@ -39,7 +39,6 @@ type CorefileData struct {
 }
 
 const CorefileTemplate = `.:{{.DNSPort}} {
-    bind 0.0.0.0
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     health :8082
@@ -68,7 +67,6 @@ const CorefileTemplate = `.:{{.DNSPort}} {
 
 {{if .HasCerts}}
 tls://.:{{.DOTPort}} {
-    bind 0.0.0.0
     tls {{.CertFile}} {{.KeyFile}}
     {{if .DNSSEC}}dnssec{{end}}
     metadata
@@ -94,7 +92,6 @@ tls://.:{{.DOTPort}} {
 }
 
 https://.:{{.InternalDOHPort}} {
-    bind 0.0.0.0
     tls {{.CertFile}} {{.KeyFile}}
     {{if .DNSSEC}}dnssec{{end}}
     metadata
