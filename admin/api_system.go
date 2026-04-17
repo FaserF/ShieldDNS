@@ -200,18 +200,28 @@ func handleSystemLogs(w http.ResponseWriter, r *http.Request) {
 	flusher, _ := w.(http.Flusher)
 	flusher.Flush()
 
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case line := <-ch:
 			fmt.Fprintf(w, "data: %s\n\n", line)
+			flusher.Flush()
+		case <-ticker.C:
+			// Heartbeat comment to keep connection alive
+			fmt.Fprintf(w, ": heartbeat\n\n")
 			flusher.Flush()
 		case <-r.Context().Done():
 			return
 		}
 	}
 }
-
 func handleEvents(w http.ResponseWriter, r *http.Request) {
+	if activeSSEClients.Load() >= 50 {
+		http.Error(w, "Server busy: too many active streams", http.StatusServiceUnavailable)
+		return
+	}
 	activeSSEClients.Add(1)
 	defer activeSSEClients.Add(-1)
 
@@ -239,11 +249,18 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "data: {\"type\":\"ping\"}\n\n")
 	flusher.Flush()
 
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case q := <-ch:
 			data, _ := json.Marshal(q)
 			fmt.Fprintf(w, "data: %s\n\n", string(data))
+			flusher.Flush()
+		case <-ticker.C:
+			// Heartbeat comment to keep connection alive
+			fmt.Fprintf(w, ": heartbeat\n\n")
 			flusher.Flush()
 		case <-r.Context().Done():
 			return
