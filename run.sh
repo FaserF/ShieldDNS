@@ -173,17 +173,13 @@ if [ ! -f "$COREFILE_PATH" ]; then
     errors
 }
 tls://.:${DOT_PORT} {
-    tls ${CERT_FILE} ${KEY_FILE} {
-        alpn dot
-    }
+    tls ${CERT_FILE} ${KEY_FILE}
     forward . ${UPSTREAM_DNS}
     log
     errors
 }
 https://.:${ACTUAL_COREDNS_PORT} {
-    tls ${CERT_FILE} ${KEY_FILE} {
-        alpn h2 http/1.1
-    }
+    tls ${CERT_FILE} ${KEY_FILE}
     forward . ${UPSTREAM_DNS}
     log
     errors

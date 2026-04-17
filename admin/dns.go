@@ -67,9 +67,7 @@ const CorefileTemplate = `.:{{.DNSPort}} {
 
 {{if .HasCerts}}
 tls://.:{{.DOTPort}} {
-    tls {{.CertFile}} {{.KeyFile}} {
-        alpn dot
-    }
+    tls {{.CertFile}} {{.KeyFile}}
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 5s
@@ -94,9 +92,7 @@ tls://.:{{.DOTPort}} {
 }
 
 https://.:{{.InternalDOHPort}} {
-    tls {{.CertFile}} {{.KeyFile}} {
-        alpn h2 http/1.1
-    }
+    tls {{.CertFile}} {{.KeyFile}}
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 5s
@@ -121,9 +117,7 @@ https://.:{{.InternalDOHPort}} {
 }
 
 quic://.:{{.DOTPort}} {
-    tls {{.CertFile}} {{.KeyFile}} {
-        alpn doq
-    }
+    tls {{.CertFile}} {{.KeyFile}}
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 5s
