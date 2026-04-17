@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -152,8 +153,8 @@ func TestParseLogLine_DefaultFormat(t *testing.T) {
 	parseLogLine("127.0.0.1:53 A google-default.com. NOERROR qr,rd,ra 0.0001s \"-\"")
 
 	statsLock.RLock()
-	if stats.TotalQueries != 1 || stats.BlockedQueries != 0 {
-		t.Errorf("expected 1 total, 0 blocked, got %v/%v", stats.TotalQueries, stats.BlockedQueries)
+	if atomic.LoadInt64(&stats.TotalQueries) != 1 || atomic.LoadInt64(&stats.BlockedQueries) != 0 {
+		t.Errorf("expected 1 total, 0 blocked, got %v/%v", atomic.LoadInt64(&stats.TotalQueries), atomic.LoadInt64(&stats.BlockedQueries))
 	}
 	statsLock.RUnlock()
 
@@ -165,8 +166,8 @@ func TestParseLogLine_DefaultFormat(t *testing.T) {
 	parseLogLine("127.0.0.1:53 A doubleclick.net. NOERROR qr,aa,rd 0.0001s \"-\"")
 
 	statsLock.RLock()
-	if stats.TotalQueries != 2 || stats.BlockedQueries != 1 {
-		t.Errorf("expected 2 total, 1 blocked, got %v/%v", stats.TotalQueries, stats.BlockedQueries)
+	if atomic.LoadInt64(&stats.TotalQueries) != 2 || atomic.LoadInt64(&stats.BlockedQueries) != 1 {
+		t.Errorf("expected 2 total, 1 blocked, got %v/%v", atomic.LoadInt64(&stats.TotalQueries), atomic.LoadInt64(&stats.BlockedQueries))
 	}
 	statsLock.RUnlock()
 }

@@ -181,9 +181,11 @@ var (
 	latencyMap  = make(map[string]time.Duration)
 	latencyLock sync.RWMutex
 
-	// Blocklist Attribution (Domain -> List Names)
+	// Blocklist & Allowlist Attribution
 	blockAttribution     = make(map[string][]string)
 	blockAttributionLock sync.RWMutex
+	allowAttribution     = make(map[string][]string)
+	allowAttributionLock sync.RWMutex
 
 	// Client info caches
 	ipToUA       sync.Map // IP -> User-Agent string

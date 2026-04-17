@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -14,8 +15,8 @@ import (
 // TestParseLogLine_Structured tests the new structured CoreDNS log format parser.
 func TestParseLogLine_Structured(t *testing.T) {
 	statsLock.Lock()
-	stats.TotalQueries = 0
-	stats.BlockedQueries = 0
+	atomic.StoreInt64(&stats.TotalQueries, 0)
+	atomic.StoreInt64(&stats.BlockedQueries, 0)
 	stats.QueryTypes = make(map[string]int64)
 	statsLock.Unlock()
 
@@ -89,7 +90,7 @@ func TestParseLogLine_Blocked(t *testing.T) {
 	bufferLock.Unlock()
 
 	statsLock.Lock()
-	stats.BlockedQueries = 0
+	atomic.StoreInt64(&stats.BlockedQueries, 0)
 	statsLock.Unlock()
 
 	blockAttributionLock.Lock()
@@ -165,7 +166,7 @@ func TestParseLogLine_WithPrefixes(t *testing.T) {
 	bufferLock.Unlock()
 
 	statsLock.Lock()
-	stats.BlockedQueries = 0
+	atomic.StoreInt64(&stats.BlockedQueries, 0)
 	statsLock.Unlock()
 
 	// [INFO] prefix from docker/system logs

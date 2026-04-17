@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -342,9 +343,9 @@ func initializeStatsFromDB() {
 	`, curHour)
 	row.Scan(&curTotal, &curBlocked, &curCacheHits, &avgLatency)
 
-	stats.TotalQueries = total + curTotal
-	stats.BlockedQueries = blocked + curBlocked
-	stats.CacheHits = cacheHits + curCacheHits
+	atomic.StoreInt64(&stats.TotalQueries, total+curTotal)
+	atomic.StoreInt64(&stats.BlockedQueries, blocked+curBlocked)
+	atomic.StoreInt64(&stats.CacheHits, cacheHits+curCacheHits)
 	stats.AverageLatency = avgLatency
 	stats.LastUpdate = time.Now()
 

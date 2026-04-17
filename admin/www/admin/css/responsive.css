@@ -11,6 +11,23 @@
     z-index: 1000;
 }
 
+.mobile-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--text-primary);
+}
+
+.mobile-logo img {
+    height: 32px;
+    width: 32px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+
+
 .hamburger {
     background: none;
     border: none;

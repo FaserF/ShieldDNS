@@ -416,6 +416,7 @@ var (
 	recentQueries     = make(map[string]querySignature)
 	recentQueriesLock sync.Mutex
 	sseChan           = make(chan Query, 1024)
+	logQueue          = make(chan string, 10000)
 )
 
 func startDNSWorkers(ctx context.Context) {
@@ -447,6 +448,25 @@ func startDNSWorkers(ctx context.Context) {
 
 	// 3. Abuse Detection Analyzer
 	go startAbuseAnalyzer(ctx)
+
+	// 4. Log Parsing Worker Pool
+	startLogParsers(ctx)
+}
+
+func startLogParsers(ctx context.Context) {
+	numWorkers := 4 // Scale based on expected CPU cores if needed
+	for i := 0; i < numWorkers; i++ {
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case line := <-logQueue:
+					parseLogLine(line)
+				}
+			}
+		}()
+	}
 }
 
 func broadcastSSE(query Query) {
@@ -687,7 +707,14 @@ func startCoreDNS(ctx context.Context) {
 					if debug {
 						slog.Info(line, "source", "coredns")
 					}
-					go parseLogLine(line)
+					select {
+					case logQueue <- line:
+					default:
+						// Queue full, drop log to avoid blocking CoreDNS under extreme load
+						if debug {
+							slog.Debug("Log queue full, dropping line", "source", "coredns")
+						}
+					}
 				}
 			}(stdout)
 

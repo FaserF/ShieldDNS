@@ -57,11 +57,11 @@ func main() {
 	initServices()
 	startWorkers()
 
-	// Initial CoreDNS start
-	go startCoreDNS(appCtx)
-
 	// Ensure Corefile is generated with correct settings before starting CoreDNS
 	updateCorefile()
+
+	// Initial CoreDNS start
+	go startCoreDNS(appCtx)
 
 	mux := setupRouter()
 

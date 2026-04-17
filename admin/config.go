@@ -259,6 +259,7 @@ func updateBlocklist(cfg *Config) {
 	blockPageIP := cfg.BlockPageIP
 
 	newBlockAttribution := make(map[string][]string)
+	newAllowAttribution := make(map[string][]string)
 	allowDomains := make(map[string]struct{})
 
 	for i := range blocklists {
@@ -267,7 +268,7 @@ func updateBlocklist(cfg *Config) {
 			continue
 		}
 		slog.Info("Processing blocklist", "name", list.Name)
-		processList(list, newBlockAttribution, allowDomains)
+		processList(list, newBlockAttribution, allowDomains, nil)
 	}
 
 	for i := range allowlists {
@@ -276,7 +277,7 @@ func updateBlocklist(cfg *Config) {
 			continue
 		}
 		slog.Info("Processing allowlist", "name", list.Name)
-		processList(list, nil, allowDomains) // Allowlists only populate allowDomains
+		processList(list, nil, allowDomains, newAllowAttribution) // Allowlists populate allowDomains and allowAttribution
 	}
 
 	// Update the config lists with the new metadata (Entries, UpdatedAt, and RemoteUpdatedAt)
@@ -312,13 +313,14 @@ func updateBlocklist(cfg *Config) {
 	}
 	for _, d := range customAllowed {
 		allowDomains[d] = struct{}{}
+		newAllowAttribution[d] = append(newAllowAttribution[d], "Custom Allowlist")
 	}
 
 	saveConfig()
-	applyCurrentRules(newBlockAttribution, allowDomains, customMappings, blockPageIP)
+	applyCurrentRules(newBlockAttribution, newAllowAttribution, allowDomains, customMappings, blockPageIP)
 }
 
-func applyCurrentRules(attribution map[string][]string, allowSet map[string]struct{}, mappings map[string]string, blockIP string) {
+func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]string, allowSet map[string]struct{}, mappings map[string]string, blockIP string) {
 	// Remove allowlisted domains (and their subdomains) from attribution in O(N) time
 	for ad := range attribution {
 		// Exact match
@@ -353,6 +355,11 @@ func applyCurrentRules(attribution map[string][]string, allowSet map[string]stru
 	blockAttribution = attribution
 	slog.Info("Blocklist attribution updated", "total_blocked_domains", len(blockAttribution))
 	blockAttributionLock.Unlock()
+
+	// Update global allow attribution map
+	allowAttributionLock.Lock()
+	allowAttribution = allowAttr
+	allowAttributionLock.Unlock()
 
 	// Write Combined Hosts File for CoreDNS
 	var combinedBuilder strings.Builder
@@ -429,18 +436,21 @@ func reloadRulesFastNoLock(cfg *Config) {
 	blockAttributionLock.RUnlock()
 
 	allowDomains := make(map[string]struct{})
+	newAllowAttribution := make(map[string][]string)
+
 	// RE-APPLY CURRENT CUSTOM RULES
 	for _, d := range cfg.CustomBlocked {
 		newAttribution[d] = append(newAttribution[d], "Custom Blocklist")
 	}
 	for _, d := range cfg.CustomAllowed {
 		allowDomains[d] = struct{}{}
+		newAllowAttribution[d] = append(newAllowAttribution[d], "Custom Allowlist")
 	}
 
-	applyCurrentRules(newAttribution, allowDomains, cfg.CustomMappings, cfg.BlockPageIP)
+	applyCurrentRules(newAttribution, newAllowAttribution, allowDomains, cfg.CustomMappings, cfg.BlockPageIP)
 }
 
-func processList(list *List, blockMap map[string][]string, allowMap map[string]struct{}) {
+func processList(list *List, blockMap map[string][]string, allowMap map[string]struct{}, allowAttr map[string][]string) {
 	var reader io.Reader
 
 	if strings.HasPrefix(list.URL, "file://") {
@@ -548,6 +558,9 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			count++
 			if isAllowlist {
 				allowMap[domain] = struct{}{}
+				if allowAttr != nil {
+					allowAttr[domain] = append(allowAttr[domain], list.Name)
+				}
 			} else if blockMap != nil {
 				// Avoid duplicates in the same list attribution
 				alreadyPresent := false
