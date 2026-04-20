@@ -59,7 +59,7 @@ func loadConfig() {
 		CustomMappings:             map[string]string{"fritz.box": "192.168.178.1", "openwrt.lan": "192.168.1.1", "router.miwifi.com": "192.168.31.1"},
 		MaliciousIPBlockingEnabled: true,
 		MaliciousIPInterval:        8,
-		DoHRateLimit:               30,
+		DoHRateLimit:               50,
 	}
 
 	isNew := false
@@ -74,7 +74,7 @@ func loadConfig() {
 			config.Allowlists = []List{}
 		}
 		if config.DoHRateLimit == 0 {
-			config.DoHRateLimit = 30
+			config.DoHRateLimit = 50
 		}
 	} else {
 		isNew = true

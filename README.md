@@ -228,7 +228,7 @@ ShieldDNS monitors traffic in real-time to detect anomalous patterns and automat
 
 **How it works:**
 The engine uses sliding-window tracking in-memory (cleaned up efficiently via background routines) to measure traffic against four thresholds:
-1. **Domain Flood**: A single client requests the exact same domain ≥ 120 times in 60 seconds (`auto:domain_flood`).
+1. **Domain Flood**: A single client requests the exact same domain (excluding common infrastructure like Google/Apple) ≥ 300 times in 60 seconds (`auto:domain_flood`).
 2. **Rate Limit**: A single client requests ≥ 1000 total DNS queries in 60 seconds (`auto:rate_limit`).
 3. **NXDOMAIN Flood (DGA Bots)**: A client triggers ≥ 300 NXDOMAIN (Domain Not Found) responses in 60 seconds, indicative of malware searching for randomized domains (`auto:nxdomain_flood`).
 4. **TLD Scan**: A client heavily queries a single uncommon Top Level Domain (e.g., ≥ 1000 requests in 5 minutes, representing ≥ 90% of their total traffic) (`auto:tld_scan`).

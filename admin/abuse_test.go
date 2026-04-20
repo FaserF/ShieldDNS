@@ -25,8 +25,8 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 	ip := "1.2.3.4"
 	domain := "flood.com"
 
-	// Send 119 queries (threshold is 120)
-	for i := 0; i < 119; i++ {
+	// Send 299 queries (threshold is 300)
+	for i := 0; i < 299; i++ {
 		analyzeQuery(ip, domain, "NOERROR")
 	}
 
@@ -40,10 +40,10 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 	configLock.RUnlock()
 
 	if blocked {
-		t.Fatal("Client should not be blocked at 119 queries")
+		t.Fatal("Client should not be blocked at 299 queries")
 	}
 
-	// 120th query should trigger block
+	// 300th query should trigger block
 	analyzeQuery(ip, domain, "NOERROR")
 
 	// Wait for background goroutine to update config
@@ -74,7 +74,7 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 	configLock.RUnlock()
 
 	if !blocked {
-		t.Fatal("Client should be blocked at 120 queries")
+		t.Fatal("Client should be blocked at 300 queries")
 	}
 	if !hasInfo || info.Reason != "auto:domain_flood" || !info.Auto {
 		t.Fatalf("Missing or incorrect block reason: %v", info)

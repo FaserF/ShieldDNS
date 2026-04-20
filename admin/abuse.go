@@ -51,12 +51,14 @@ func analyzeQuery(clientIP, domain, status string) {
 		return // Blocked, we can stop analysis for this query
 	}
 
-	// --- 2. Single Domain Flood (>= 120 queries / 60s) ---
-	counters.domainTimes[domain] = append(counters.domainTimes[domain], now)
-	counters.domainTimes[domain] = pruneWindow(counters.domainTimes[domain], now, 60*time.Second)
-	if len(counters.domainTimes[domain]) >= 120 {
-		go blockClientAuto(clientIP, "auto:domain_flood")
-		return
+	// --- 2. Single Domain Flood (>= 300 queries / 60s) ---
+	if !isInfrastructureDomain(domain) {
+		counters.domainTimes[domain] = append(counters.domainTimes[domain], now)
+		counters.domainTimes[domain] = pruneWindow(counters.domainTimes[domain], now, 60*time.Second)
+		if len(counters.domainTimes[domain]) >= 300 {
+			go blockClientAuto(clientIP, "auto:domain_flood")
+			return
+		}
 	}
 
 	// --- 3. NXDOMAIN Flood (>= 300 / 60s) ---
@@ -99,17 +101,20 @@ func analyzeQuery(clientIP, domain, status string) {
 	if len(parts) >= 2 {
 		sub := parts[0]
 
-		// Bypass DGA check for internal domains and common high-entropy providers
+		// Bypass DGA check for internal domains and common high-provider/infra domains
 		bypass := false
 		suffix := strings.ToLower(domain)
-		for _, b := range []string{
-			".local", ".lan", ".home.arpa", "googleusercontent.com", "amazonaws.com",
-			"cloudfront.net", "akamaized.net", "vimeocdn.com", "duckdns.org",
-			"no-ip.org", "dyndns.org", "dynamic-dns.net",
-		} {
-			if strings.HasSuffix(suffix, b) {
-				bypass = true
-				break
+		if isInfrastructureDomain(suffix) {
+			bypass = true
+		} else {
+			for _, b := range []string{
+				".local", ".lan", ".home.arpa", "duckdns.org",
+				"no-ip.org", "dyndns.org", "dynamic-dns.net",
+			} {
+				if strings.HasSuffix(suffix, b) {
+					bypass = true
+					break
+				}
 			}
 		}
 
@@ -254,4 +259,25 @@ func startAbuseCleanup(ctx context.Context) {
 			abuseMu.Unlock()
 		}
 	}
+}
+
+func isInfrastructureDomain(domain string) bool {
+	infraSuffixes := []string{
+		"google.com", "googleapis.com", "gstatic.com", "googlevideo.com", "googleusercontent.com",
+		"apple.com", "icloud.com", "mzstatic.com", "apple-dns.net",
+		"microsoft.com", "office.com", "office365.com", "windows.com", "live.com", "outlook.com", "msftncsi.com", "windows.net", "visualstudio.com",
+		"amazon.com", "amazonaws.com", "amzn.to",
+		"cloudflare.com", "cloudflare.net",
+		"akamai.net", "akamaized.net",
+		"fastly.net",
+		"github.com", "githubusercontent.com",
+		"fabiseitz.de",
+	}
+	d := strings.ToLower(domain)
+	for _, s := range infraSuffixes {
+		if d == s || strings.HasSuffix(d, "."+s) {
+			return true
+		}
+	}
+	return false
 }
