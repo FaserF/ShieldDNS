@@ -26,6 +26,10 @@ func initGeo() {
 // syncCountryIPs downloads the CIDR list for a given country code (e.g., "cn", "ru")
 func syncCountryIPs(countryCode string) error {
 	countryCode = strings.ToLower(countryCode)
+	// Security: Explicit check to satisfy CodeQL go/path-injection rule
+	if strings.Contains(countryCode, "/") || strings.Contains(countryCode, "\\") || strings.Contains(countryCode, "..") {
+		return fmt.Errorf("invalid country code: %q", countryCode)
+	}
 	// Security: validate country code to prevent path traversal (must be exactly 2 letters a-z)
 	for _, r := range countryCode {
 		if r < 'a' || r > 'z' {
@@ -73,6 +77,11 @@ func getGeoACLRules() string {
 	// Add country-based CIDRs
 	for _, cc := range countries {
 		cc = strings.ToLower(cc)
+		// Security: Explicit check to satisfy CodeQL go/path-injection rule
+		if strings.Contains(cc, "/") || strings.Contains(cc, "\\") || strings.Contains(cc, "..") {
+			slog.Warn("Skipping invalid country code (path injection)", "country", cc)
+			continue
+		}
 		// Security: validate country code to prevent path traversal
 		validCC := len(cc) == 2
 		for _, r := range cc {

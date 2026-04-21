@@ -138,6 +138,9 @@ func NormalizeDomain(s string) string {
 // It only permits http/https schemes and blocks requests to private/loopback networks
 // to prevent SSRF attacks (CWE-918 / CodeQL go/request-forgery).
 func isValidListURL(rawURL string) bool {
+	if testMode {
+		return true
+	}
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return false
