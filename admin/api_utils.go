@@ -13,6 +13,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -131,6 +132,51 @@ func NormalizeDomain(s string) string {
 		}
 	}
 	return s
+}
+
+// isValidListURL checks if a URL is safe to fetch blocklists from.
+// It only permits http/https schemes and blocks requests to private/loopback networks
+// to prevent SSRF attacks (CWE-918 / CodeQL go/request-forgery).
+func isValidListURL(rawURL string) bool {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return false
+	}
+
+	// file:// URLs are handled separately with path-restriction checks in processList
+	if strings.HasPrefix(rawURL, "file://") {
+		return true
+	}
+
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	// Only allow http and https
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false
+	}
+
+	host := parsed.Hostname()
+	if host == "" {
+		return false
+	}
+
+	// Block loopback / private ranges by IP
+	if ip := net.ParseIP(host); ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+			return false
+		}
+	} else {
+		// Block well-known internal hostnames
+		hostLower := strings.ToLower(host)
+		if hostLower == "localhost" || strings.HasSuffix(hostLower, ".local") || strings.HasSuffix(hostLower, ".internal") || strings.HasSuffix(hostLower, ".lan") {
+			return false
+		}
+	}
+
+	return true
 }
 
 // IsCriticalIP checks if an IP belongs to core infrastructure that should never be blocked.

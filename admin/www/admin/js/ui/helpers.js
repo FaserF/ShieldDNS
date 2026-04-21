@@ -112,18 +112,33 @@ export const createGradient = (ctx, color) => {
  * Enhanced UI Feedback
  */
 
+const btnOriginalNodes = new WeakMap();
+
 export const setBtnLoading = (btn, isLoading, customText = null) => {
     if (!btn) return;
     if (isLoading) {
-        btn.setAttribute('data-original-html', btn.innerHTML);
+        if (!btnOriginalNodes.has(btn)) {
+            // Save original nodes instead of innerHTML to prevent XSS warnings
+            btnOriginalNodes.set(btn, Array.from(btn.childNodes));
+        }
         btn.disabled = true;
-        const text = customText || 'Processing...';
-        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${text}`;
+        btn.textContent = '';
+        
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-spinner fa-spin';
+        
+        const textNode = document.createTextNode(' ' + (customText || 'Processing...'));
+        
+        btn.appendChild(icon);
+        btn.appendChild(textNode);
     } else {
-        const original = btn.getAttribute('data-original-html');
-        if (original) btn.innerHTML = original;
+        const nodes = btnOriginalNodes.get(btn);
+        if (nodes) {
+            btn.textContent = '';
+            nodes.forEach(n => btn.appendChild(n));
+            btnOriginalNodes.delete(btn);
+        }
         btn.disabled = false;
-        btn.removeAttribute('data-original-html');
     }
 };
 

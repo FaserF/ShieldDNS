@@ -472,6 +472,10 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		defer file.Close()
 		reader = file
 	} else {
+		if !isValidListURL(list.URL) {
+			slog.Warn("Blocklist URL rejected: not a safe remote URL", "name", list.Name, "url", list.URL)
+			return
+		}
 		client := &http.Client{Timeout: 30 * time.Second}
 		req, err := http.NewRequest("GET", list.URL, nil)
 		if err != nil {
@@ -677,6 +681,11 @@ func refreshAllMetadata(onlyMissing bool) {
 			defer wg.Done()
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
+
+			if !isValidListURL(list.URL) {
+				slog.Warn("Metadata fetch skipped: not a safe remote URL", "url", list.URL)
+				return
+			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()

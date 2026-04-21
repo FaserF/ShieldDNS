@@ -431,11 +431,14 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(CookieName); err == nil {
 		sessionStore.Delete(cookie.Value)
 	}
+	isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 	http.SetCookie(w, &http.Cookie{
-		Name:   CookieName,
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
+		Name:     CookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   isSecure,
+		MaxAge:   -1,
 	})
 	w.WriteHeader(http.StatusOK)
 }

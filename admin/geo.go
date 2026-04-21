@@ -26,6 +26,15 @@ func initGeo() {
 // syncCountryIPs downloads the CIDR list for a given country code (e.g., "cn", "ru")
 func syncCountryIPs(countryCode string) error {
 	countryCode = strings.ToLower(countryCode)
+	// Security: validate country code to prevent path traversal (must be exactly 2 letters a-z)
+	for _, r := range countryCode {
+		if r < 'a' || r > 'z' {
+			return fmt.Errorf("invalid country code: %q", countryCode)
+		}
+	}
+	if len(countryCode) != 2 {
+		return fmt.Errorf("invalid country code: %q", countryCode)
+	}
 	url := fmt.Sprintf("https://www.ipdeny.com/ipblocks/data/aggregated/%s-aggregated.zone", countryCode)
 
 	resp, err := http.Get(url)
@@ -64,6 +73,15 @@ func getGeoACLRules() string {
 	// Add country-based CIDRs
 	for _, cc := range countries {
 		cc = strings.ToLower(cc)
+		// Security: validate country code to prevent path traversal
+		validCC := len(cc) == 2
+		for _, r := range cc {
+			if r < 'a' || r > 'z' { validCC = false; break }
+		}
+		if !validCC {
+			slog.Warn("Skipping invalid country code", "country", cc)
+			continue
+		}
 		path := filepath.Join(geoCacheDir, cc+".zone")
 
 		// If file doesn't exist, try to sync it once

@@ -50,3 +50,4 @@ c.out
 *status*.txt
 dump.rdb
 /node_modules
+/admin/scratch
