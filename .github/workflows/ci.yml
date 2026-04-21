@@ -216,7 +216,7 @@ jobs:
       - name: Install Playwright
         run: |
           npm init -y
-          npm install playwright-core chromium
+          npm install playwright
           # Only install system dependencies for Chromium (much faster!)
           npx playwright install-deps chromium
           if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
