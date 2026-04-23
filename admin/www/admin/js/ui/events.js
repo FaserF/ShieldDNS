@@ -752,13 +752,7 @@ export function initEvents(fetchConfig) {
     });
 
     getEl('domain-info-view-logs-btn')?.addEventListener('click', () => {
-        let domain = getEl('domain-info-subtitle').textContent || getEl('domain-info-title').textContent;
-        if (domain.includes('Blocked by')) {
-            domain = getEl('domain-info-title').textContent; 
-        }
-        if (domain === 'Domain Details' || domain.includes('Blocked by')) {
-            domain = getEl('domain-info-subtitle').textContent.split(' ')[0];
-        }
+        let domain = getEl('domain-info-title').textContent;
 
         if (!domain) return;
         getEl('domain-info-modal').classList.add('hidden');

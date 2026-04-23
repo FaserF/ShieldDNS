@@ -186,14 +186,21 @@ func startDBWorker(ctx context.Context) {
 	aggTicker := time.NewTicker(1 * time.Hour)
 	defer aggTicker.Stop()
 	go func() {
-		// Initial aggregation for the previous hour
-		aggregateHourlyStats(ctx)
+		// Catch-up: Aggregate missing hours from the last 24h
+		slog.Info("Starting hourly stats catch-up...")
+		for i := 24; i >= 1; i-- {
+			targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+			aggregateHourlyStats(ctx, targetHour)
+		}
+		slog.Info("Hourly stats catch-up complete")
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-aggTicker.C:
-				aggregateHourlyStats(ctx)
+				targetHour := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+				aggregateHourlyStats(ctx, targetHour)
 			}
 		}
 	}()
@@ -208,26 +215,27 @@ func startDBWorker(ctx context.Context) {
 	}
 }
 
-func aggregateHourlyStats(ctx context.Context) {
+func aggregateHourlyStats(ctx context.Context, targetHour string) {
 	if db == nil {
 		return
 	}
 
-	// Aggregate the full previous hour (e.g., if now is 14:05, aggregate 13:00-14:00)
-	targetHour := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+	if targetHour == "" {
+		targetHour = time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+	}
 
 	slog.Debug("Starting hourly aggregation", "hour", targetHour)
 
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
 		SELECT 
-			strftime('%Y-%m-%d %H:00:00', timestamp) as hr,
+			datetime(timestamp, 'start of hour') as hr,
 			COUNT(*),
 			SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END),
 			SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END)
 		FROM queries
-		WHERE datetime(timestamp) >= datetime(?, 'start of hour') 
-		  AND datetime(timestamp) < datetime(?, 'start of hour', '+1 hour')
+		WHERE timestamp >= datetime(?, 'start of hour') 
+		  AND timestamp < datetime(?, 'start of hour', '+1 hour')
 		GROUP BY hr
 		ON CONFLICT(timestamp) DO UPDATE SET
 			total = excluded.total,
@@ -290,8 +298,8 @@ func flushLogs(toFlush []Query) {
 	defer stmt.Close()
 
 	for _, q := range toFlush {
-		// Use RFC3339 for storage to ensure consistency
-		_, err = stmt.Exec(q.Time.UTC().Format(time.RFC3339), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs, q.CountryCode)
+		// Use standard SQLite format for storage to ensure consistency
+		_, err = stmt.Exec(q.Time.UTC().Format("2006-01-02 15:04:05"), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs, q.CountryCode)
 		if err != nil {
 			slog.Error("Error executing log statement", "domain", q.Domain, "error", err)
 		}
@@ -373,7 +381,7 @@ func initializeStatsFromDB() {
 	} else {
 		slog.Error("Error initializing query types from DB", "error", err)
 	}
-	
+
 	// 3. Top Countries (last 24h)
 	if stats.TopCountries == nil {
 		stats.TopCountries = make(map[string]int64)

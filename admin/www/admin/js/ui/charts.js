@@ -268,12 +268,13 @@ export const renderCountryChart = (countryData, onClickCountry) => {
     const ctx = document.getElementById('country-chart')?.getContext('2d');
     if (!ctx) return;
 
-    let labels = Object.keys(countryData).map(code => {
+    // Filter out unresolved ('-') entries — never show 'Resolving...' in the chart
+    const filteredEntries = Object.entries(countryData).filter(([code]) => code !== '-' && code !== '');
+    let labels = filteredEntries.map(([code]) => {
         if (code === 'geo') return 'Local Environment';
-        if (code === '-') return 'Resolving...';
         return (state.allCountries || {})[code] || code;
     });
-    let data = Object.values(countryData);
+    let data = filteredEntries.map(([, v]) => v);
 
     if (labels.length === 0) {
         labels = ['No Data'];

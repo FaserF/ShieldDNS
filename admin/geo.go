@@ -85,7 +85,10 @@ func getGeoACLRules() string {
 		// Security: validate country code to prevent path traversal
 		validCC := len(cc) == 2
 		for _, r := range cc {
-			if r < 'a' || r > 'z' { validCC = false; break }
+			if r < 'a' || r > 'z' {
+				validCC = false
+				break
+			}
 		}
 		if !validCC {
 			slog.Warn("Skipping invalid country code", "country", cc)

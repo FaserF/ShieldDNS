@@ -393,9 +393,9 @@ func TestSSEBroadcasting_DefaultFormat(t *testing.T) {
 	// Continuously parse to overcome potential sseChan capacity drops from previous test runs
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
-	
+
 	timeout := time.After(2 * time.Second)
-	
+
 	// Create channels explicitly to track success
 	success := make(chan bool)
 	go func() {

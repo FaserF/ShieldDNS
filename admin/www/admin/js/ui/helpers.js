@@ -213,7 +213,7 @@ export const showToast = (message, type = 'success') => {
  * Animates a numeric value from its current state to a target value
  * Optimized for high-refresh-rate displays
  */
-export const countTo = (element, targetValue, duration = 800, suffix = '') => {
+export const countTo = (element, targetValue, duration = 800, suffix = '', precision = 0) => {
     if (!element) return;
     
     // Parse current value or default to 0
@@ -237,16 +237,19 @@ export const countTo = (element, targetValue, duration = 800, suffix = '') => {
         const current = startValue + (targetValue - startValue) * ease;
         
         // Use integer or fixed precision depending on input
-        if (Number.isInteger(targetValue)) {
+        if (precision === 0 && Number.isInteger(targetValue)) {
             element.textContent = Math.round(current).toLocaleString() + suffix;
         } else {
-            element.textContent = current.toFixed(1).toLocaleString() + suffix;
+            element.textContent = current.toFixed(precision).toLocaleString() + suffix;
         }
         
         if (progress < 1) {
             requestAnimationFrame(update);
         } else {
-            element.textContent = targetValue.toLocaleString() + suffix;
+            element.textContent = targetValue.toLocaleString(undefined, {
+                minimumFractionDigits: precision,
+                maximumFractionDigits: precision
+            }) + suffix;
         }
     };
     

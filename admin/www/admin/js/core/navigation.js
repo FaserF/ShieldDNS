@@ -111,20 +111,33 @@ export function stopSystemLogStream() {
     }
 }
 
-export function startSSE(createQueryRow, updateDashboardFeed) {
-    if (state.queryEventSource) state.queryEventSource.close();
-    
-    state.queryEventSource = new EventSource(api.endpoints.events);
-    
-    state.queryEventSource.onmessage = (event) => {
+let _sseReconnectDelay = 1000;
+let _sseReconnectTimer = null;
+let _sseStopped = false;
+
+function _connectSSE(createQueryRow, updateDashboardFeed) {
+    if (_sseStopped) return;
+
+    if (state.queryEventSource) {
+        state.queryEventSource.close();
+        state.queryEventSource = null;
+    }
+
+    const es = new EventSource(api.endpoints.events);
+    state.queryEventSource = es;
+
+    es.onopen = () => {
+        _sseReconnectDelay = 1000; // Reset backoff on successful connection
+    };
+
+    es.onmessage = (event) => {
         try {
             if (!state.liveUpdatesEnabled) return;
             const query = JSON.parse(event.data);
             if (query.type === 'ping') return;
-            
+
             updateDashboardFeed(query);
-            
-            // Dynamically check for scroller in state to avoid stale closure
+
             if (state.fullQueryScroller) {
                 state.fullQueryScroller.prepend(query);
             }
@@ -133,15 +146,40 @@ export function startSSE(createQueryRow, updateDashboardFeed) {
         }
     };
 
-    state.queryEventSource.onerror = (err) => {
-        console.warn('SSE Connection lost. Reconnecting...', err);
-        // EventSource automatically reconnects, but we might want to log it
+    es.onerror = () => {
+        es.close();
+        state.queryEventSource = null;
+
+        if (_sseStopped) return;
+
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (cap)
+        const delay = Math.min(_sseReconnectDelay, 30000);
+        _sseReconnectDelay = Math.min(_sseReconnectDelay * 2, 30000);
+
+        _sseReconnectTimer = setTimeout(() => {
+            _connectSSE(createQueryRow, updateDashboardFeed);
+        }, delay);
     };
 }
 
+export function startSSE(createQueryRow, updateDashboardFeed) {
+    _sseStopped = false;
+    _sseReconnectDelay = 1000;
+    if (_sseReconnectTimer) {
+        clearTimeout(_sseReconnectTimer);
+        _sseReconnectTimer = null;
+    }
+    _connectSSE(createQueryRow, updateDashboardFeed);
+}
+
 export function stopSSE() {
-	if (state.queryEventSource) {
-		state.queryEventSource.close();
-		state.queryEventSource = null;
-	}
+    _sseStopped = true;
+    if (_sseReconnectTimer) {
+        clearTimeout(_sseReconnectTimer);
+        _sseReconnectTimer = null;
+    }
+    if (state.queryEventSource) {
+        state.queryEventSource.close();
+        state.queryEventSource = null;
+    }
 }

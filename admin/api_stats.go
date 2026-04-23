@@ -38,7 +38,10 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	if len(s.TopCountries) > 0 {
 		newTc := make(map[string]int64)
 		for k, v := range s.TopCountries {
-			newTc[k] = v
+			// Skip unresolved entries ("-") — they should not appear in the chart
+			if k != "-" && k != "" {
+				newTc[k] = v
+			}
 		}
 		s.TopCountries = newTc
 	}
@@ -724,7 +727,7 @@ func getAllowlistAttribution(domain string) []string {
 	defer allowAttributionLock.RUnlock()
 
 	searchDomain := strings.ToLower(strings.TrimSpace(domain))
-	
+
 	// Direct match
 	if lists, ok := allowAttribution[searchDomain]; ok {
 		return lists

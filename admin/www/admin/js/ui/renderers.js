@@ -23,10 +23,10 @@ export function renderDashStats(data) {
     helpers.countTo(c.blocked, data.blocked_queries);
 
     const ratio = data.total_queries > 0 ? (data.blocked_queries / data.total_queries * 100) : 0;
-    helpers.countTo(c.ratio, ratio, 800, ' %');
+    helpers.countTo(c.ratio, ratio, 800, ' %', 1);
 
     const cache = data.total_queries > 0 ? (data.cache_hits / data.total_queries * 100) : 0;
-    helpers.countTo(c.cache, cache, 800, ' %');
+    helpers.countTo(c.cache, cache, 800, ' %', 1);
 
     helpers.countTo(c.latency, data.average_latency || 0, 800, ' ms');
     helpers.countTo(c.clients, data.unique_clients || 0);
@@ -66,7 +66,7 @@ export function renderQueries(queries) {
 
 export function createQueryRow(q) {
     const row = document.createElement('tr');
-    const time = new Date(q.time).toLocaleTimeString();
+    const time = q.time ? new Date(q.time).toLocaleTimeString() : 'Unknown';
     const actionBtn = q.status.includes('Blocked') ?
         `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${helpers.escapeHTML(q.domain)}')" title="Whitelist Domain">Allow</button>` :
         `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${helpers.escapeHTML(q.domain)}')" title="Blacklist Domain">Block</button>`;
@@ -255,17 +255,25 @@ export function renderBlockedClientsModal(blockedClients, infoMap) {
 
     // Collect all countries for the filter dropdown
     const countriesInList = new Set();
+    let hasUnresolved = false;
     const rows = (blockedClients || []).map(ip => {
         const info = infoMap[ip] || {};
         const countryCode = info.country_code || '';
-        if (countryCode && countryCode !== 'geo') countriesInList.add(countryCode);
+
+        // Track unresolved for background polling
+        if (countryCode === '-' || countryCode === '') hasUnresolved = true;
+
+        // Only add resolved codes to the filter dropdown (not '-', not 'geo')
+        if (countryCode && countryCode !== 'geo' && countryCode !== '-') countriesInList.add(countryCode);
 
         // Apply filters
         if (countryFilter !== 'ALL' && countryCode !== countryFilter) return null;
         if (search && !ip.includes(search) && !info.reason?.toLowerCase().includes(search)) return null;
 
         const dateStr = info.blocked_at ? new Date(info.blocked_at).toLocaleString() : 'Unknown';
-        const countryName = (state.allCountries || {})[countryCode] || (countryCode === '-' ? 'Resolving...' : countryCode) || (ip.includes(':') || !ip.match(/^\d+\./) ? 'Local/Internal' : 'Unknown');
+        // Never show 'Resolving...' — show neutral globe if not yet resolved
+        const isResolved = countryCode && countryCode !== '-' && countryCode !== '';
+        const countryName = isResolved ? ((state.allCountries || {})[countryCode] || countryCode) : (ip.includes(':') || !ip.match(/^\d+\./) ? 'Local/Internal' : '');
         const reason = info.reason || 'Manual block';
         const type = info.auto ? '<i class="fas fa-robot" title="Auto-Blocked"></i> ' : '<i class="fas fa-user-shield" title="Manually Blocked"></i> ';
 
@@ -275,7 +283,7 @@ export function renderBlockedClientsModal(blockedClients, infoMap) {
                 <td class="help" style="font-size: 0.75rem;">${dateStr}</td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        ${getFlagHTML(countryCode)}
+                        ${getFlagHTML(isResolved ? countryCode : '')}
                         <span>${helpers.escapeHTML(countryName)}</span>
                     </div>
                 </td>
@@ -288,6 +296,20 @@ export function renderBlockedClientsModal(blockedClients, infoMap) {
             </tr>
         `;
     }).filter(Boolean);
+
+    // If there are still unresolved IPs, poll the backend after 5s and re-render
+    clearTimeout(state._blockedClientsRefreshTimer);
+    if (hasUnresolved) {
+        state._blockedClientsRefreshTimer = setTimeout(async () => {
+            try {
+                const { apiFetch, endpoints } = await import('../services/api.js');
+                const fresh = await apiFetch(endpoints.blockedClients);
+                if (fresh && fresh.blocked_clients) {
+                    renderBlockedClientsModal(fresh.blocked_clients, fresh.blocked_clients_info || {});
+                }
+            } catch(e) { /* silent — will retry next render */ }
+        }, 5000);
+    }
 
     list.innerHTML = rows.join('') || '<tr><td colspan="5" class="help text-center">No matching blocked clients found.</td></tr>';
 
@@ -340,7 +362,7 @@ export function renderDiagnostics(d) {
     }
     if (getEl('diag-cpu-model')) {
         const model = d.cpu_model || '';
-        getEl('diag-cpu-model').textContent = (model === '0' || !model) ? 'Standard CPU' : model;
+        getEl('diag-cpu-model').textContent = (model == '0' || !model) ? 'Standard CPU' : model;
     }
 
     if (d.ram && d.ram.total > 0) {
@@ -363,10 +385,15 @@ export function renderDiagnostics(d) {
 
     if (getEl('diag-uptime')) {
         const up = d.uptime_seconds || 0;
-        const h = Math.floor(up / 3600);
+        const d_time = Math.floor(up / 86400);
+        const h = Math.floor((up % 86400) / 3600);
         const m = Math.floor((up % 3600) / 60);
         const s = up % 60;
-        getEl('diag-uptime').textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        let uptimeStr = `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+        if (d_time > 0) {
+            uptimeStr = `${d_time}d ` + uptimeStr;
+        }
+        getEl('diag-uptime').textContent = uptimeStr;
     }
 
     const certInfo = getEl('cert-info-content');

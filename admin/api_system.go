@@ -828,12 +828,12 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 	configLock.Lock() // Use write lock to allow retrofit
 	defer configLock.Unlock()
-	
+
 	changed := RetrofitBlockedClientsInfo()
 	if changed {
 		saveConfigNoLock()
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(config)
 }

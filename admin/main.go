@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	Version        = "v1.6.5"
-	Subversion = "0"
+	Version    = "v1.6.5"
+	Subversion = "2"
 	CommitID   = ""
 )
 
@@ -91,7 +91,7 @@ func main() {
 		Addr:         ":" + adminPort,
 		Handler:      finalHandler,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 0, // Disable timeout for SSE support
 		IdleTimeout:  120 * time.Second,
 		ErrorLog:     log.New(&LogWriter{}, "", 0),
 		TLSConfig: &tls.Config{
@@ -122,7 +122,7 @@ func main() {
 			Addr:         ":" + ingressPort,
 			Handler:      finalHandler, // Shared handler for both ports
 			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 30 * time.Second,
+			WriteTimeout: 0, // Disable timeout for SSE support
 			IdleTimeout:  120 * time.Second,
 		}
 		go func() {
