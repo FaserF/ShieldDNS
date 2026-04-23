@@ -100,9 +100,10 @@ type Stats struct {
 	RAMTotalMB     float64 `json:"ram_total_mb"`
 	CPUUsage       float64 `json:"cpu_usage"`
 	NumAutoBlocked int     `json:"num_auto_blocked"`
-	ActiveQPS      float64 `json:"active_qps"`
-	BlockedDomains int64   `json:"blocked_domains"`
-	CoreDNSAlive   bool    `json:"coredns_alive"`
+	ActiveQPS      float64          `json:"active_qps"`
+	BlockedDomains int64            `json:"blocked_domains"`
+	CoreDNSAlive   bool             `json:"coredns_alive"`
+	TopCountries   map[string]int64 `json:"top_countries"`
 
 	// Internal Cache Metadata
 	LastUpdate time.Time `json:"-"`
@@ -119,6 +120,7 @@ type Query struct {
 	UserAgent   string    `json:"user_agent,omitempty"`
 	IsCacheHit  bool      `json:"is_cache_hit"`
 	DurationMs  float64   `json:"duration_ms"`
+	CountryCode string    `json:"country_code"`
 }
 
 type HourStats struct {

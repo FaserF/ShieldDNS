@@ -51,7 +51,8 @@ func initDB() {
 			status TEXT,
 			client_ip TEXT,
 			is_cache_hit BOOLEAN DEFAULT 0,
-			duration_ms REAL DEFAULT 0
+			duration_ms REAL DEFAULT 0,
+			country_code TEXT
 		);
 		CREATE INDEX IF NOT EXISTS idx_timestamp ON queries(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_status ON queries(status);
@@ -83,6 +84,7 @@ func initDB() {
 	// Migrations for existing databases
 	addColumnIfNotExists("queries", "is_cache_hit", "BOOLEAN DEFAULT 0")
 	addColumnIfNotExists("queries", "duration_ms", "REAL DEFAULT 0")
+	addColumnIfNotExists("queries", "country_code", "TEXT")
 }
 
 // isValidSQLName checks if a string is a valid SQL table or column name.
@@ -279,7 +281,7 @@ func flushLogs(toFlush []Query) {
 		return
 	}
 
-	stmt, err := tx.Prepare("INSERT INTO queries (timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO queries (timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		slog.Error("Error preparing log statement", "error", err)
 		tx.Rollback()
@@ -289,7 +291,7 @@ func flushLogs(toFlush []Query) {
 
 	for _, q := range toFlush {
 		// Use RFC3339 for storage to ensure consistency
-		_, err = stmt.Exec(q.Time.UTC().Format(time.RFC3339), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs)
+		_, err = stmt.Exec(q.Time.UTC().Format(time.RFC3339), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs, q.CountryCode)
 		if err != nil {
 			slog.Error("Error executing log statement", "domain", q.Domain, "error", err)
 		}
@@ -370,6 +372,31 @@ func initializeStatsFromDB() {
 		}
 	} else {
 		slog.Error("Error initializing query types from DB", "error", err)
+	}
+	
+	// 3. Top Countries (last 24h)
+	if stats.TopCountries == nil {
+		stats.TopCountries = make(map[string]int64)
+	}
+	cRows, err := db.QueryContext(ctx, `
+		SELECT country_code, COUNT(*) 
+		FROM queries 
+		WHERE timestamp > datetime('now', '-24 hours') AND country_code IS NOT NULL AND country_code != ''
+		GROUP BY country_code
+		ORDER BY COUNT(*) DESC
+		LIMIT 10
+	`)
+	if err == nil {
+		defer cRows.Close()
+		for cRows.Next() {
+			var cc string
+			var count int64
+			if err := cRows.Scan(&cc, &count); err == nil {
+				stats.TopCountries[cc] = count
+			}
+		}
+	} else {
+		slog.Error("Error initializing country stats from DB", "error", err)
 	}
 
 	slog.Info("Statistics initialized from database", "total", stats.TotalQueries, "blocked", stats.BlockedQueries)

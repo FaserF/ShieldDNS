@@ -229,6 +229,74 @@ func extractIPFromLog(msg string) string {
 	return ""
 }
 
+// GetCountryCodeCached returns the country code for an IP from cache, or "-" if not yet known.
+// It triggers an async lookup if the IP is not in cache to avoid blocking the DNS worker.
+func GetCountryCodeCached(ip string) string {
+	if ip == "" || ip == "DoH Proxy" || ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
+		return "geo" // Local/Internal
+	}
+
+	// Check if IP is private
+	parsedIP := net.ParseIP(ip)
+	if parsedIP != nil && (parsedIP.IsPrivate() || parsedIP.IsLoopback() || parsedIP.IsLinkLocalUnicast()) {
+		return "geo"
+	}
+
+	// Check main IP info cache
+	if val, ok := ipInfoCache.Load(ip); ok {
+		info := val.(IPInfo)
+		if info.CountryCode != "" {
+			return info.CountryCode
+		}
+	}
+
+	// Check GeoIP snippet cache
+	if cached, ok := geoCache.Load(ip); ok {
+		if c, ok := cached.(IPInfo); ok && c.CountryCode != "" {
+			return c.CountryCode
+		}
+	}
+
+	// Not in cache, trigger an async lookup for future queries
+	// We use a small goroutine to handle the lookup without stalling the caller
+	go func(targetIP string) {
+		// Create a dummy request context for the lookup
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		// Use a minimal version of handleIPInfo logic or just call it if we can
+		// For simplicity, we just trigger a lookup via handleIPInfo's internal logic
+		// which already populates the caches.
+		fetchGeoIP(ctx, targetIP)
+	}(ip)
+
+	return "-"
+}
+
+// fetchGeoIP is a simplified version of the lookup logic in handleIPInfo
+func fetchGeoIP(ctx context.Context, ip string) {
+	var geoData struct {
+		CountryCode string `json:"countryCode"`
+		Status      string `json:"status"`
+	}
+
+	// Try the most reliable fast provider
+	url := "https://ip-api.com/json/" + ip + "?fields=status,countryCode"
+	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req.Header.Set("User-Agent", "ShieldDNS-Admin/v1.14")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	
+	if json.NewDecoder(resp.Body).Decode(&geoData) == nil && geoData.Status == "success" {
+		// Update geoCache
+		geoCache.Store(ip, IPInfo{CountryCode: geoData.CountryCode})
+	}
+}
+
 func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 	ip := r.URL.Query().Get("ip")
 	if ip == "" {

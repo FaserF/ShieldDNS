@@ -35,6 +35,13 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 		}
 		s.QueryTypes = newQt
 	}
+	if len(s.TopCountries) > 0 {
+		newTc := make(map[string]int64)
+		for k, v := range s.TopCountries {
+			newTc[k] = v
+		}
+		s.TopCountries = newTc
+	}
 	statsLock.RUnlock()
 
 	blockAttributionLock.RLock()

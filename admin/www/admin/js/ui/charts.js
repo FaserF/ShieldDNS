@@ -2,6 +2,7 @@
  * Charts Module - Handles ShieldDNS visualizations and interactivity
  */
 import { createGradient } from './helpers.js';
+import { state } from '../core/state.js';
 
 let trafficChart = null;
 let typeChart = null;
@@ -230,6 +231,80 @@ export const renderClientChart = (canvas, data, blocked) => {
             scales: {
                 y: { beginAtZero: true, display: false },
                 x: { display: false }
+            }
+        }
+    });
+};
+
+let countryChart = null;
+export const renderCountryChart = (countryData, onClickCountry) => {
+    const ctx = document.getElementById('country-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    let labels = Object.keys(countryData).map(code => {
+        if (code === 'geo') return 'Local Environment';
+        if (code === '-') return 'Resolving...';
+        return (state.allCountries || {})[code] || code;
+    });
+    let data = Object.values(countryData);
+
+    if (labels.length === 0) {
+        labels = ['No Data'];
+        data = [1];
+    }
+
+    const bgColors = labels.map((l, i) => `hsla(${(i * 95) % 360}, 60%, 55%, 0.85)`);
+
+    if (countryChart) {
+        countryChart.data.labels = labels;
+        countryChart.data.datasets[0].data = data;
+        countryChart.data.datasets[0].backgroundColor = bgColors;
+        countryChart.update();
+        return;
+    }
+
+    countryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: bgColors,
+                hoverOffset: 15,
+                borderWidth: 0,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            onClick: (e, activeEls) => {
+                if (activeEls.length > 0 && onClickCountry) {
+                    const idx = activeEls[0].index;
+                    onClickCountry(labels[idx]);
+                }
+            },
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { 
+                        color: '#94a3b8', 
+                        boxWidth: 8, 
+                        padding: 15,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        font: { size: 11, weight: '500' } 
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: (context) => ` ${context.label}: ${context.parsed.toLocaleString()} requests`
+                    }
+                }
             }
         }
     });

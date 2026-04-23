@@ -987,6 +987,14 @@ func parseLogLine(line string) {
 		stats.QueryTypes = make(map[string]int64)
 	}
 	stats.QueryTypes[qType]++
+
+	if stats.TopCountries == nil {
+		stats.TopCountries = make(map[string]int64)
+	}
+	cc := GetCountryCodeCached(clientIP)
+	if cc != "" && cc != "-" {
+		stats.TopCountries[cc]++
+	}
 	statsLock.Unlock()
 
 	configLock.RLock()
@@ -1002,6 +1010,7 @@ func parseLogLine(line string) {
 		ClientAlias: alias,
 		IsCacheHit:  isCacheHit,
 		DurationMs:  duration,
+		CountryCode: GetCountryCodeCached(clientIP),
 	}
 
 	// Record real-time metrics and QPS

@@ -21,6 +21,21 @@ export async function fetchStats() {
                 }
             });
         }
+        if (data.top_countries) {
+            charts.renderCountryChart(data.top_countries, (country) => {
+                // If it's 'geo' or '-', don't filter or handle specifically
+                if (country === 'geo' || country === '-') return;
+                
+                const searchInput = getEl('query-search');
+                if (searchInput) {
+                    // Since we don't have a country filter yet in the log view, 
+                    // this is just for visualization. But we can search for the code.
+                    searchInput.value = country;
+                    fetchQueries(true);
+                    getEl('nav-queries')?.click();
+                }
+            });
+        }
     } catch (e) { console.error('Stats fetch failed', e); }
 }
 

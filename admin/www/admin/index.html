@@ -297,16 +297,26 @@
                         </div>
                         <div
                             style="margin-top: 20px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; text-align: left; padding-top: 15px; border-top: 1px solid var(--border);">
-                            <div style="margin-bottom: 5px;"><strong>A (IPv4) / AAAA (IPv6):</strong> Standard website
-                                connections (IP addresses).</div>
-                            <div style="margin-bottom: 5px;"><strong>HTTPS:</strong> Secure, encrypted connection
-                                information.</div>
-                            <div style="margin-bottom: 5px;"><strong>TXT:</strong> Additional text info (e.g., used for
-                                email spam protection).</div>
-                            <div style="margin-bottom: 5px;"><strong>SRV / PTR / SOA:</strong> Technical network
-                                services (e.g., local network printers).</div>
-                            <div style="margin-bottom: 5px;"><strong>ANY:</strong> General requests for "all info" about
-                                a server.</div>
+                            <div style="margin-bottom: 5px;"><strong>A / AAAA:</strong> Standard website connections (IPv4 / IPv6 addresses).</div>
+                            <div style="margin-bottom: 5px;"><strong>HTTPS / SVCB:</strong> Modern secure connection and service metadata.</div>
+                            <div style="margin-bottom: 5px;"><strong>MX / NS:</strong> Mail server records and domain authority info.</div>
+                            <div style="margin-bottom: 5px;"><strong>TXT:</strong> Text data, often used for email verification (SPF/DKIM).</div>
+                            <div style="margin-bottom: 5px;"><strong>SRV / PTR / SOA:</strong> Service discovery, reverse DNS, and zone authority.</div>
+                            <div style="margin-bottom: 5px;"><strong>DNSKEY / DS:</strong> DNSSEC security records for authenticated DNS.</div>
+                            <div style="margin-bottom: 5px;"><strong>NAPTR / HINFO:</strong> Telephony (VoIP) and host hardware information.</div>
+                            <div style="margin-bottom: 5px;"><strong>ANY:</strong> General requests for all available records of a server.</div>
+                        </div>
+                    </div>
+                    <div class="stat-card card">
+                        <h3>Request Origin (Countries)</h3>
+                        <div class="chart-wrapper-small">
+                            <canvas id="country-chart"></canvas>
+                        </div>
+                        <div
+                            style="margin-top: 20px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; text-align: left; padding-top: 15px; border-top: 1px solid var(--border);">
+                            <div style="margin-bottom: 5px;"><strong>geo:</strong> Internal or local network traffic (Private IPs).</div>
+                            <div style="margin-bottom: 5px;"><strong>ISO Codes:</strong> International traffic categorized by country of origin.</div>
+                            <div style="margin-bottom: 5px;"><strong>-:</strong> Unknown or currently resolving origins.</div>
                         </div>
                     </div>
                 </div>
