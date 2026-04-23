@@ -236,15 +236,72 @@ export function renderConfig(cfg) {
         `).join('');
     }
 
-    // Blocked Clients in Settings
-    const blockedClientsList = getEl('settings-blocked-clients-list');
-    if (blockedClientsList) {
-        blockedClientsList.innerHTML = (cfg.blocked_clients || []).map(ip => `
-            <div class="tag danger" style="padding-left: 12px;">
-                <span style="cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font-weight: 500;" onclick="showIPDetails('${helpers.escapeHTML(ip)}')">${helpers.escapeHTML(ip)}</span>
-                <span class="remove-tag" onclick="unblockClient('${helpers.escapeHTML(ip)}')" title="Unblock"><i class="fas fa-times"></i></span>
-            </div>
-        `).join('') || '<p class="help">No clients are currently blocked.</p>';
+    // Blocked Clients in Settings (Compact Summary)
+    const blockedBadge = getEl('blocked-clients-count-badge');
+    if (blockedBadge) {
+        const count = cfg.blocked_clients?.length || 0;
+        blockedBadge.textContent = `${count} Client${count !== 1 ? 's' : ''} Blocked`;
+        blockedBadge.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+}
+
+export function renderBlockedClientsModal(blockedClients, infoMap) {
+    const list = getEl('blocked-clients-table-body');
+    const filter = getEl('blocked-clients-country-filter');
+    const search = getEl('blocked-clients-search')?.value.toLowerCase() || '';
+    const countryFilter = filter?.value || 'ALL';
+
+    if (!list) return;
+
+    // Collect all countries for the filter dropdown
+    const countriesInList = new Set();
+    const rows = (blockedClients || []).map(ip => {
+        const info = infoMap[ip] || {};
+        const countryCode = info.country_code || '';
+        if (countryCode && countryCode !== 'geo') countriesInList.add(countryCode);
+
+        // Apply filters
+        if (countryFilter !== 'ALL' && countryCode !== countryFilter) return null;
+        if (search && !ip.includes(search) && !info.reason?.toLowerCase().includes(search)) return null;
+
+        const dateStr = info.blocked_at ? new Date(info.blocked_at).toLocaleString() : 'Unknown';
+        const countryName = (state.allCountries || {})[countryCode] || countryCode || (ip.includes(':') || !ip.match(/^\d+\./) ? 'Local/Internal' : 'Unknown');
+        const reason = info.reason || 'Manual block';
+        const type = info.auto ? '<i class="fas fa-robot" title="Auto-Blocked"></i> ' : '<i class="fas fa-user-shield" title="Manually Blocked"></i> ';
+
+        return `
+            <tr>
+                <td><span class="ip-link" onclick="showIPDetails('${helpers.escapeHTML(ip)}')">${helpers.escapeHTML(ip)}</span></td>
+                <td class="help" style="font-size: 0.75rem;">${dateStr}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        ${getFlagHTML(countryCode)}
+                        <span>${helpers.escapeHTML(countryName)}</span>
+                    </div>
+                </td>
+                <td style="font-size: 0.85rem;">${type}${helpers.escapeHTML(reason)}</td>
+                <td>
+                    <button class="btn btn-sm secondary danger" onclick="unblockClient('${helpers.escapeHTML(ip)}')" title="Unblock Client">
+                        <i class="fas fa-unlock"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).filter(Boolean);
+
+    list.innerHTML = rows.join('') || '<tr><td colspan="5" class="help text-center">No matching blocked clients found.</td></tr>';
+
+    // Update filter dropdown if it's the first render or if countries changed
+    if (filter && filter.options.length <= 1) {
+        const sortedCountries = Array.from(countriesInList).sort((a, b) => 
+            ((state.allCountries || {})[a] || a).localeCompare((state.allCountries || {})[b] || b)
+        );
+        sortedCountries.forEach(code => {
+            const opt = document.createElement('option');
+            opt.value = code;
+            opt.textContent = (state.allCountries || {})[code] || code;
+            filter.appendChild(opt);
+        });
     }
 }
 

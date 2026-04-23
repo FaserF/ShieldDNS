@@ -439,7 +439,16 @@ export function initEvents(fetchConfig) {
                 body: JSON.stringify({ ip, action: 'unblock' })
             });
             helpers.showToast(`Client ${ip} unblocked`);
-            setTimeout(fetchConfig, 500);
+            
+            // Refresh config and UI
+            await fetchService.fetchConfig();
+            
+            // If the modal is open, re-render it
+            const modal = getEl('blocked-clients-modal');
+            if (modal && !modal.classList.contains('hidden')) {
+                const m = await import('./renderers.js');
+                m.renderBlockedClientsModal(state.currentConfig.blocked_clients, state.currentConfig.blocked_clients_info || {});
+            }
         } catch (err) {
             helpers.showAlert('Failed to unblock client: ' + err.message);
         }
@@ -493,6 +502,33 @@ export function initEvents(fetchConfig) {
             helpers.setBtnLoading(btn, false);
         }
     };
+
+    // Blocked Clients Modal Handlers
+    getEl('view-blocked-clients-btn')?.addEventListener('click', async () => {
+        const modal = getEl('blocked-clients-modal');
+        if (!modal) return;
+
+        // Fetch latest config to ensure we have the most up-to-date block list
+        await fetchService.fetchConfig();
+        
+        const m = await import('./renderers.js');
+        m.renderBlockedClientsModal(state.currentConfig.blocked_clients, state.currentConfig.blocked_clients_info || {});
+        modal.classList.remove('hidden');
+    });
+
+    getEl('blocked-clients-search')?.addEventListener('input', async () => {
+        const m = await import('./renderers.js');
+        m.renderBlockedClientsModal(state.currentConfig.blocked_clients, state.currentConfig.blocked_clients_info || {});
+    });
+
+    getEl('blocked-clients-country-filter')?.addEventListener('change', async () => {
+        const m = await import('./renderers.js');
+        m.renderBlockedClientsModal(state.currentConfig.blocked_clients, state.currentConfig.blocked_clients_info || {});
+    });
+
+    const closeBlockedModal = () => getEl('blocked-clients-modal')?.classList.add('hidden');
+    getEl('blocked-clients-close-btn')?.addEventListener('click', closeBlockedModal);
+    getEl('blocked-clients-done-btn')?.addEventListener('click', closeBlockedModal);
 
     // Maintenance Handlers
     getEl('manual-client-block-btn')?.addEventListener('click', async () => {

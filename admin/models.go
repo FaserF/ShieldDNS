@@ -55,9 +55,10 @@ type Config struct {
 }
 
 type BlockedClientInfo struct {
-	Reason    string    `json:"reason"`
-	BlockedAt time.Time `json:"blocked_at"`
-	Auto      bool      `json:"auto"`
+	Reason      string    `json:"reason"`
+	BlockedAt   time.Time `json:"blocked_at"`
+	Auto        bool      `json:"auto"`
+	CountryCode string    `json:"country_code"`
 }
 
 type APIKey struct {

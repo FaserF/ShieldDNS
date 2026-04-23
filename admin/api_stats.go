@@ -490,13 +490,15 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 			info = make(map[string]BlockedClientInfo)
 			// Retrofit any clients in BlockedClients that don't have info
 			for _, ip := range config.BlockedClients {
-				info[ip] = BlockedClientInfo{Reason: "manual", BlockedAt: time.Now(), Auto: false}
+				cc, _ := GetCountryCodeCached(ip)
+				info[ip] = BlockedClientInfo{Reason: "manual", BlockedAt: time.Now(), Auto: false, CountryCode: cc}
 			}
 		} else {
 			// Ensure all blocked clients are represented
 			for _, ip := range config.BlockedClients {
 				if _, ok := info[ip]; !ok {
-					info[ip] = BlockedClientInfo{Reason: "manual", BlockedAt: time.Now(), Auto: false}
+					cc, _ := GetCountryCodeCached(ip)
+					info[ip] = BlockedClientInfo{Reason: "manual", BlockedAt: time.Now(), Auto: false, CountryCode: cc}
 				}
 			}
 		}
@@ -547,10 +549,12 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 			if config.BlockedClientsInfo == nil {
 				config.BlockedClientsInfo = make(map[string]BlockedClientInfo)
 			}
+			cc, _ := GetCountryCodeCached(ip)
 			config.BlockedClientsInfo[ip] = BlockedClientInfo{
-				Reason:    "manual",
-				BlockedAt: time.Now(),
-				Auto:      false,
+				Reason:      "manual",
+				BlockedAt:   time.Now(),
+				Auto:        false,
+				CountryCode: cc,
 			}
 		} else {
 			// Remove the IP

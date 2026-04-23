@@ -932,10 +932,59 @@
                     <div class="form-group mt-3">
                         <div class="label-with-info">
                             <label>Currently Blocked Clients</label>
-                            <i class="fas fa-info-circle info-icon" data-tooltip="List of manually or automatically blocked clients. Click a tag to remove the block immediately."></i>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="List of manually or automatically blocked clients."></i>
                         </div>
-                        <div id="settings-blocked-clients-list" class="tag-container mt-2">
-                            <!-- Populated via JS -->
+                        <div class="blocked-clients-summary mt-2">
+                            <div id="blocked-clients-count-badge" class="badge danger" style="padding: 8px 15px; font-weight: 600;">0 Clients Blocked</div>
+                            <button type="button" class="btn btn-sm secondary" id="view-blocked-clients-btn" style="margin-left: 10px;">
+                                <i class="fas fa-list"></i> View & Manage List
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Blocked Clients Detailed Modal -->
+                <div id="blocked-clients-modal" class="modal hidden">
+                    <div class="modal-content modal-lg">
+                        <div class="modal-header">
+                            <div class="modal-header-title">
+                                <h2>Currently Blocked Clients</h2>
+                                <p class="help">Detailed list of all client-side bans.</p>
+                            </div>
+                            <button class="modal-close-btn" id="blocked-clients-close-btn">&times;</button>
+                        </div>
+
+                        <div class="table-header-actions" style="margin-top: 20px;">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="blocked-clients-search" placeholder="Search IP or Reason...">
+                            </div>
+                            <div class="filter-box">
+                                <select id="blocked-clients-country-filter" class="select-premium sm">
+                                    <option value="ALL">All Countries</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="card overflow-x mt-3" style="max-height: 50vh; overflow-y: auto;">
+                            <table class="query-table">
+                                <thead>
+                                    <tr>
+                                        <th>IP Address</th>
+                                        <th>Blocked At</th>
+                                        <th>Country</th>
+                                        <th>Reason</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="blocked-clients-table-body">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="modal-footer-actions mt-4">
+                            <button class="btn primary" id="blocked-clients-done-btn" style="min-width: 120px;">Close</button>
                         </div>
                     </div>
                 </div>
