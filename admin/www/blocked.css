@@ -100,6 +100,10 @@ p {
     text-decoration: none;
     font-weight: 600;
     transition: opacity 0.2s;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    font-size: 1rem;
 }
 
 .btn:hover {
@@ -110,7 +114,11 @@ p {
     margin-top: 32px;
     font-size: 0.75rem;
     color: var(--text-muted);
-    opacity: 0.5;
+    opacity: 0.7;
+}
+
+.footer-links a:hover {
+    text-decoration: underline !important;
 }
 
 /* Responsive Design for Small Screens */
