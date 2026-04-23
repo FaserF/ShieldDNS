@@ -38,8 +38,8 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	if len(s.TopCountries) > 0 {
 		newTc := make(map[string]int64)
 		for k, v := range s.TopCountries {
-			// Skip unresolved entries ("-") — they should not appear in the chart
-			if k != "-" && k != "" {
+			// Skip unresolved ('-'), empty, and local/internal ('geo') entries
+			if k != "-" && k != "" && k != "geo" {
 				newTc[k] = v
 			}
 		}
@@ -257,39 +257,78 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleHistory(w http.ResponseWriter, r *http.Request) {
+	now := time.Now().UTC()
+
+	// Build 24 slots: slot 0 = oldest hour, slot 23 = current hour
+	// Each slot represents one clock hour in the last 24h window.
+	type slot struct {
+		hour    time.Time // truncated to hour (UTC)
+		total   int64
+		blocked int64
+	}
+	slots := make([]slot, 24)
+	for i := 0; i < 24; i++ {
+		slots[i].hour = now.Add(time.Duration(i-23) * time.Hour).Truncate(time.Hour)
+	}
+
+	// Query aggregated stats for hours 1-23 (all but the current hour) from hourly_stats
+	cutoff := slots[0].hour.Format("2006-01-02 15:04:05")
 	rows, err := db.Query(`
-		SELECT
-			strftime('%H', timestamp) as hr,
-			total,
-			blocked
+		SELECT timestamp, total, blocked
 		FROM hourly_stats
-		WHERE timestamp > datetime('now', '-24 hours')
+		WHERE timestamp >= ?
 		ORDER BY timestamp ASC
-	`)
+	`, cutoff)
 	if err != nil {
 		http.Error(w, "Error querying history", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	var result [24]HourStats
+	// Map timestamp → (total, blocked)
+	type agg struct{ total, blocked int64 }
+	aggMap := make(map[string]agg)
 	for rows.Next() {
-		var hr int
+		var ts string
 		var total, blocked int64
-		rows.Scan(&hr, &total, &blocked)
-		if hr >= 0 && hr < 24 {
-			result[hr] = HourStats{Total: total, Blocked: blocked}
+		if err := rows.Scan(&ts, &total, &blocked); err != nil {
+			continue
 		}
+		// Normalize key to hour precision (strip minutes/seconds)
+		t, err := time.Parse("2006-01-02 15:04:05", ts)
+		if err != nil {
+			continue
+		}
+		key := t.UTC().Truncate(time.Hour).Format("2006-01-02 15:04:05")
+		aggMap[key] = agg{total: total, blocked: blocked}
 	}
 
-	currentHr := time.Now().Hour()
-	var rotated [24]HourStats
-	for i := 0; i < 24; i++ {
-		rotated[i] = result[(currentHr+1+i)%24]
+	// For the current hour, read live from queries table
+	curHour := now.Truncate(time.Hour)
+	curHourStr := curHour.Format("2006-01-02 15:04:05")
+	nextHourStr := curHour.Add(time.Hour).Format("2006-01-02 15:04:05")
+	var curTotal, curBlocked int64
+	db.QueryRow(`
+		SELECT
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0)
+		FROM queries
+		WHERE timestamp >= ? AND timestamp < ?
+	`, curHourStr, nextHourStr).Scan(&curTotal, &curBlocked)
+	aggMap[curHourStr] = agg{total: curTotal, blocked: curBlocked}
+
+	// Merge into result array — always 24 entries ordered oldest→newest
+	result := make([]HourStats, 24)
+	for i, s := range slots {
+		key := s.hour.Format("2006-01-02 15:04:05")
+		if a, ok := aggMap[key]; ok {
+			result[i] = HourStats{Total: a.total, Blocked: a.blocked}
+		}
+		// else leave zero — explicit zero for hours with no data
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(rotated)
+	json.NewEncoder(w).Encode(result)
 }
 
 func handleTopBlocked(w http.ResponseWriter, r *http.Request) {

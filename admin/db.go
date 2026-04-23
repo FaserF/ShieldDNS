@@ -161,7 +161,8 @@ func startDBWorker(ctx context.Context) {
 
 			// 2. Resource Safety: Hard cap on total queries (max 500k rows)
 			var totalRows int
-			if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM queries").Scan(&totalRows); err == nil && totalRows > 500000 {
+			err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM queries").Scan(&totalRows)
+			if err == nil && totalRows > 500000 {
 				overage := totalRows - 500000 + 50000
 				res, err = db.ExecContext(ctx, "DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", overage)
 				if err != nil {
@@ -374,7 +375,8 @@ func initializeStatsFromDB() {
 		for tRows.Next() {
 			var qt string
 			var count int64
-			if err := tRows.Scan(&qt, &count); err == nil {
+			err = tRows.Scan(&qt, &count)
+			if err == nil {
 				stats.QueryTypes[qt] = count
 			}
 		}
@@ -389,7 +391,11 @@ func initializeStatsFromDB() {
 	cRows, err := db.QueryContext(ctx, `
 		SELECT country_code, COUNT(*) 
 		FROM queries 
-		WHERE timestamp > datetime('now', '-24 hours') AND country_code IS NOT NULL AND country_code != ''
+		WHERE timestamp > datetime('now', '-24 hours')
+		  AND country_code IS NOT NULL
+		  AND country_code != ''
+		  AND country_code != '-'
+		  AND country_code != 'geo'
 		GROUP BY country_code
 		ORDER BY COUNT(*) DESC
 		LIMIT 10
@@ -399,7 +405,8 @@ func initializeStatsFromDB() {
 		for cRows.Next() {
 			var cc string
 			var count int64
-			if err := cRows.Scan(&cc, &count); err == nil {
+			err = cRows.Scan(&cc, &count)
+			if err == nil {
 				stats.TopCountries[cc] = count
 			}
 		}
@@ -443,7 +450,8 @@ func getClientStats(ip string) (ClientStats, error) {
 		for rows.Next() {
 			var qType string
 			var count int64
-			if err := rows.Scan(&qType, &count); err == nil {
+			err = rows.Scan(&qType, &count)
+			if err == nil {
 				cs.QueryTypes[qType] = count
 			}
 		}

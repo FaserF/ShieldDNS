@@ -301,7 +301,7 @@ func checkDNSOnce(addr string) bool {
 	}
 
 	conn.SetDeadline(time.Now().Add(2 * time.Second))
-	if _, err := conn.Write(query); err != nil {
+	if _, err = conn.Write(query); err != nil {
 		return false
 	}
 

@@ -498,10 +498,12 @@ func handleBackup(w http.ResponseWriter, r *http.Request) {
 
 		if bf.WithLock {
 			configLock.RLock()
-			content, err := os.ReadFile(bf.Path)
+			var content []byte
+			content, err = os.ReadFile(bf.Path)
 			configLock.RUnlock()
 			if err == nil {
-				f, err := zw.Create(bf.Target)
+				var f io.Writer
+				f, err = zw.Create(bf.Target)
 				if err == nil {
 					f.Write(content)
 				}
@@ -560,7 +562,7 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 		defer os.Remove(tmpZip.Name())
 		defer tmpZip.Close()
 
-		if _, err := io.Copy(tmpZip, file); err != nil {
+		if _, err = io.Copy(tmpZip, file); err != nil {
 			http.Error(w, "Failed to save uploaded ZIP", http.StatusInternalServerError)
 			return
 		}

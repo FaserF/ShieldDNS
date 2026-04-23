@@ -76,7 +76,7 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 	if !blocked {
 		t.Fatal("Client should be blocked at 300 queries")
 	}
-	if !hasInfo || info.Reason != "auto:domain_flood" || !info.Auto {
+	if !hasInfo || info.Reason != "Abuse: Single Domain Flood (>300 queries/min)" || !info.Auto {
 		t.Fatalf("Missing or incorrect block reason: %v", info)
 	}
 }
@@ -130,7 +130,7 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 	info, hasInfo := config.BlockedClientsInfo[ip]
 	configLock.RUnlock()
 
-	if !hasInfo || info.Reason != "auto:nxdomain_flood" {
+	if !hasInfo || info.Reason != "Abuse: NXDOMAIN Flood (>300 failed lookups/min)" {
 		t.Fatalf("Client should be blocked for nxdomain_flood, got info: %v", info)
 	}
 }

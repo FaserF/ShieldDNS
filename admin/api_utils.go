@@ -883,7 +883,8 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	if certData != nil {
 		block, _ := pem.Decode(certData)
 		if block != nil {
-			if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+			cert, pErr := x509.ParseCertificate(block.Bytes)
+			if pErr == nil {
 				if cert.Issuer.String() == cert.Subject.String() {
 					isSelfSigned = true
 					certBase64 = base64.StdEncoding.EncodeToString(block.Bytes)

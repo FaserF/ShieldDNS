@@ -87,6 +87,7 @@ export const endpoints = {
     recheckDiagnostics: '/api/diagnostics/recheck',
     ipInfo: '/api/ip-info',
     clients: '/api/clients',
+    blockedClients: '/api/config',
     metrics: '/api/metrics',
     exportLogs: '/api/export',
     clearLogs: '/api/logs/clear',

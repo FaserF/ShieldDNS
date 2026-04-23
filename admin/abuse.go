@@ -47,7 +47,7 @@ func analyzeQuery(clientIP, domain, status string) {
 	counters.allQueryTimes = append(counters.allQueryTimes, now)
 	counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 60*time.Second)
 	if len(counters.allQueryTimes) >= 1000 {
-		go blockClientAuto(clientIP, "auto:rate_limit")
+		go blockClientAuto(clientIP, "Abuse: Query Rate Limit Exceeded (>1000/min)")
 		return // Blocked, we can stop analysis for this query
 	}
 
@@ -56,7 +56,7 @@ func analyzeQuery(clientIP, domain, status string) {
 		counters.domainTimes[domain] = append(counters.domainTimes[domain], now)
 		counters.domainTimes[domain] = pruneWindow(counters.domainTimes[domain], now, 60*time.Second)
 		if len(counters.domainTimes[domain]) >= 300 {
-			go blockClientAuto(clientIP, "auto:domain_flood")
+			go blockClientAuto(clientIP, "Abuse: Single Domain Flood (>300 queries/min)")
 			return
 		}
 	}
@@ -66,7 +66,7 @@ func analyzeQuery(clientIP, domain, status string) {
 		counters.nxdomainTimes = append(counters.nxdomainTimes, now)
 		counters.nxdomainTimes = pruneWindow(counters.nxdomainTimes, now, 60*time.Second)
 		if len(counters.nxdomainTimes) >= 300 {
-			go blockClientAuto(clientIP, "auto:nxdomain_flood")
+			go blockClientAuto(clientIP, "Abuse: NXDOMAIN Flood (>300 failed lookups/min)")
 			return
 		}
 	}
@@ -85,7 +85,7 @@ func analyzeQuery(clientIP, domain, status string) {
 		}
 
 		if len(counters.tldCounts[tld]) >= 1000 && float64(len(counters.tldCounts[tld]))/float64(total5m) >= 0.90 {
-			go blockClientAuto(clientIP, "auto:tld_scan")
+			go blockClientAuto(clientIP, "Abuse: TLD Scan Detected (>90% queries to single TLD)")
 			return
 		}
 	}
@@ -122,7 +122,7 @@ func analyzeQuery(clientIP, domain, status string) {
 			counters.dgaTimes = append(counters.dgaTimes, now)
 			counters.dgaTimes = pruneWindow(counters.dgaTimes, now, 5*time.Minute)
 			if len(counters.dgaTimes) >= 15 {
-				go blockClientAuto(clientIP, "auto:dga_detected")
+				go blockClientAuto(clientIP, "Abuse: DGA Detected (high-entropy subdomain pattern)")
 				return
 			}
 		}
