@@ -10,8 +10,6 @@
     "Chart": false,
     "EventSource": false,
     "caches": false,
-    "showAlert": false,
-    "showConfirm": false,
     "nextSetupStep": false,
     "applyRecommendedFilters": false,
     "addCustomRule": false,

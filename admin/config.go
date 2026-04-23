@@ -212,6 +212,39 @@ func saveConfigNoLock() {
 	}
 }
 
+// RetrofitBlockedClientsInfo ensures all blocked clients have metadata including country codes.
+// Returns true if any changes were made to the config.
+func RetrofitBlockedClientsInfo() bool {
+	if config.BlockedClientsInfo == nil {
+		config.BlockedClientsInfo = make(map[string]BlockedClientInfo)
+	}
+
+	changed := false
+	// Retrofit any clients in BlockedClients that don't have info or have missing/pending country codes
+	for _, ip := range config.BlockedClients {
+		entry, ok := config.BlockedClientsInfo[ip]
+		if !ok {
+			cc := GetCountryCodeCached(ip)
+			config.BlockedClientsInfo[ip] = BlockedClientInfo{
+				Reason:      "manual",
+				BlockedAt:   time.Now(),
+				Auto:        false,
+				CountryCode: cc,
+			}
+			changed = true
+		} else if entry.CountryCode == "" || entry.CountryCode == "-" {
+			// Initialize or upgrade missing/pending country code
+			cc := GetCountryCodeCached(ip)
+			if cc != "" && cc != entry.CountryCode {
+				entry.CountryCode = cc
+				config.BlockedClientsInfo[ip] = entry
+				changed = true
+			}
+		}
+	}
+	return changed
+}
+
 func atomicWriteFile(filename string, data []byte) error {
 	tmpFile := filename + ".tmp"
 	f, err := os.OpenFile(tmpFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)

@@ -133,6 +133,7 @@ function initTheme() {
 
 window.nextSetupStep = auth.nextSetupStep;
 window.fetchQueries = fetchService.fetchQueries;
+window.navigateTo = nav.navigateTo;
 window.refreshAll = refreshAll;
 window.showDomainDetails = (domain) => fetchService.fetchDomainDetails(domain);
 window.showIPDetails = (ip) => fetchService.fetchIPDetails(ip);
@@ -213,8 +214,10 @@ function initModals() {
     // Close buttons by ID
     const closeSelectors = [
         'modal-cancel', 'ip-info-close-btn', 'ip-info-close-btn-bottom', 'ip-info-done-btn',
-        'domain-info-close-btn', 'domain-info-close-btn-bottom', 'close-list-details-btn',
-        'close-list-details-btn-2'
+        'domain-info-close-btn', 'domain-info-close-btn-bottom', 'domain-info-done-btn',
+        'close-list-details-btn', 'close-list-details-btn-2', 'blocked-clients-close-btn',
+        'close-api-key-modal-btn', 'cancel-api-key-btn', 'reset-cancel-1', 'reset-cancel-2',
+        'alert-ok', 'confirm-cancel'
     ];
     
     closeSelectors.forEach(id => getEl(id)?.addEventListener('click', closeModals));
@@ -233,37 +236,6 @@ function initModals() {
         }
     });
 
-    // Navigate to full logs from details
-    getEl('ip-info-view-all-btn')?.addEventListener('click', () => {
-        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
-        const searchInput = getEl('query-search');
-        if (searchInput) {
-            searchInput.value = ip;
-            fetchService.fetchQueries(true);
-            getEl('nav-queries')?.click();
-            closeModals();
-        }
-    });
-
-    getEl('domain-info-view-logs-btn')?.addEventListener('click', () => {
-        // Extract the raw domain from the subtitle or title, cleaning any "Blocked by" tags
-        let domain = getEl('domain-info-subtitle').textContent || getEl('domain-info-title').textContent;
-        if (domain.includes('Blocked by')) {
-            domain = getEl('domain-info-title').textContent; // Fallback to title if subtitle has tags
-        }
-        if (domain === 'Domain Details') {
-            // Last resort: extract from subtitle by splitting if it's "domain.com (Blocked by ...)"
-            domain = getEl('domain-info-subtitle').textContent.split(' ')[0];
-        }
-        
-        const searchInput = getEl('query-search');
-        if (searchInput) {
-            searchInput.value = domain.trim();
-            fetchService.fetchQueries(true);
-            getEl('nav-queries')?.click();
-            closeModals();
-        }
-    });
 
     // IP Info UI logic
     getEl('edit-alias-btn')?.addEventListener('click', () => {
@@ -377,7 +349,7 @@ window.removeList = async (idx, type, event) => {
     if (!await helpers.showConfirm(`Remove this ${type}list?`)) return;
     
     const btn = event?.currentTarget;
-    helpers.setBtnLoading(btn, true, '');
+    helpers.setBtnLoading(btn, true, 'Removing...');
 
     if (type === 'block') state.currentConfig.lists.splice(idx, 1);
     else state.currentConfig.allowlists.splice(idx, 1);
@@ -399,7 +371,7 @@ window.removeCustomRule = async (domain, event) => {
     if (!await helpers.showConfirm(`Are you sure you want to remove the rule for ${domain}?`, 'Remove Rule', true)) return;
     
     const btn = event?.currentTarget;
-    helpers.setBtnLoading(btn, true, '');
+    helpers.setBtnLoading(btn, true, 'Removing...');
 
     try {
         await api.apiFetch('/api/rules/remove', {
@@ -418,7 +390,7 @@ window.removeCustomMapping = async (domain, event) => {
     if (!await helpers.showConfirm(`Are you sure you want to remove the mapping for ${domain}?`)) return;
     
     const btn = event?.currentTarget;
-    helpers.setBtnLoading(btn, true, '');
+    helpers.setBtnLoading(btn, true, 'Removing...');
 
     try {
         await api.apiFetch('/api/rules/remove', {
@@ -435,7 +407,7 @@ window.removeCustomMapping = async (domain, event) => {
 
 window.toggleList = async (idx, enabled, type, event) => {
     const btn = event?.currentTarget;
-    helpers.setBtnLoading(btn, true, '');
+    helpers.setBtnLoading(btn, true, 'Saving...');
 
     if (type === 'block') state.currentConfig.lists[idx].enabled = enabled;
     else state.currentConfig.allowlists[idx].enabled = enabled;
@@ -454,7 +426,7 @@ window.removeList = async (idx, type, event) => {
     if (!await helpers.showConfirm('Are you sure you want to remove this list?', 'Remove List', true)) return;
     
     const btn = event?.currentTarget;
-    helpers.setBtnLoading(btn, true, '');
+    helpers.setBtnLoading(btn, true, 'Removing...');
 
     if (type === 'block') state.currentConfig.lists.splice(idx, 1);
     else state.currentConfig.allowlists.splice(idx, 1);

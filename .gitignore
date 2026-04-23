@@ -51,3 +51,4 @@ c.out
 dump.rdb
 /node_modules
 /admin/scratch
+/test-results

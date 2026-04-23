@@ -1,3 +1,4 @@
+/* jshint node: true */
 const { test, expect } = require('@playwright/test');
 
 test('ShieldDNS UI Design Audit', async ({ page }) => {

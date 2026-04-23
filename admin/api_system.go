@@ -188,6 +188,7 @@ func handleSystemLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	ch := make(chan string, 50)
@@ -235,6 +236,7 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	ch := make(chan Query, 500) // Increased buffer for high query volume
@@ -824,8 +826,14 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	configLock.RLock()
-	defer configLock.RUnlock()
+	configLock.Lock() // Use write lock to allow retrofit
+	defer configLock.Unlock()
+	
+	changed := RetrofitBlockedClientsInfo()
+	if changed {
+		saveConfigNoLock()
+	}
+	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(config)
 }

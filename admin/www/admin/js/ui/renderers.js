@@ -338,7 +338,10 @@ export function renderDiagnostics(d) {
         }).join(', ') : '0.00, 0.00, 0.00';
         getEl('diag-cpu-load').textContent = load;
     }
-    if (getEl('diag-cpu-model')) getEl('diag-cpu-model').textContent = d.cpu_model || 'Unknown CPU';
+    if (getEl('diag-cpu-model')) {
+        const model = d.cpu_model || '';
+        getEl('diag-cpu-model').textContent = (model === '0' || !model) ? 'Standard CPU' : model;
+    }
 
     if (d.ram && d.ram.total > 0) {
         const used = (d.ram.used / 1024).toFixed(0); // From KB to MB

@@ -25,7 +25,8 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 )
 
-var geoCache sync.Map // Cache for GeoIP results (IP -> IPInfo snippet)
+var geoCache sync.Map    // Cache for GeoIP results (IP -> IPInfo snippet)
+var geoInFlight sync.Map // Track active lookups to prevent duplicates
 
 // domainRegex allows standard domains, wildcards (*.domain.com), underscores, and single-label local hostnames.
 var domainRegex = regexp.MustCompile(`^(\*\.)?([a-zA-Z0-9_]([a-zA-Z0-9-_]{0,61}[a-zA-Z0-9_])?\.)*[a-zA-Z0-9_]([a-zA-Z0-9-_]{0,61}[a-zA-Z0-9_])?$`)
@@ -257,16 +258,18 @@ func GetCountryCodeCached(ip string) string {
 		}
 	}
 
+	// Check if a lookup is already in progress for this IP
+	if _, loaded := geoInFlight.LoadOrStore(ip, true); loaded {
+		return "-"
+	}
+	
 	// Not in cache, trigger an async lookup for future queries
-	// We use a small goroutine to handle the lookup without stalling the caller
 	go func(targetIP string) {
-		// Create a dummy request context for the lookup
+		defer geoInFlight.Delete(targetIP)
+		
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		
-		// Use a minimal version of handleIPInfo logic or just call it if we can
-		// For simplicity, we just trigger a lookup via handleIPInfo's internal logic
-		// which already populates the caches.
 		fetchGeoIP(ctx, targetIP)
 	}(ip)
 

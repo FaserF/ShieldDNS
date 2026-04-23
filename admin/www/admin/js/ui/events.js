@@ -737,29 +737,38 @@ export function initEvents(fetchConfig) {
 
     // Detail Modal Shortcuts
     getEl('ip-info-view-all-btn')?.addEventListener('click', () => {
-        const ip = getEl('ip-info-subtitle').textContent;
+        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
         if (!ip) return;
         getEl('ip-info-modal').classList.add('hidden');
-        window.navigateTo('logs');
+        window.navigateTo('queries');
         setTimeout(() => {
-            const search = getEl('query-log-search');
+            const search = getEl('query-search');
             if (search) {
-                search.value = ip;
+                search.value = ip.trim();
                 search.dispatchEvent(new Event('input'));
+                if (window.fetchQueries) window.fetchQueries(true);
             }
         }, 300);
     });
 
     getEl('domain-info-view-logs-btn')?.addEventListener('click', () => {
-        const domain = getEl('domain-info-subtitle').textContent;
+        let domain = getEl('domain-info-subtitle').textContent || getEl('domain-info-title').textContent;
+        if (domain.includes('Blocked by')) {
+            domain = getEl('domain-info-title').textContent; 
+        }
+        if (domain === 'Domain Details' || domain.includes('Blocked by')) {
+            domain = getEl('domain-info-subtitle').textContent.split(' ')[0];
+        }
+
         if (!domain) return;
         getEl('domain-info-modal').classList.add('hidden');
-        window.navigateTo('logs');
+        window.navigateTo('queries');
         setTimeout(() => {
-            const search = getEl('query-log-search');
+            const search = getEl('query-search');
             if (search) {
-                search.value = domain;
+                search.value = domain.trim();
                 search.dispatchEvent(new Event('input'));
+                if (window.fetchQueries) window.fetchQueries(true);
             }
         }, 300);
     });

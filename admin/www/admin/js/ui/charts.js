@@ -22,13 +22,28 @@ export const renderTrafficChart = (data, onClickHour) => {
     const canvas = document.getElementById('traffic-chart');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const labels = Array.from({ length: 24 }, (_, i) => {
-        const h = (new Date().getHours() - 23 + i + 24) % 24;
-        return `${h}:00`;
-    });
 
-    const totals = data.map(d => d.total);
-    const blocked = data.map(d => d.blocked);
+    // Align data to the last 24 hours precisely
+    const now = new Date();
+    const labels = [];
+    const totals = [];
+    const blocked = [];
+
+    for (let i = 23; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 60 * 60 * 1000);
+        const h = d.getHours();
+        const hourStr = `${h}:00`;
+        labels.push(hourStr);
+
+        // Find match in backend data
+        const match = (data || []).find(p => {
+            const pd = new Date(p.time);
+            return pd.getHours() === h && pd.getDate() === d.getDate();
+        });
+
+        totals.push(match ? match.total : 0);
+        blocked.push(match ? match.blocked : 0);
+    }
 
     const totalColor = 'rgba(92, 107, 192, 1)';
     const blockedColor = 'rgba(239, 68, 68, 1)';
