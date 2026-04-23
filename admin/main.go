@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	Version        = "v1.6.5"
+	Version    = "v1.6.5"
 	Subversion = "0"
 	CommitID   = ""
 )
@@ -188,6 +188,7 @@ func initLogging() {
 
 func initServices() {
 	stats.QueryTypes = make(map[string]int64)
+	stats.CoreDNSAlive = true
 	initPaths()
 	loadConfig()
 	initGeo()

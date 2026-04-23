@@ -35,8 +35,9 @@ export const renderTrafficChart = (data, onClickHour) => {
         const hourStr = `${h}:00`;
         labels.push(hourStr);
 
-        // Find match in backend data
+        // Find match in backend data using the time field
         const match = (data || []).find(p => {
+            if (!p.time) return false;
             const pd = new Date(p.time);
             return pd.getHours() === h && pd.getDate() === d.getDate();
         });

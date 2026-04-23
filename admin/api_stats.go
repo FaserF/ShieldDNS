@@ -295,7 +295,7 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		// Normalize key to hour precision (strip minutes/seconds)
-		t, err := time.Parse("2006-01-02 15:04:05", ts)
+		t, err := ParseFlexibleTime(ts)
 		if err != nil {
 			continue
 		}
@@ -321,10 +321,12 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 	result := make([]HourStats, 24)
 	for i, s := range slots {
 		key := s.hour.Format("2006-01-02 15:04:05")
+		res := HourStats{Time: s.hour}
 		if a, ok := aggMap[key]; ok {
-			result[i] = HourStats{Total: a.total, Blocked: a.blocked}
+			res.Total = a.total
+			res.Blocked = a.blocked
 		}
-		// else leave zero — explicit zero for hours with no data
+		result[i] = res
 	}
 
 	w.Header().Set("Content-Type", "application/json")

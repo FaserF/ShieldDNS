@@ -125,8 +125,9 @@ type Query struct {
 }
 
 type HourStats struct {
-	Total   int64 `json:"total"`
-	Blocked int64 `json:"blocked"`
+	Time    time.Time `json:"time"`
+	Total   int64     `json:"total"`
+	Blocked int64     `json:"blocked"`
 }
 
 type DomainCount struct {
