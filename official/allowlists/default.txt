@@ -16,3 +16,7 @@
 @@||dynamics.com^
 @@||objectstorage.eu-frankfurt-1.oraclecloud.com^
 @@||web.facebook.com^
+@@||kadermanager.de^
+@@||fcbayern.com^
+@@||wifi.bahn.de^
+@@||www.youtube.com^

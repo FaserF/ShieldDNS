@@ -351,15 +351,13 @@ window.showListDetails = (list) => {
     getEl('modal-list-entries').textContent = list.entries?.toLocaleString() || '0';
     
     // Standard Update (ShieldDNS last sync)
-    const localDate = list.updated_at && list.updated_at !== '0001-01-01T00:00:00Z' 
-        ? new Date(list.updated_at).toLocaleString() 
-        : 'Never';
+    const localDate = (list.updated_at && list.updated_at !== '0001-01-01T00:00:00Z') ? 
+        new Date(list.updated_at).toLocaleString() : 'Never';
     getEl('modal-list-updated').textContent = localDate;
 
     // Remote Update (Source file last modified)
-    const remoteDate = list.remote_updated_at && list.remote_updated_at !== '0001-01-01T00:00:00Z'
-        ? new Date(list.remote_updated_at).toLocaleString()
-        : 'n.a.';
+    const remoteDate = (list.remote_updated_at && list.remote_updated_at !== '0001-01-01T00:00:00Z') ?
+        new Date(list.remote_updated_at).toLocaleString() : 'n.a.';
     getEl('modal-list-remote-updated').textContent = remoteDate;
 
     getEl('list-details-modal').classList.remove('hidden');

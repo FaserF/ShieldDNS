@@ -204,7 +204,7 @@ func blockClientAuto(ip, reason string) {
 		}
 	}
 
-	cc, _ := GetCountryCodeCached(ip)
+	cc := GetCountryCodeCached(ip)
 	config.BlockedClients = append(config.BlockedClients, ip)
 	config.BlockedClientsInfo[ip] = BlockedClientInfo{
 		Reason:      reason,

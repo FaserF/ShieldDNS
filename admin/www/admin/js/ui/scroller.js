@@ -1,3 +1,4 @@
+/* global ResizeObserver */
 /**
  * VirtualScroller Class - Handles high-performance rendering of large lists
  * Optimized for high-refresh-rate displays (120Hz, 144Hz, etc.)
@@ -22,6 +23,16 @@ export class VirtualScroller {
 
         // Use passive listener + rAF debounce for smooth scrolling on high-refresh-rate displays
         this.container.addEventListener('scroll', () => this._scheduleRender(), { passive: true });
+
+        // ResizeObserver to handle visibility changes or window resizing
+        if (window.ResizeObserver) {
+            this.resizeObserver = new ResizeObserver(() => {
+                if (this.container.clientHeight > 0) {
+                    this._scheduleRender();
+                }
+            });
+            this.resizeObserver.observe(this.container);
+        }
     }
 
     _scheduleRender() {
@@ -49,6 +60,12 @@ export class VirtualScroller {
     render() {
         const scrollTop = this.container.scrollTop;
         const containerHeight = this.container.clientHeight;
+        
+        // If hidden or just becoming visible, dimensions might be 0. 
+        // Schedule a follow-up if we have data but no height yet.
+        if (containerHeight === 0 && this.data.length > 0) {
+            this._scheduleRender();
+        }
         
         const startIndex = Math.max(0, Math.floor(scrollTop / this.rowHeight) - this.buffer);
         const endIndex = Math.min(this.data.length, Math.floor((scrollTop + containerHeight) / this.rowHeight) + this.buffer);

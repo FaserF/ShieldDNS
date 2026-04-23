@@ -82,7 +82,15 @@ func (h *SlogUIHandler) Handle(ctx context.Context, r slog.Record) error {
 	if r.Level != slog.LevelInfo {
 		levelStr = "[" + r.Level.String() + "] "
 	}
-	AddSystemLog(levelStr + r.Message)
+
+	// Extract attributes for UI log
+	attrs := ""
+	r.Attrs(func(a slog.Attr) bool {
+		attrs += fmt.Sprintf(" %s=%v", a.Key, a.Value.Any())
+		return true
+	})
+
+	AddSystemLog(levelStr + r.Message + attrs)
 
 	// 2. Pass to JSON Handler (Machine Readable)
 	return h.jsonHandler.Handle(ctx, r)

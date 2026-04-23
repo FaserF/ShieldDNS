@@ -60,7 +60,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 
 	if db != nil && time.Since(lastUpdate) > 1*time.Minute {
 		var uniqueClients int
-		err := db.QueryRow("SELECT COUNT(DISTINCT client_ip) FROM queries WHERE timestamp > datetime('now', '-24 hours')").Scan(&uniqueClients)
+		err := db.QueryRow("SELECT COUNT(DISTINCT client_ip) FROM queries WHERE timestamp > datetime('now', '-24 hours') AND client_ip != 'DoH Proxy'").Scan(&uniqueClients)
 		if err == nil {
 			statsLock.Lock()
 			cachedUniqueClients = uniqueClients
@@ -319,7 +319,7 @@ func handleTopClients(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
 		SELECT client_ip, COUNT(*) as count
 		FROM queries
-		WHERE timestamp > datetime('now', '-24 hours')
+		WHERE timestamp > datetime('now', '-24 hours') AND client_ip != 'DoH Proxy'
 		GROUP BY client_ip
 		ORDER BY count DESC
 		LIMIT 10
@@ -490,14 +490,14 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 			info = make(map[string]BlockedClientInfo)
 			// Retrofit any clients in BlockedClients that don't have info
 			for _, ip := range config.BlockedClients {
-				cc, _ := GetCountryCodeCached(ip)
+				cc := GetCountryCodeCached(ip)
 				info[ip] = BlockedClientInfo{Reason: "manual", BlockedAt: time.Now(), Auto: false, CountryCode: cc}
 			}
 		} else {
 			// Ensure all blocked clients are represented
 			for _, ip := range config.BlockedClients {
 				if _, ok := info[ip]; !ok {
-					cc, _ := GetCountryCodeCached(ip)
+					cc := GetCountryCodeCached(ip)
 					info[ip] = BlockedClientInfo{Reason: "manual", BlockedAt: time.Now(), Auto: false, CountryCode: cc}
 				}
 			}
@@ -549,7 +549,7 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 			if config.BlockedClientsInfo == nil {
 				config.BlockedClientsInfo = make(map[string]BlockedClientInfo)
 			}
-			cc, _ := GetCountryCodeCached(ip)
+			cc := GetCountryCodeCached(ip)
 			config.BlockedClientsInfo[ip] = BlockedClientInfo{
 				Reason:      "manual",
 				BlockedAt:   time.Now(),

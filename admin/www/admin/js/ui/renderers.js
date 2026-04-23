@@ -318,13 +318,15 @@ export function renderAnalytics(blocked, clients) {
 
     const topClientsList = getEl('top-clients-list');
     if (topClientsList) {
-        topClientsList.innerHTML = (clients || []).map(c => {
-            const display = c.client_alias ? `${helpers.escapeHTML(c.client_alias)} (${helpers.escapeHTML(c.client_ip)})` : helpers.escapeHTML(c.client_ip);
-            return `<tr>
-                <td><span class="ip-link" onclick="showIPDetails('${helpers.escapeHTML(c.client_ip)}')">${display}</span></td>
-                <td class="text-right">${helpers.escapeHTML(c.count?.toString() || '0')}</td>
-            </tr>`;
-        }).join('') || '<tr><td colspan="2">No data available</td></tr>';
+        topClientsList.innerHTML = (clients || [])
+            .filter(c => c.client_ip !== 'DoH Proxy')
+            .map(c => {
+                const display = c.client_alias ? `${helpers.escapeHTML(c.client_alias)} (${helpers.escapeHTML(c.client_ip)})` : helpers.escapeHTML(c.client_ip);
+                return `<tr>
+                    <td><span class="ip-link" onclick="showIPDetails('${helpers.escapeHTML(c.client_ip)}')">${display}</span></td>
+                    <td class="text-right">${helpers.escapeHTML(c.count?.toString() || '0')}</td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="2">No data available</td></tr>';
     }
 }
 
@@ -649,7 +651,6 @@ export function renderDomainDetails(domain, stats, clients, blockInfo, history) 
             <td><span class="badge ${q.status.includes('Blocked') ? 'danger' : 'success'}">${helpers.escapeHTML(q.status)}</span></td>
         </tr>
     `).join('') || '<tr><td colspan="3">No recent activity</td></tr>';
-    ;
 
     getEl('domain-block-btn').style.display = isCustomBlocked ? 'none' : 'block';
     getEl('domain-allow-btn').style.display = isCustomBlocked ? 'block' : 'none';
