@@ -481,27 +481,44 @@ func handleClientAlias(w http.ResponseWriter, r *http.Request) {
 
 func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		configLock.RLock()
-		defer configLock.RUnlock()
+		configLock.Lock() // Use write lock to allow retrofit
+		defer configLock.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 
 		info := config.BlockedClientsInfo
 		if info == nil {
 			info = make(map[string]BlockedClientInfo)
-			// Retrofit any clients in BlockedClients that don't have info
-			for _, ip := range config.BlockedClients {
+			config.BlockedClientsInfo = info
+		}
+
+		changed := false
+		// Retrofit any clients in BlockedClients that don't have info or have missing country codes
+		for _, ip := range config.BlockedClients {
+			entry, ok := info[ip]
+			if !ok {
 				cc := GetCountryCodeCached(ip)
 				info[ip] = BlockedClientInfo{Reason: "manual", BlockedAt: time.Now(), Auto: false, CountryCode: cc}
-			}
-		} else {
-			// Ensure all blocked clients are represented
-			for _, ip := range config.BlockedClients {
-				if _, ok := info[ip]; !ok {
-					cc := GetCountryCodeCached(ip)
-					info[ip] = BlockedClientInfo{Reason: "manual", BlockedAt: time.Now(), Auto: false, CountryCode: cc}
+				changed = true
+			} else if entry.CountryCode == "" {
+				// Initialize missing country code
+				entry.CountryCode = GetCountryCodeCached(ip)
+				info[ip] = entry
+				changed = true
+			} else if entry.CountryCode == "-" {
+				// Try to upgrade from pending to actual code if lookup finished
+				cc := GetCountryCodeCached(ip)
+				if cc != "" && cc != "-" {
+					entry.CountryCode = cc
+					info[ip] = entry
+					changed = true
 				}
 			}
 		}
+
+		if changed {
+			saveConfigNoLock()
+		}
+
 		json.NewEncoder(w).Encode(info)
 		return
 	}

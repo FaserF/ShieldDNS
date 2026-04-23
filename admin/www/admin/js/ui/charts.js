@@ -9,7 +9,16 @@ let typeChart = null;
 let clientChart = null;
 let latencyChart = null;
 
+const isChartAvailable = () => {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js library is not loaded. Ensure you have an active internet connection and that cdn.jsdelivr.net is not blocked.');
+        return false;
+    }
+    return true;
+};
+
 export const renderTrafficChart = (data, onClickHour) => {
+    if (!isChartAvailable()) return;
     const canvas = document.getElementById('traffic-chart');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -106,6 +115,7 @@ export const renderTrafficChart = (data, onClickHour) => {
 };
 
 export const renderTypeChart = (queryTypes, onClickType) => {
+    if (!isChartAvailable()) return;
     const ctx = document.getElementById('type-chart')?.getContext('2d');
     if (!ctx) return;
 
@@ -175,6 +185,7 @@ export const renderTypeChart = (queryTypes, onClickType) => {
 };
 
 export const renderClientChart = (canvas, data, blocked) => {
+    if (!isChartAvailable()) return;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
@@ -238,6 +249,7 @@ export const renderClientChart = (canvas, data, blocked) => {
 
 let countryChart = null;
 export const renderCountryChart = (countryData, onClickCountry) => {
+    if (!isChartAvailable()) return;
     const ctx = document.getElementById('country-chart')?.getContext('2d');
     if (!ctx) return;
 

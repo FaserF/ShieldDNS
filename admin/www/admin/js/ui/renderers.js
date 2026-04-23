@@ -265,7 +265,7 @@ export function renderBlockedClientsModal(blockedClients, infoMap) {
         if (search && !ip.includes(search) && !info.reason?.toLowerCase().includes(search)) return null;
 
         const dateStr = info.blocked_at ? new Date(info.blocked_at).toLocaleString() : 'Unknown';
-        const countryName = (state.allCountries || {})[countryCode] || countryCode || (ip.includes(':') || !ip.match(/^\d+\./) ? 'Local/Internal' : 'Unknown');
+        const countryName = (state.allCountries || {})[countryCode] || (countryCode === '-' ? 'Resolving...' : countryCode) || (ip.includes(':') || !ip.match(/^\d+\./) ? 'Local/Internal' : 'Unknown');
         const reason = info.reason || 'Manual block';
         const type = info.auto ? '<i class="fas fa-robot" title="Auto-Blocked"></i> ' : '<i class="fas fa-user-shield" title="Manually Blocked"></i> ';
 

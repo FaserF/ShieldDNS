@@ -21,3 +21,4 @@
 @@||wifi.bahn.de^
 @@||www.youtube.com^
 @@||stadt-bremerhaven.de^
+@@||cdn.jsdelivr.net^
