@@ -44,11 +44,17 @@ func getCoreDNSVersion() string {
 		return coreDNSVersion
 	}
 
-	// Try to get version from binary
-	out, err := exec.Command("coredns", "-version").Output()
+	// Try to get version from binary (both Stdout and Stderr)
+	out, err := exec.Command("coredns", "-version").CombinedOutput()
 	if err != nil {
-		// Fallback to a sensible default if not found (e.g. in dev environment)
-		coreDNSVersion = "v1.14.2"
+		// Try absolute path as fallback
+		out, err = exec.Command("/usr/bin/coredns", "-version").CombinedOutput()
+	}
+
+	if err != nil {
+		// Fallback to current target version if not found (e.g. in dev environment)
+		slog.Debug("Could not execute coredns -version, using fallback", "error", err)
+		coreDNSVersion = "v1.14.3"
 		return coreDNSVersion
 	}
 

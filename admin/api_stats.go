@@ -390,10 +390,16 @@ func handleTopClients(w http.ResponseWriter, r *http.Request) {
 		if aliases != nil {
 			alias = aliases[client_ip]
 		}
+		// Look up the country code from the shared GeoIP cache (non-blocking)
+		countryCode := GetCountryCodeCached(client_ip)
+		if countryCode == "geo" || countryCode == "-" {
+			countryCode = ""
+		}
 		result = append(result, map[string]interface{}{
 			"client_ip":    client_ip,
 			"client_alias": alias,
 			"count":        count,
+			"country_code": countryCode,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
