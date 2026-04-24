@@ -413,7 +413,8 @@ func setupStaticHandlers(mux *http.ServeMux) {
 
 	mux.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
 		// Use relative redirect to support HA Ingress and other reverse proxies
-		http.Redirect(w, r, "admin/", http.StatusMovedPermanently)
+		w.Header().Set("Location", "admin/")
+		w.WriteHeader(http.StatusMovedPermanently)
 	})
 
 	// 2.5 icon.png fallback (HA Ingress looks for this)
