@@ -62,8 +62,6 @@ func TestIngressMiddleware(t *testing.T) {
 
 func TestAdminRedirect(t *testing.T) {
 	mux := setupRouter()
-	// We need setupStaticHandlers to be called on mux
-	setupStaticHandlers(mux)
 
 	tests := []struct {
 		name           string
@@ -116,7 +114,6 @@ func TestIsInternalWhitelist(t *testing.T) {
 	// Since it's an anonymous function in setupStaticHandlers, we have to test via requests
 
 	mux := setupRouter()
-	setupStaticHandlers(mux)
 	handler := ingressMiddleware(mux)
 
 	// Mock config with admin domain to trigger the check
