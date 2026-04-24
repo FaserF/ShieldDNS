@@ -374,7 +374,7 @@ window.removeCustomRule = async (domain, event) => {
     helpers.setBtnLoading(btn, true, 'Removing...');
 
     try {
-        await api.apiFetch('/api/rules/remove', {
+        await api.apiFetch(api.endpoints.removeRule, {
             method: 'POST',
             body: JSON.stringify({ domain })
         });
@@ -393,7 +393,7 @@ window.removeCustomMapping = async (domain, event) => {
     helpers.setBtnLoading(btn, true, 'Removing...');
 
     try {
-        await api.apiFetch('/api/rules/remove', {
+        await api.apiFetch(api.endpoints.removeRule, {
             method: 'POST',
             body: JSON.stringify({ domain })
         });
@@ -413,7 +413,7 @@ window.toggleList = async (idx, enabled, type, event) => {
     else state.currentConfig.allowlists[idx].enabled = enabled;
     
     try {
-        await api.apiFetch('/api/config', { method: 'POST', body: JSON.stringify(state.currentConfig) });
+        await api.apiFetch(api.endpoints.config, { method: 'POST', body: JSON.stringify(state.currentConfig) });
         helpers.showToast(enabled ? 'List enabled' : 'List disabled');
         fetchService.fetchConfig();
     } catch(e) { 
@@ -432,7 +432,7 @@ window.removeList = async (idx, type, event) => {
     else state.currentConfig.allowlists.splice(idx, 1);
     
     try {
-        await api.apiFetch('/api/config', { method: 'POST', body: JSON.stringify(state.currentConfig) });
+        await api.apiFetch(api.endpoints.config, { method: 'POST', body: JSON.stringify(state.currentConfig) });
         helpers.showToast('List removed');
         fetchService.fetchConfig();
     } catch(e) { 

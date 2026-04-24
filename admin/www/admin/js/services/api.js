@@ -108,5 +108,7 @@ export const endpoints = {
     filteringStatus: basePath + '/api/filtering/status',
     health: basePath + '/api/health',
     highRiskCountries: basePath + '/api/system/high-risk-countries',
-    serverCountry: basePath + '/api/system/server-country'
+    serverCountry: basePath + '/api/system/server-country',
+    login: basePath + '/api/login',
+    setup: basePath + '/api/setup'
 };

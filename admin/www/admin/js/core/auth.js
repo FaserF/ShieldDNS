@@ -24,7 +24,7 @@ export async function checkAuthStatus(onSuccess) {
         }
     } catch (e) {
         // Fallback
-        const data = await api.apiFetch('/api/auth-status');
+        const data = await api.apiFetch(api.endpoints.authStatus);
         if (data.need_setup) {
             uiRefs.authOverlay?.classList.remove('hidden');
             uiRefs.setupView?.classList.remove('hidden');
@@ -57,7 +57,7 @@ export async function handleLogin() {
     if (!pwd) return;
 
     try {
-        await api.apiFetch('/api/login', {
+        await api.apiFetch(api.endpoints.login, {
             method: 'POST',
             body: JSON.stringify({ password: pwd })
         });
@@ -127,12 +127,12 @@ export async function finishSetup() {
     finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finalizing...';
     
     try {
-        await api.apiFetch('/api/setup', {
+        await api.apiFetch(api.endpoints.setup, {
             method: 'POST',
             body: JSON.stringify({ password: pwd })
         });
         
-        await api.apiFetch('/api/login', {
+        await api.apiFetch(api.endpoints.login, {
             method: 'POST',
             body: JSON.stringify({ password: pwd })
         });

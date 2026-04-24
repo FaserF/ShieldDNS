@@ -109,7 +109,7 @@ export function renderConfig(cfg) {
     if (g && g.mobileBtn && g.mobileQR) {
         const fullUrl = `https://${domain}/api/mobileconfig`;
         g.mobileBtn.href = fullUrl;
-        g.mobileQR.src = `/api/qr?data=${encodeURIComponent(fullUrl)}`;
+        g.mobileQR.src = `../api/qr?data=${encodeURIComponent(fullUrl)}`;
     }
 
     // Last Login
