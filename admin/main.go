@@ -358,8 +358,13 @@ func setupStaticHandlers(mux *http.ServeMux) {
 		// Fallback to searching manually if Sub fails, but it shouldn't
 	}
 
-	// 1. Admin Index Template
-	mux.HandleFunc("/admin/", func(w http.ResponseWriter, r *http.Request) {
+	// 1. Admin Index & Assets Handler
+	adminHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/admin" {
+			w.Header().Set("Location", "admin/")
+			w.WriteHeader(http.StatusMovedPermanently)
+			return
+		}
 		if r.URL.Path == "/admin/" || r.URL.Path == "/admin/index.html" {
 			// Read from adminFS (which is rooted at www/admin)
 			tmplBytes, err := fs.ReadFile(adminFS, "index.html")
@@ -389,11 +394,14 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			return
 		}
 
-		// Use the specialized adminFS for all requests under /admin/
+		// Use the specialized adminFS for all other requests under /admin/ (CSS, JS, etc.)
 		http.StripPrefix("/admin/", http.FileServer(http.FS(adminFS))).ServeHTTP(w, r)
-	})
+	}
 
-	// 2. Service Worker Template
+	mux.HandleFunc("/admin", adminHandler)
+	mux.HandleFunc("/admin/", adminHandler)
+
+	// 2. Service Worker Handler
 	mux.HandleFunc("/admin/sw.js", func(w http.ResponseWriter, r *http.Request) {
 		tmplBytes, err := fs.ReadFile(adminFS, "sw.js")
 		if err != nil {
@@ -409,12 +417,6 @@ func setupStaticHandlers(mux *http.ServeMux) {
 		}
 		w.Header().Set("Content-Type", "application/javascript")
 		tmpl.Execute(w, struct{ CacheVersion string }{CacheVersion: CacheVersion})
-	})
-
-	mux.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
-		// Use relative redirect to support HA Ingress and other reverse proxies
-		w.Header().Set("Location", "admin/")
-		w.WriteHeader(http.StatusMovedPermanently)
 	})
 
 	// 2.5 icon.png fallback (HA Ingress looks for this)
@@ -505,13 +507,18 @@ func setupStaticHandlers(mux *http.ServeMux) {
 		http.FileServer(http.FS(wwwFS)).ServeHTTP(w, r)
 	})
 }
+
 func ingressMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ingressPath := r.Header.Get("X-Ingress-Path")
-		if ingressPath != "" && strings.HasPrefix(r.URL.Path, ingressPath) {
-			r.URL.Path = strings.TrimPrefix(r.URL.Path, ingressPath)
-			if r.URL.Path == "" {
-				r.URL.Path = "/"
+		if ingressPath != "" {
+			// Normalize ingressPath to not end with slash
+			ingressPath = strings.TrimSuffix(ingressPath, "/")
+			if strings.HasPrefix(r.URL.Path, ingressPath) {
+				r.URL.Path = strings.TrimPrefix(r.URL.Path, ingressPath)
+				if r.URL.Path == "" {
+					r.URL.Path = "/"
+				}
 			}
 		}
 		next.ServeHTTP(w, r)
