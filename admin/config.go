@@ -19,6 +19,14 @@ import (
 func initPaths() {
 	if dd := os.Getenv("DATA_DIR"); dd != "" {
 		DataDir = dd
+	} else {
+		// Backward compatibility: If old path exists but new one doesn't, fallback to old path
+		if _, err := os.Stat("/etc/shielddns/config.json"); err == nil {
+			if _, errNew := os.Stat("/data/config.json"); os.IsNotExist(errNew) {
+				DataDir = "/etc/shielddns"
+				slog.Info("Legacy data directory detected", "path", DataDir)
+			}
+		}
 	}
 	ConfigPath = filepath.Join(DataDir, "config.json")
 	BlocklistPath = filepath.Join(DataDir, "blocklist.hosts")

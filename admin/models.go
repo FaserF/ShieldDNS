@@ -205,14 +205,14 @@ type Session struct {
 }
 
 var (
-	DataDir           = "/etc/shielddns"
-	ConfigPath        = "/etc/shielddns/config.json"
-	BlocklistPath     = "/etc/shielddns/blocklist.hosts"
-	AllowlistPath     = "/etc/shielddns/allowlist.hosts"
-	MappingsPath      = "/etc/shielddns/mappings.hosts"
-	CorefilePath      = "/etc/shielddns/Corefile"
-	DBPath            = "/etc/shielddns/queries.db"
-	CombinedHostsPath = "/etc/shielddns/shielddns.hosts"
+	DataDir           = "/data"
+	ConfigPath        = "/data/config.json"
+	BlocklistPath     = "/data/blocklist.hosts"
+	AllowlistPath     = "/data/allowlist.hosts"
+	MappingsPath      = "/data/mappings.hosts"
+	CorefilePath      = "/data/Corefile"
+	DBPath            = "/data/queries.db"
+	CombinedHostsPath = "/data/shielddns.hosts"
 )
 
 const CookieName = "shielddns_session"
