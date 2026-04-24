@@ -1042,11 +1042,11 @@
                             </div>
                             <div class="diag-item diag-item-interactive" onclick="window.open('https://github.com/coredns/coredns', '_blank')" title="View CoreDNS Repository">
                                 <span>CoreDNS Version <i class="fab fa-github" style="opacity: 0.4; font-size: 0.8rem; margin-left: 4px;"></i></span>
-                                <span id="about-coredns-ver" class="badge">v1.14.2</span>
+                                <span id="about-coredns-ver" class="badge">{{.CoreDNSVersion}}</span>
                             </div>
                             <div class="diag-item diag-item-interactive" onclick="window.open('https://alpinelinux.org/', '_blank')" title="View Alpine Linux Website">
                                 <span>OS Base <i class="fas fa-external-link-alt" style="opacity: 0.4; font-size: 0.7rem; margin-left: 4px;"></i></span>
-                                <span id="about-os-ver" class="badge">Alpine 3.23</span>
+                                <span id="about-os-ver" class="badge">Alpine {{.OSVersion}}</span>
                             </div>
                         </div>
                     </div>

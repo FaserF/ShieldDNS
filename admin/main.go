@@ -390,11 +390,15 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			tmpl.Execute(w, struct {
-				FullVersion  string
-				CacheVersion string
+				FullVersion    string
+				CacheVersion   string
+				CoreDNSVersion string
+				OSVersion      string
 			}{
-				FullVersion:  FullVersion,
-				CacheVersion: CacheVersion,
+				FullVersion:    FullVersion,
+				CacheVersion:   CacheVersion,
+				CoreDNSVersion: getCoreDNSVersion(),
+				OSVersion:      getOSVersion(),
 			})
 			return
 		}
