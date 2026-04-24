@@ -66,20 +66,6 @@ func main() {
 	mux := setupRouter()
 
 	// Apply Ingress Middleware to strip X-Ingress-Path from HA
-	ingressMiddleware := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ingressPath := r.Header.Get("X-Ingress-Path")
-			if ingressPath != "" && strings.HasPrefix(r.URL.Path, ingressPath) {
-				r.URL.Path = strings.TrimPrefix(r.URL.Path, ingressPath)
-				if r.URL.Path == "" {
-					r.URL.Path = "/"
-				}
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-
-	// Apply unified security middleware (Headers + CSRF)
 	finalHandler := ingressMiddleware(securityHeadersMiddleware(csrfMiddleware(mux)))
 
 	// Base server configuration
@@ -426,7 +412,19 @@ func setupStaticHandlers(mux *http.ServeMux) {
 	})
 
 	mux.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/admin/", http.StatusMovedPermanently)
+		// Use relative redirect to support HA Ingress and other reverse proxies
+		http.Redirect(w, r, "admin/", http.StatusMovedPermanently)
+	})
+
+	// 2.5 icon.png fallback (HA Ingress looks for this)
+	mux.HandleFunc("/icon.png", func(w http.ResponseWriter, r *http.Request) {
+		data, err := fs.ReadFile(wwwFS, "logo.png")
+		if err != nil {
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(data)
 	})
 
 	// 3. Root landing page and public assets
@@ -450,9 +448,13 @@ func setupStaticHandlers(mux *http.ServeMux) {
 
 		// Case 2: Redirection for blocked domains
 		isInternal := strings.HasPrefix(r.URL.Path, "/api/") ||
-			strings.HasPrefix(r.URL.Path, "/admin/") ||
+			r.URL.Path == "/admin" || strings.HasPrefix(r.URL.Path, "/admin/") ||
 			strings.HasPrefix(r.URL.Path, "/favicon.ico") ||
 			strings.HasPrefix(r.URL.Path, "/logo.png") ||
+			strings.HasPrefix(r.URL.Path, "/icon.png") ||
+			strings.HasSuffix(r.URL.Path, ".css") ||
+			strings.HasSuffix(r.URL.Path, ".js") ||
+			strings.HasSuffix(r.URL.Path, ".json") ||
 			r.URL.Path == "/stopped" ||
 			r.URL.Path == "/blocked"
 
@@ -500,5 +502,17 @@ func setupStaticHandlers(mux *http.ServeMux) {
 
 		// Case 4: Static assets
 		http.FileServer(http.FS(wwwFS)).ServeHTTP(w, r)
+	})
+}
+func ingressMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ingressPath := r.Header.Get("X-Ingress-Path")
+		if ingressPath != "" && strings.HasPrefix(r.URL.Path, ingressPath) {
+			r.URL.Path = strings.TrimPrefix(r.URL.Path, ingressPath)
+			if r.URL.Path == "" {
+				r.URL.Path = "/"
+			}
+		}
+		next.ServeHTTP(w, r)
 	})
 }
