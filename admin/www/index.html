@@ -6,15 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ShieldDNS</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
     <div class="container">
         <div class="logo">
             <a href="https://github.com/FaserF/ShieldDNS" target="_blank" style="display:inline-block;">
-                <img src="/logo.png?v={{.CacheVersion}}" alt="ShieldDNS">
+                <img src="logo.png?v={{.CacheVersion}}" alt="ShieldDNS">
             </a>
         </div>
         <h1><a href="https://github.com/FaserF/ShieldDNS" target="_blank" style="text-decoration:none; color:inherit;">ShieldDNS</a></h1>
@@ -31,7 +31,7 @@
                 <label>Android (Private DNS)</label>
                 <div id="android-setup-container" class="hidden">
                     <div class="qr-section" id="android-qr-section" style="margin-bottom: 12px;">
-                        <img src="/api/qr?data=https://{{.Host}}" alt="QR Code for Guided Setup" width="120" height="120" style="border-radius: 8px; background: #fff; padding: 6px;">
+                        <img src="api/qr?data=https://{{.Host}}" alt="QR Code for Guided Setup" width="120" height="120" style="border-radius: 8px; background: #fff; padding: 6px;">
                         <div class="qr-label">
                             <strong>Interactive Guided Setup</strong><br>
                             Scan this QR code with your Android phone to open this guide directly on your device.
@@ -59,7 +59,7 @@
             </div>
             <div class="setup-item">
                 <label>iOS (iPhone/iPad)</label>
-                <a href="/api/mobileconfig" class="btn-download">Download Config Profile</a>
+                <a href="api/mobileconfig" class="btn-download">Download Config Profile</a>
                 <p style="font-size:0.8rem; color: var(--text-secondary); margin-top: 8px">
                     <strong>1.</strong> Download &rarr; <strong>2.</strong> Settings &rarr; <strong>3.</strong> Profile Downloaded &rarr; <strong>4.</strong> Install<br>
                     <em>Note: iOS 17+ users can enable <strong>native DNS-over-QUIC</strong> in Settings after installation.</em>
@@ -70,7 +70,7 @@
                 </p>
                 {{end}}
                 <div class="qr-section" id="ios-qr-section">
-                    <img src="/api/qr?data=https://{{.Host}}/api/mobileconfig" alt="iOS QR Setup" width="120" height="120" style="border-radius: 8px; background: #fff; padding: 6px;">
+                    <img src="api/qr?data=https://{{.Host}}/api/mobileconfig" alt="iOS QR Setup" width="120" height="120" style="border-radius: 8px; background: #fff; padding: 6px;">
                     <div class="qr-label">
                         <strong>Quick Setup via QR Code</strong><br>
                         Scan this QR code with your iPhone or iPad camera to start the profile installation automatically.
@@ -134,7 +134,7 @@
         </div>
 
         <div class="footer">
-            <a href="/admin" class="btn-admin">Admin Dashboard</a>
+            <a href="admin/" class="btn-admin">Admin Dashboard</a>
         </div>
     </div>
 

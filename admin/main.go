@@ -65,8 +65,22 @@ func main() {
 
 	mux := setupRouter()
 
+	// Apply Ingress Middleware to strip X-Ingress-Path from HA
+	ingressMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ingressPath := r.Header.Get("X-Ingress-Path")
+			if ingressPath != "" && strings.HasPrefix(r.URL.Path, ingressPath) {
+				r.URL.Path = strings.TrimPrefix(r.URL.Path, ingressPath)
+				if r.URL.Path == "" {
+					r.URL.Path = "/"
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	// Apply unified security middleware (Headers + CSRF)
-	finalHandler := securityHeadersMiddleware(csrfMiddleware(mux))
+	finalHandler := ingressMiddleware(securityHeadersMiddleware(csrfMiddleware(mux)))
 
 	// Base server configuration
 	adminPort := os.Getenv("ADMIN_PORT")

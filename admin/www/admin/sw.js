@@ -1,23 +1,23 @@
 /* jshint worker: true */
 const CACHE_NAME = 'shielddns-admin-{{.CacheVersion}}';
 const ASSETS = [
-    '/admin/',
-    '/admin/index.html',
-    '/admin/style.css',
-    '/admin/js/app.js',
-    '/admin/utils.js',
-    '/admin/manifest.json',
-    '/admin/js/services/api.js',
-    '/admin/js/services/fetch.js',
-    '/admin/js/ui/helpers.js',
-    '/admin/js/ui/charts.js',
-    '/admin/js/ui/scroller.js',
-    '/admin/js/ui/ui.js',
-    '/admin/js/ui/renderers.js',
-    '/admin/js/ui/events.js',
-    '/admin/js/core/state.js',
-    '/admin/js/core/auth.js',
-    '/admin/js/core/navigation.js'
+    './',
+    'index.html',
+    'style.css',
+    'js/app.js',
+    'utils.js',
+    'manifest.json',
+    'js/services/api.js',
+    'js/services/fetch.js',
+    'js/ui/helpers.js',
+    'js/ui/charts.js',
+    'js/ui/scroller.js',
+    'js/ui/ui.js',
+    'js/ui/renderers.js',
+    'js/ui/events.js',
+    'js/core/state.js',
+    'js/core/auth.js',
+    'js/core/navigation.js'
 ];
 
 /**
