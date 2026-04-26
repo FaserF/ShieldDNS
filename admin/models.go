@@ -25,6 +25,7 @@ type Config struct {
 	CustomBlocked              []string                     `json:"custom_blocked"`
 	CustomAllowed              []string                     `json:"custom_allowed"`
 	CustomMappings             map[string]string            `json:"custom_mappings"`
+	AutoblockWhitelist         []string                     `json:"autoblock_whitelist"`
 	SetupDone                  bool                         `json:"setup_done"`
 	AdminPasswordHashed        string                       `json:"admin_password_hashed"`
 	APIKeys                    []APIKey                     `json:"api_keys"`

@@ -170,6 +170,9 @@ export function renderConfig(cfg) {
 
     if (getEl('malicious-check')) getEl('malicious-check').checked = cfg.malicious_ip_blocking_enabled;
     if (getEl('malicious-interval-input')) getEl('malicious-interval-input').value = cfg.malicious_ip_interval || 8;
+
+    renderAutoblockWhitelist(cfg.autoblock_whitelist || []);
+
     if (getEl('verify-upstream-tls-check')) getEl('verify-upstream-tls-check').checked = !!cfg.verify_upstream_tls;
 
     // Custom Rules
@@ -248,6 +251,7 @@ export function renderConfig(cfg) {
 export function renderBlockedClientsModal(blockedClients, infoMap) {
     const list = getEl('blocked-clients-table-body');
     const filter = getEl('blocked-clients-country-filter');
+    const dateFilter = getEl('blocked-clients-date-filter')?.value || '';
     const search = getEl('blocked-clients-search')?.value.toLowerCase() || '';
     const countryFilter = filter?.value || 'ALL';
 
@@ -269,6 +273,7 @@ export function renderBlockedClientsModal(blockedClients, infoMap) {
         // Apply filters
         if (countryFilter !== 'ALL' && countryCode !== countryFilter) return null;
         if (search && !ip.includes(search) && !info.reason?.toLowerCase().includes(search)) return null;
+        if (dateFilter && info.blocked_at && !info.blocked_at.startsWith(dateFilter)) return null;
 
         const dateStr = info.blocked_at ? new Date(info.blocked_at).toLocaleString() : 'Unknown';
         // Never show 'Resolving...' — show neutral globe if not yet resolved
@@ -735,5 +740,21 @@ export function renderProtectionResult(res, domain) {
                 <button class="btn btn-sm secondary" onclick="window.addCustomRule('blocked', '${helpers.escapeHTML(domain)}', event)">Block</button>
             </div>
         `;
+}
+
+export function renderAutoblockWhitelist(whitelist) {
+    const container = getEl('autoblock-whitelist-tags');
+    if (!container) return;
+
+    if (!whitelist || whitelist.length === 0) {
+        container.innerHTML = '<p class="help">No IP addresses whitelisted.</p>';
+        return;
     }
+
+    container.innerHTML = whitelist.map(ip => `
+        <div class="tag">
+            <span>${helpers.escapeHTML(ip)}</span>
+            <button type="button" class="tag-remove" onclick="removeWhitelistIP('${helpers.escapeHTML(ip)}')">&times;</button>
+        </div>
+    `).join('');
 }

@@ -68,6 +68,7 @@ func loadConfig() {
 		MaliciousIPBlockingEnabled: true,
 		MaliciousIPInterval:        8,
 		DoHRateLimit:               50,
+		AutoblockWhitelist:         []string{"127.0.0.1", "::1"},
 	}
 
 	isNew := false
@@ -83,6 +84,9 @@ func loadConfig() {
 		}
 		if config.DoHRateLimit == 0 {
 			config.DoHRateLimit = 50
+		}
+		if config.AutoblockWhitelist == nil {
+			config.AutoblockWhitelist = []string{"127.0.0.1", "::1"}
 		}
 	} else {
 		isNew = true

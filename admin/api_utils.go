@@ -184,13 +184,19 @@ func isValidListURL(rawURL string) bool {
 }
 
 // IsCriticalIP checks if an IP belongs to core infrastructure that should never be blocked.
-func IsCriticalIP(ip string, blockPageIP string) bool {
+func IsCriticalIP(ip string, blockPageIP string, whitelist []string) bool {
 	if ip == "DoH Proxy" || ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
 		return true
 	}
 
 	if ip != "" && ip == blockPageIP {
 		return true
+	}
+
+	for _, w := range whitelist {
+		if w == ip {
+			return true
+		}
 	}
 
 	return false
@@ -1104,6 +1110,7 @@ func extractQuotes(s string) []string {
 }
 
 var detectedServerCountry string
+var detectedServerIP string
 
 func detectServerCountry() {
 	// Periodic check to handle network readiness and dynamic IPs
@@ -1133,10 +1140,12 @@ func detectServerCountry() {
 					CountryCode string `json:"countryCode"`
 					Status      string `json:"status"`
 					Message     string `json:"message"`
+					Query       string `json:"query"`
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&data); err == nil {
 					if data.Status == "success" {
 						detectedServerCountry = data.CountryCode
+						detectedServerIP = data.Query
 						success = true
 					} else {
 						slog.Debug("ip-api.com failed", "msg", data.Message)
@@ -1147,10 +1156,12 @@ func detectServerCountry() {
 					CountryCode string `json:"country_code"`
 					Success     bool   `json:"success"`
 					Message     string `json:"message"`
+					IP          string `json:"ip"`
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&data); err == nil {
 					if data.Success {
 						detectedServerCountry = data.CountryCode
+						detectedServerIP = data.IP
 						success = true
 					} else {
 						slog.Debug("ipwho.is failed", "msg", data.Message)
@@ -1159,25 +1170,21 @@ func detectServerCountry() {
 			} else if strings.Contains(url, "freeipapi.com") {
 				var data struct {
 					CountryCode string `json:"countryCode"`
+					IP          string `json:"ipAddress"`
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&data); err == nil && data.CountryCode != "" {
 					detectedServerCountry = data.CountryCode
-					success = true
-				}
-			} else if strings.Contains(url, "freeipapi.com") {
-				var data struct {
-					CountryCode string `json:"countryCode"`
-				}
-				if err := json.NewDecoder(resp.Body).Decode(&data); err == nil && data.CountryCode != "" {
-					detectedServerCountry = data.CountryCode
+					detectedServerIP = data.IP
 					success = true
 				}
 			}
+
 			resp.Body.Close()
 			cancel()
 
 			if success {
-				slog.Info("Server country detected", "country", detectedServerCountry, "source", url)
+				slog.Info("Server info detected", "country", detectedServerCountry, "ip", detectedServerIP, "source", url)
+				ensureServerIPWhitelisted(detectedServerIP)
 				break
 			}
 		}
@@ -1210,4 +1217,27 @@ func handleServerCountry(w http.ResponseWriter, r *http.Request) {
 		"detected": detectedServerCountry,
 		"manual":   manual,
 	})
+}
+
+func ensureServerIPWhitelisted(ip string) {
+	if ip == "" {
+		return
+	}
+
+	configLock.Lock()
+	defer configLock.Unlock()
+
+	found := false
+	for _, w := range config.AutoblockWhitelist {
+		if w == ip {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		slog.Info("Automatically adding server public IP to autoblock whitelist", "ip", ip)
+		config.AutoblockWhitelist = append(config.AutoblockWhitelist, ip)
+		saveConfigNoLock()
+	}
 }

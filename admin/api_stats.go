@@ -594,7 +594,7 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 
 		if req.Action == "block" {
 			// Protect critical clients from accidental blocking
-			if IsCriticalIP(ip, config.BlockPageIP) {
+			if IsCriticalIP(ip, config.BlockPageIP, config.AutoblockWhitelist) {
 				http.Error(w, "Cannot block critical internal clients (DoH Proxy, localhost, loopback, or server IP). Blocking these would break internal communications and server stability.", http.StatusForbidden)
 				configLock.Unlock()
 				return

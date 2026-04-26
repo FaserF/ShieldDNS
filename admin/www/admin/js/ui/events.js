@@ -526,6 +526,11 @@ export function initEvents(fetchConfig) {
         m.renderBlockedClientsModal(state.currentConfig.blocked_clients, state.currentConfig.blocked_clients_info || {});
     });
 
+    getEl('blocked-clients-date-filter')?.addEventListener('change', async () => {
+        const m = await import('./renderers.js');
+        m.renderBlockedClientsModal(state.currentConfig.blocked_clients, state.currentConfig.blocked_clients_info || {});
+    });
+
     const closeBlockedModal = () => getEl('blocked-clients-modal')?.classList.add('hidden');
     getEl('blocked-clients-close-btn')?.addEventListener('click', closeBlockedModal);
     getEl('blocked-clients-done-btn')?.addEventListener('click', closeBlockedModal);
@@ -547,6 +552,30 @@ export function initEvents(fetchConfig) {
             helpers.showAlert('Failed to block client: ' + err.message);
         }
     });
+
+    getEl('add-whitelist-ip-btn')?.addEventListener('click', () => {
+        const input = getEl('autoblock-whitelist-input');
+        const ip = input?.value.trim();
+        if (!ip) return;
+
+        if (!state.currentConfig.autoblock_whitelist) state.currentConfig.autoblock_whitelist = [];
+        if (state.currentConfig.autoblock_whitelist.includes(ip)) {
+            helpers.showToast('IP already in whitelist', 'info');
+            return;
+        }
+
+        state.currentConfig.autoblock_whitelist.push(ip);
+        import('./renderers.js').then(m => m.renderAutoblockWhitelist(state.currentConfig.autoblock_whitelist));
+        setSettingsDirty(true);
+        input.value = '';
+    });
+
+    window.removeWhitelistIP = (ip) => {
+        if (!state.currentConfig.autoblock_whitelist) return;
+        state.currentConfig.autoblock_whitelist = state.currentConfig.autoblock_whitelist.filter(item => item !== ip);
+        import('./renderers.js').then(m => m.renderAutoblockWhitelist(state.currentConfig.autoblock_whitelist));
+        setSettingsDirty(true);
+    };
 
     // Geo-Blocking Search Setup
     const countrySearch = getEl('country-search');

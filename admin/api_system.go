@@ -710,6 +710,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if len(newConfig.BlockedClients) == 0 && len(config.BlockedClients) > 0 {
 			newConfig.BlockedClients = config.BlockedClients
 		}
+		if len(newConfig.AutoblockWhitelist) == 0 && len(config.AutoblockWhitelist) > 0 {
+			newConfig.AutoblockWhitelist = config.AutoblockWhitelist
+		}
 
 		// Security: Prevent blocking the server's host country
 		if detectedServerCountry != "" || newConfig.ServerCountry != "" {

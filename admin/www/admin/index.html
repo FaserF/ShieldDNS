@@ -931,6 +931,21 @@
                             </button>
                         </div>
                     </div>
+
+                    <div class="settings-subsection mt-4">
+                        <div class="label-with-info">
+                            <label>Autoblock Whitelist 🛡️</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="IP addresses in this list will NEVER be automatically blocked by the Abuse Detection engine. The server's public IP is automatically added."></i>
+                        </div>
+                        <p class="help">Prevent specific IPs from being banned by the automated security system.</p>
+                        <div style="display:flex; gap:10px; margin-top: 10px;">
+                            <input type="text" id="autoblock-whitelist-input" placeholder="e.g. 1.2.3.4" style="flex:1;">
+                            <button type="button" class="btn secondary" id="add-whitelist-ip-btn">Add to Whitelist</button>
+                        </div>
+                        <div id="autoblock-whitelist-tags" class="tag-container mt-3">
+                            <!-- Whitelist tags will be rendered here -->
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Blocked Clients Detailed Modal -->
@@ -948,6 +963,9 @@
                             <div class="search-box">
                                 <i class="fas fa-search"></i>
                                 <input type="text" id="blocked-clients-search" placeholder="Search IP or Reason...">
+                            </div>
+                            <div class="filter-box">
+                                <input type="date" id="blocked-clients-date-filter" class="form-control sm" style="max-width: 150px;">
                             </div>
                             <div class="filter-box">
                                 <select id="blocked-clients-country-filter" class="select-premium sm">
