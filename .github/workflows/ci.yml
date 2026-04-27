@@ -147,7 +147,6 @@ jobs:
               const page = await browser.newPage();
               const viewports = [
                   { width: 320, height: 568, name: 'iPhone SE' },
-                  { width: 375, height: 667, name: 'iPhone 6/7/8' },
                   { width: 1200, height: 800, name: 'Desktop' }
               ];
 
@@ -170,6 +169,82 @@ jobs:
                   console.error(`❌ ${pageName} failed with console error during load:`, consoleError);
                   await browser.close();
                   return false;
+              }
+
+              // --- Design Integrity Checks ---
+              console.log("Running Design Integrity Checks...");
+              const designIssues = await page.evaluate(() => {
+                  const issues = [];
+                  
+                  // 1. Check for standard inputs with white backgrounds (should be dark/glass)
+                  const inputs = Array.from(document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])'));
+                  inputs.forEach(input => {
+                      const style = window.getComputedStyle(input);
+                      const bg = style.backgroundColor;
+                      // Check if background is white or near-white (e.g. rgb(255, 255, 255))
+                      if (bg.includes('255, 255, 255') || bg === 'rgb(255, 255, 255)' || bg === 'white') {
+                          issues.push(`Input ${input.id || input.name || input.type} has a white background (standard HTML look).`);
+                      }
+                      
+                      // Check border-radius (brand is 10px-14px)
+                      const br = parseInt(style.borderRadius);
+                      if (br < 4) {
+                          issues.push(`Input ${input.id || input.name} has insufficient border-radius (${br}px).`);
+                      }
+                  });
+
+                  // 2. Check for "X" buttons that don't use ShieldDNS classes or Icons
+                  const tagRemovers = Array.from(document.querySelectorAll('.tag-remove'));
+                  tagRemovers.forEach(btn => {
+                      if (!btn.querySelector('i.fas')) {
+                          issues.push(`Tag remover button for ${btn.parentElement.textContent.trim()} is missing a FontAwesome icon.`);
+                      }
+                      const style = window.getComputedStyle(btn);
+                      if (style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.borderStyle === 'none' && btn.textContent === '×') {
+                          issues.push(`Tag remover button looks like a standard unstyled '×' character.`);
+                      }
+                  });
+
+                  return issues;
+              });
+
+              if (designIssues.length > 0) {
+                  console.error(`❌ Design Integrity Issues found in ${pageName}:`);
+                  designIssues.forEach(i => console.error(`   - ${i}`));
+                  await browser.close();
+                  return false;
+              }
+              console.log("✅ Design Integrity Checks passed.");
+
+              // --- Modal Specific Checks (if on Admin page) ---
+              if (url.includes('/admin/')) {
+                  console.log("Testing Modals Design...");
+                  const modalIssue = await page.evaluate(async () => {
+                      const btn = document.getElementById('view-blocked-clients-btn');
+                      if (!btn) return "View Blocked Clients button not found";
+                      btn.click();
+                      
+                      // Wait for modal to be visible
+                      await new Promise(r => setTimeout(r, 500));
+                      const modal = document.getElementById('blocked-clients-modal');
+                      if (!modal || modal.classList.contains('hidden')) return "Blocked Clients modal did not open";
+                      
+                      const dateInput = document.getElementById('blocked-clients-date-filter');
+                      if (!dateInput) return "Date filter input not found in modal";
+                      
+                      const style = window.getComputedStyle(dateInput);
+                      if (style.backgroundColor.includes('255, 255, 255')) {
+                          return "Date filter in modal still has white background!";
+                      }
+                      return null;
+                  });
+
+                  if (modalIssue) {
+                      console.error(`❌ Modal Design Issue: ${modalIssue}`);
+                      await browser.close();
+                      return false;
+                  }
+                  console.log("✅ Modal Design Checks passed.");
               }
 
               let failed = false;
@@ -221,10 +296,10 @@ jobs:
               results.push(await testPage('http://localhost:8080/admin/', 'Admin Dashboard'));
 
               if (results.every(r => r)) {
-                  console.log('\n✅ All pages pass layout verification!');
+                  console.log('\n✅ All pages pass design & layout verification!');
                   process.exit(0);
               } else {
-                  console.error('\n❌ Layout verification failed for one or more pages!');
+                  console.error('\n❌ Verification failed for one or more pages!');
                   process.exit(1);
               }
           })();

@@ -221,41 +221,6 @@
     box-shadow: 0 0 0 3px hsla(var(--hue), 75%, 68%, 0.15);
 }
 
-/* Date & Time Input Specifics */
-input[type="date"], input[type="datetime-local"] {
-    position: relative;
-    padding-right: 42px;
-}
-
-input[type="date"]::-webkit-calendar-picker-indicator,
-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-    background: transparent;
-    bottom: 0;
-    color: transparent;
-    cursor: pointer;
-    height: auto;
-    left: 0;
-    position: absolute;
-    right: 0;
-    top: 0;
-    width: auto;
-}
-
-input[type="date"]::after,
-input[type="datetime-local"]::after {
-    content: "\f073";
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--accent);
-    pointer-events: none;
-    opacity: 0.7;
-}
-
-
 .switch {
     position: relative;
     display: inline-block;

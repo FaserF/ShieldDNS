@@ -9,7 +9,10 @@
 /* ── Global Input Overrides ────────────────────────────── */
 input[type="text"], 
 input[type="url"], 
-input[type="password"], 
+input[type="password"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="number"],
 select {
     background-color: hsla(var(--hue), 20%, 100%, 0.04) !important;
     border: 1px solid var(--border) !important;
@@ -25,6 +28,42 @@ input:focus {
     border-color: var(--accent) !important;
     box-shadow: 0 0 0 4px hsla(var(--hue), 75%, 68%, 0.15) !important;
 }
+
+/* Date & Time Input Specifics */
+input[type="date"], input[type="datetime-local"] {
+    position: relative;
+    padding-right: 42px !important;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    background: transparent;
+    bottom: 0;
+    color: transparent;
+    cursor: pointer;
+    height: auto;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: auto;
+}
+
+input[type="date"]::after,
+input[type="datetime-local"]::after {
+    content: "\f073";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent);
+    pointer-events: none;
+    opacity: 0.7;
+    z-index: 2;
+}
+
 
 input::placeholder {
     color: var(--text-secondary);
