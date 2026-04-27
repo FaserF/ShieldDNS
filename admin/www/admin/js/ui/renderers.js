@@ -740,6 +740,7 @@ export function renderProtectionResult(res, domain) {
                 <button class="btn btn-sm secondary" onclick="window.addCustomRule('blocked', '${helpers.escapeHTML(domain)}', event)">Block</button>
             </div>
         `;
+    }
 }
 
 export function renderAutoblockWhitelist(whitelist) {
