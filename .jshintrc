@@ -1,5 +1,6 @@
 { 
   "esversion": 11, 
+  "module": true,
   "browser": true, 
   "undef": true, 
   "devel": true, 

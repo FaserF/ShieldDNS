@@ -26,10 +26,24 @@ jobs:
         working-directory: admin
         run: go test -v -race -count=1 ./...
 
+  js-lint:
+    name: JavaScript Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 20
+      - name: Install JSHint
+        run: npm install -g jshint
+      - name: Run JSHint
+        run: jshint admin/www/admin/js/ admin/www/admin/*.js
+
   integration-tests:
     name: DNS & UI Integration Tests
     runs-on: ubuntu-latest
-    needs: go-tests
+    needs: [go-tests, js-lint]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -138,10 +152,22 @@ jobs:
               ];
 
               console.log(`Navigating to ${pageName}...`);
+              
+              let consoleError = null;
+              page.on('pageerror', exception => {
+                  consoleError = exception.message;
+              });
+
               try {
                   await page.goto(url, { waitUntil: 'load', timeout: 60000 });
               } catch (err) {
                   console.error(`❌ Failed to load ${pageName}:`, err.message);
+                  await browser.close();
+                  return false;
+              }
+
+              if (consoleError) {
+                  console.error(`❌ ${pageName} failed with console error during load:`, consoleError);
                   await browser.close();
                   return false;
               }
