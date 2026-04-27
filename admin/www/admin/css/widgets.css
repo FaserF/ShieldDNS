@@ -302,15 +302,41 @@
 }
 
 .tag {
-    background-color: var(--card-bg);
+    background-color: hsla(var(--hue), 20%, 100%, 0.05);
     color: var(--text-primary);
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 20px;
     border: 1px solid var(--border);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     font-size: 0.85rem;
+    transition: var(--transition-smooth);
+}
+
+.tag:hover {
+    border-color: hsla(var(--hue), 75%, 68%, 0.4);
+    background-color: hsla(var(--hue), 20%, 100%, 0.08);
+}
+
+.tag-remove {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    font-size: 0.75rem;
+    transition: all 0.2s ease;
+    border-radius: 50%;
+}
+
+.tag-remove:hover {
+    color: var(--danger);
+    background-color: hsla(0, 72%, 60%, 0.1);
+    transform: rotate(90deg);
 }
 
 /* ──────────────── TOOLTIPS ──────────────── */

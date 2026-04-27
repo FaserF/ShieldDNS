@@ -755,7 +755,9 @@ export function renderAutoblockWhitelist(whitelist) {
     container.innerHTML = whitelist.map(ip => `
         <div class="tag">
             <span>${helpers.escapeHTML(ip)}</span>
-            <button type="button" class="tag-remove" onclick="removeWhitelistIP('${helpers.escapeHTML(ip)}')">&times;</button>
+            <button type="button" class="tag-remove" onclick="removeWhitelistIP('${helpers.escapeHTML(ip)}')" title="Remove from Whitelist">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
     `).join('');
 }

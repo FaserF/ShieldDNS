@@ -29,17 +29,26 @@ export const renderTrafficChart = (data, onClickHour) => {
     const totals = [];
     const blocked = [];
 
+    // Ensure we have a clean array of labels
+    labels.length = 0;
+
     for (let i = 23; i >= 0; i--) {
         const d = new Date(now.getTime() - i * 60 * 60 * 1000);
         const h = d.getHours();
         const hourStr = `${h}:00`;
         labels.push(hourStr);
 
-        // Find match in backend data using the time field
+        // Snap d to the hour for robust matching
+        const startOfHour = new Date(d);
+        startOfHour.setMinutes(0, 0, 0);
+
         const match = (data || []).find(p => {
             if (!p.time) return false;
             const pd = new Date(p.time);
-            return pd.getHours() === h && pd.getDate() === d.getDate();
+            // Robust match: compare the start-of-hour timestamp
+            const pStartOfHour = new Date(pd);
+            pStartOfHour.setMinutes(0, 0, 0);
+            return pStartOfHour.getTime() === startOfHour.getTime();
         });
 
         totals.push(match ? match.total : 0);
@@ -50,6 +59,7 @@ export const renderTrafficChart = (data, onClickHour) => {
     const blockedColor = 'rgba(239, 68, 68, 1)';
 
     if (trafficChart) {
+        trafficChart.data.labels = labels;
         trafficChart.data.datasets[0].data = totals;
         trafficChart.data.datasets[1].data = blocked;
         trafficChart.update();

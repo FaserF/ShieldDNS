@@ -189,8 +189,9 @@ func startDBWorker(ctx context.Context) {
 	go func() {
 		// Catch-up: Aggregate missing hours from the last 24h
 		slog.Info("Starting hourly stats catch-up...")
+		now := time.Now().UTC()
 		for i := 24; i >= 1; i-- {
-			targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+			targetHour := now.Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
 			aggregateHourlyStats(ctx, targetHour)
 		}
 		slog.Info("Hourly stats catch-up complete")
@@ -230,13 +231,12 @@ func aggregateHourlyStats(ctx context.Context, targetHour string) {
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
 		SELECT 
-			datetime(timestamp, 'start of hour') as hr,
+			strftime('%Y-%m-%d %H:00:00', timestamp) as hr,
 			COUNT(*),
 			SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END),
 			SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END)
 		FROM queries
-		WHERE timestamp >= datetime(?, 'start of hour') 
-		  AND timestamp < datetime(?, 'start of hour', '+1 hour')
+		WHERE timestamp >= ? AND timestamp < datetime(?, '+1 hour')
 		GROUP BY hr
 		ON CONFLICT(timestamp) DO UPDATE SET
 			total = excluded.total,
