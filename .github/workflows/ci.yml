@@ -176,14 +176,15 @@ jobs:
               const designIssues = await page.evaluate(() => {
                   const issues = [];
                   
-                  // 1. Check for standard inputs with white backgrounds (should be dark/glass)
+                  // 1. Check for standard inputs with solid white backgrounds (should be dark/glass)
                   const inputs = Array.from(document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])'));
                   inputs.forEach(input => {
                       const style = window.getComputedStyle(input);
                       const bg = style.backgroundColor;
-                      // Check if background is white or near-white (e.g. rgb(255, 255, 255))
-                      if (bg.includes('255, 255, 255') || bg === 'rgb(255, 255, 255)' || bg === 'white') {
-                          issues.push(`Input ${input.id || input.name || input.type} has a white background (standard HTML look).`);
+                      // Only fail if it's SOLID white (rgb(255, 255, 255) or rgba(255, 255, 255, 1))
+                      // hsla(..., 100%, 0.04) results in rgba(255, 255, 255, 0.04), which is fine.
+                      if (bg === 'rgb(255, 255, 255)' || bg === 'rgba(255, 255, 255, 1)' || bg === 'white') {
+                          issues.push(`Input ${input.id || input.name || input.type} has a solid white background (standard HTML look).`);
                       }
                       
                       // Check border-radius (brand is 10px-14px)
@@ -233,8 +234,9 @@ jobs:
                       if (!dateInput) return "Date filter input not found in modal";
                       
                       const style = window.getComputedStyle(dateInput);
-                      if (style.backgroundColor.includes('255, 255, 255')) {
-                          return "Date filter in modal still has white background!";
+                      const bg = style.backgroundColor;
+                      if (bg === 'rgb(255, 255, 255)' || bg === 'rgba(255, 255, 255, 1)' || bg === 'white') {
+                          return "Date filter in modal still has a solid white background!";
                       }
                       return null;
                   });
