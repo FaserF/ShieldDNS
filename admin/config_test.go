@@ -34,12 +34,17 @@ func TestProcessList_StreamingMemoryEfficiency(t *testing.T) {
 	// Should not crash and should parse correctly
 	processList(&list, blockMap, allowMap, nil)
 
-	if len(blockMap) != 100 {
-		t.Errorf("expected 100 domains, got %d", len(blockMap))
+	// We expect 200: for each || rule we add the domain AND the *.domain wildcard
+	if len(blockMap) != 200 {
+		t.Errorf("expected 200 domains, got %d", len(blockMap))
 	}
 
 	if _, ok := blockMap["adservice0.com"]; !ok {
 		t.Errorf("adservice0.com not found in blockMap")
+	}
+
+	if _, ok := blockMap["*.adservice0.com"]; !ok {
+		t.Errorf("*.adservice0.com wildcard not found in blockMap")
 	}
 
 	if lists := blockMap["adservice0.com"]; len(lists) != 1 || lists[0] != "TestList" {

@@ -376,6 +376,18 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	blockAttributionLock.RLock()
 	lists, found := blockAttribution[query]
+	if !found {
+		// Check for wildcard match
+		parts := strings.Split(query, ".")
+		for i := 1; i < len(parts); i++ {
+			wildcard := "*." + strings.Join(parts[i:], ".")
+			if l, ok := blockAttribution[wildcard]; ok {
+				lists = l
+				found = true
+				break
+			}
+		}
+	}
 	blockAttributionLock.RUnlock()
 
 	// If not found directly, check if the blocklist has even been loaded

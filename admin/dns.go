@@ -930,8 +930,23 @@ func parseLogLine(line string) {
 	}
 
 	blockAttributionLock.RLock()
-	_, isBlocked := blockAttribution[qDomain]
+	found := false
+	if _, ok := blockAttribution[qDomain]; ok {
+		found = true
+	} else {
+		// Check for wildcard match (*.domain.com, *.com, etc.)
+		parts := strings.Split(qDomain, ".")
+		for i := 1; i < len(parts); i++ {
+			wildcard := "*." + strings.Join(parts[i:], ".")
+			if _, ok := blockAttribution[wildcard]; ok {
+				found = true
+				break
+			}
+		}
+	}
 	blockAttributionLock.RUnlock()
+
+	isBlocked := found
 
 	status := StatusAllowed
 	if isBlocked {

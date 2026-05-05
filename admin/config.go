@@ -355,10 +355,17 @@ func updateBlocklist(cfg *Config) {
 	// Add Custom Rules
 	for _, d := range customBlocked {
 		newBlockAttribution[d] = append(newBlockAttribution[d], "Custom Blocklist")
+		if !strings.HasPrefix(d, "*.") {
+			newBlockAttribution["*."+d] = append(newBlockAttribution["*."+d], "Custom Blocklist")
+		}
 	}
 	for _, d := range customAllowed {
 		allowDomains[d] = struct{}{}
 		newAllowAttribution[d] = append(newAllowAttribution[d], "Custom Allowlist")
+		if !strings.HasPrefix(d, "*.") {
+			allowDomains["*."+d] = struct{}{}
+			newAllowAttribution["*."+d] = append(newAllowAttribution["*."+d], "Custom Allowlist")
+		}
 	}
 
 	saveConfig()
@@ -486,10 +493,21 @@ func reloadRulesFastNoLock(cfg *Config) {
 	// RE-APPLY CURRENT CUSTOM RULES
 	for _, d := range cfg.CustomBlocked {
 		newAttribution[d] = append(newAttribution[d], "Custom Blocklist")
+		if !strings.HasPrefix(d, "*.") {
+			wildcard := "*." + d
+			newAttribution[wildcard] = append(newAttribution[wildcard], "Custom Blocklist")
+		}
 	}
 	for _, d := range cfg.CustomAllowed {
 		allowDomains[d] = struct{}{}
 		newAllowAttribution[d] = append(newAllowAttribution[d], "Custom Allowlist")
+		// For allowlists, we don't strictly need to add *.d because applyCurrentRules
+		// already handles subdomain allowance by checking parent domains.
+		// However, adding it explicitly doesn't hurt and makes attribution clearer.
+		if !strings.HasPrefix(d, "*.") {
+			allowDomains["*."+d] = struct{}{}
+			newAllowAttribution["*."+d] = append(newAllowAttribution["*."+d], "Custom Allowlist")
+		}
 	}
 
 	applyCurrentRules(newAttribution, newAllowAttribution, allowDomains, cfg.CustomMappings, cfg.BlockPageIP)
@@ -569,9 +587,16 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		}
 
 		domain := ""
+		isWildcard := false
 		// AdGuard / AdBlock: ||domain^
 		if strings.HasPrefix(line, "||") {
-			domain = strings.Split(strings.TrimPrefix(line, "||"), "^")[0]
+			content := strings.TrimPrefix(line, "||")
+			domain = strings.Split(content, "^")[0]
+			// Skip rules that contain paths, queries, or fragments as they are not DNS-level rules
+			if strings.ContainsAny(domain, "/?#") {
+				continue
+			}
+			isWildcard = true
 		} else if strings.HasPrefix(line, "0.0.0.0 ") || strings.HasPrefix(line, "127.0.0.1 ") || strings.HasPrefix(line, "::1 ") || strings.HasPrefix(line, ":: ") {
 			// Hosts: 0.0.0.0 domain
 			parts := strings.Fields(line)
@@ -583,6 +608,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			parts := strings.Split(line, "/")
 			if len(parts) >= 3 {
 				domain = parts[1]
+				isWildcard = true
 			}
 		} else {
 			// Raw domain, potentially with comments or multiple fields
@@ -604,23 +630,32 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			if domain == "" {
 				continue
 			}
-			count++
-			if isAllowlist {
-				allowMap[domain] = struct{}{}
-				if allowAttr != nil {
-					allowAttr[domain] = append(allowAttr[domain], list.Name)
-				}
-			} else if blockMap != nil {
-				// Avoid duplicates in the same list attribution
-				alreadyPresent := false
-				for _, name := range blockMap[domain] {
-					if name == list.Name {
-						alreadyPresent = true
-						break
+
+			// Prepare list of domains to add (original and wildcard if applicable)
+			domains := []string{domain}
+			if isWildcard && !strings.HasPrefix(domain, "*.") {
+				domains = append(domains, "*."+domain)
+			}
+
+			for _, d := range domains {
+				count++
+				if isAllowlist {
+					allowMap[d] = struct{}{}
+					if allowAttr != nil {
+						allowAttr[d] = append(allowAttr[d], list.Name)
 					}
-				}
-				if !alreadyPresent {
-					blockMap[domain] = append(blockMap[domain], list.Name)
+				} else if blockMap != nil {
+					// Avoid duplicates in the same list attribution
+					alreadyPresent := false
+					for _, name := range blockMap[d] {
+						if name == list.Name {
+							alreadyPresent = true
+							break
+						}
+					}
+					if !alreadyPresent {
+						blockMap[d] = append(blockMap[d], list.Name)
+					}
 				}
 			}
 		}
