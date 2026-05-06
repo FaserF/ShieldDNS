@@ -26,11 +26,8 @@ export const renderTrafficChart = (data, onClickHour) => {
     // Align data to the last 24 hours precisely
     const now = new Date();
     const labels = [];
-    const totals = [];
+    const allowed = [];
     const blocked = [];
-
-    // Ensure we have a clean array of labels
-    labels.length = 0;
 
     for (let i = 23; i >= 0; i--) {
         const d = new Date(now.getTime() - i * 60 * 60 * 1000);
@@ -45,22 +42,26 @@ export const renderTrafficChart = (data, onClickHour) => {
         const match = (data || []).find(p => {
             if (!p.time) return false;
             const pd = new Date(p.time);
-            // Robust match: compare the start-of-hour timestamp
             const pStartOfHour = new Date(pd);
             pStartOfHour.setMinutes(0, 0, 0);
             return pStartOfHour.getTime() === startOfHour.getTime();
         });
 
-        totals.push(match ? match.total : 0);
-        blocked.push(match ? match.blocked : 0);
+        const totalVal = match ? match.total : 0;
+        const blockedVal = match ? match.blocked : 0;
+        
+        // Use 'Allowed' and 'Blocked' for stacking
+        // This ensures the top of the stack represents the Total Volume
+        allowed.push(Math.max(0, totalVal - blockedVal));
+        blocked.push(blockedVal);
     }
 
-    const totalColor = 'rgba(92, 107, 192, 1)';
+    const allowedColor = 'rgba(92, 107, 192, 1)';
     const blockedColor = 'rgba(239, 68, 68, 1)';
 
     if (trafficChart) {
         trafficChart.data.labels = labels;
-        trafficChart.data.datasets[0].data = totals;
+        trafficChart.data.datasets[0].data = allowed;
         trafficChart.data.datasets[1].data = blocked;
         trafficChart.update();
         return;
@@ -72,18 +73,19 @@ export const renderTrafficChart = (data, onClickHour) => {
             labels: labels,
             datasets: [
                 {
-                    label: 'Total Queries',
-                    data: totals,
-                    borderColor: totalColor,
-                    backgroundColor: createGradient(ctx, totalColor),
+                    label: 'Allowed',
+                    data: allowed,
+                    borderColor: allowedColor,
+                    backgroundColor: createGradient(ctx, allowedColor),
                     fill: true,
                     tension: 0.4,
-                    borderWidth: 3,
+                    borderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 6,
-                    pointBackgroundColor: totalColor,
+                    pointBackgroundColor: allowedColor,
                     pointBorderColor: '#fff',
-                    pointBorderWidth: 2
+                    pointBorderWidth: 2,
+                    stack: 'stack1'
                 },
                 {
                     label: 'Blocked',
@@ -92,12 +94,13 @@ export const renderTrafficChart = (data, onClickHour) => {
                     backgroundColor: createGradient(ctx, blockedColor),
                     fill: true,
                     tension: 0.4,
-                    borderWidth: 3,
+                    borderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 6,
                     pointBackgroundColor: blockedColor,
                     pointBorderColor: '#fff',
-                    pointBorderWidth: 2
+                    pointBorderWidth: 2,
+                    stack: 'stack1'
                 }
             ]
         },
@@ -115,18 +118,36 @@ export const renderTrafficChart = (data, onClickHour) => {
             },
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    mode: 'index',
-                    intersect: false,
                     backgroundColor: 'rgba(15, 23, 42, 0.9)',
                     padding: 12,
-                    cornerRadius: 8
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                label += new Intl.NumberFormat().format(context.parsed.y);
+                            }
+                            return label;
+                        },
+                        footer: function(items) {
+                            let total = 0;
+                            items.forEach(item => total += item.parsed.y);
+                            return 'Total: ' + new Intl.NumberFormat().format(total);
+                        }
+                    }
                 }
             },
             scales: {
                 y: { 
+                    stacked: true,
                     beginAtZero: true, 
                     grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }, 
                     ticks: { color: '#64748b', font: { size: 11 } } 

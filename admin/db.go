@@ -195,16 +195,6 @@ func startDBWorker(ctx context.Context) {
 			aggregateHourlyStats(ctx, targetHour)
 		}
 		slog.Info("Hourly stats catch-up complete")
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-aggTicker.C:
-				targetHour := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-				aggregateHourlyStats(ctx, targetHour)
-			}
-		}
 	}()
 
 	for {
@@ -217,70 +207,51 @@ func startDBWorker(ctx context.Context) {
 	}
 }
 
-func aggregateHourlyStats(ctx context.Context, targetHour string) {
-	if db == nil {
-		return
-	}
-
-	if targetHour == "" {
-		targetHour = time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-	}
-
-	slog.Debug("Starting hourly aggregation", "hour", targetHour)
-
-	_, err := db.ExecContext(ctx, `
-		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
-		SELECT 
-			strftime('%Y-%m-%d %H:00:00', timestamp) as hr,
-			COUNT(*),
-			SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END),
-			SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END)
-		FROM queries
-		WHERE timestamp >= ? AND timestamp < datetime(?, '+1 hour')
-		GROUP BY hr
-		ON CONFLICT(timestamp) DO UPDATE SET
-			total = excluded.total,
-			blocked = excluded.blocked,
-			cache_hits = excluded.cache_hits
-	`, targetHour, targetHour)
-
-	if err != nil {
-		slog.Error("Error aggregating hourly stats", "hour", targetHour, "error", err)
-	} else {
-		slog.Info("Successfully aggregated hourly stats", "hour", targetHour)
-	}
-}
-
 func startLogWorker(ctx context.Context) {
 	// Periodically flush buffered queries to SQLite
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			// Final flush is handled in main.go during shutdown
-			return
-		case <-ticker.C:
-			bufferLock.Lock()
-			if len(logBuffer) == 0 {
-				bufferLock.Unlock()
-				continue
-			}
-			toFlush := logBuffer
-			logBuffer = nil
-			bufferLock.Unlock()
 
-			if db == nil {
-				continue
+	// Every hour, aggregate data from 'queries' into 'hourly_stats' for faster dashboarding
+	aggTicker := time.NewTicker(1 * time.Hour)
+	defer aggTicker.Stop()
+
+	// Every minute, refresh the 24h counters to ensure the dashboard cards show a rolling window
+	refreshTicker := time.NewTicker(1 * time.Minute)
+	defer refreshTicker.Stop()
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				bufferLock.Lock()
+				if len(logBuffer) == 0 {
+					bufferLock.Unlock()
+					continue
+				}
+				toFlush := logBuffer
+				logBuffer = nil
+				bufferLock.Unlock()
+
+				flushLogs(toFlush)
+
+			case <-aggTicker.C:
+				targetHour := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+				aggregateHourlyStats(ctx, targetHour)
+
+			case <-refreshTicker.C:
+				// Re-load stats from DB to ensure the 24h rolling window is accurate on the dashboard.
+				// This prevents the counters from being cumulative since startup.
+				initializeStatsFromDB()
 			}
-			flushLogs(toFlush)
 		}
-	}
+	}()
 }
 
-func flushLogs(toFlush []Query) {
+func flushLogs(queries []Query) {
 	if db == nil {
-		slog.Warn("Log flush skipped: database connection is closed")
 		return
 	}
 
@@ -298,8 +269,7 @@ func flushLogs(toFlush []Query) {
 	}
 	defer stmt.Close()
 
-	for _, q := range toFlush {
-		// Use standard SQLite format for storage to ensure consistency
+	for _, q := range queries {
 		_, err = stmt.Exec(q.Time.UTC().Format("2006-01-02 15:04:05"), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs, q.CountryCode)
 		if err != nil {
 			slog.Error("Error executing log statement", "domain", q.Domain, "error", err)
@@ -308,6 +278,30 @@ func flushLogs(toFlush []Query) {
 
 	if err := tx.Commit(); err != nil {
 		slog.Error("Error committing log transaction", "error", err)
+	}
+}
+
+func aggregateHourlyStats(ctx context.Context, targetHour string) {
+	// 1. Aggregate from queries table into hourly_stats
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
+		SELECT 
+			strftime('%Y-%m-%d %H:00:00', timestamp) as hr,
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END), 0)
+		FROM queries
+		WHERE timestamp >= ? AND timestamp < datetime(?, '+1 hour')
+		GROUP BY hr
+		ON CONFLICT(timestamp) DO UPDATE SET
+			total = excluded.total,
+			blocked = excluded.blocked,
+			cache_hits = excluded.cache_hits
+	`, targetHour, targetHour)
+	if err != nil {
+		slog.Error("Error aggregating hourly stats", "hour", targetHour, "error", err)
+	} else {
+		slog.Info("Successfully aggregated hourly stats", "hour", targetHour)
 	}
 }
 
