@@ -267,3 +267,34 @@ export const escapeHTML = (str) => {
     div.textContent = str;
     return div.innerHTML;
 };
+
+/**
+ * Checks if a query matches the current UI filters (search and status)
+ * @param {Object} query - The query object from the backend
+ * @returns {boolean} - True if the query should be displayed
+ */
+export const matchesFilters = (query) => {
+    const searchInput = document.getElementById('query-search');
+    const statusSelect = document.getElementById('query-filter-status');
+    
+    if (!searchInput || !statusSelect) return true;
+    
+    const search = searchInput.value.trim().toLowerCase();
+    const status = statusSelect.value;
+    
+    // Check search (domain or IP)
+    if (search) {
+        const matchesDomain = (query.domain || '').toLowerCase().includes(search);
+        const matchesIp = (query.client_ip || '').toLowerCase().includes(search);
+        if (!matchesDomain && !matchesIp) return false;
+    }
+    
+    // Check status
+    if (status) {
+        const queryStatus = query.status || '';
+        if (status === 'Blocked' && !queryStatus.includes('Blocked')) return false;
+        if (status === 'Allowed' && queryStatus !== 'Allowed') return false;
+    }
+    
+    return true;
+};

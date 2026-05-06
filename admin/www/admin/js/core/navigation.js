@@ -3,6 +3,8 @@
  */
 import * as api from '../services/api.js';
 import { state, getEl } from './state.js';
+import * as helpers from '../ui/helpers.js';
+
 
 export function initNavigation(viewHandlers) {
     const navItems = document.querySelectorAll('.nav-item');
@@ -139,7 +141,10 @@ function _connectSSE(createQueryRow, updateDashboardFeed) {
             updateDashboardFeed(query);
 
             if (state.fullQueryScroller) {
-                state.fullQueryScroller.prepend(query);
+                // BUGFIX: Check if query matches current active filters before prepending
+                if (helpers.matchesFilters(query)) {
+                    state.fullQueryScroller.prepend(query);
+                }
             }
         } catch (err) {
             console.error('SSE JSON parse error:', err, event.data);

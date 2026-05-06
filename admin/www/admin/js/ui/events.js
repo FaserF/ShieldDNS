@@ -380,7 +380,18 @@ export function initEvents(fetchConfig) {
         if (btn) helpers.setBtnLoading(btn, true, 'Exporting...');
         try {
             const token = localStorage.getItem('api_token');
-            window.location.href = `${api.endpoints.exportLogs}?format=${type}&token=${token}`;
+            const search = document.getElementById('query-search')?.value.trim() || '';
+            const status = document.getElementById('query-filter-status')?.value || '';
+            const fromTime = document.getElementById('query-time-from')?.value || '';
+            const toTime = document.getElementById('query-time-to')?.value || '';
+            
+            let url = `${api.endpoints.exportLogs}?format=${type}&token=${token}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+            if (status) url += `&status=${encodeURIComponent(status)}`;
+            if (fromTime) url += `&from_time=${encodeURIComponent(fromTime)}`;
+            if (toTime) url += `&to_time=${encodeURIComponent(toTime)}`;
+
+            window.location.href = url;
             helpers.showToast(`Log export (${type}) started`, 'info');
         } catch (err) {
             helpers.showAlert('Export failed: ' + err.message);
