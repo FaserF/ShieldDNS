@@ -1161,3 +1161,136 @@ a:hover {
     opacity: 0.7;
     margin-right: 4px;
 }
+
+/* ── Query Log Filter UX Improvements ─────────────────────── */
+.log-filters-container {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    background: hsla(var(--hue), 24%, 5%, 0.3);
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin-top: 10px;
+}
+
+.query-log-search {
+    flex: 2 !important;
+    min-width: 250px !important;
+    max-width: 400px !important;
+}
+
+.query-log-search input {
+    width: 100% !important;
+}
+
+.filter-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex: 3 !important;
+    min-width: 350px !important;
+}
+
+.filter-group .select-filter {
+    flex: 0 0 150px !important;
+    width: auto !important;
+}
+
+.date-range-picker {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex: 1 !important;
+    min-width: 300px;
+}
+
+.date-range-picker input {
+    flex: 1 !important;
+    min-width: 140px !important;
+}
+
+.date-range-picker span {
+    color: var(--text-secondary);
+    opacity: 0.5;
+    font-weight: bold;
+}
+
+.action-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-shrink: 0 !important;
+    margin-left: auto;
+}
+
+.export-buttons {
+    display: flex !important;
+    gap: 8px !important;
+}
+
+.export-buttons .btn-sm {
+    padding: 8px 14px !important;
+    height: 38px;
+}
+
+@media (max-width: 1400px) {
+    .action-group {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-end;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+    }
+}
+
+@media (max-width: 992px) {
+    .filter-group {
+        flex: 1 0 100% !important;
+        background: hsla(var(--hue), 24%, 100%, 0.02);
+        padding: 8px;
+        border-radius: 12px;
+    }
+    
+    .query-log-search {
+        max-width: none !important;
+        flex: 1 0 100% !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .date-range-picker {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100%;
+    }
+    
+    .date-range-picker span {
+        display: none;
+    }
+    
+    .filter-group {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .filter-group .select-filter {
+        flex: none !important;
+        width: 100% !important;
+    }
+    
+    .action-group {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .export-buttons {
+        justify-content: space-between;
+    }
+    
+    .export-buttons button {
+        flex: 1;
+    }
+}

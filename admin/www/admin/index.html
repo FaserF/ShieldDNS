@@ -316,28 +316,32 @@
             <section id="queries" class="view hidden">
                 <header>
                     <h1>Query Log</h1>
-                    <div class="header-actions" style="flex-wrap: wrap; gap: 8px;">
-                        <div class="search-box">
+                    <div class="header-actions log-filters-container">
+                        <div class="search-box query-log-search">
                             <i class="fas fa-search"></i>
                             <input type="text" id="query-search" placeholder="Search domain or IP..."
                                 oninput="fetchQueries()">
                         </div>
-                        <select id="query-filter-status" class="select-filter" onchange="fetchQueries()" style="min-width: 140px;">
-                            <option value="">All Traffic</option>
-                            <option value="Blocked">Blocked Only</option>
-                            <option value="Allowed">Allowed Only</option>
-                        </select>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="datetime-local" id="query-time-from" title="From Time" onchange="fetchQueries()" class="select-filter">
-                            <span>-</span>
-                            <input type="datetime-local" id="query-time-to" title="To Time" onchange="fetchQueries()" class="select-filter">
+                        <div class="filter-group">
+                            <select id="query-filter-status" class="select-filter" onchange="fetchQueries()">
+                                <option value="">All Traffic</option>
+                                <option value="Blocked">Blocked Only</option>
+                                <option value="Allowed">Allowed Only</option>
+                            </select>
+                            <div class="date-range-picker">
+                                <input type="datetime-local" id="query-time-from" title="From Time" onchange="fetchQueries()" class="select-filter">
+                                <span>-</span>
+                                <input type="datetime-local" id="query-time-to" title="To Time" onchange="fetchQueries()" class="select-filter">
+                            </div>
                         </div>
-                        <button id="live-update-toggle" class="btn secondary" onclick="toggleLiveUpdate()" style="min-width: 120px;" title="Toggle Live Updates">
-                            <i class="fas fa-pause"></i> <span>Pause Live</span>
-                        </button>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-sm secondary" onclick="exportLogs('csv', event)"><i class="fas fa-file-csv"></i> CSV</button>
-                            <button class="btn btn-sm secondary" onclick="exportLogs('json', event)"><i class="fas fa-file-code"></i> JSON</button>
+                        <div class="action-group">
+                            <button id="live-update-toggle" class="btn secondary" onclick="toggleLiveUpdate()" title="Toggle Live Updates">
+                                <i class="fas fa-pause"></i> <span>Pause Live</span>
+                            </button>
+                            <div class="export-buttons">
+                                <button class="btn btn-sm secondary" onclick="exportLogs('csv', event)"><i class="fas fa-file-csv"></i> CSV</button>
+                                <button class="btn btn-sm secondary" onclick="exportLogs('json', event)"><i class="fas fa-file-code"></i> JSON</button>
+                            </div>
                         </div>
                     </div>
                 </header>

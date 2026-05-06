@@ -65,7 +65,7 @@ function initializeApp() {
     nav.startSSE(render.createQueryRow, updateDashboardFeed);
     
     // 5. Auto-refresh loops
-    setInterval(fetchService.fetchStats, 10000);
+    setInterval(fetchService.fetchStats, 30000);
     setInterval(fetchService.fetchHistory, 60000);
 }
 
