@@ -152,6 +152,8 @@ export function initEvents(fetchConfig) {
             state.currentConfig.filtering_enabled = newStatus;
             renderConfig(state.currentConfig);
             helpers.showToast(newStatus ? 'Protection Enabled' : 'Protection Disabled', newStatus ? 'success' : 'info');
+            // Refresh stats to show impact
+            fetchService.fetchStats();
         } catch (e) { 
             helpers.showAlert('Failed to toggle protection: ' + e.message); 
         } finally {
@@ -483,8 +485,9 @@ export function initEvents(fetchConfig) {
             if (getEl(inputId)) getEl(inputId).value = '';
             helpers.showToast(`${domain} added to ${action} list.`);
             fetchConfig();
-        } catch (err) {
-            helpers.showAlert('Failed to add rule: ' + err.message);
+            fetchService.fetchStats();
+        } catch (err) { 
+            helpers.showAlert('Failed to add rule: ' + err.message); 
         } finally {
             helpers.setBtnLoading(btn, false);
         }
@@ -507,6 +510,7 @@ export function initEvents(fetchConfig) {
             if (getEl('custom-map-ip')) getEl('custom-map-ip').value = '';
             helpers.showToast(`Mapping ${domain} -> ${ip} created.`);
             fetchConfig();
+            fetchService.fetchStats();
         } catch (err) { 
             helpers.showAlert('Failed to add mapping: ' + err.message); 
         } finally {

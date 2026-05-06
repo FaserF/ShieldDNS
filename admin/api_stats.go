@@ -693,9 +693,41 @@ func handleDomainClients(w http.ResponseWriter, r *http.Request) {
 
 func handleExport(w http.ResponseWriter, r *http.Request) {
 	format := r.URL.Query().Get("format")
-	rows, err := db.Query("SELECT timestamp, domain, type, status, client_ip FROM queries ORDER BY timestamp DESC")
+	search := r.URL.Query().Get("search")
+	statusFilter := r.URL.Query().Get("status")
+	fromTime := r.URL.Query().Get("from_time")
+	toTime := r.URL.Query().Get("to_time")
+
+	query := "SELECT timestamp, domain, type, status, client_ip FROM queries WHERE 1=1"
+	var args []interface{}
+
+	if search != "" {
+		query += " AND (domain LIKE ? OR client_ip LIKE ?)"
+		args = append(args, "%"+search+"%", "%"+search+"%")
+	}
+	if statusFilter != "" {
+		if statusFilter == "Blocked" {
+			query += " AND status LIKE ?"
+			args = append(args, StatusBlocked+"%")
+		} else {
+			query += " AND status = ?"
+			args = append(args, statusFilter)
+		}
+	}
+	if fromTime != "" {
+		query += " AND timestamp >= ?"
+		args = append(args, strings.ReplaceAll(fromTime, "T", " "))
+	}
+	if toTime != "" {
+		query += " AND timestamp <= ?"
+		args = append(args, strings.ReplaceAll(toTime, "T", " "))
+	}
+
+	query += " ORDER BY timestamp DESC LIMIT 50000"
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
-		slog.Error("Export failed: DB query error", "error", err)
+		slog.Error("Export failed: DB query error", "error", err, "query", query)
 		http.Error(w, "Error querying database", http.StatusInternalServerError)
 		return
 	}
