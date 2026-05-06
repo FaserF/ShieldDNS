@@ -296,5 +296,15 @@ export const matchesFilters = (query) => {
         if (status === 'Allowed' && queryStatus !== 'Allowed') return false;
     }
     
+    // Check time range
+    const fromTime = document.getElementById('query-time-from')?.value;
+    const toTime = document.getElementById('query-time-to')?.value;
+    
+    if (fromTime || toTime) {
+        const queryTime = new Date(query.time);
+        if (fromTime && queryTime < new Date(fromTime)) return false;
+        if (toTime && queryTime > new Date(toTime)) return false;
+    }
+    
     return true;
 };

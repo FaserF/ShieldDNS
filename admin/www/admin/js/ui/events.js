@@ -455,6 +455,7 @@ export function initEvents(fetchConfig) {
             
             // Refresh config and UI
             await fetchService.fetchConfig();
+            fetchService.fetchStats();
             
             // If the modal is open, re-render it
             const modal = getEl('blocked-clients-modal');
@@ -562,7 +563,10 @@ export function initEvents(fetchConfig) {
             });
             helpers.showToast(`Client ${ip} blocked`);
             getEl('manual-client-block-input').value = '';
-            setTimeout(fetchConfig, 500);
+            setTimeout(() => {
+                fetchConfig();
+                fetchService.fetchStats();
+            }, 500);
         } catch (err) {
             helpers.showAlert('Failed to block client: ' + err.message);
         }
