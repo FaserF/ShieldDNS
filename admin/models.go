@@ -87,6 +87,10 @@ type WebAuthnCredential struct {
 	AttestationType string        `json:"attestation_type"`
 	Transport       []string      `json:"transport"`
 	Authenticator   Authenticator `json:"authenticator"`
+	UserPresent     bool          `json:"user_present"`
+	UserVerified    bool          `json:"user_verified"`
+	BackupEligible  bool          `json:"backup_eligible"`
+	BackupState     bool          `json:"backup_state"`
 	Name            string        `json:"name"`
 	CreatedAt       time.Time     `json:"created_at"`
 }
@@ -95,8 +99,6 @@ type Authenticator struct {
 	AAGUID       []byte `json:"aaguid"`
 	SignCount    uint32 `json:"sign_count"`
 	CloneWarning bool   `json:"clone_warning"`
-	BackupEligible bool   `json:"backup_eligible"`
-	BackupState    bool   `json:"backup_state"`
 }
 
 type List struct {

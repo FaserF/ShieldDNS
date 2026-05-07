@@ -888,8 +888,8 @@ export function initEvents(fetchConfig) {
         try {
             await api.apiFetch(api.endpoints.logout, { method: 'POST' });
             window.location.reload(); // Reload will trigger redirection to login if unauthorized
-        } catch (e) {
-            helpers.showAlert('Logout failed: ' + e.message);
+        } catch (err) {
+            helpers.showAlert('Logout failed: ' + err.message);
         }
     };
 
