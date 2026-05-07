@@ -250,7 +250,7 @@ export function initEvents(fetchConfig) {
     // API Key search
     getEl('api-keys-search')?.addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase();
-        const keys = state.currentConfig.api_keys || [];
+        const keys = state.allTokens || [];
         const filtered = keys.filter(k => k.name.toLowerCase().includes(query));
         import('./renderers.js').then(m => m.renderAPIKeys(filtered));
     });
@@ -410,7 +410,7 @@ export function initEvents(fetchConfig) {
     };
 
     window.editAPIKey = (id) => {
-        const key = state.currentConfig.api_keys?.find(k => k.id === id);
+        const key = state.allTokens?.find(k => k.id === id);
         if (!key) return;
         
         const modal = getEl('api-key-modal');

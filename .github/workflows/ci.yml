@@ -253,9 +253,21 @@ jobs:
                               `;
                               const editBtn = document.getElementById('test-edit-btn');
                               if (editBtn) {
+                                  // Mock state for functional check
+                                  if (window.state) {
+                                      window.state.allTokens = [{ id: 'test-id', name: 'Test Key', permissions: ['read:stats'] }];
+                                  }
+                                  
+                                  editBtn.onclick = () => window.editAPIKey('test-id');
                                   editBtn.click();
+                                  
                                   if (submitTriggered) {
                                       issues.push("Clicking API Key Edit triggered a form submission! (Bug regression)");
+                                  }
+                                  
+                                  const modal = document.getElementById('api-key-modal');
+                                  if (!modal || modal.classList.contains('hidden')) {
+                                      issues.push("Clicking API Key Edit failed to open the management modal!");
                                   }
                               }
                           }

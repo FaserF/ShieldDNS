@@ -27,8 +27,8 @@ type Config struct {
 	CustomMappings             map[string]string            `json:"custom_mappings"`
 	AutoblockWhitelist         []string                     `json:"autoblock_whitelist"`
 	SetupDone                  bool                         `json:"setup_done"`
-	AdminPasswordHashed        string                       `json:"admin_password_hashed"`
-	APIKeys                    []APIKey                     `json:"api_keys"`
+	AdminPasswordHashed        string                       `json:"-"`
+	APIKeys                    []APIKey                     `json:"-"`
 	FilteringEnabled           bool                         `json:"filtering_enabled"`
 	AdminDomain                string                       `json:"admin_domain"`  // e.g. dns.fabiseitz.de
 	BlockPageIP                string                       `json:"block_page_ip"` // IP of the ShieldDNS server
@@ -65,7 +65,7 @@ type BlockedClientInfo struct {
 type APIKey struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
-	TokenHash   string    `json:"token_hash"`
+	TokenHash   string    `json:"-"`
 	Permissions []string  `json:"permissions"`
 	CreatedAt   time.Time `json:"created_at"`
 	LastUsed    time.Time `json:"last_used"`
