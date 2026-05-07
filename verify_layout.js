@@ -15,8 +15,24 @@ async function testPage(url, pageName) {
     page.on('pageerror', exception => {
         consoleError = exception.message;
     });
+    page.on('console', msg => {
+        if (msg.type() === 'error') {
+            console.error(`PAGE ERROR: ${msg.text()}`);
+        } else {
+            console.log(`PAGE LOG: ${msg.text()}`);
+        }
+    });
 
     try {
+        // Mock Auth Status to bypass login in tests
+        await page.route('**/api/auth-status', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ logged_in: true, need_setup: false })
+            });
+        });
+
         await page.goto(url, { waitUntil: 'load', timeout: 60000 });
     } catch (err) {
         console.error(`❌ Failed to load ${pageName}:`, err.message);

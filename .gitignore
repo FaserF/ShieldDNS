@@ -52,3 +52,4 @@ dump.rdb
 /node_modules
 /admin/scratch
 /test-results
+/data_test
