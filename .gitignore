@@ -53,3 +53,4 @@ dump.rdb
 /admin/scratch
 /test-results
 /data_test
+/.mypy_cache
