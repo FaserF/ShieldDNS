@@ -1262,39 +1262,78 @@
                     <input type="text" id="api-key-name" placeholder="e.g., Home Assistant, Monitoring">
                 </div>
                 <div class="form-group">
-                    <label>Permissions</label>
-                    <div class="checkbox-group" style="display:flex; flex-direction:column; gap:16px;">
-                        <div style="display:flex; align-items:center; gap:12px;">
+                    <label>Permissions Scopes</label>
+                    <div class="checkbox-group-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:10px;">
+                        <!-- Master Permission -->
+                        <div style="grid-column: 1 / -1; background: rgba(var(--accent-rgb), 0.1); padding: 12px; border-radius: 8px; border: 1px solid var(--accent); display:flex; align-items:center; gap:12px; margin-bottom: 8px;">
                             <label class="switch" style="flex-shrink:0;">
-                                <input type="checkbox" id="perm-stats" checked>
+                                <input type="checkbox" id="perm-admin">
                                 <span class="slider"></span>
                             </label>
-                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:stats
-                                (Dashboard/Metrics)</span>
+                            <div>
+                                <strong style="display:block; font-size:0.9rem; color:var(--accent);">admin:all</strong>
+                                <span style="font-size:0.75rem; color:var(--text-secondary);">Full access to everything (including tokens and reset).</span>
+                            </div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:12px;">
-                            <label class="switch" style="flex-shrink:0;">
-                                <input type="checkbox" id="perm-logs">
-                                <span class="slider"></span>
-                            </label>
-                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:logs (Sensitive: Client
-                                IPs, Query Logs)</span>
+
+                        <!-- Monitoring Group -->
+                        <div class="perm-group">
+                            <span class="help" style="display:block; margin-bottom:8px; font-weight:600; text-transform:uppercase; font-size:0.65rem; color:var(--accent);">Monitoring & Analytics</span>
+                            <div class="perm-item">
+                                <label class="switch"><input type="checkbox" id="perm-stats" checked><span class="slider"></span></label>
+                                <span>read:stats</span>
+                            </div>
+                            <div class="perm-item">
+                                <label class="switch"><input type="checkbox" id="perm-logs"><span class="slider"></span></label>
+                                <span>read:logs</span>
+                            </div>
+                            <div class="perm-item">
+                                <label class="switch"><input type="checkbox" id="perm-health" checked><span class="slider"></span></label>
+                                <span>read:health</span>
+                            </div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:12px;">
-                            <label class="switch" style="flex-shrink:0;">
-                                <input type="checkbox" id="perm-system">
-                                <span class="slider"></span>
-                            </label>
-                            <span style="font-size:0.9rem; color:var(--text-secondary);">read:system (Diagnostics,
-                                System Logs)</span>
+
+                        <!-- System & Config Group -->
+                        <div class="perm-group">
+                            <span class="help" style="display:block; margin-bottom:8px; font-weight:600; text-transform:uppercase; font-size:0.65rem; color:var(--accent);">System & Config</span>
+                            <div class="perm-item">
+                                <label class="switch"><input type="checkbox" id="perm-config-read"><span class="slider"></span></label>
+                                <span>read:config</span>
+                            </div>
+                            <div class="perm-item">
+                                <label class="switch"><input type="checkbox" id="perm-config-write"><span class="slider"></span></label>
+                                <span>write:config</span>
+                            </div>
+                            <div class="perm-item">
+                                <label class="switch"><input type="checkbox" id="perm-diag"><span class="slider"></span></label>
+                                <span>read:diagnostics</span>
+                            </div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:12px;">
-                            <label class="switch" style="flex-shrink:0;">
-                                <input type="checkbox" id="perm-filtering">
-                                <span class="slider"></span>
-                            </label>
-                            <span style="font-size:0.9rem; color:var(--text-secondary);">write:filtering (Toggle
-                                Protection)</span>
+
+                        <!-- Rules & Filtering Group -->
+                        <div class="perm-group">
+                            <span class="help" style="display:block; margin-bottom:8px; font-weight:600; text-transform:uppercase; font-size:0.65rem; color:var(--accent);">Rules & Filtering</span>
+                            <div class="perm-item">
+                                <label class="switch"><input type="checkbox" id="perm-rules-read"><span class="slider"></span></label>
+                                <span>read:rules</span>
+                            </div>
+                            <div class="perm-item">
+                                <label class="switch"><input type="checkbox" id="perm-rules-write"><span class="slider"></span></label>
+                                <span>write:rules</span>
+                            </div>
+                        </div>
+
+                        <!-- Maintenance Group -->
+                        <div class="perm-group">
+                            <span class="help" style="display:block; margin-bottom:8px; font-weight:600; text-transform:uppercase; font-size:0.65rem; color:var(--accent);">Maintenance</span>
+                            <div class="perm-item">
+                                <label class="switch"><input type="checkbox" id="perm-maint"><span class="slider"></span></label>
+                                <span>write:maintenance</span>
+                            </div>
+                            <div class="perm-item">
+                                <label class="switch"><input type="checkbox" id="perm-system"><span class="slider"></span></label>
+                                <span>read:system</span>
+                            </div>
                         </div>
                     </div>
                 </div>

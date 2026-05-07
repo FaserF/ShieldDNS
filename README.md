@@ -28,6 +28,8 @@ It features a **State-of-the-art Premium Admin Dashboard** with a modern Glassmo
 - 🧹 **Optimized Default Lists**: Ships with a single, curated default (HaGeZi Multi Normal) for maximum protection with minimal RAM usage on any hardware.
 - 📜 **Performant Query Logs**: Virtual scrolling implementation allows silky-smooth browsing through thousands of query entries without DOM lag.
 - 🪵 **Structured Logging**: Native `log/slog` integration provides machine-readable JSON logs for Docker/Loki while maintaining human-friendly Admin UI logs via a custom handler bridge.
+- 🛠️ **Config Integrity Guard**: Proactive JSON validation and automatic corruption backups (`config.json.corrupted`) prevent configuration loss during system crashes.
+- 🚀 **Decoupled Analytics**: Independent background workers for logging and stats aggregation ensure continuous data ingestion without blocking service-level maintenance tasks.
 
 ## 🏗️ Technical Architecture
 
@@ -162,16 +164,20 @@ ShieldDNS includes a secure, granular API key system for remote monitoring and a
 Authenticate by sending your API key in the `X-API-Key` header or as a `Bearer` token in the `Authorization` header.
 
 ### Permissions (RBAC)
-ShieldDNS uses a Role-Based Access Control model. Tokens can be restricted to:
+ShieldDNS uses a granular Role-Based Access Control model. Tokens can be restricted to:
+- `admin:all`: Full administrative access (Master Key).
 - `read:stats`: Dashboard metrics and analytics history.
 - `read:logs`: Sensitive data including Query Logs and Client IPs.
-- `read:system`: System terminal logs, SSL diagnostics, and backups.
-- `write:filtering`: Toggle the global protection/filtering engine.
-- `read:all`: Grant all read-only permissions above.
+- `read:config` / `write:config`: View or modify global system settings.
+- `read:rules` / `write:rules`: View or manage filtering lists and custom rules.
+- `read:diagnostics`: Access hardware metrics, SSL info, and upstream latency data.
+- `write:maintenance`: Perform system actions (Clear logs, Backup, Restore, Reset).
+- `read:system`: View system terminal logs and service events.
+- `read:health`: Basic liveness check access.
 
 ### Health & Metrics Endpoints
+- `/api/health`: Comprehensive system health check including DB writability test (Requires `read:health` permission).
 - `/api/health/live`: Public endpoint for container liveness checks (No authentication required).
-- `/api/health/ready`: System readiness check (Requires `read:system` permission).
 - `/api/metrics`: Prometheus-compatible metrics (Requires `read:metrics` permission).
     - `shielddns_queries_total`: Total DNS queries (status, type).
     - `shielddns_cache_hits_total`: Total cache hits.

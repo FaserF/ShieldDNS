@@ -193,10 +193,17 @@ export function initEvents(fetchConfig) {
         if (!name) return helpers.showToast('Please enter a name for the API key', 'info');
 
         const perms = [];
+        if (getEl('perm-admin').checked) perms.push('admin:all');
         if (getEl('perm-stats').checked) perms.push('read:stats');
         if (getEl('perm-logs').checked) perms.push('read:logs');
+        if (getEl('perm-health').checked) perms.push('read:health');
+        if (getEl('perm-config-read').checked) perms.push('read:config');
+        if (getEl('perm-config-write').checked) perms.push('write:config');
+        if (getEl('perm-diag').checked) perms.push('read:diagnostics');
+        if (getEl('perm-rules-read').checked) perms.push('read:rules');
+        if (getEl('perm-rules-write').checked) perms.push('write:rules');
+        if (getEl('perm-maint').checked) perms.push('write:maintenance');
         if (getEl('perm-system').checked) perms.push('read:system');
-        if (getEl('perm-filtering').checked) perms.push('write:filtering');
 
         const currentEditId = getEl('save-api-key-btn').dataset.editId;
         const endpoint = currentEditId ? `${api.endpoints.createToken}?id=${currentEditId}` : api.endpoints.createToken;
@@ -418,10 +425,17 @@ export function initEvents(fetchConfig) {
         saveBtn.textContent = 'Update';
         saveBtn.dataset.editId = id;
         
+        getEl('perm-admin').checked = key.permissions.includes('admin:all');
         getEl('perm-stats').checked = key.permissions.includes('read:stats');
         getEl('perm-logs').checked = key.permissions.includes('read:logs');
+        getEl('perm-health').checked = key.permissions.includes('read:health');
+        getEl('perm-config-read').checked = key.permissions.includes('read:config');
+        getEl('perm-config-write').checked = key.permissions.includes('write:config');
+        getEl('perm-diag').checked = key.permissions.includes('read:diagnostics');
+        getEl('perm-rules-read').checked = key.permissions.includes('read:rules');
+        getEl('perm-rules-write').checked = key.permissions.includes('write:rules');
+        getEl('perm-maint').checked = key.permissions.includes('write:maintenance');
         getEl('perm-system').checked = key.permissions.includes('read:system');
-        getEl('perm-filtering').checked = key.permissions.includes('write:filtering');
         
         form.classList.remove('hidden');
         result.classList.add('hidden');

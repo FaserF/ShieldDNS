@@ -517,7 +517,12 @@ func generateToken() string {
 
 func hasPermission(key *APIKey, perm string) bool {
 	for _, p := range key.Permissions {
-		if p == "read:all" || p == perm {
+		// Master permission or exact match
+		if p == "admin:all" || p == "read:all" || p == perm {
+			return true
+		}
+		// Hierarchical shortcuts
+		if (perm == "read:health") && (p == "read:stats" || p == "read:system" || p == "read:diagnostics" || p == "read:config") {
 			return true
 		}
 	}
@@ -526,24 +531,33 @@ func hasPermission(key *APIKey, perm string) bool {
 
 func getRequiredPermission(r *http.Request) string {
 	path := r.URL.Path
+	method := r.Method
+
 	switch {
-	case strings.HasPrefix(path, "/api/stats"), strings.HasPrefix(path, "/api/history"), strings.HasPrefix(path, "/api/health"):
+	case strings.HasPrefix(path, "/api/health"):
+		return "read:health"
+	case strings.HasPrefix(path, "/api/stats"), strings.HasPrefix(path, "/api/history"), strings.HasPrefix(path, "/api/metrics"):
 		return "read:stats"
-	case strings.HasPrefix(path, "/api/metrics"):
-		return "read:metrics"
-	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-blocked"), strings.HasPrefix(path, "/api/top-clients"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"), strings.HasPrefix(path, "/api/ip-history"):
+	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"), strings.HasPrefix(path, "/api/ip-history"):
 		return "read:logs"
-	case strings.HasPrefix(path, "/api/system-logs"), strings.HasPrefix(path, "/api/diagnostics"), strings.HasPrefix(path, "/api/backup"), strings.HasPrefix(path, "/api/events"):
+	case strings.HasPrefix(path, "/api/diagnostics"):
+		return "read:diagnostics"
+	case strings.HasPrefix(path, "/api/system-logs"), strings.HasPrefix(path, "/api/events"):
 		return "read:system"
-	case strings.HasPrefix(path, "/api/filtering"), strings.HasPrefix(path, "/api/rules"), strings.HasPrefix(path, "/api/full-reload"), strings.HasPrefix(path, "/api/restore"), strings.HasPrefix(path, "/api/reset"), strings.HasPrefix(path, "/api/restart-dns"):
-		return "write:filtering"
+	case strings.HasPrefix(path, "/api/config"):
+		if method == http.MethodGet {
+			return "read:config"
+		}
+		return "write:config"
+	case strings.HasPrefix(path, "/api/rules"), strings.HasPrefix(path, "/api/toggle"), strings.HasPrefix(path, "/api/client-"), strings.HasPrefix(path, "/api/filtering"):
+		if method == http.MethodGet {
+			return "read:rules"
+		}
+		return "write:rules"
+	case strings.HasPrefix(path, "/api/refresh"), strings.HasPrefix(path, "/api/clear-logs"), strings.HasPrefix(path, "/api/full-reload"), strings.HasPrefix(path, "/api/restore"), strings.HasPrefix(path, "/api/reset"), strings.HasPrefix(path, "/api/restart-dns"), strings.HasPrefix(path, "/api/backup"):
+		return "write:maintenance"
 	case strings.HasPrefix(path, "/api/tokens"), strings.HasPrefix(path, "/api/keys"):
 		return "write:system"
-	case strings.HasPrefix(path, "/api/config"):
-		if r.Method == http.MethodGet {
-			return "read:system"
-		}
-		return "write:filtering"
 	}
-	return "read:all"
+	return "admin:all"
 }
