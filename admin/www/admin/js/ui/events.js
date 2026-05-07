@@ -878,6 +878,23 @@ export function initEvents(fetchConfig) {
 
     // Init MFA management
     initMFA();
+
+    // Logout handler
+    const handleLogout = async (e) => {
+        if (e) e.preventDefault();
+        const confirmed = await helpers.showConfirm('Are you sure you want to log out?', 'Logout', true);
+        if (!confirmed) return;
+
+        try {
+            await api.apiFetch(api.endpoints.logout, { method: 'POST' });
+            window.location.reload(); // Reload will trigger redirection to login if unauthorized
+        } catch (e) {
+            helpers.showAlert('Logout failed: ' + e.message);
+        }
+    };
+
+    getEl('logout-btn')?.addEventListener('click', handleLogout);
+    getEl('nav-logout-btn')?.addEventListener('click', handleLogout);
 }
 
 export async function saveConfig(fetchConfig) {
