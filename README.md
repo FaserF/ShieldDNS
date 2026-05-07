@@ -14,7 +14,7 @@ It features a **State-of-the-art Premium Admin Dashboard** with a modern Glassmo
 - 🛡️ **DNS Filtering**: Integrated engine for blocklists with automatic updates and deduplication.
 - 🔌 **Protection Kill-Switch**: Instantly disable all filtering via the dashboard or API.
 - ⚡ **Optimized Performance**: Intelligent caching, prefetching, and **advanced SQLite PRAGMAs** (WAL, Normal Sync, Memory TempStore) for high-load durability.
-- 🔐 **Secure Admin**: Mandatory password protection (bcrypt) for the Admin UI on port 443.
+- 🔐 **Secure Admin**: Mandatory password protection (bcrypt) with optional **Multi-Factor Authentication (MFA)**. Supports multiple named **Authenticator Apps (TOTP)** and **Passkeys (WebAuthn)** for granular security management and lockout prevention.
 - 📱 **Modern Protocols**: Perfect for Android Private DNS and standard system-wide filtering (iOS `.mobileconfig` with DoT/DoH/DoQ support).
 - ⚡ **Live Monitoring**: Real-time query log updates via Server-Sent Events (SSE).
 - 🧠 **Smart DNS**: Automatic upstream selection based on live latency (RTT) with **Broadcast Mode** for ultra-low latency.
@@ -315,6 +315,23 @@ ShieldDNS is built for extreme reliability in production environments:
 2.  **IPv6 Robustness**: Native support for IPv6 client IP extraction using `net.SplitHostPort`.
 3.  **Brute-Force Protection**: Intelligent rate-limiting on the `/api/login` endpoint (max 5 attempts/min/IP).
 4.  **Modern TLS**: Enforced AEAD-only cipher suites (TLS 1.2/1.3) for all management and DNS-over-TLS endpoints.
+
+## 🔐 Multi-Factor Authentication (MFA)
+
+ShieldDNS supports industry-standard Multi-Factor Authentication to protect your administrative dashboard:
+
+- **TOTP (Authenticator Apps)**: Use any standard TOTP app like Google Authenticator, Authy, or Bitwarden.
+- **Passkeys (WebAuthn)**: Use hardware security keys (YubiKey), biometric login (TouchID, FaceID), or OS-native passkeys (Windows Hello, iCloud Keychain).
+
+### **How to enable MFA:**
+1. Navigate to **Settings > Security**.
+2. Click **Set Up MFA**.
+3. Scan the QR code with your Authenticator App.
+4. Verify the setup with a 6-digit code.
+5. (Optional but recommended) Register a **Passkey** as a secondary secure login method.
+
+> [!IMPORTANT]
+> **Domain Requirement**: To use Passkeys (WebAuthn), your ShieldDNS server **must** be accessed via a valid domain (e.g., `dns.example.com`) and served over HTTPS. WebAuthn will not work on plain IP addresses.
 
 ## 🛡️ Security Best Practices
 1.  **Password**: Use a strong, unique password for the Admin UI.

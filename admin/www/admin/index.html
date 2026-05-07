@@ -1033,6 +1033,60 @@
                 </div>
 
                 <div class="settings-section">
+                    <h2>Multi-Factor Authentication (MFA) 🛡️</h2>
+                    <p class="help">Add an extra layer of security to your account using TOTP (Authenticator App) or Passkeys (Security Keys / Biometrics).</p>
+                    
+                    <div id="mfa-status-container" style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-weight: 600;">Status: </span>
+                                <span id="mfa-status-badge" class="badge">Checking...</span>
+                            </div>
+                            <button type="button" id="mfa-toggle-btn" class="btn btn-sm secondary">Set Up MFA</button>
+                        </div>
+                    </div>
+
+                    <div id="mfa-setup-area" class="hidden" style="margin-top: 20px; padding: 20px; border: 1px dashed var(--accent); border-radius: 8px;">
+                        <div id="mfa-totp-setup" class="hidden">
+                            <h3>Set Up Authenticator App</h3>
+                            <p class="help">Scan this QR code with your authenticator app (like Authy, Google Authenticator, or Bitwarden).</p>
+                            <div style="display: flex; justify-content: center; margin: 20px 0;">
+                                <img id="mfa-qr-code" style="background: white; padding: 10px; border-radius: 8px; max-width: 200px;">
+                            </div>
+                            <div class="form-group">
+                                <label>Device Name (e.g. My iPhone)</label>
+                                <input type="text" id="mfa-setup-totp-name" placeholder="Friendly Name">
+                            </div>
+                            <div class="form-group">
+                                <label>Verification Code</label>
+                                <input type="text" id="mfa-setup-verify-code" placeholder="6-digit code">
+                            </div>
+                            <div class="modal-actions">
+                                <button type="button" class="btn secondary" id="mfa-cancel-setup">Cancel</button>
+                                <button type="button" class="btn primary" id="mfa-complete-setup">Verify & Add</button>
+                            </div>
+                        </div>
+                        
+                        <div id="mfa-manage-area" class="hidden">
+                            <h3>Authenticator Apps (TOTP)</h3>
+                            <div id="mfa-totp-list" class="help" style="margin-bottom: 20px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">No apps registered.</div>
+                            
+                            <h3>Security Keys & Passkeys</h3>
+                            <div id="mfa-passkey-list" class="help" style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">No passkeys registered.</div>
+                            
+                            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                                <button type="button" id="mfa-add-totp-btn" class="btn btn-sm secondary"><i class="fas fa-plus"></i> Add App</button>
+                                <button type="button" id="mfa-add-passkey-btn" class="btn btn-sm secondary"><i class="fas fa-plus"></i> Add Passkey</button>
+                            </div>
+
+                            <div style="margin-top: 35px; padding-top: 15px; border-top: 1px solid var(--border);">
+                                <button type="button" id="mfa-disable-all-btn" class="btn btn-sm danger">Disable All MFA</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
                     <button id="logout-btn" class="btn danger">Logout</button>
                 </div>
 
@@ -1191,6 +1245,9 @@
                         <button type="button" class="btn secondary" onclick="nextSetupStep(2)">Back</button>
                         <button type="button" class="btn primary" id="setup-finish-btn">Finish Setup</button>
                     </div>
+                    <p class="help" style="margin-top: 20px; text-align: center; color: var(--accent);">
+                        <i class="fas fa-shield-alt"></i> <strong>Pro Tip:</strong> After setup, enable Multi-Factor Authentication in Settings for maximum security!
+                    </p>
                 </div>
             </div>
 
@@ -1204,6 +1261,43 @@
                     <input type="password" id="login-password" placeholder="Password">
                 </div>
                 <button type="button" class="btn primary full-width" id="login-confirm-btn">Login</button>
+            </div>
+
+            <div id="mfa-view" class="hidden">
+                <div class="setup-header">
+                    <img src="../logo.png?v=2" alt="ShieldDNS">
+                    <h1>MFA Challenge 🛡️</h1>
+                </div>
+                
+                <div id="mfa-method-selector" style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+                    <p id="mfa-msg">Select your preferred authentication method.</p>
+                    <button class="btn primary full-width" id="mfa-use-passkey-btn" style="height: 50px; font-weight: 600;">
+                        <i class="fas fa-key" style="margin-right: 8px;"></i> Use Passkey
+                    </button>
+                    <div style="display: flex; align-items: center; gap: 10px; opacity: 0.5; margin: 5px 0;">
+                        <hr style="flex: 1; border: 0.5px solid var(--border);">
+                        <span style="font-size: 0.75rem; text-transform: uppercase;">or</span>
+                        <hr style="flex: 1; border: 0.5px solid var(--border);">
+                    </div>
+                    <button class="btn secondary full-width" id="mfa-use-totp-btn" style="height: 50px; font-weight: 600;">
+                        <i class="fas fa-mobile-alt" style="margin-right: 8px;"></i> Authenticator App
+                    </button>
+                </div>
+
+                <div id="mfa-totp-input-area" class="hidden" style="margin-top: 20px;">
+                    <p>Enter the 6-digit code from your app.</p>
+                    <div class="form-group" style="margin: 20px 0;">
+                        <input type="text" id="mfa-code" placeholder="000000" maxlength="6" inputmode="numeric" style="text-align: center; font-size: 1.5rem; letter-spacing: 0.5rem; font-weight: bold;">
+                    </div>
+                    <button class="btn primary full-width" style="height: 50px; font-weight: 600;" id="mfa-confirm-btn">Verify & Login</button>
+                    <button class="btn btn-sm secondary full-width" style="margin-top: 15px;" id="mfa-back-to-selector">
+                        <i class="fas fa-arrow-left" style="margin-right: 5px;"></i> Different Method
+                    </button>
+                </div>
+
+                <div class="modal-actions" style="margin-top: 25px; border-top: 1px solid var(--border); padding-top: 15px;">
+                    <button type="button" class="btn btn-sm secondary" onclick="state.auth.showView('login')">Back to Password</button>
+                </div>
             </div>
         </div>
     </div>

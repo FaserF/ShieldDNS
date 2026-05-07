@@ -279,6 +279,16 @@ func authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// 4. MFA Enforcement
+		configLock.RLock()
+		mfaEnabled := config.MFAEnabled
+		configLock.RUnlock()
+
+		if mfaEnabled && !sess.MFAVerified {
+			renderError(w, "MFA required", "MFA_REQUIRED", http.StatusForbidden)
+			return
+		}
+
 		// 3. API Authorization check
 		required := getRequiredPermission(r)
 		// (Session user has all permissions essentially, but we could add role checks here)
@@ -392,12 +402,18 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Generate session
 	token := generateToken()
+
+	configLock.RLock()
+	mfaEnabled := config.MFAEnabled
+	configLock.RUnlock()
+
 	sess := Session{
-		Token:     token,
-		RemoteIP:  ip,
-		UserAgent: r.UserAgent(),
-		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(SessionDuration),
+		Token:       token,
+		RemoteIP:    ip,
+		UserAgent:   r.UserAgent(),
+		CreatedAt:   time.Now(),
+		ExpiresAt:   time.Now().Add(SessionDuration),
+		MFAVerified: !mfaEnabled,
 	}
 	sessionStore.Store(token, sess)
 
@@ -424,7 +440,10 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Admin logged in", "ip", ip)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"mfa_required": mfaEnabled,
+	})
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -536,11 +555,14 @@ func getRequiredPermission(r *http.Request) string {
 	switch {
 	case strings.HasPrefix(path, "/api/health"):
 		return "read:health"
-	case strings.HasPrefix(path, "/api/stats"), strings.HasPrefix(path, "/api/history"), strings.HasPrefix(path, "/api/metrics"):
+	case strings.HasPrefix(path, "/api/stats"), strings.HasPrefix(path, "/api/history"), strings.HasPrefix(path, "/api/metrics"), strings.HasPrefix(path, "/api/clients"):
 		return "read:stats"
-	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"), strings.HasPrefix(path, "/api/ip-history"):
+	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"), strings.HasPrefix(path, "/api/ip-history"), strings.HasPrefix(path, "/api/domain/"):
 		return "read:logs"
 	case strings.HasPrefix(path, "/api/diagnostics"):
+		if method == http.MethodPost {
+			return "write:maintenance"
+		}
 		return "read:diagnostics"
 	case strings.HasPrefix(path, "/api/system-logs"), strings.HasPrefix(path, "/api/events"):
 		return "read:system"
@@ -549,12 +571,12 @@ func getRequiredPermission(r *http.Request) string {
 			return "read:config"
 		}
 		return "write:config"
-	case strings.HasPrefix(path, "/api/rules"), strings.HasPrefix(path, "/api/toggle"), strings.HasPrefix(path, "/api/client-"), strings.HasPrefix(path, "/api/filtering"):
+	case strings.HasPrefix(path, "/api/rules"), strings.HasPrefix(path, "/api/toggle"), strings.HasPrefix(path, "/api/client/"), strings.HasPrefix(path, "/api/filtering"):
 		if method == http.MethodGet {
 			return "read:rules"
 		}
 		return "write:rules"
-	case strings.HasPrefix(path, "/api/refresh"), strings.HasPrefix(path, "/api/clear-logs"), strings.HasPrefix(path, "/api/full-reload"), strings.HasPrefix(path, "/api/restore"), strings.HasPrefix(path, "/api/reset"), strings.HasPrefix(path, "/api/restart-dns"), strings.HasPrefix(path, "/api/backup"):
+	case strings.HasPrefix(path, "/api/refresh"), strings.HasPrefix(path, "/api/logs/clear"), strings.HasPrefix(path, "/api/system/full-reload"), strings.HasPrefix(path, "/api/restore"), strings.HasPrefix(path, "/api/reset"), strings.HasPrefix(path, "/api/restart-dns"), strings.HasPrefix(path, "/api/backup"):
 		return "write:maintenance"
 	case strings.HasPrefix(path, "/api/tokens"), strings.HasPrefix(path, "/api/keys"):
 		return "write:system"

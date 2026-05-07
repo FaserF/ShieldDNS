@@ -47,7 +47,7 @@ func TestConfigPersistenceRegression(t *testing.T) {
 	// 3. Simulate a POST request from the frontend using the sanitized config
 	// The frontend sends back the masked values.
 	sanitized.AdminDomain = "new.domain" // Change a non-sensitive field
-	
+
 	reqBody, _ := json.Marshal(sanitized)
 	rrPost := httptest.NewRecorder()
 	reqPost := httptest.NewRequest("POST", "/api/config", bytes.NewBuffer(reqBody))

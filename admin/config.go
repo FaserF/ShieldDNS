@@ -231,6 +231,10 @@ func saveConfigNoLock() {
 				return
 			}
 		}
+		if config.MFAEnabled && len(config.TOTPConfigs) == 0 && len(config.WebAuthnCredentials) == 0 {
+			slog.Error("CRITICAL: Attempted to save config with MFA enabled but NO methods registered. ABORTING SAVE TO PREVENT LOCKOUT.")
+			return
+		}
 	}
 
 	debugModeEnabled.Store(config.DebugMode)

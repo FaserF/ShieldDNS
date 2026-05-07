@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	Version        = "v1.8.1"
+	Version    = "v1.8.1"
 	Subversion = "0"
 	CommitID   = ""
 )
@@ -59,6 +59,7 @@ func main() {
 
 	// Ensure Corefile is generated with correct settings before starting CoreDNS
 	updateCorefile()
+	initWebAuthn()
 
 	mux := setupRouter()
 
@@ -217,7 +218,7 @@ func startWorkers() {
 		updateBlocklist(nil, false)
 		syncMaliciousIPs(true)
 		slog.Info("ShieldDNS Ready: Blocklists and Threat Intelligence loaded")
-		
+
 		// Initial CoreDNS start after everything is ready
 		go startCoreDNS(appCtx)
 	}()
@@ -282,6 +283,16 @@ func setupRouter() *http.ServeMux {
 	mux.Handle("/api/restore", authMiddleware(http.HandlerFunc(handleRestore)))
 	mux.Handle("/api/logs/clear", authMiddleware(http.HandlerFunc(handleClearLogs)))
 	mux.Handle("/api/change-password", authMiddleware(http.HandlerFunc(handleChangePassword)))
+
+	// MFA API
+	mux.HandleFunc("/api/mfa/challenge", handleMFAChallenge)
+	mux.Handle("/api/mfa/totp/setup", authMiddleware(http.HandlerFunc(handleTOTPSetup)))
+	mux.Handle("/api/mfa/totp/verify", authMiddleware(http.HandlerFunc(handleTOTPVerify)))
+	mux.Handle("/api/mfa/disable", authMiddleware(http.HandlerFunc(handleMFADisable)))
+	mux.Handle("/api/mfa/webauthn/register/start", authMiddleware(http.HandlerFunc(handleWebAuthnRegisterStart)))
+	mux.Handle("/api/mfa/webauthn/register/finish", authMiddleware(http.HandlerFunc(handleWebAuthnRegisterFinish)))
+	mux.Handle("/api/mfa/webauthn/login/start", authMiddleware(http.HandlerFunc(handleWebAuthnLoginStart)))
+	mux.Handle("/api/mfa/webauthn/login/finish", authMiddleware(http.HandlerFunc(handleWebAuthnLoginFinish)))
 
 	mux.Handle("/api/tokens", authMiddleware(http.HandlerFunc(handleGetTokens)))
 	mux.Handle("/api/tokens/create", authMiddleware(http.HandlerFunc(handleCreateToken)))

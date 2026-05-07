@@ -229,7 +229,6 @@ func blockClientAuto(ip, reason string) {
 		}
 	}
 
-
 	config.BlockedClients = append(config.BlockedClients, ip)
 	config.BlockedClientsInfo[ip] = BlockedClientInfo{
 		Reason:      reason,

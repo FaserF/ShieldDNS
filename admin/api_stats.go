@@ -51,6 +51,12 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 		s.CacheHits = cacheHits
 	}
 
+	// 1b. Get Average Latency
+	avg, err := GetAverageLatency()
+	if err == nil {
+		s.AverageLatency = avg
+	}
+
 	// 2. Refresh dynamic fields
 	blockAttributionLock.RLock()
 	s.BlockedDomains = int64(len(blockAttribution))

@@ -308,3 +308,29 @@ export const matchesFilters = (query) => {
     
     return true;
 };
+
+/**
+ * Converts a base64 string (standard or URL-safe) to an ArrayBuffer.
+ * Useful for WebAuthn ceremonies.
+ */
+export const bufferFromBase64 = (base64) => {
+    const binary = window.atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+};
+
+/**
+ * Converts an ArrayBuffer to a URL-safe base64 string (without padding).
+ * Useful for WebAuthn ceremonies.
+ */
+export const base64FromBuffer = (buffer) => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+};
