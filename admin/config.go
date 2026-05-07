@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -83,6 +84,7 @@ func loadConfig() {
 			slog.Info("A backup of the corrupted config has been saved", "path", backupPath)
 			log.Fatal("ShieldDNS stopped to protect your configuration. Please check config.json or restore from config.json.corrupted.")
 		}
+		if config.Lists == nil {
 			config.Lists = []List{}
 		}
 		if config.Allowlists == nil {
