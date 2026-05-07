@@ -59,6 +59,8 @@ func handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	config.APIKeys = append(config.APIKeys, newToken)
 	if err := saveConfigNoLock(); err != nil {
 		slog.Error("Failed to save config in handleCreateToken", "error", err)
+		// Rollback: remove the newly added key
+		config.APIKeys = config.APIKeys[:len(config.APIKeys)-1]
 		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
 		configLock.Unlock()
 		return

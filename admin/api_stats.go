@@ -103,22 +103,39 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	fillRAMStats(sysStats)
 	fillUptimeStats(sysStats)
 
-	if val, ok := sysStats["ram_used_mb"]; ok {
-		s.RAMUsedMB = float64(val.(int64))
-	}
-	if val, ok := sysStats["ram_total_mb"]; ok {
-		s.RAMTotalMB = float64(val.(int64))
+	if ram, ok := sysStats["ram"]; ok {
+		if ramMap, ok := ram.(map[string]interface{}); ok {
+			if used, ok := ramMap["used"]; ok {
+				switch v := used.(type) {
+				case int64:
+					s.RAMUsedMB = float64(v) / 1024.0
+				case uint64:
+					s.RAMUsedMB = float64(v) / 1024.0
+				}
+			}
+			if total, ok := ramMap["total"]; ok {
+				switch v := total.(type) {
+				case int64:
+					s.RAMTotalMB = float64(v) / 1024.0
+				case uint64:
+					s.RAMTotalMB = float64(v) / 1024.0
+				}
+			}
+		}
 	}
 	if val, ok := sysStats["uptime_seconds"]; ok {
-		s.UptimeSeconds = val.(int64)
+		switch v := val.(type) {
+		case int64:
+			s.UptimeSeconds = v
+		case uint64:
+			s.UptimeSeconds = int64(v)
+		}
 	}
 	if val, ok := sysStats["cpu_percent"]; ok {
 		s.CPUUsage = val.(float64)
 	} else if val, ok := sysStats["cpu_load"]; ok {
-		if load, ok := val.([]string); ok && len(load) > 0 {
-			if f, err := strconv.ParseFloat(load[0], 64); err == nil {
-				s.CPUUsage = f
-			}
+		if load, ok := val.([]float64); ok && len(load) > 0 {
+			s.CPUUsage = load[0]
 		}
 	}
 

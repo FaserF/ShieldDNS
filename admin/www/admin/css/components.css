@@ -362,10 +362,10 @@ input:checked + .slider:before {
 }
 
 .setup-pane {
-    animation: paneFade 0.4s ease-out;
+    animation: pane-fade 0.4s ease-out;
 }
 
-@keyframes paneFade {
+@keyframes pane-fade {
     from { opacity: 0; transform: translateX(10px); }
     to { opacity: 1; transform: translateX(0); }
 }

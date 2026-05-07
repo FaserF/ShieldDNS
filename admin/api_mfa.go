@@ -63,36 +63,49 @@ func (u WebAuthnUser) WebAuthnIcon() string {
 
 var (
 	wa           *webauthn.WebAuthn
-	webauthnOnce sync.Once
 	webauthnMu   sync.RWMutex
+	currentRPID  string
 	// Temporary store for registration/authentication sessions
 	waSessionStore sync.Map // sessionToken -> webauthn.SessionData
 )
 
-func initWebAuthn() {
-	webauthnOnce.Do(func() {
-		configLock.RLock()
-		domain := config.AdminDomain
-		configLock.RUnlock()
+func initWebAuthn() error {
+	configLock.RLock()
+	domain := config.AdminDomain
+	configLock.RUnlock()
 
-		if domain == "" {
-			domain = "localhost"
-		}
+	if domain == "" {
+		domain = "localhost"
+	}
 
-		newWa, err := webauthn.New(&webauthn.Config{
-			RPDisplayName: "ShieldDNS",
-			RPID:          domain,
-			RPOrigins:     []string{fmt.Sprintf("https://%s", domain)},
-		})
-		if err != nil {
-			slog.Error("failed to create webauthn", "error", err)
-			return
-		}
+	webauthnMu.RLock()
+	if wa != nil && currentRPID == domain {
+		webauthnMu.RUnlock()
+		return nil
+	}
+	webauthnMu.RUnlock()
 
-		webauthnMu.Lock()
-		wa = newWa
-		webauthnMu.Unlock()
+	webauthnMu.Lock()
+	defer webauthnMu.Unlock()
+
+	// Double-check under lock
+	if wa != nil && currentRPID == domain {
+		return nil
+	}
+
+	newWa, err := webauthn.New(&webauthn.Config{
+		RPDisplayName: "ShieldDNS",
+		RPID:          domain,
+		RPOrigins:     []string{fmt.Sprintf("https://%s", domain)},
 	})
+	if err != nil {
+		slog.Error("failed to create webauthn", "error", err)
+		return err
+	}
+
+	wa = newWa
+	currentRPID = domain
+	return nil
 }
 
 var (
@@ -166,8 +179,16 @@ func handleTOTPVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify the code
-	valid := totp.Validate(req.Code, req.Secret)
+	// Retrieve the server-stored pending secret for this session
+	val, ok := pendingTOTPSecrets.Load(cookie.Value)
+	if !ok {
+		http.Error(w, "TOTP setup session not found or expired", http.StatusBadRequest)
+		return
+	}
+	serverSecret := val.(string)
+
+	// Verify the code against the SERVER secret
+	valid := totp.Validate(req.Code, serverSecret)
 	if !valid {
 		http.Error(w, "Invalid TOTP code", http.StatusUnauthorized)
 		return
@@ -181,7 +202,7 @@ func handleTOTPVerify(w http.ResponseWriter, r *http.Request) {
 	config.TOTPConfigs = append(config.TOTPConfigs, TOTPConfig{
 		ID:        uuid.New().String(),
 		Name:      req.Name,
-		Secret:    req.Secret,
+		Secret:    serverSecret, // Persist the server secret
 		CreatedAt: time.Now(),
 	})
 	config.MFAEnabled = true
@@ -250,6 +271,8 @@ func handleMFADelete(w http.ResponseWriter, r *http.Request) {
 
 	if err := saveConfigNoLock(); err != nil {
 		slog.Error("Failed to save config in handleMFADelete", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, `{"status":"deleted"}`)
@@ -342,7 +365,14 @@ func handleMFAChallenge(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
-	initWebAuthn()
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := initWebAuthn(); err != nil {
+		http.Error(w, "WebAuthn initialization failed", http.StatusInternalServerError)
+		return
+	}
 
 	webauthnMu.RLock()
 	currentWA := wa
@@ -371,6 +401,10 @@ func handleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	cookie, err := r.Cookie(CookieName)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -433,13 +467,27 @@ func handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	configLock.Unlock()
 
+	// Mark session as MFA verified
+	if val, found := sessionStore.Load(cookie.Value); found {
+		sess := val.(Session)
+		sess.MFAVerified = true
+		sessionStore.Store(cookie.Value, sess)
+	}
+
 	waSessionStore.Delete(cookie.Value)
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, `{"status":"success"}`)
 }
 
 func handleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
-	initWebAuthn()
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := initWebAuthn(); err != nil {
+		http.Error(w, "WebAuthn initialization failed", http.StatusInternalServerError)
+		return
+	}
 
 	webauthnMu.RLock()
 	currentWA := wa
@@ -468,6 +516,10 @@ func handleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	cookie, err := r.Cookie(CookieName)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -490,11 +542,31 @@ func handleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = currentWA.FinishLogin(WebAuthnUser{}, session, r)
+	credential, err := currentWA.FinishLogin(WebAuthnUser{}, session, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	// Update the stored credential with new metadata (SignCount, CloneWarning)
+	configLock.Lock()
+	foundCred := false
+	for i, c := range config.WebAuthnCredentials {
+		if string(c.ID) == string(credential.ID) {
+			config.WebAuthnCredentials[i].Authenticator.SignCount = credential.Authenticator.SignCount
+			config.WebAuthnCredentials[i].Authenticator.CloneWarning = credential.Authenticator.CloneWarning
+			foundCred = true
+			break
+		}
+	}
+
+	if foundCred {
+		if err := saveConfigNoLock(); err != nil {
+			slog.Error("Failed to save config in handleWebAuthnLoginFinish", "error", err)
+			// We don't fail the login if we can't update sign count, but we log it
+		}
+	}
+	configLock.Unlock()
 
 	if val, found := sessionStore.Load(cookie.Value); found {
 		sess := val.(Session)

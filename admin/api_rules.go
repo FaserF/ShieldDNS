@@ -26,6 +26,9 @@ func handleToggleFiltering(w http.ResponseWriter, r *http.Request) {
 	config.FilteringEnabled = req.Enabled
 	if err := saveConfigNoLock(); err != nil {
 		slog.Error("Failed to save config in handleToggleFiltering", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		configLock.Unlock()
+		return
 	}
 	configLock.Unlock()
 
@@ -367,10 +370,13 @@ func handleResetLists(w http.ResponseWriter, r *http.Request) {
 	config.Allowlists = DefaultAllowlists
 	if err := saveConfigNoLock(); err != nil {
 		slog.Error("Failed to save config in handleResetLists", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		configLock.Unlock()
+		return
 	}
 	configLock.Unlock()
 
-	// Trigger background update
+	// Trigger background update only if save succeeded
 	go updateBlocklist(nil, true)
 
 	w.WriteHeader(http.StatusOK)

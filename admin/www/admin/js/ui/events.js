@@ -1054,7 +1054,10 @@ async function handleTOTPVerify() {
         const cfg = await api.apiFetch(api.endpoints.config);
         state.currentConfig = cfg;
         
-        import('./renderers.js').then(m => m.updateMFAStatus(cfg));
+        import('./renderers.js').then(m => {
+            m.updateMFAStatus(cfg);
+            m.renderMFAManageList?.(cfg);
+        });
         
         getEl('mfa-totp-setup').classList.add('hidden');
         getEl('mfa-manage-area').classList.remove('hidden');
@@ -1100,7 +1103,10 @@ async function handlePasskeyRegister() {
         helpers.showToast('Passkey registered!');
         const cfg = await api.apiFetch(api.endpoints.config);
         state.currentConfig = cfg;
-        import('./renderers.js').then(m => m.updateMFAStatus(cfg));
+        import('./renderers.js').then(m => {
+            m.updateMFAStatus(cfg);
+            m.renderMFAManageList?.(cfg);
+        });
     } catch (e) {
         if (e.name !== 'NotAllowedError') {
             helpers.showAlert('Passkey registration failed: ' + e.message);
@@ -1116,7 +1122,10 @@ async function handleMFADisable() {
         helpers.showToast('MFA disabled.');
         const cfg = await api.apiFetch(api.endpoints.config);
         state.currentConfig = cfg;
-        import('./renderers.js').then(m => m.updateMFAStatus(cfg));
+        import('./renderers.js').then(m => {
+            m.updateMFAStatus(cfg);
+            m.renderMFAManageList?.(cfg);
+        });
         getEl('mfa-setup-area').classList.add('hidden');
     } catch (e) {
         helpers.showAlert('Failed to disable MFA: ' + e.message);
@@ -1137,9 +1146,13 @@ window.deleteMFAMethod = async (type, id, event) => {
         helpers.showToast('Method removed');
         const cfg = await api.apiFetch(api.endpoints.config);
         state.currentConfig = cfg;
-        import('./renderers.js').then(m => m.updateMFAStatus(cfg));
+        import('./renderers.js').then(m => {
+            m.updateMFAStatus(cfg);
+            m.renderMFAManageList?.(cfg);
+        });
     } catch (e) {
         helpers.showAlert('Failed to remove method: ' + e.message);
+    } finally {
         if (btn) helpers.setBtnLoading(btn, false);
     }
 };

@@ -39,6 +39,7 @@ func TestMFAMultiMethod(t *testing.T) {
 	}
 
 	// 2. Test TOTP Setup
+	var secret1 string
 	t.Run("TOTP Setup", func(t *testing.T) {
 		req := createReq("POST", "/api/mfa/totp/setup", nil)
 		rr := httptest.NewRecorder()
@@ -50,27 +51,20 @@ func TestMFAMultiMethod(t *testing.T) {
 
 		var res map[string]string
 		json.Unmarshal(rr.Body.Bytes(), &res)
-		if res["secret"] == "" || res["qr"] == "" {
+		secret1 = res["secret"]
+		if secret1 == "" || res["qr"] == "" {
 			t.Errorf("Incomplete setup response: %v", res)
 		}
 	})
 
 	// 3. Test TOTP Verify (Success)
-	var secret1 string
 	t.Run("TOTP Verify Success", func(t *testing.T) {
-		// Generate a fresh secret
-		key, _ := totp.Generate(totp.GenerateOpts{
-			Issuer:      "ShieldDNS",
-			AccountName: "admin",
-		})
-		secret1 = key.Secret()
-
+		// Use the secret from Setup step
 		code, _ := totp.GenerateCode(secret1, time.Now())
 
 		body := map[string]string{
-			"code":   code,
-			"secret": secret1,
-			"name":   "My Phone",
+			"code": code,
+			"name": "My Phone",
 		}
 		req := createReq("POST", "/api/mfa/totp/verify", body)
 		rr := httptest.NewRecorder()
@@ -89,17 +83,20 @@ func TestMFAMultiMethod(t *testing.T) {
 
 	// 4. Test adding a second TOTP method
 	t.Run("Add Second TOTP", func(t *testing.T) {
-		key, _ := totp.Generate(totp.GenerateOpts{
-			Issuer:      "ShieldDNS",
-			AccountName: "admin",
-		})
-		secret2 := key.Secret()
+		// Must call setup again for second secret
+		reqSetup := createReq("POST", "/api/mfa/totp/setup", nil)
+		rrSetup := httptest.NewRecorder()
+		handleTOTPSetup(rrSetup, reqSetup)
+
+		var resSetup map[string]string
+		json.Unmarshal(rrSetup.Body.Bytes(), &resSetup)
+		secret2 := resSetup["secret"]
+
 		code, _ := totp.GenerateCode(secret2, time.Now())
 
 		body := map[string]string{
-			"code":   code,
-			"secret": secret2,
-			"name":   "Backup App",
+			"code": code,
+			"name": "Backup App",
 		}
 		req := createReq("POST", "/api/mfa/totp/verify", body)
 		rr := httptest.NewRecorder()
