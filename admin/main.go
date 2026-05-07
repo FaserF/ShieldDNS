@@ -60,9 +60,6 @@ func main() {
 	// Ensure Corefile is generated with correct settings before starting CoreDNS
 	updateCorefile()
 
-	// Initial CoreDNS start
-	go startCoreDNS(appCtx)
-
 	mux := setupRouter()
 
 	// Apply Ingress Middleware to strip X-Ingress-Path from HA
@@ -220,6 +217,9 @@ func startWorkers() {
 		updateBlocklist(nil, false)
 		syncMaliciousIPs(true)
 		slog.Info("ShieldDNS Ready: Blocklists and Threat Intelligence loaded")
+		
+		// Initial CoreDNS start after everything is ready
+		go startCoreDNS(appCtx)
 	}()
 
 	// Start health and monitoring

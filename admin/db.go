@@ -141,6 +141,14 @@ func addColumnIfNotExists(table, column, definition string) {
 }
 
 func startDBWorker(ctx context.Context) {
+	// 1. Initial 24h Stats Catch-up (One-time on boot)
+	slog.Info("Starting initial statistics catch-up...")
+	for i := 1; i <= 24; i++ {
+		targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+		aggregateHourlyStats(ctx, targetHour)
+	}
+	slog.Info("Initial statistics catch-up complete")
+
 	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
 
@@ -183,20 +191,6 @@ func startDBWorker(ctx context.Context) {
 
 	go cleanup() // Initial cleanup
 
-	// Start hourly aggregation ticker
-	aggTicker := time.NewTicker(1 * time.Hour)
-	defer aggTicker.Stop()
-	go func() {
-		// Catch-up: Aggregate missing hours from the last 24h
-		slog.Info("Starting hourly stats catch-up...")
-		now := time.Now().UTC()
-		for i := 24; i >= 1; i-- {
-			targetHour := now.Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-			aggregateHourlyStats(ctx, targetHour)
-		}
-		slog.Info("Hourly stats catch-up complete")
-	}()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -230,7 +224,7 @@ func startLogWorker(ctx context.Context) {
 		}
 	}()
 
-	// 2. Stats Aggregator (Every hour)
+	// 2. Stats Aggregator (Every hour) - Lightweight update
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
@@ -239,16 +233,14 @@ func startLogWorker(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				slog.Info("Starting hourly stats catch-up...")
-				for i := 1; i <= 24; i++ {
-					targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-					aggregateHourlyStats(ctx, targetHour)
-				}
+				// Only aggregate the most recent full hour
+				targetHour := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+				aggregateHourlyStats(ctx, targetHour)
 			}
 		}
 	}()
 
-	// 3. Stats Refresher (Every minute)
+	// 3. Stats Refresher (Every minute) - Quiet update
 	go func() {
 		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
@@ -257,7 +249,7 @@ func startLogWorker(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				initializeStatsFromDB()
+				refreshStats()
 			}
 		}
 	}()
@@ -330,15 +322,12 @@ func initializeStatsFromDB() {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	aggregateHourlyStats(appCtx, time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05"))
 
-	// Run full catch-up in background on startup
-	go func() {
-		time.Sleep(5 * time.Second)
-		slog.Info("Starting initial stats catch-up...")
-		for i := 1; i <= 24; i++ {
-			targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-			aggregateHourlyStats(appCtx, targetHour)
-		}
-	}()
+	// Run full catch-up in background
+	slog.Info("Starting initial stats catch-up...")
+	for i := 1; i <= 24; i++ {
+		targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+		aggregateHourlyStats(appCtx, targetHour)
+	}
 
 	total, blocked, cacheHits, err := Get24hStats()
 	if err != nil {
@@ -416,6 +405,49 @@ func initializeStatsFromDB() {
 	}
 
 	slog.Info("Statistics initialized from database", "total", stats.TotalQueries, "blocked", stats.BlockedQueries)
+}
+
+func refreshStats() {
+	if db == nil {
+		return
+	}
+
+	total, blocked, cacheHits, err := Get24hStats()
+	if err != nil {
+		return
+	}
+
+	statsLock.Lock()
+	defer statsLock.Unlock()
+
+	atomic.StoreInt64(&stats.TotalQueries, total)
+	atomic.StoreInt64(&stats.BlockedQueries, blocked)
+	atomic.StoreInt64(&stats.CacheHits, cacheHits)
+
+	// Update Query Types quietly
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if stats.QueryTypes == nil {
+		stats.QueryTypes = make(map[string]int64)
+	}
+	tRows, err := db.QueryContext(ctx, `
+		SELECT type, COUNT(*) 
+		FROM queries 
+		WHERE timestamp > datetime('now', '-24 hours')
+		GROUP BY type
+	`)
+	if err == nil {
+		defer tRows.Close()
+		for tRows.Next() {
+			var qt string
+			var count int64
+			err = tRows.Scan(&qt, &count)
+			if err == nil {
+				stats.QueryTypes[qt] = count
+			}
+		}
+	}
 }
 
 func getClientStats(ip string) (ClientStats, error) {

@@ -444,8 +444,8 @@ export function initEvents(fetchConfig) {
 
     window.deleteAPIKey = async (id, event) => {
         if (!await helpers.showConfirm('Delete this API key forever?', 'Delete API Key', true)) return;
-        const btn = event.currentTarget;
-        helpers.setBtnLoading(btn, true, '');
+        const btn = event?.currentTarget;
+        if (btn) helpers.setBtnLoading(btn, true, '');
         try {
             await api.apiFetch(`${api.endpoints.deleteToken}?id=${id}`, { 
                 method: 'DELETE'
@@ -454,12 +454,14 @@ export function initEvents(fetchConfig) {
             fetchService.fetchAPIKeys();
         } catch (err) {
             helpers.showAlert('Failed to delete token: ' + err.message);
-            helpers.setBtnLoading(btn, false);
+            if (btn) helpers.setBtnLoading(btn, false);
         }
     };
 
-    window.unblockClient = async (ip) => {
+    window.unblockClient = async (ip, event) => {
         if (!await helpers.showConfirm(`Unblock client ${ip}?`)) return;
+        const btn = event?.currentTarget;
+        helpers.setBtnLoading(btn, true, 'Unblocking...');
         try {
             await api.apiFetch(api.endpoints.clientBlock, {
                 method: 'POST',
@@ -479,6 +481,8 @@ export function initEvents(fetchConfig) {
             }
         } catch (err) {
             helpers.showAlert('Failed to unblock client: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
         }
     };
 

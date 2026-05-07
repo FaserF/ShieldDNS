@@ -68,8 +68,8 @@ export function createQueryRow(q) {
     const row = document.createElement('tr');
     const time = q.time ? new Date(q.time).toLocaleTimeString() : 'Unknown';
     const actionBtn = q.status.includes('Blocked') ?
-        `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${helpers.escapeHTML(q.domain)}')" title="Whitelist Domain">Allow</button>` :
-        `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${helpers.escapeHTML(q.domain)}')" title="Blacklist Domain">Block</button>`;
+        `<button class="btn btn-sm secondary" onclick="addCustomRule('allowed', '${helpers.escapeHTML(q.domain)}', event)" title="Whitelist Domain">Allow</button>` :
+        `<button class="btn btn-sm secondary" onclick="addCustomRule('blocked', '${helpers.escapeHTML(q.domain)}', event)" title="Blacklist Domain">Block</button>`;
 
     let statusClass = 'official';
     if (q.status.includes('Blocked')) {
@@ -182,7 +182,7 @@ export function renderConfig(cfg) {
         el.innerHTML = items?.map(domain => `
             <div class="preset-selection-item">
                 <span>${helpers.escapeHTML(domain)}</span>
-                <button class="btn btn-sm secondary" onclick="removeCustomRule('${helpers.escapeHTML(domain)}', event)" title="Remove Rule"><i class="fas fa-trash"></i></button>
+                <button type="button" class="btn btn-sm secondary" onclick="removeCustomRule('${helpers.escapeHTML(domain)}', event)" title="Remove Rule"><i class="fas fa-trash"></i></button>
             </div>
         `).join('') || '';
     };
@@ -294,7 +294,7 @@ export function renderBlockedClientsModal(blockedClients, infoMap) {
                 </td>
                 <td style="font-size: 0.85rem;">${type}${helpers.escapeHTML(reason)}</td>
                 <td>
-                    <button class="btn btn-sm secondary danger" onclick="unblockClient('${helpers.escapeHTML(ip)}')" title="Unblock Client">
+                    <button type="button" class="btn btn-sm secondary danger" onclick="unblockClient('${helpers.escapeHTML(ip)}', event)" title="Unblock Client">
                         <i class="fas fa-unlock"></i>
                     </button>
                 </td>
@@ -485,8 +485,8 @@ export function renderDiagnostics(d) {
                 <td class="help" style="font-size:0.75rem;">${lastUsed}</td>
                 <td>
                     <div style="display:flex; gap:8px;">
-                        <button class="btn btn-sm secondary" onclick="window.editAPIKey('${k.id}')"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm secondary danger" onclick="window.deleteAPIKey('${k.id}')" title="Delete Key"><i class="fas fa-trash"></i></button>
+                        <button type="button" class="btn btn-sm secondary" onclick="window.editAPIKey('${k.id}')"><i class="fas fa-edit"></i></button>
+                        <button type="button" class="btn btn-sm secondary danger" onclick="window.deleteAPIKey('${k.id}', event)" title="Delete Key"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             </tr>
