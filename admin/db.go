@@ -290,7 +290,7 @@ func aggregateHourlyStats(ctx context.Context, targetHour string) {
 	// targetHour is expected in "2006-01-02 15:04:05" (UTC)
 	// This function now uses a slightly wider window to ensure we don't miss queries
 	// that were flushed slightly before/after the hour boundary.
-	
+
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
 		SELECT 
@@ -306,7 +306,7 @@ func aggregateHourlyStats(ctx context.Context, targetHour string) {
 			blocked = excluded.blocked,
 			cache_hits = excluded.cache_hits
 	`, targetHour, targetHour)
-	
+
 	if err != nil {
 		slog.Error("Aggregation error", "hour", targetHour, "error", err)
 	} else {
@@ -320,13 +320,14 @@ func initializeStatsFromDB() {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	aggregateHourlyStats(appCtx, time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05"))
+	defer cancel()
+	aggregateHourlyStats(ctx, time.Now().UTC().Add(-1*time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05"))
 
 	// Run full catch-up in background
 	slog.Info("Starting initial stats catch-up...")
 	for i := 1; i <= 24; i++ {
 		targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-		aggregateHourlyStats(appCtx, targetHour)
+		aggregateHourlyStats(ctx, targetHour)
 	}
 
 	total, blocked, cacheHits, err := Get24hStats()
@@ -425,10 +426,9 @@ func refreshStats() {
 	atomic.StoreInt64(&stats.CacheHits, cacheHits)
 
 	// Update Query Types quietly
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-
-	if stats.QueryTypes == nil {
+	if err := db.PingContext(ctx); err != nil {
 		stats.QueryTypes = make(map[string]int64)
 	}
 	tRows, err := db.QueryContext(ctx, `
@@ -725,4 +725,13 @@ func Get24hStats() (int64, int64, int64, error) {
 	}
 
 	return total + curTotal, blocked + curBlocked, cacheHits + curCacheHits, nil
+}
+
+func GetAverageLatency() (float64, error) {
+	if db == nil {
+		return 0, fmt.Errorf("DB not initialized")
+	}
+	var avg float64
+	err := db.QueryRow("SELECT COALESCE(AVG(duration_ms), 0) FROM queries WHERE timestamp > datetime('now', '-24 hours')").Scan(&avg)
+	return avg, err
 }

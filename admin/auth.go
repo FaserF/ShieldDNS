@@ -217,7 +217,9 @@ func authMiddleware(next http.Handler) http.Handler {
 						for i, k := range config.APIKeys {
 							if k.TokenHash == hashed {
 								config.APIKeys[i].LastUsed = now
-								saveConfigNoLock()
+								if err := saveConfigNoLock(); err != nil {
+							slog.Error("Failed to save config in cleanupSessions", "error", err)
+						}
 								apiLastWrite.Store(hashed, now)
 								break
 							}
@@ -279,6 +281,16 @@ func authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// 4. MFA Enforcement
+		configLock.RLock()
+		mfaEnabled := config.MFAEnabled
+		configLock.RUnlock()
+
+		if mfaEnabled && !sess.MFAVerified && !isMFAEndpoint(r.URL.Path) {
+			renderError(w, "MFA required", "MFA_REQUIRED", http.StatusForbidden)
+			return
+		}
+
 		// 3. API Authorization check
 		required := getRequiredPermission(r)
 		// (Session user has all permissions essentially, but we could add role checks here)
@@ -294,19 +306,25 @@ func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 	configLock.RUnlock()
 
 	loggedIn := false
+	mfaRequired := false
 	if cookie, err := r.Cookie(CookieName); err == nil {
 		if val, found := sessionStore.Load(cookie.Value); found {
 			sess := val.(Session)
 			if time.Now().Before(sess.ExpiresAt) {
-				loggedIn = true
+				if sess.MFAVerified {
+					loggedIn = true
+				} else {
+					mfaRequired = true
+				}
 			}
 		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"need_setup": !hasPwd,
-		"logged_in":  loggedIn,
+		"need_setup":   !hasPwd,
+		"logged_in":    loggedIn,
+		"mfa_required": mfaRequired,
 	})
 }
 
@@ -336,7 +354,11 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	config.AdminPasswordHashed = string(hash)
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleSetup", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		return
+	}
 	slog.Info("Admin setup completed", "ip", strings.Split(r.RemoteAddr, ":")[0])
 
 	w.Header().Set("Content-Type", "application/json")
@@ -392,12 +414,18 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Generate session
 	token := generateToken()
+
+	configLock.RLock()
+	mfaEnabled := config.MFAEnabled
+	configLock.RUnlock()
+
 	sess := Session{
-		Token:     token,
-		RemoteIP:  ip,
-		UserAgent: r.UserAgent(),
-		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(SessionDuration),
+		Token:       token,
+		RemoteIP:    ip,
+		UserAgent:   r.UserAgent(),
+		CreatedAt:   time.Now(),
+		ExpiresAt:   time.Now().Add(SessionDuration),
+		MFAVerified: !mfaEnabled, // Will be false if MFA is enabled
 	}
 	sessionStore.Store(token, sess)
 
@@ -418,13 +446,18 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		config.PreviousLogin = config.LastLogin
 	}
 	config.LastLogin = time.Now()
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleLogin (update session)", "error", err)
+	}
 	configLock.Unlock()
 
 	slog.Info("Admin logged in", "ip", ip)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"mfa_required": mfaEnabled,
+	})
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -472,7 +505,9 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	config.AdminPasswordHashed = string(hash)
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleTokenLogin", "error", err)
+	}
 
 	// Clear all sessions on pwd change
 	sessionStore.Range(func(key, value interface{}) bool {
@@ -536,11 +571,14 @@ func getRequiredPermission(r *http.Request) string {
 	switch {
 	case strings.HasPrefix(path, "/api/health"):
 		return "read:health"
-	case strings.HasPrefix(path, "/api/stats"), strings.HasPrefix(path, "/api/history"), strings.HasPrefix(path, "/api/metrics"):
+	case strings.HasPrefix(path, "/api/stats"), strings.HasPrefix(path, "/api/history"), strings.HasPrefix(path, "/api/metrics"), strings.HasPrefix(path, "/api/clients"):
 		return "read:stats"
-	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"), strings.HasPrefix(path, "/api/ip-history"):
+	case strings.HasPrefix(path, "/api/queries"), strings.HasPrefix(path, "/api/top-"), strings.HasPrefix(path, "/api/search"), strings.HasPrefix(path, "/api/export"), strings.HasPrefix(path, "/api/ip-history"), strings.HasPrefix(path, "/api/domain/"):
 		return "read:logs"
 	case strings.HasPrefix(path, "/api/diagnostics"):
+		if method == http.MethodPost {
+			return "write:maintenance"
+		}
 		return "read:diagnostics"
 	case strings.HasPrefix(path, "/api/system-logs"), strings.HasPrefix(path, "/api/events"):
 		return "read:system"
@@ -549,15 +587,20 @@ func getRequiredPermission(r *http.Request) string {
 			return "read:config"
 		}
 		return "write:config"
-	case strings.HasPrefix(path, "/api/rules"), strings.HasPrefix(path, "/api/toggle"), strings.HasPrefix(path, "/api/client-"), strings.HasPrefix(path, "/api/filtering"):
+	case strings.HasPrefix(path, "/api/rules"), strings.HasPrefix(path, "/api/toggle"), strings.HasPrefix(path, "/api/client/"), strings.HasPrefix(path, "/api/filtering"):
 		if method == http.MethodGet {
 			return "read:rules"
 		}
 		return "write:rules"
-	case strings.HasPrefix(path, "/api/refresh"), strings.HasPrefix(path, "/api/clear-logs"), strings.HasPrefix(path, "/api/full-reload"), strings.HasPrefix(path, "/api/restore"), strings.HasPrefix(path, "/api/reset"), strings.HasPrefix(path, "/api/restart-dns"), strings.HasPrefix(path, "/api/backup"):
+	case strings.HasPrefix(path, "/api/refresh"), strings.HasPrefix(path, "/api/logs/clear"), strings.HasPrefix(path, "/api/system/full-reload"), strings.HasPrefix(path, "/api/restore"), strings.HasPrefix(path, "/api/reset"), strings.HasPrefix(path, "/api/restart-dns"), strings.HasPrefix(path, "/api/backup"):
 		return "write:maintenance"
 	case strings.HasPrefix(path, "/api/tokens"), strings.HasPrefix(path, "/api/keys"):
 		return "write:system"
 	}
 	return "admin:all"
+}
+func isMFAEndpoint(path string) bool {
+	return strings.HasPrefix(path, "/api/mfa/totp/verify") ||
+		strings.HasPrefix(path, "/api/mfa/webauthn/login") ||
+		path == "/api/mfa/status"
 }

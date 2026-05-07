@@ -53,6 +53,9 @@ type Config struct {
 	ServerCountry              string                       `json:"server_country"`
 	LastLogin                  time.Time                    `json:"last_login"`
 	PreviousLogin              time.Time                    `json:"previous_login"`
+	MFAEnabled                 bool                         `json:"mfa_enabled"`
+	TOTPConfigs                []TOTPConfig                 `json:"totp_configs"`
+	WebAuthnCredentials        []WebAuthnCredential         `json:"webauthn_credentials"`
 }
 
 type BlockedClientInfo struct {
@@ -69,6 +72,29 @@ type APIKey struct {
 	Permissions []string  `json:"permissions"`
 	CreatedAt   time.Time `json:"created_at"`
 	LastUsed    time.Time `json:"last_used"`
+}
+
+type TOTPConfig struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Secret    string    `json:"secret"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type WebAuthnCredential struct {
+	ID              []byte        `json:"id"`
+	PublicKey       []byte        `json:"public_key"`
+	AttestationType string        `json:"attestation_type"`
+	Transport       []string      `json:"transport"`
+	Authenticator   Authenticator `json:"authenticator"`
+	Name            string        `json:"name"`
+	CreatedAt       time.Time     `json:"created_at"`
+}
+
+type Authenticator struct {
+	AAGUID       []byte `json:"aaguid"`
+	SignCount    uint32 `json:"sign_count"`
+	CloneWarning bool   `json:"clone_warning"`
 }
 
 type List struct {
@@ -199,11 +225,12 @@ var (
 )
 
 type Session struct {
-	Token     string    `json:"token"`
-	RemoteIP  string    `json:"remote_ip"`
-	UserAgent string    `json:"user_agent"`
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Token       string    `json:"token"`
+	RemoteIP    string    `json:"remote_ip"`
+	UserAgent   string    `json:"user_agent"`
+	CreatedAt   time.Time `json:"created_at"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	MFAVerified bool      `json:"mfa_verified"`
 }
 
 var (
@@ -292,6 +319,24 @@ func (c *Config) Clone() *Config {
 			}
 		}
 	}
+	if c.WebAuthnCredentials != nil {
+		newCfg.WebAuthnCredentials = make([]WebAuthnCredential, len(c.WebAuthnCredentials))
+		for i, cred := range c.WebAuthnCredentials {
+			newCfg.WebAuthnCredentials[i] = cred
+			if cred.ID != nil {
+				newCfg.WebAuthnCredentials[i].ID = make([]byte, len(cred.ID))
+				copy(newCfg.WebAuthnCredentials[i].ID, cred.ID)
+			}
+			if cred.PublicKey != nil {
+				newCfg.WebAuthnCredentials[i].PublicKey = make([]byte, len(cred.PublicKey))
+				copy(newCfg.WebAuthnCredentials[i].PublicKey, cred.PublicKey)
+			}
+			if cred.Transport != nil {
+				newCfg.WebAuthnCredentials[i].Transport = make([]string, len(cred.Transport))
+				copy(newCfg.WebAuthnCredentials[i].Transport, cred.Transport)
+			}
+		}
+	}
 
 	return &newCfg
 }
@@ -302,6 +347,13 @@ func (c *Config) SanitizedCopy() Config {
 	clone := *c
 	if clone.AdminPasswordHashed != "" {
 		clone.AdminPasswordHashed = "********"
+	}
+	if clone.TOTPConfigs != nil {
+		clone.TOTPConfigs = make([]TOTPConfig, len(c.TOTPConfigs))
+		for i, tc := range c.TOTPConfigs {
+			tc.Secret = "********"
+			clone.TOTPConfigs[i] = tc
+		}
 	}
 	if clone.APIKeys != nil {
 		clone.APIKeys = make([]APIKey, len(c.APIKeys))

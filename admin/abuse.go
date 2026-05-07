@@ -229,7 +229,6 @@ func blockClientAuto(ip, reason string) {
 		}
 	}
 
-
 	config.BlockedClients = append(config.BlockedClients, ip)
 	config.BlockedClientsInfo[ip] = BlockedClientInfo{
 		Reason:      reason,
@@ -238,7 +237,9 @@ func blockClientAuto(ip, reason string) {
 		CountryCode: cc,
 	}
 
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in auto-block", "ip", ip, "error", err)
+	}
 	RecordAbuseBlock()
 	configLock.Unlock()
 

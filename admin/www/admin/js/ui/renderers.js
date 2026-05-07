@@ -175,6 +175,8 @@ export function renderConfig(cfg) {
 
     if (getEl('verify-upstream-tls-check')) getEl('verify-upstream-tls-check').checked = !!cfg.verify_upstream_tls;
 
+    updateMFAStatus(cfg);
+
     // Custom Rules
     const renderCustomList = (id, items) => {
         const el = getEl(id);
@@ -469,7 +471,9 @@ export function renderDiagnostics(d) {
             }
         }
     }
-} export function renderAPIKeys(keys) {
+}
+
+export function renderAPIKeys(keys) {
     const list = getEl('api-keys-list') || getEl('api-keys-list-container');
     if (!list) return;
 
@@ -508,7 +512,6 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
 
     const sanitize = (val, fallback = 'N/A') => (!val || val === '-' || val === 'geo' || val === 'none') ? fallback : val;
 
-    const fallbackSpan = (txt) => `<span class="info-empty">${txt}</span>`;
     const toggleEl = (id, show) => { const el = getEl(id); if (el) el.style.display = show ? '' : 'none'; };
 
     // Hostname visibility
@@ -549,7 +552,6 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
 
     // Provider & ASN
     const provider = stats.isp || stats.org;
-    const hasProvider = !!provider;
     setTxt('ip-info-isp', provider || (stats.is_private ? 'Local Network' : 'Unknown Provider'));
     
     const hasAS = stats.as && stats.as !== '-' && stats.as !== 'none';
@@ -758,4 +760,84 @@ export function renderAutoblockWhitelist(whitelist) {
             </button>
         </div>
     `).join('');
+}
+
+export function updateMFAStatus(cfg) {
+    const config = cfg || state.currentConfig;
+    const badge = getEl('mfa-status-badge');
+    const toggleBtn = getEl('mfa-toggle-btn');
+    if (!badge || !toggleBtn) return;
+
+    if (config.mfa_enabled) {
+        badge.textContent = 'ENABLED';
+        badge.className = 'badge success';
+        toggleBtn.textContent = 'Manage MFA';
+    } else {
+        badge.textContent = 'DISABLED';
+        badge.className = 'badge secondary';
+        toggleBtn.textContent = 'Set Up MFA';
+    }
+    
+    // Also render methods if manage area is visible
+    if (getEl('mfa-manage-area') && !getEl('mfa-manage-area').classList.contains('hidden')) {
+        renderTOTPList(config);
+        renderPasskeys(config);
+    }
+}
+
+export function renderTOTPList(cfg) {
+    const list = getEl('mfa-totp-list');
+    if (!list) return;
+
+    const config = cfg || state.currentConfig;
+    const totps = config.totp_configs || [];
+    if (totps.length === 0) {
+        list.innerHTML = 'No authenticator apps registered.';
+        return;
+    }
+
+    list.innerHTML = totps.map(c => `
+        <div class="mfa-item">
+            <div class="mfa-item-info">
+                <i class="fas fa-mobile-alt"></i>
+                <div class="mfa-item-text">
+                    <div class="mfa-item-name">${helpers.escapeHTML(c.name || 'Authenticator App')}</div>
+                    <div class="mfa-item-meta">Added ${helpers.formatDate(c.created_at)}</div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm secondary danger" onclick="window.deleteMFAMethod('totp', '${c.id}', event)" title="Remove TOTP">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+export function renderPasskeys(cfg) {
+    const list = getEl('mfa-passkey-list');
+    if (!list) return;
+
+    const config = cfg || state.currentConfig;
+    const creds = config.webauthn_credentials || [];
+    if (creds.length === 0) {
+        list.innerHTML = 'No passkeys registered.';
+        return;
+    }
+
+    list.innerHTML = creds.map(c => {
+        const idStr = typeof c.id === 'string' ? c.id : helpers.base64FromBuffer(c.id);
+        return `
+            <div class="mfa-item">
+                <div class="mfa-item-info">
+                    <i class="fas fa-key"></i>
+                    <div class="mfa-item-text">
+                        <div class="mfa-item-name">${helpers.escapeHTML(c.name || 'Security Key')}</div>
+                        <div class="mfa-item-meta">Added ${helpers.formatDate(c.created_at)}</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm secondary danger" onclick="window.deleteMFAMethod('webauthn', '${idStr}', event)" title="Remove Passkey">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
 }

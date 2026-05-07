@@ -670,7 +670,12 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 			newCfg.AdminPasswordHashed = config.AdminPasswordHashed
 		}
 		config = *newCfg
-		saveConfigNoLock()
+		if err := saveConfigNoLock(); err != nil {
+			slog.Error("Failed to save config in backup restore", "error", err)
+			http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+			configLock.Unlock()
+			return
+		}
 		configLock.Unlock()
 
 		// Apply Database if present
@@ -711,7 +716,12 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 		newConfig.AdminPasswordHashed = config.AdminPasswordHashed
 	}
 	config = newConfig
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in factory reset", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		configLock.Unlock()
+		return
+	}
 	configLock.Unlock()
 
 	updateCorefile()
@@ -827,6 +837,27 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.RetentionDays == 0 && config.RetentionDays != 0 {
 			newConfig.RetentionDays = config.RetentionDays
 		}
+		if !newConfig.MFAEnabled && config.MFAEnabled {
+			newConfig.MFAEnabled = config.MFAEnabled
+		}
+		if len(newConfig.TOTPConfigs) > 0 {
+			for i, nt := range newConfig.TOTPConfigs {
+				if nt.Secret == "********" {
+					// Find original secret by ID
+					for _, ot := range config.TOTPConfigs {
+						if ot.ID == nt.ID {
+							newConfig.TOTPConfigs[i].Secret = ot.Secret
+							break
+						}
+					}
+				}
+			}
+		} else if config.TOTPConfigs != nil {
+			newConfig.TOTPConfigs = config.TOTPConfigs
+		}
+		if newConfig.WebAuthnCredentials == nil && config.WebAuthnCredentials != nil {
+			newConfig.WebAuthnCredentials = config.WebAuthnCredentials
+		}
 
 		// Security: Validate Upstreams and UpstreamDoT for malicious injections
 		validatedUpstreams := make([]string, 0, len(newConfig.Upstreams))
@@ -873,7 +904,12 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		configHold := config
 		config = newConfig
-		saveConfigNoLock()
+		if err := saveConfigNoLock(); err != nil {
+			slog.Error("Failed to save config in handleConfig", "error", err)
+			http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+			configLock.Unlock()
+			return
+		}
 		configLock.Unlock()
 
 		// If malicious settings changed, restart the background worker
@@ -888,6 +924,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		updateCorefile()
 		restartCoreDNS() // Ensure Corefile changes (ACL) are applied
+		initWebAuthn()   // Update WebAuthn RPID if domain changed
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(config.SanitizedCopy())
@@ -899,7 +936,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 	changed := RetrofitBlockedClientsInfo()
 	if changed {
-		saveConfigNoLock()
+		if err := saveConfigNoLock(); err != nil {
+			slog.Error("Failed to save config in handleConfig (retrofit)", "error", err)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

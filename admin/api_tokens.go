@@ -57,7 +57,14 @@ func handleCreateToken(w http.ResponseWriter, r *http.Request) {
 
 	configLock.Lock()
 	config.APIKeys = append(config.APIKeys, newToken)
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleCreateToken", "error", err)
+		// Rollback: remove the newly added key
+		config.APIKeys = config.APIKeys[:len(config.APIKeys)-1]
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		configLock.Unlock()
+		return
+	}
 	configLock.Unlock()
 
 	slog.Info("New API token created", "name", req.Name, "id", newToken.ID)
@@ -86,7 +93,11 @@ func handleDeleteToken(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	config.APIKeys = newKeys
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleDeleteToken", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		return
+	}
 	slog.Info("API token deleted", "id", id)
 	w.WriteHeader(http.StatusOK)
 }
@@ -109,7 +120,11 @@ func handleUpdateToken(w http.ResponseWriter, r *http.Request) {
 		if config.APIKeys[i].ID == req.ID {
 			config.APIKeys[i].Name = req.Name
 			config.APIKeys[i].Permissions = req.Permissions
-			saveConfigNoLock()
+			if err := saveConfigNoLock(); err != nil {
+				slog.Error("Failed to save config in handleUpdateToken", "error", err)
+				http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+				return
+			}
 			slog.Info("API token updated", "id", req.ID, "name", req.Name)
 			w.WriteHeader(http.StatusOK)
 			return

@@ -17,7 +17,11 @@ export async function checkAuthStatus(onSuccess) {
         if (data.need_setup) {
             showView('setup');
         } else if (!data.logged_in) {
-            showView('login');
+            if (data.mfa_required) {
+                showView('mfa');
+            } else {
+                showView('login');
+            }
         } else {
             uiRefs.authOverlay?.classList.add('hidden');
             onSuccess();
@@ -30,7 +34,11 @@ export async function checkAuthStatus(onSuccess) {
             uiRefs.setupView?.classList.remove('hidden');
         } else if (!data.logged_in) {
             uiRefs.authOverlay?.classList.remove('hidden');
-            uiRefs.loginView?.classList.remove('hidden');
+            if (data.mfa_required) {
+                uiRefs.mfaView?.classList.remove('hidden');
+            } else {
+                uiRefs.loginView?.classList.remove('hidden');
+            }
         } else {
             uiRefs.authOverlay?.classList.add('hidden');
             onSuccess();
@@ -43,6 +51,7 @@ export function showView(viewId) {
     uiRefs.authOverlay.classList.remove('hidden');
     uiRefs.setupView?.classList.toggle('hidden', viewId !== 'setup');
     uiRefs.loginView?.classList.toggle('hidden', viewId !== 'login');
+    uiRefs.mfaView?.classList.toggle('hidden', viewId !== 'mfa');
 
     if (viewId === 'setup') {
         const domainInput = getEl('setup-admin-domain');
@@ -57,13 +66,82 @@ export async function handleLogin() {
     if (!pwd) return;
 
     try {
-        await api.apiFetch(api.endpoints.login, {
+        const res = await api.apiFetch(api.endpoints.login, {
             method: 'POST',
             body: JSON.stringify({ password: pwd })
         });
-        window.location.reload();
+        
+        if (res.mfa_required) {
+            // Show method selector, hide TOTP input area
+            getEl('mfa-method-selector')?.classList.remove('hidden');
+            getEl('mfa-totp-input-area')?.classList.add('hidden');
+            showView('mfa');
+        } else {
+            window.location.reload();
+        }
     } catch (e) {
         helpers.showAlert('Login failed: ' + e.message);
+    }
+}
+
+export async function handleMFAVerify() {
+    const code = getEl('mfa-code')?.value;
+    if (!code) return;
+
+    const btn = getEl('mfa-confirm-btn');
+    helpers.setBtnLoading(btn, true, 'Verifying...');
+    try {
+        await api.apiFetch('/api/mfa/challenge', {
+            method: 'POST',
+            body: JSON.stringify({ code })
+        });
+        window.location.reload();
+    } catch (e) {
+        helpers.showAlert('MFA verification failed: ' + e.message);
+    } finally {
+        helpers.setBtnLoading(btn, false);
+    }
+}
+
+export async function handlePasskeyLogin() {
+    const btn = getEl('mfa-use-passkey-btn');
+    helpers.setBtnLoading(btn, true, 'Connecting...');
+    try {
+        const options = await api.apiFetch('/api/mfa/webauthn/login/start', { method: 'POST' });
+        
+        options.publicKey.challenge = helpers.bufferFromBase64(options.publicKey.challenge);
+        if (options.publicKey.allowCredentials) {
+            options.publicKey.allowCredentials.forEach(c => {
+                c.id = helpers.bufferFromBase64(c.id);
+            });
+        }
+
+        const credential = await navigator.credentials.get(options);
+        
+        const credentialJSON = {
+            id: credential.id,
+            rawId: helpers.base64FromBuffer(credential.rawId),
+            type: credential.type,
+            response: {
+                authenticatorData: helpers.base64FromBuffer(credential.response.authenticatorData),
+                clientDataJSON: helpers.base64FromBuffer(credential.response.clientDataJSON),
+                signature: helpers.base64FromBuffer(credential.response.signature),
+                userHandle: credential.response.userHandle ? helpers.base64FromBuffer(credential.response.userHandle) : null
+            }
+        };
+
+        await api.apiFetch('/api/mfa/webauthn/login/finish', {
+            method: 'POST',
+            body: JSON.stringify(credentialJSON)
+        });
+        
+        window.location.reload();
+    } catch (e) {
+        if (e.name !== 'NotAllowedError') {
+            helpers.showAlert('Passkey login failed: ' + e.message);
+        }
+    } finally {
+        helpers.setBtnLoading(btn, false);
     }
 }
 

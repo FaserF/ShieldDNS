@@ -63,7 +63,7 @@ func TestHandleStats(t *testing.T) {
 	statsCacheMu.Lock()
 	statsCacheTime = time.Time{}
 	statsCacheMu.Unlock()
-	
+
 	oldDB := db
 	db = nil
 	defer func() { db = oldDB }()

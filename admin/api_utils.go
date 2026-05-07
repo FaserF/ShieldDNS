@@ -326,7 +326,9 @@ func fetchGeoIP(ctx context.Context, ip string) {
 		if entry, ok := config.BlockedClientsInfo[ip]; ok && (entry.CountryCode == "" || entry.CountryCode == "-") {
 			entry.CountryCode = resolved.CountryCode
 			config.BlockedClientsInfo[ip] = entry
-			saveConfigNoLock()
+			if err := saveConfigNoLock(); err != nil {
+				slog.Error("Failed to save config in fetchGeoIP (upgrade)", "error", err)
+			}
 		}
 	}
 	configLock.Unlock()
@@ -521,7 +523,9 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 						config.BlockedClientsInfo[ip] = entry
 						go func() {
 							configLock.Lock()
-							saveConfigNoLock()
+							if err := saveConfigNoLock(); err != nil {
+								slog.Error("Failed to save config in handleGeoBlock (add/remove)", "error", err)
+							}
 							configLock.Unlock()
 						}()
 					}
@@ -1230,6 +1234,8 @@ func ensureServerIPWhitelisted(ip string) {
 	if !found {
 		slog.Info("Automatically adding server public IP to autoblock whitelist", "ip", ip)
 		config.AutoblockWhitelist = append(config.AutoblockWhitelist, ip)
-		saveConfigNoLock()
+		if err := saveConfigNoLock(); err != nil {
+			slog.Error("Failed to save config in ensureServerIPWhitelisted", "error", err)
+		}
 	}
 }

@@ -27,6 +27,21 @@ document.addEventListener('DOMContentLoaded', () => {
     getEl('login-password')?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') auth.handleLogin();
     });
+    
+    getEl('mfa-confirm-btn')?.addEventListener('click', auth.handleMFAVerify);
+    getEl('mfa-code')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') auth.handleMFAVerify();
+    });
+    getEl('mfa-use-passkey-btn')?.addEventListener('click', auth.handlePasskeyLogin);
+    getEl('mfa-use-totp-btn')?.addEventListener('click', () => {
+        getEl('mfa-method-selector').classList.add('hidden');
+        getEl('mfa-totp-input-area').classList.remove('hidden');
+        getEl('mfa-code').focus();
+    });
+    getEl('mfa-back-to-selector')?.addEventListener('click', () => {
+        getEl('mfa-totp-input-area').classList.add('hidden');
+        getEl('mfa-method-selector').classList.remove('hidden');
+    });
 
     auth.checkAuthStatus(initializeApp);
 

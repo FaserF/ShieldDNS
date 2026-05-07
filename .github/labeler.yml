@@ -1,0 +1,43 @@
+# PR Labeler configuration
+# This configuration file is used by the actions/labeler workflow
+
+"area: backend":
+  - changed-files:
+    - any-glob-to-any-file: "admin/**/*.go"
+    - any-glob-to-any-file: "admin/go.mod"
+    - any-glob-to-any-file: "admin/go.sum"
+
+"area: frontend":
+  - changed-files:
+    - any-glob-to-any-file: "admin/www/**"
+
+"area: documentation":
+  - changed-files:
+    - any-glob-to-any-file: "docs/**"
+    - any-glob-to-any-file: "README.md"
+    - any-glob-to-any-file: "LICENSE"
+
+"area: devops":
+  - changed-files:
+    - any-glob-to-any-file: ".github/workflows/**"
+    - any-glob-to-any-file: "Dockerfile"
+    - any-glob-to-any-file: "docker-compose.yml"
+    - any-glob-to-any-file: ".dockerignore"
+    - any-glob-to-any-file: "renovate.json"
+
+"area: scripts":
+  - changed-files:
+    - any-glob-to-any-file: "run.sh"
+    - any-glob-to-any-file: "verify_layout.js"
+    - any-glob-to-any-file: "tools/**"
+
+"area: tests":
+  - changed-files:
+    - any-glob-to-any-file: "admin/**/*_test.go"
+    - any-glob-to-any-file: "test-results/**"
+    - any-glob-to-any-file: "test_ssl/**"
+
+"area: rules":
+  - changed-files:
+    - any-glob-to-any-file: "official/**"
+    - any-glob-to-any-file: "data/**"

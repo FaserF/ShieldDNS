@@ -22,6 +22,7 @@ export const uiRefs = {
     authOverlay: getEl('auth-overlay'),
     setupView: getEl('setup-view'),
     loginView: getEl('login-view'),
+    mfaView: getEl('mfa-view'),
     queryLogItems: getEl('query-log-items'),
     fullQueryLogItems: getEl('full-query-log-items'),
     statsContainer: {
@@ -47,6 +48,7 @@ export const updateUIRefs = () => {
     uiRefs.authOverlay = getEl('auth-overlay');
     uiRefs.setupView = getEl('setup-view');
     uiRefs.loginView = getEl('login-view');
+    uiRefs.mfaView = getEl('mfa-view');
     uiRefs.queryLogItems = getEl('query-log-items');
     uiRefs.fullQueryLogItems = getEl('full-query-log-items');
     

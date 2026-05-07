@@ -1,0 +1,56 @@
+name: Issue Labeler
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  label_issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Label based on content
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = (issue.body || "").toLowerCase();
+            const title = (issue.title || "").toLowerCase();
+            const content = title + " " + body;
+            
+            const labelsToAdd = [];
+            
+            // Environment detection
+            if (content.includes("docker")) {
+              labelsToAdd.push("env: docker");
+            }
+            if (content.includes("home assistant") || content.includes("ha addon") || content.includes("hassio")) {
+              labelsToAdd.push("env: ha-addon");
+            }
+            
+            // Area detection
+            if (content.includes("mfa") || content.includes("2fa") || content.includes("otp") || content.includes("webauthn") || content.includes("passkey")) {
+              labelsToAdd.push("area: mfa");
+            }
+            if (content.includes("dashboard") || content.includes("ui") || content.includes("frontend") || content.includes("oberfläche")) {
+              labelsToAdd.push("area: frontend");
+            }
+            if (content.includes("api") || content.includes("backend") || content.includes("go ")) {
+              labelsToAdd.push("area: backend");
+            }
+            if (content.includes("dns") || content.includes("resolver") || content.includes("upstream") || content.includes("dot") || content.includes("doh")) {
+              labelsToAdd.push("area: dns");
+            }
+            if (content.includes("rule") || content.includes("filter") || content.includes("blocklist") || content.includes("allowlist")) {
+              labelsToAdd.push("area: rules");
+            }
+            
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labelsToAdd
+              });
+            }
