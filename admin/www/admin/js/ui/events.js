@@ -30,6 +30,25 @@ function setSettingsDirty(dirty) {
 }
 
 export function initEvents(fetchConfig) {
+    // Logout handler (moved to top for maximum reliability)
+    const handleLogout = async (e) => {
+        console.log('Logout triggered');
+        if (e) e.preventDefault();
+        const confirmed = await helpers.showConfirm('Are you sure you want to log out?', 'Logout', true);
+        if (!confirmed) return;
+
+        try {
+            await api.apiFetch(api.endpoints.logout, { method: 'POST' });
+            window.location.reload(); 
+        } catch (err) {
+            helpers.showAlert('Logout failed: ' + err.message);
+        }
+    };
+
+    getEl('logout-btn')?.addEventListener('click', handleLogout);
+    getEl('nav-logout-btn')?.addEventListener('click', handleLogout);
+    window.handleLogout = handleLogout; // Global hook for debugging/failsafe
+
     // Domain Protection Switcher
     const searchBtn = getEl('search-btn');
     const searchInput = getEl('domain-search');
@@ -878,23 +897,6 @@ export function initEvents(fetchConfig) {
 
     // Init MFA management
     initMFA();
-
-    // Logout handler
-    const handleLogout = async (e) => {
-        if (e) e.preventDefault();
-        const confirmed = await helpers.showConfirm('Are you sure you want to log out?', 'Logout', true);
-        if (!confirmed) return;
-
-        try {
-            await api.apiFetch(api.endpoints.logout, { method: 'POST' });
-            window.location.reload(); // Reload will trigger redirection to login if unauthorized
-        } catch (err) {
-            helpers.showAlert('Logout failed: ' + err.message);
-        }
-    };
-
-    getEl('logout-btn')?.addEventListener('click', handleLogout);
-    getEl('nav-logout-btn')?.addEventListener('click', handleLogout);
 }
 
 export async function saveConfig(fetchConfig) {
@@ -1066,9 +1068,9 @@ async function handleTOTPVerify() {
     const btn = getEl('mfa-complete-setup');
     helpers.setBtnLoading(btn, true, 'Verifying...');
     try {
-        await api.apiFetch('/api/mfa/totp/verify', {
+        await api.apiFetch(api.endpoints.mfaTOTPVerify, {
             method: 'POST',
-            body: JSON.stringify({ code, name, secret })
+            body: JSON.stringify({ code, secret: state.pendingTOTPSecret, name })
         });
         helpers.showToast('Authenticator App added!');
         
@@ -1094,7 +1096,7 @@ async function handlePasskeyRegister() {
     if (name === null) return; // User cancelled
 
     try {
-        const options = await api.apiFetch('/api/mfa/webauthn/register/start', { method: 'POST' });
+        const options = await api.apiFetch(api.endpoints.mfaWebAuthnRegisterStart, { method: 'POST' });
         
         options.publicKey.challenge = helpers.bufferFromBase64(options.publicKey.challenge);
         options.publicKey.user.id = helpers.bufferFromBase64(options.publicKey.user.id);
@@ -1105,7 +1107,7 @@ async function handlePasskeyRegister() {
         }
 
         const credential = await navigator.credentials.create(options);
-        const credentialJSON = {
+        const attestation = {
             id: credential.id,
             rawId: helpers.base64FromBuffer(credential.rawId),
             type: credential.type,
@@ -1115,10 +1117,10 @@ async function handlePasskeyRegister() {
             }
         };
 
-        await api.apiFetch('/api/mfa/webauthn/register/finish', {
+        await api.apiFetch(api.endpoints.mfaWebAuthnRegisterFinish, {
             method: 'POST',
             headers: { 'X-Passkey-Name': name },
-            body: JSON.stringify(credentialJSON)
+            body: JSON.stringify(attestation)
         });
         
         helpers.showToast('Passkey registered!');
@@ -1138,7 +1140,7 @@ async function handleMFADisable() {
     if (!await helpers.showConfirm('Disable ALL Multi-Factor Authentication? This will remove all apps and keys.', 'Disable MFA', true)) return;
 
     try {
-        await api.apiFetch('/api/mfa/disable', { method: 'POST' });
+        await api.apiFetch(api.endpoints.mfaDisable, { method: 'POST' });
         helpers.showToast('MFA disabled.');
         const cfg = await api.apiFetch(api.endpoints.config);
         state.currentConfig = cfg;
@@ -1158,7 +1160,7 @@ window.deleteMFAMethod = async (type, id, event) => {
     if (btn) helpers.setBtnLoading(btn, true, '');
 
     try {
-        await api.apiFetch('/api/mfa/delete', {
+        await api.apiFetch(api.endpoints.mfaDelete, {
             method: 'POST',
             body: JSON.stringify({ type, id })
         });

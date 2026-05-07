@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -17,7 +19,11 @@ import (
 )
 
 // WebAuthnUser implements webauthn.User interface
-type WebAuthnUser struct{}
+type WebAuthnUser struct {
+	// CurrentRequest is used for "smart healing" of legacy credentials
+	// where backup flags were not previously stored.
+	CurrentRequest *http.Request
+}
 
 func (u WebAuthnUser) WebAuthnID() []byte {
 	return []byte("admin-user-id") // Static ID for the single admin user
@@ -36,10 +42,42 @@ func (u WebAuthnUser) WebAuthnCredentials() []webauthn.Credential {
 	defer configLock.RUnlock()
 
 	res := make([]webauthn.Credential, len(config.WebAuthnCredentials))
+	// Smart Healing: If this is a login request, we try to detect if the stored
+	// credential is "legacy" (no backup flags) and temporarily align them
+	// with the incoming assertion to pass the consistency check.
+	var incomingID []byte
+	var incomingFlags protocol.AuthenticatorFlags
+	hasIncoming := false
+
+	if u.CurrentRequest != nil {
+		// We use protocol.ParseCredentialRequestResponse which is safe to call multiple times
+		// as it doesn't consume the body if we use a buffer or if it's already parsed.
+		parsed, err := protocol.ParseCredentialRequestResponse(u.CurrentRequest)
+		if err == nil && parsed != nil {
+			incomingID = parsed.RawID
+			incomingFlags = parsed.Response.AuthenticatorData.Flags
+			hasIncoming = true
+		}
+	}
+
 	for i, c := range config.WebAuthnCredentials {
 		transports := make([]protocol.AuthenticatorTransport, len(c.Transport))
 		for j, t := range c.Transport {
 			transports[j] = protocol.AuthenticatorTransport(t)
+		}
+
+		flags := webauthn.CredentialFlags{
+			UserPresent:    c.UserPresent,
+			UserVerified:   c.UserVerified,
+			BackupEligible: c.BackupEligible,
+			BackupState:    c.BackupState,
+		}
+
+		// Smart Healing: If this is a legacy credential (both backup flags false),
+		// we temporarily align it with the incoming assertion to pass the consistency check.
+		if hasIncoming && string(c.ID) == string(incomingID) && !c.BackupEligible && !c.BackupState {
+			flags.BackupEligible = incomingFlags.BackupEligible()
+			flags.BackupState = incomingFlags.BackupState()
 		}
 
 		res[i] = webauthn.Credential{
@@ -52,12 +90,7 @@ func (u WebAuthnUser) WebAuthnCredentials() []webauthn.Credential {
 				SignCount:    c.Authenticator.SignCount,
 				CloneWarning: c.Authenticator.CloneWarning,
 			},
-			Flags: webauthn.CredentialFlags{
-				UserPresent:    c.UserPresent,
-				UserVerified:   c.UserVerified,
-				BackupEligible: c.BackupEligible,
-				BackupState:    c.BackupState,
-			},
+			Flags: flags,
 		}
 	}
 	return res
@@ -436,7 +469,7 @@ func handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	credential, err := currentWA.FinishRegistration(WebAuthnUser{}, session, r)
+	credential, err := currentWA.FinishRegistration(&WebAuthnUser{CurrentRequest: r}, session, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -543,6 +576,14 @@ func handleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	session := val.(webauthn.SessionData)
 
+	// Buffer body to allow multiple reads for "smart healing"
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	webauthnMu.RLock()
 	currentWA := wa
 	webauthnMu.RUnlock()
@@ -552,7 +593,7 @@ func handleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	credential, err := currentWA.FinishLogin(WebAuthnUser{}, session, r)
+	credential, err := currentWA.FinishLogin(&WebAuthnUser{CurrentRequest: r}, session, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

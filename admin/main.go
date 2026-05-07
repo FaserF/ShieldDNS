@@ -289,6 +289,7 @@ func setupRouter() *http.ServeMux {
 	mux.Handle("/api/mfa/totp/setup", authMiddleware(http.HandlerFunc(handleTOTPSetup)))
 	mux.HandleFunc("/api/mfa/totp/verify", handleTOTPVerify)
 	mux.Handle("/api/mfa/disable", authMiddleware(http.HandlerFunc(handleMFADisable)))
+	mux.Handle("/api/mfa/delete", authMiddleware(http.HandlerFunc(handleMFADelete)))
 	mux.Handle("/api/mfa/webauthn/register/start", authMiddleware(http.HandlerFunc(handleWebAuthnRegisterStart)))
 	mux.Handle("/api/mfa/webauthn/register/finish", authMiddleware(http.HandlerFunc(handleWebAuthnRegisterFinish)))
 	mux.HandleFunc("/api/mfa/webauthn/login/start", handleWebAuthnLoginStart)

@@ -111,5 +111,14 @@ export const endpoints = {
     serverCountry: basePath + '/api/system/server-country',
     login: basePath + '/api/login',
     logout: basePath + '/api/logout',
-    setup: basePath + '/api/setup'
+    setup: basePath + '/api/setup',
+    mfaChallenge: basePath + '/api/mfa/challenge',
+    mfaTOTPSetup: basePath + '/api/mfa/totp/setup',
+    mfaTOTPVerify: basePath + '/api/mfa/totp/verify',
+    mfaDisable: basePath + '/api/mfa/disable',
+    mfaDelete: basePath + '/api/mfa/delete',
+    mfaWebAuthnRegisterStart: basePath + '/api/mfa/webauthn/register/start',
+    mfaWebAuthnRegisterFinish: basePath + '/api/mfa/webauthn/register/finish',
+    mfaWebAuthnLoginStart: basePath + '/api/mfa/webauthn/login/start',
+    mfaWebAuthnLoginFinish: basePath + '/api/mfa/webauthn/login/finish'
 };
