@@ -95,6 +95,8 @@ type Authenticator struct {
 	AAGUID       []byte `json:"aaguid"`
 	SignCount    uint32 `json:"sign_count"`
 	CloneWarning bool   `json:"clone_warning"`
+	BackupEligible bool   `json:"backup_eligible"`
+	BackupState    bool   `json:"backup_state"`
 }
 
 type List struct {
@@ -330,6 +332,10 @@ func (c *Config) Clone() *Config {
 			if cred.PublicKey != nil {
 				newCfg.WebAuthnCredentials[i].PublicKey = make([]byte, len(cred.PublicKey))
 				copy(newCfg.WebAuthnCredentials[i].PublicKey, cred.PublicKey)
+			}
+			if cred.Authenticator.AAGUID != nil {
+				newCfg.WebAuthnCredentials[i].Authenticator.AAGUID = make([]byte, len(cred.Authenticator.AAGUID))
+				copy(newCfg.WebAuthnCredentials[i].Authenticator.AAGUID, cred.Authenticator.AAGUID)
 			}
 			if cred.Transport != nil {
 				newCfg.WebAuthnCredentials[i].Transport = make([]string, len(cred.Transport))

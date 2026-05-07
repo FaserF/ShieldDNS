@@ -48,9 +48,11 @@ func (u WebAuthnUser) WebAuthnCredentials() []webauthn.Credential {
 			AttestationType: c.AttestationType,
 			Transport:       transports,
 			Authenticator: webauthn.Authenticator{
-				AAGUID:       c.Authenticator.AAGUID,
-				SignCount:    c.Authenticator.SignCount,
-				CloneWarning: c.Authenticator.CloneWarning,
+				AAGUID:         c.Authenticator.AAGUID,
+				SignCount:      c.Authenticator.SignCount,
+				CloneWarning:   c.Authenticator.CloneWarning,
+				BackupEligible: c.Authenticator.BackupEligible,
+				BackupState:    c.Authenticator.BackupState,
 			},
 		}
 	}
@@ -451,9 +453,11 @@ func handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 		AttestationType: credential.AttestationType,
 		Transport:       transports,
 		Authenticator: Authenticator{
-			AAGUID:       credential.Authenticator.AAGUID,
-			SignCount:    credential.Authenticator.SignCount,
-			CloneWarning: credential.Authenticator.CloneWarning,
+			AAGUID:         credential.Authenticator.AAGUID,
+			SignCount:      credential.Authenticator.SignCount,
+			CloneWarning:   credential.Authenticator.CloneWarning,
+			BackupEligible: credential.Authenticator.BackupEligible,
+			BackupState:    credential.Authenticator.BackupState,
 		},
 		Name:      name,
 		CreatedAt: time.Now(),
@@ -555,6 +559,8 @@ func handleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 		if string(c.ID) == string(credential.ID) {
 			config.WebAuthnCredentials[i].Authenticator.SignCount = credential.Authenticator.SignCount
 			config.WebAuthnCredentials[i].Authenticator.CloneWarning = credential.Authenticator.CloneWarning
+			config.WebAuthnCredentials[i].Authenticator.BackupEligible = credential.Authenticator.BackupEligible
+			config.WebAuthnCredentials[i].Authenticator.BackupState = credential.Authenticator.BackupState
 			foundCred = true
 			break
 		}
