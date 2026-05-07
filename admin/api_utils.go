@@ -286,6 +286,56 @@ func GetCountryCodeCached(ip string) string {
 // It is the single source of truth for all GeoIP lookups.
 // After a successful lookup it also upgrades BlockedClientsInfo so all UI views are consistent.
 func fetchGeoIP(ctx context.Context, ip string) {
+	resolved, err := resolveGeoIP(ctx, ip)
+	if err != nil {
+		return
+	}
+
+	// Update geoCache (used by GetCountryCodeCached and handleIPInfo)
+	geoCache.Store(ip, resolved)
+
+	// Also update ipInfoCache so the IP detail view is immediately correct
+	if existing, ok := ipInfoCache.Load(ip); ok {
+		prev := existing.(IPInfo)
+		// Merge: only overwrite geo fields, keep hostname/alias/mac etc.
+		if prev.Country == "" || prev.Country == "-" {
+			prev.Country = resolved.Country
+		}
+		if prev.CountryCode == "" || prev.CountryCode == "-" {
+			prev.CountryCode = resolved.CountryCode
+		}
+		if prev.City == "" || prev.City == "-" {
+			prev.City = resolved.City
+		}
+		if prev.ISP == "" || prev.ISP == "-" {
+			prev.ISP = resolved.ISP
+		}
+		prev.Org = resolved.Org
+		prev.AS = resolved.AS
+		prev.ExpiresAt = resolved.ExpiresAt
+		ipInfoCache.Store(ip, prev)
+	} else {
+		ipInfoCache.Store(ip, resolved)
+	}
+
+	// Upgrade BlockedClientsInfo so all views (Currently Blocked Clients) see the country
+	configLock.Lock()
+	if config.BlockedClientsInfo != nil {
+		if entry, ok := config.BlockedClientsInfo[ip]; ok && (entry.CountryCode == "" || entry.CountryCode == "-") {
+			entry.CountryCode = resolved.CountryCode
+			config.BlockedClientsInfo[ip] = entry
+			go func() {
+				configLock.Lock()
+				saveConfigNoLock()
+				configLock.Unlock()
+			}()
+		}
+	}
+	configLock.Unlock()
+}
+
+// resolveGeoIP is the internal robust lookup engine using multiple providers.
+func resolveGeoIP(ctx context.Context, ip string) (IPInfo, error) {
 	var geoData struct {
 		Country     string `json:"country"`
 		CountryCode string `json:"countryCode"`
@@ -296,13 +346,53 @@ func fetchGeoIP(ctx context.Context, ip string) {
 		Status      string `json:"status"`
 	}
 
-	providers := []string{
-		"https://ip-api.com/json/" + ip + "?fields=status,country,countryCode,city,isp,org,as",
-		"http://ip-api.com/json/" + ip + "?fields=status,country,countryCode,city,isp,org,as",
+	providers := []struct {
+		url    string
+		parser func([]byte) error
+	}{
+		{
+			url: "https://ip-api.com/json/" + ip + "?fields=status,country,countryCode,city,isp,org,as",
+			parser: func(b []byte) error {
+				return json.Unmarshal(b, &geoData)
+			},
+		},
+		{
+			url: "http://ip-api.com/json/" + ip + "?fields=status,country,countryCode,city,isp,org,as",
+			parser: func(b []byte) error {
+				return json.Unmarshal(b, &geoData)
+			},
+		},
+		{
+			url: "https://ipwho.is/" + ip,
+			parser: func(b []byte) error {
+				var raw struct {
+					Country     string `json:"country"`
+					CountryCode string `json:"country_code"`
+					City        string `json:"city"`
+					Connection  struct {
+						ISP string `json:"isp"`
+						Org string `json:"org"`
+						ASN int    `json:"asn"`
+					} `json:"connection"`
+					Success bool `json:"success"`
+				}
+				if err := json.Unmarshal(b, &raw); err != nil || !raw.Success {
+					return fmt.Errorf("ipwho.is failed")
+				}
+				geoData.Status = "success"
+				geoData.Country = raw.Country
+				geoData.CountryCode = raw.CountryCode
+				geoData.City = raw.City
+				geoData.ISP = raw.Connection.ISP
+				geoData.Org = raw.Connection.Org
+				geoData.AS = fmt.Sprintf("AS%d", raw.Connection.ASN)
+				return nil
+			},
+		},
 	}
 
-	for _, providerURL := range providers {
-		req, err := http.NewRequestWithContext(ctx, "GET", providerURL, nil)
+	for _, p := range providers {
+		req, err := http.NewRequestWithContext(ctx, "GET", p.url, nil)
 		if err != nil {
 			continue
 		}
@@ -312,66 +402,24 @@ func fetchGeoIP(ctx context.Context, ip string) {
 		if err != nil {
 			continue
 		}
-		err = json.NewDecoder(resp.Body).Decode(&geoData)
+		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
-		if err == nil && geoData.Status == "success" && geoData.CountryCode != "" {
-			break
+		if err := p.parser(body); err == nil && geoData.Status == "success" && geoData.CountryCode != "" {
+			return IPInfo{
+				IP:          ip,
+				Country:     geoData.Country,
+				CountryCode: geoData.CountryCode,
+				City:        geoData.City,
+				ISP:         geoData.ISP,
+				Org:         geoData.Org,
+				AS:          geoData.AS,
+				ExpiresAt:   time.Now().Add(24 * time.Hour),
+			}, nil
 		}
 	}
 
-	if geoData.CountryCode == "" {
-		return
-	}
-
-	resolved := IPInfo{
-		IP:          ip,
-		Country:     geoData.Country,
-		CountryCode: geoData.CountryCode,
-		City:        geoData.City,
-		ISP:         geoData.ISP,
-		Org:         geoData.Org,
-		AS:          geoData.AS,
-		ExpiresAt:   time.Now().Add(24 * time.Hour),
-	}
-
-	// Update geoCache (used by GetCountryCodeCached and handleIPInfo)
-	geoCache.Store(ip, resolved)
-
-	// Also update ipInfoCache so the IP detail view is immediately correct
-	if existing, ok := ipInfoCache.Load(ip); ok {
-		prev := existing.(IPInfo)
-		// Merge: only overwrite geo fields, keep hostname/alias/mac etc.
-		if prev.Country == "" {
-			prev.Country = resolved.Country
-		}
-		if prev.CountryCode == "" {
-			prev.CountryCode = resolved.CountryCode
-		}
-		if prev.City == "" {
-			prev.City = resolved.City
-		}
-		if prev.ISP == "" {
-			prev.ISP = resolved.ISP
-		}
-		prev.ExpiresAt = resolved.ExpiresAt
-		ipInfoCache.Store(ip, prev)
-	}
-
-	// Upgrade BlockedClientsInfo so all views (Currently Blocked Clients) see the country
-	configLock.Lock()
-	if config.BlockedClientsInfo != nil {
-		if entry, ok := config.BlockedClientsInfo[ip]; ok && (entry.CountryCode == "" || entry.CountryCode == "-") {
-			entry.CountryCode = geoData.CountryCode
-			config.BlockedClientsInfo[ip] = entry
-			go func() {
-				configLock.Lock()
-				saveConfigNoLock()
-				configLock.Unlock()
-			}()
-		}
-	}
-	configLock.Unlock()
+	return IPInfo{}, fmt.Errorf("all GeoIP providers failed for %s", ip)
 }
 
 func handleIPInfo(w http.ResponseWriter, r *http.Request) {
@@ -455,86 +503,32 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 			geoCtx, geoCancel := context.WithTimeout(r.Context(), 5*time.Second)
 			defer geoCancel()
 
-			var geoData struct {
-				Country     string `json:"country"`
-				CountryCode string `json:"countryCode"`
-				City        string `json:"city"`
-				ISP         string `json:"isp"`
-				Org         string `json:"org"`
-				AS          string `json:"as"`
-				Status      string `json:"status"`
-				Message     string `json:"message"`
-			}
+			resolved, err := resolveGeoIP(geoCtx, ip)
+			if err == nil {
+				info.Country = resolved.Country
+				info.CountryCode = resolved.CountryCode
+				info.City = resolved.City
+				info.ISP = resolved.ISP
+				info.Org = resolved.Org
+				info.AS = resolved.AS
 
-			// Multiple providers for client IP resolution
-			providers := []struct {
-				url    string
-				parser func([]byte) error
-			}{
-				{
-					url: "https://ip-api.com/json/" + ip,
-					parser: func(b []byte) error {
-						return json.Unmarshal(b, &geoData)
-					},
-				},
-				{
-					url: "http://ip-api.com/json/" + ip,
-					parser: func(b []byte) error {
-						return json.Unmarshal(b, &geoData)
-					},
-				},
-				{
-					url: "https://ipwho.is/" + ip,
-					parser: func(b []byte) error {
-						var raw struct {
-							Country     string `json:"country"`
-							CountryCode string `json:"country_code"`
-							City        string `json:"city"`
-							Connection  struct {
-								ISP string `json:"isp"`
-								Org string `json:"org"`
-								ASN int    `json:"asn"`
-							} `json:"connection"`
-							Success bool `json:"success"`
-						}
-						if err := json.Unmarshal(b, &raw); err != nil || !raw.Success {
-							return fmt.Errorf("ipwho.is failed or returned success=false")
-						}
-						geoData.Status = "success"
-						geoData.Country = raw.Country
-						geoData.CountryCode = raw.CountryCode
-						geoData.City = raw.City
-						geoData.ISP = raw.Connection.ISP
-						geoData.Org = raw.Connection.Org
-						geoData.AS = fmt.Sprintf("AS%d", raw.Connection.ASN)
-						return nil
-					},
-				},
-			}
+				// Store in cache
+				geoCache.Store(ip, info)
 
-			for _, p := range providers {
-				req, _ := http.NewRequestWithContext(geoCtx, "GET", p.url, nil)
-				req.Header.Set("User-Agent", "ShieldDNS-Admin/v1.14")
-
-				resp, err := http.DefaultClient.Do(req)
-				if err != nil {
-					continue
+				// Also upgrade BlockedClientsInfo if this client is blocked
+				configLock.Lock()
+				if config.BlockedClientsInfo != nil {
+					if entry, ok := config.BlockedClientsInfo[ip]; ok && (entry.CountryCode == "" || entry.CountryCode == "-") {
+						entry.CountryCode = resolved.CountryCode
+						config.BlockedClientsInfo[ip] = entry
+						go func() {
+							configLock.Lock()
+							saveConfigNoLock()
+							configLock.Unlock()
+						}()
+					}
 				}
-				body, _ := io.ReadAll(resp.Body)
-				resp.Body.Close()
-
-				if err := p.parser(body); err == nil && geoData.Status == "success" {
-					info.Country = geoData.Country
-					info.CountryCode = geoData.CountryCode
-					info.City = geoData.City
-					info.ISP = geoData.ISP
-					info.Org = geoData.Org
-					info.AS = geoData.AS
-
-					// Store in cache
-					geoCache.Store(ip, info)
-					break
-				}
+				configLock.Unlock()
 			}
 		}
 	}
