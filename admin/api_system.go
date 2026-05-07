@@ -824,6 +824,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.DoHRateLimit == 0 && config.DoHRateLimit != 0 {
 			newConfig.DoHRateLimit = config.DoHRateLimit
 		}
+		if newConfig.RetentionDays == 0 && config.RetentionDays != 0 {
+			newConfig.RetentionDays = config.RetentionDays
+		}
 
 		// Security: Validate Upstreams and UpstreamDoT for malicious injections
 		validatedUpstreams := make([]string, 0, len(newConfig.Upstreams))
