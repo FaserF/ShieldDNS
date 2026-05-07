@@ -217,7 +217,9 @@ func authMiddleware(next http.Handler) http.Handler {
 						for i, k := range config.APIKeys {
 							if k.TokenHash == hashed {
 								config.APIKeys[i].LastUsed = now
-								saveConfigNoLock()
+								if err := saveConfigNoLock(); err != nil {
+							slog.Error("Failed to save config in cleanupSessions", "error", err)
+						}
 								apiLastWrite.Store(hashed, now)
 								break
 							}
@@ -284,7 +286,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		mfaEnabled := config.MFAEnabled
 		configLock.RUnlock()
 
-		if mfaEnabled && !sess.MFAVerified {
+		if mfaEnabled && !sess.MFAVerified && !isMFAEndpoint(r.URL.Path) {
 			renderError(w, "MFA required", "MFA_REQUIRED", http.StatusForbidden)
 			return
 		}
@@ -304,19 +306,25 @@ func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 	configLock.RUnlock()
 
 	loggedIn := false
+	mfaRequired := false
 	if cookie, err := r.Cookie(CookieName); err == nil {
 		if val, found := sessionStore.Load(cookie.Value); found {
 			sess := val.(Session)
-			if time.Now().Before(sess.ExpiresAt) && sess.MFAVerified {
-				loggedIn = true
+			if time.Now().Before(sess.ExpiresAt) {
+				if sess.MFAVerified {
+					loggedIn = true
+				} else {
+					mfaRequired = true
+				}
 			}
 		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"need_setup": !hasPwd,
-		"logged_in":  loggedIn,
+		"need_setup":   !hasPwd,
+		"logged_in":    loggedIn,
+		"mfa_required": mfaRequired,
 	})
 }
 
@@ -346,7 +354,11 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	config.AdminPasswordHashed = string(hash)
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleSetup", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		return
+	}
 	slog.Info("Admin setup completed", "ip", strings.Split(r.RemoteAddr, ":")[0])
 
 	w.Header().Set("Content-Type", "application/json")
@@ -434,7 +446,9 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		config.PreviousLogin = config.LastLogin
 	}
 	config.LastLogin = time.Now()
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleLogin (update session)", "error", err)
+	}
 	configLock.Unlock()
 
 	slog.Info("Admin logged in", "ip", ip)
@@ -491,7 +505,9 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	config.AdminPasswordHashed = string(hash)
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleTokenLogin", "error", err)
+	}
 
 	// Clear all sessions on pwd change
 	sessionStore.Range(func(key, value interface{}) bool {
@@ -582,4 +598,9 @@ func getRequiredPermission(r *http.Request) string {
 		return "write:system"
 	}
 	return "admin:all"
+}
+func isMFAEndpoint(path string) bool {
+	return strings.HasPrefix(path, "/api/mfa/totp/verify") ||
+		strings.HasPrefix(path, "/api/mfa/webauthn/login") ||
+		path == "/api/mfa/status"
 }

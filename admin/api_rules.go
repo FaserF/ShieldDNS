@@ -24,7 +24,9 @@ func handleToggleFiltering(w http.ResponseWriter, r *http.Request) {
 
 	configLock.Lock()
 	config.FilteringEnabled = req.Enabled
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleToggleFiltering", "error", err)
+	}
 	configLock.Unlock()
 
 	updateCorefile()
@@ -160,7 +162,11 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleRuleAdd", "error", err)
+		sendJSONError(w, "Failed to save configuration", http.StatusInternalServerError)
+		return
+	}
 	reloadRulesFastNoLock(config.Clone())
 
 	w.WriteHeader(http.StatusOK)
@@ -209,7 +215,11 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 		delete(config.CustomMappings, domain)
 	}
 
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleRuleRemove", "error", err)
+		sendJSONError(w, "Failed to save configuration", http.StatusInternalServerError)
+		return
+	}
 	reloadRulesFastNoLock(config.Clone())
 
 	w.WriteHeader(http.StatusOK)
@@ -286,7 +296,12 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 
-				saveConfigNoLock()
+				if err := saveConfigNoLock(); err != nil {
+					slog.Error("Failed to save config in handleRefresh", "error", err)
+					http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+					configLock.Unlock()
+					return
+				}
 				configLock.Unlock()
 				go updateBlocklist(nil, true)
 				updateCorefile()
@@ -350,7 +365,9 @@ func handleResetLists(w http.ResponseWriter, r *http.Request) {
 	configLock.Lock()
 	config.Lists = DefaultPresets
 	config.Allowlists = DefaultAllowlists
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleResetLists", "error", err)
+	}
 	configLock.Unlock()
 
 	// Trigger background update

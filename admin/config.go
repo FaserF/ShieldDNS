@@ -123,7 +123,9 @@ func loadConfig() {
 
 	// If it was newly created, save the config immediately after env overrides
 	if isNew {
-		saveConfigNoLock()
+		if err := saveConfigNoLock(); err != nil {
+			slog.Error("Failed to save initial default config", "error", err)
+		}
 	}
 
 	// 4. Prepend official lists if missing
@@ -211,44 +213,40 @@ func ensureOfficialLists() {
 	}
 }
 
-func saveConfig() {
+func saveConfig() error {
 	configLock.Lock()
 	defer configLock.Unlock()
-	saveConfigNoLock()
+	return saveConfigNoLock()
 }
 
-func saveConfigNoLock() {
+func saveConfigNoLock() error {
 	// CRITICAL SAFETY CHECK: Never save an empty or masked password/API keys if setup is done.
 	// This prevents the "json:-" regression from corrupting the config on disk.
 	if config.SetupDone {
 		if config.AdminPasswordHashed == "" || config.AdminPasswordHashed == "********" {
-			slog.Error("CRITICAL: Attempted to save config with invalid password hash. ABORTING SAVE TO PREVENT CONFIG LOSS.")
-			return
+			return fmt.Errorf("attempted to save config with invalid password hash")
 		}
 		for _, k := range config.APIKeys {
 			if k.TokenHash == "********" {
-				slog.Error("CRITICAL: Attempted to save config with masked API key hashes. ABORTING SAVE TO PREVENT CONFIG LOSS.")
-				return
+				return fmt.Errorf("attempted to save config with masked API key hashes")
 			}
 		}
 		if config.MFAEnabled && len(config.TOTPConfigs) == 0 && len(config.WebAuthnCredentials) == 0 {
-			slog.Error("CRITICAL: Attempted to save config with MFA enabled but NO methods registered. ABORTING SAVE TO PREVENT LOCKOUT.")
-			return
+			return fmt.Errorf("attempted to save config with MFA enabled but NO methods registered")
 		}
 	}
 
 	debugModeEnabled.Store(config.DebugMode)
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
-		slog.Error("Failed to marshal config", "error", err)
-		return
+		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 	os.MkdirAll(filepath.Dir(ConfigPath), 0755)
 	if err := atomicWriteFile(ConfigPath, data); err != nil {
-		slog.Error("Failed to save config", "path", ConfigPath, "error", err)
-	} else {
-		slog.Debug("Config saved", "path", ConfigPath)
+		return fmt.Errorf("failed to save config: %w", err)
 	}
+	slog.Debug("Config saved", "path", ConfigPath)
+	return nil
 }
 
 // RetrofitBlockedClientsInfo ensures all blocked clients have metadata including country codes.
@@ -376,7 +374,9 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 			}
 		}
 	}
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config after blocklist update", "error", err)
+	}
 	configLock.Unlock()
 
 	// Add Custom Rules
@@ -395,7 +395,9 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 		}
 	}
 
-	saveConfig()
+	if err := saveConfig(); err != nil {
+		slog.Error("Failed to save config in updateBlocklist", "error", err)
+	}
 	applyCurrentRules(newBlockAttribution, newAllowAttribution, allowDomains, customMappings, blockPageIP, restartCore)
 }
 

@@ -536,7 +536,12 @@ func handleClientAlias(w http.ResponseWriter, r *http.Request) {
 		} else {
 			config.ClientAliases[req.IP] = req.Alias
 		}
-		saveConfigNoLock()
+		if err := saveConfigNoLock(); err != nil {
+			slog.Error("Failed to save config in handleClientAlias", "error", err)
+			http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+			configLock.Unlock()
+			return
+		}
 		configLock.Unlock()
 
 		w.WriteHeader(http.StatusOK)
@@ -581,7 +586,12 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if changed {
-			saveConfigNoLock()
+			if err := saveConfigNoLock(); err != nil {
+				slog.Error("Failed to save config in handleClientBlock", "error", err)
+				http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+				configLock.Unlock()
+				return
+			}
 		}
 
 		json.NewEncoder(w).Encode(config.BlockedClientsInfo)
@@ -652,7 +662,12 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		saveConfigNoLock()
+		if err := saveConfigNoLock(); err != nil {
+			slog.Error("Failed to save config in handleClientBlock (POST)", "error", err)
+			http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+			configLock.Unlock()
+			return
+		}
 		configLock.Unlock()
 
 		// Apply to CoreDNS immediately

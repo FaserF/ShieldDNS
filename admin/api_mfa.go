@@ -185,7 +185,12 @@ func handleTOTPVerify(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: time.Now(),
 	})
 	config.MFAEnabled = true
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleTOTPVerify", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		configLock.Unlock()
+		return
+	}
 	configLock.Unlock()
 
 	// Also mark current session as MFA verified
@@ -194,6 +199,8 @@ func handleTOTPVerify(w http.ResponseWriter, r *http.Request) {
 		sess.MFAVerified = true
 		sessionStore.Store(cookie.Value, sess)
 	}
+
+	pendingTOTPSecrets.Delete(cookie.Value)
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, `{"status":"success"}`)
@@ -241,7 +248,9 @@ func handleMFADelete(w http.ResponseWriter, r *http.Request) {
 		config.MFAEnabled = false
 	}
 
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleMFADelete", "error", err)
+	}
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, `{"status":"deleted"}`)
 }
@@ -262,7 +271,12 @@ func handleMFADisable(w http.ResponseWriter, r *http.Request) {
 	config.MFAEnabled = false
 	config.TOTPConfigs = nil
 	config.WebAuthnCredentials = nil
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleMFADisable", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		configLock.Unlock()
+		return
+	}
 	configLock.Unlock()
 
 	w.WriteHeader(http.StatusOK)
@@ -411,7 +425,12 @@ func handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: time.Now(),
 	})
 	config.MFAEnabled = true
-	saveConfigNoLock()
+	if err := saveConfigNoLock(); err != nil {
+		slog.Error("Failed to save config in handleWebAuthnRegisterFinish", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		configLock.Unlock()
+		return
+	}
 	configLock.Unlock()
 
 	waSessionStore.Delete(cookie.Value)

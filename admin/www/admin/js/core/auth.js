@@ -17,7 +17,11 @@ export async function checkAuthStatus(onSuccess) {
         if (data.need_setup) {
             showView('setup');
         } else if (!data.logged_in) {
-            showView('login');
+            if (data.mfa_required) {
+                showView('mfa');
+            } else {
+                showView('login');
+            }
         } else {
             uiRefs.authOverlay?.classList.add('hidden');
             onSuccess();
@@ -30,7 +34,11 @@ export async function checkAuthStatus(onSuccess) {
             uiRefs.setupView?.classList.remove('hidden');
         } else if (!data.logged_in) {
             uiRefs.authOverlay?.classList.remove('hidden');
-            uiRefs.loginView?.classList.remove('hidden');
+            if (data.mfa_required) {
+                uiRefs.mfaView?.classList.remove('hidden');
+            } else {
+                uiRefs.loginView?.classList.remove('hidden');
+            }
         } else {
             uiRefs.authOverlay?.classList.add('hidden');
             onSuccess();

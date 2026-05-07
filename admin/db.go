@@ -320,13 +320,14 @@ func initializeStatsFromDB() {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	aggregateHourlyStats(appCtx, time.Now().UTC().Add(-1*time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05"))
+	defer cancel()
+	aggregateHourlyStats(ctx, time.Now().UTC().Add(-1*time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05"))
 
 	// Run full catch-up in background
 	slog.Info("Starting initial stats catch-up...")
 	for i := 1; i <= 24; i++ {
 		targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-		aggregateHourlyStats(appCtx, targetHour)
+		aggregateHourlyStats(ctx, targetHour)
 	}
 
 	total, blocked, cacheHits, err := Get24hStats()
