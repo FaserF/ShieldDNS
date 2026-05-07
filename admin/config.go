@@ -582,81 +582,72 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			continue
 		}
 
+		// Skip AdGuard/uBlock Origin cosmetic filters and advanced rules
+		if strings.Contains(line, "##") || strings.Contains(line, "#?#") || strings.Contains(line, "#$#") {
+			continue
+		}
+
 		isAllowlist := false
 		if strings.HasPrefix(line, "@@") {
 			isAllowlist = true
 			line = line[2:]
 		}
 
-		domain := ""
-		isWildcard := false
-		// AdGuard / AdBlock: ||domain^
+		// 3. Handle AdGuard / AdBlock: ||domain^
 		if strings.HasPrefix(line, "||") {
 			content := strings.TrimPrefix(line, "||")
-			domain = strings.Split(content, "^")[0]
-			// Skip rules that contain paths, queries, or fragments as they are not DNS-level rules
-			if strings.ContainsAny(domain, "/?#") {
-				continue
+			domainPart := content
+			if idx := strings.IndexAny(content, "^$"); idx != -1 {
+				domainPart = content[:idx]
 			}
-			isWildcard = true
-		} else if strings.HasPrefix(line, "0.0.0.0 ") || strings.HasPrefix(line, "127.0.0.1 ") || strings.HasPrefix(line, "::1 ") || strings.HasPrefix(line, ":: ") {
-			// Hosts: 0.0.0.0 domain
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				domain = parts[1]
-			}
-		} else if strings.HasPrefix(line, "address=/") {
-			// Dnsmasq: address=/domain/0.0.0.0
-			parts := strings.Split(line, "/")
-			if len(parts) >= 3 {
-				domain = parts[1]
-				isWildcard = true
-			}
-		} else {
-			// Raw domain, potentially with comments or multiple fields
-			// Remove comments first
-			lineContent := strings.Split(line, "#")[0]
-			lineContent = strings.Split(lineContent, "!")[0]
-			parts := strings.Fields(lineContent)
-			if len(parts) > 0 {
-				potentialDomain := parts[0]
-				// Basic check for a domain-like string
-				if strings.Contains(potentialDomain, ".") && !strings.Contains(potentialDomain, "/") {
-					domain = potentialDomain
+			d := NormalizeDomain(domainPart)
+			if d != "" {
+				if added := addDomain(d, isAllowlist, list.Name, true, blockMap, allowMap, allowAttr); added {
+					count++
 				}
 			}
+			continue
 		}
 
-		if domain != "" {
-			domain = NormalizeDomain(domain)
-			if domain == "" {
-				continue
-			}
-
-			// Prepare list of domains to add (original and wildcard if applicable)
-			domains := []string{domain}
-			if isWildcard && !strings.HasPrefix(domain, "*.") {
-				domains = append(domains, "*."+domain)
-			}
-
-			for _, d := range domains {
-				count++
-				if isAllowlist {
-					allowMap[d] = struct{}{}
-					if allowAttr != nil {
-						allowAttr[d] = append(allowAttr[d], list.Name)
+		// 4. Handle Hosts: 0.0.0.0 domain
+		if strings.HasPrefix(line, "0.0.0.0 ") || strings.HasPrefix(line, "127.0.0.1 ") || strings.HasPrefix(line, "::1 ") || strings.HasPrefix(line, ":: ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				d := NormalizeDomain(parts[1])
+				if d != "" {
+					if added := addDomain(d, isAllowlist, list.Name, false, blockMap, allowMap, allowAttr); added {
+						count++
 					}
-				} else if blockMap != nil {
-					// Avoid duplicates in the same list attribution
-					alreadyPresent := false
-					for _, name := range blockMap[d] {
-						if name == list.Name {
-							alreadyPresent = true
-							break
-						}
+				}
+			}
+			continue
+		}
+
+		// 5. Handle Dnsmasq: address=/domain/0.0.0.0
+		if strings.HasPrefix(line, "address=/") {
+			parts := strings.Split(line, "/")
+			if len(parts) >= 3 {
+				d := NormalizeDomain(parts[1])
+				if d != "" {
+					if added := addDomain(d, isAllowlist, list.Name, true, blockMap, allowMap, allowAttr); added {
+						count++
 					}
-					if !alreadyPresent {
-						blockMap[d] = append(blockMap[d], list.Name)
+				}
+			}
+			continue
+		}
+
+		// 6. Fallback: Raw domain or comma-separated list
+		lineContent := strings.Split(line, "#")[0]
+		lineContent = strings.Split(lineContent, "!")[0]
+		parts := strings.Fields(lineContent)
+		for _, p := range parts {
+			subParts := strings.Split(p, ",")
+			for _, sub := range subParts {
+				d := NormalizeDomain(sub)
+				if d != "" {
+					if added := addDomain(d, isAllowlist, list.Name, false, blockMap, allowMap, allowAttr); added {
+						count++
 					}
 				}
 			}
@@ -670,6 +661,41 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 	if err := scanner.Err(); err != nil {
 		slog.Error("Error reading lines for list", "name", list.Name, "error", err)
 	}
+}
+
+func addDomain(domain string, isAllowlist bool, listName string, isWildcard bool, blockMap map[string][]string, allowSet map[string]struct{}, allowAttr map[string][]string) bool {
+	domains := []string{domain}
+	if isWildcard && !strings.HasPrefix(domain, "*.") {
+		domains = append(domains, "*."+domain)
+	}
+
+	addedAny := false
+	for _, d := range domains {
+		if isAllowlist {
+			if allowSet != nil {
+				if _, exists := allowSet[d]; !exists {
+					allowSet[d] = struct{}{}
+					addedAny = true
+				}
+				if allowAttr != nil {
+					allowAttr[d] = append(allowAttr[d], listName)
+				}
+			}
+		} else if blockMap != nil {
+			alreadyPresent := false
+			for _, name := range blockMap[d] {
+				if name == listName {
+					alreadyPresent = true
+					break
+				}
+			}
+			if !alreadyPresent {
+				blockMap[d] = append(blockMap[d], listName)
+				addedAny = true
+			}
+		}
+	}
+	return addedAny
 }
 
 func startBackgroundUpdater(ctx context.Context) {
