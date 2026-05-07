@@ -208,19 +208,10 @@ func startDBWorker(ctx context.Context) {
 }
 
 func startLogWorker(ctx context.Context) {
-	// Periodically flush buffered queries to SQLite
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	// Every hour, aggregate data from 'queries' into 'hourly_stats' for faster dashboarding
-	aggTicker := time.NewTicker(1 * time.Hour)
-	defer aggTicker.Stop()
-
-	// Every minute, refresh the 24h counters to ensure the dashboard cards show a rolling window
-	refreshTicker := time.NewTicker(1 * time.Minute)
-	defer refreshTicker.Stop()
-
+	// 1. Log Flusher (Every 5 seconds)
 	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
@@ -234,19 +225,38 @@ func startLogWorker(ctx context.Context) {
 				toFlush := logBuffer
 				logBuffer = nil
 				bufferLock.Unlock()
-
 				flushLogs(toFlush)
+			}
+		}
+	}()
 
-			case <-aggTicker.C:
+	// 2. Stats Aggregator (Every hour)
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
 				slog.Info("Starting hourly stats catch-up...")
 				for i := 1; i <= 24; i++ {
 					targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
 					aggregateHourlyStats(ctx, targetHour)
 				}
+			}
+		}
+	}()
 
-			case <-refreshTicker.C:
-				// Re-load stats from DB to ensure the 24h rolling window is accurate on the dashboard.
-				// This prevents the counters from being cumulative since startup.
+	// 3. Stats Refresher (Every minute)
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
 				initializeStatsFromDB()
 			}
 		}
@@ -285,7 +295,10 @@ func flushLogs(queries []Query) {
 }
 
 func aggregateHourlyStats(ctx context.Context, targetHour string) {
-	// 1. Aggregate from queries table into hourly_stats
+	// targetHour is expected in "2006-01-02 15:04:05" (UTC)
+	// This function now uses a slightly wider window to ensure we don't miss queries
+	// that were flushed slightly before/after the hour boundary.
+	
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
 		SELECT 
@@ -294,17 +307,18 @@ func aggregateHourlyStats(ctx context.Context, targetHour string) {
 			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0),
 			COALESCE(SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END), 0)
 		FROM queries
-		WHERE timestamp >= ? AND timestamp < datetime(?, '+1 hour')
+		WHERE timestamp >= datetime(?, '-1 hour') AND timestamp < datetime(?, '+1 hour')
 		GROUP BY hr
 		ON CONFLICT(timestamp) DO UPDATE SET
 			total = excluded.total,
 			blocked = excluded.blocked,
 			cache_hits = excluded.cache_hits
 	`, targetHour, targetHour)
+	
 	if err != nil {
-		slog.Error("Error aggregating hourly stats", "hour", targetHour, "error", err)
+		slog.Error("Aggregation error", "hour", targetHour, "error", err)
 	} else {
-		slog.Info("Successfully aggregated hourly stats", "hour", targetHour)
+		slog.Debug("Successfully aggregated hourly stats", "hour", targetHour)
 	}
 }
 

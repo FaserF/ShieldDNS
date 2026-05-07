@@ -249,6 +249,14 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 func handleHistory(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 
+	// Self-repair: Ensure last 24h are aggregated whenever someone looks at history
+	go func() {
+		for i := 0; i < 24; i++ {
+			target := now.Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+			aggregateHourlyStats(appCtx, target)
+		}
+	}()
+
 	// Build 24 slots: slot 0 = oldest hour, slot 23 = current hour
 	// Each slot represents one clock hour in the last 24h window.
 	type slot struct {

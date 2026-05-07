@@ -75,8 +75,14 @@ func loadConfig() {
 	file, err := os.ReadFile(ConfigPath)
 	if err == nil {
 		// This will overwrite defaults with values from file
-		json.Unmarshal(file, &config)
-		if config.Lists == nil {
+		if err := json.Unmarshal(file, &config); err != nil {
+			slog.Error("CRITICAL: Failed to parse config.json. The file might be corrupted. To prevent data loss, ShieldDNS will not start with an invalid config.", "error", err)
+			// Create a backup of the corrupted file for the user to rescue
+			backupPath := ConfigPath + ".corrupted"
+			os.WriteFile(backupPath, file, 0644)
+			slog.Info("A backup of the corrupted config has been saved", "path", backupPath)
+			log.Fatal("ShieldDNS stopped to protect your configuration. Please check config.json or restore from config.json.corrupted.")
+		}
 			config.Lists = []List{}
 		}
 		if config.Allowlists == nil {

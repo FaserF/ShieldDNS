@@ -22,8 +22,30 @@ import (
 var activeSSEClients atomic.Int32
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
+	health := map[string]interface{}{
+		"status":  "healthy",
+		"version": Version,
+		"time":    time.Now().Format(time.RFC3339),
+	}
+
+	// Check DB connection and writability
+	if db != nil {
+		// Try a dummy write test to detect read-only or full-disk issues
+		_, err := db.Exec("CREATE TABLE IF NOT EXISTS _health_check (id INTEGER PRIMARY KEY); INSERT INTO _health_check (id) VALUES (1) ON CONFLICT(id) DO UPDATE SET id=1;")
+		if err != nil {
+			health["status"] = "unhealthy"
+			health["database"] = "error: " + err.Error()
+			slog.Error("Health check: Database write test failed", "error", err)
+		} else {
+			health["database"] = "ok"
+		}
+	} else {
+		health["status"] = "unhealthy"
+		health["database"] = "not connected"
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "healthy", "version": Version})
+	json.NewEncoder(w).Encode(health)
 }
 
 func AddSystemLog(line string) {
