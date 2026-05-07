@@ -1053,6 +1053,13 @@
                             <div style="display: flex; justify-content: center; margin: 20px 0;">
                                 <img id="mfa-qr-code" alt="QR code for setting up multi-factor authentication" style="background: white; padding: 10px; border-radius: 8px; max-width: 200px;">
                             </div>
+                            <div id="mfa-secret-container" class="hidden" style="text-align: center; margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.1); border-radius: 8px; border: 1px solid var(--border);">
+                                <p class="help" style="margin-bottom: 8px;">Cannot scan? Enter this code manually:</p>
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                    <code id="mfa-secret-value" style="font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; font-family: monospace;"></code>
+                                    <button type="button" class="btn btn-sm secondary" onclick="copyText('mfa-secret-value')" title="Copy Secret"><i class="fas fa-copy"></i></button>
+                                </div>
+                            </div>
                             <div class="form-group">
                                 <label>Device Name (e.g. My iPhone)</label>
                                 <input type="text" id="mfa-setup-totp-name" placeholder="Friendly Name">
@@ -1522,6 +1529,24 @@
             <div class="modal-actions">
                 <button type="button" class="btn secondary full-width" id="confirm-cancel">Cancel</button>
                 <button type="button" class="btn primary full-width" id="confirm-yes">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Input Modal -->
+    <div id="input-modal" class="modal hidden system-dialog">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 id="input-modal-title">Enter Name</h2>
+                <button type="button" class="modal-close-btn" onclick="this.closest('.modal').classList.add('hidden')">&times;</button>
+            </div>
+            <div class="form-group" style="margin: 15px 0;">
+                <label id="input-modal-label" class="modal-body-text" style="display: block; margin-bottom: 8px;">Name</label>
+                <input type="text" id="input-modal-value" style="letter-spacing: normal; font-family: inherit; width: 100%;">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn secondary full-width" id="input-modal-cancel">Cancel</button>
+                <button type="button" class="btn primary full-width" id="input-modal-confirm">Confirm</button>
             </div>
         </div>
     </div>

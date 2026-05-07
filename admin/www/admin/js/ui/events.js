@@ -990,16 +990,15 @@ export async function initMFA() {
         const area = getEl('mfa-setup-area');
         area.classList.toggle('hidden');
         if (!area.classList.contains('hidden')) {
-            if (!state.currentConfig.mfa_enabled) {
-                startTOTPSetup();
-            } else {
-                getEl('mfa-manage-area').classList.remove('hidden');
-                getEl('mfa-totp-setup').classList.add('hidden');
-                import('./renderers.js').then(m => {
-                    m.renderPasskeys();
-                    m.updateMFAStatus();
-                });
-            }
+            // Always show the manage area so user can choose TOTP or Passkey
+            getEl('mfa-manage-area').classList.remove('hidden');
+            getEl('mfa-totp-setup').classList.add('hidden');
+            
+            import('./renderers.js').then(m => {
+                m.updateMFAStatus();
+                m.renderTOTPList();
+                m.renderPasskeys();
+            });
         }
     });
 
@@ -1019,10 +1018,16 @@ async function startTOTPSetup() {
     try {
         const res = await api.apiFetch('/api/mfa/totp/setup', { method: 'POST' });
         const qrImg = getEl('mfa-qr-code');
+        const secretVal = getEl('mfa-secret-value');
+        const secretContainer = getEl('mfa-secret-container');
+
         if (qrImg) {
             qrImg.src = res.qr;
             qrImg.dataset.secret = res.secret; // Store secret temporarily
         }
+        if (secretVal) secretVal.textContent = res.secret;
+        if (secretContainer) secretContainer.classList.remove('hidden');
+
         getEl('mfa-totp-setup')?.classList.remove('hidden');
         getEl('mfa-manage-area')?.classList.add('hidden');
         getEl('mfa-setup-totp-name').value = '';
@@ -1056,7 +1061,6 @@ async function handleTOTPVerify() {
         
         import('./renderers.js').then(m => {
             m.updateMFAStatus(cfg);
-            m.renderMFAManageList?.(cfg);
         });
         
         getEl('mfa-totp-setup').classList.add('hidden');
@@ -1069,7 +1073,7 @@ async function handleTOTPVerify() {
 }
 
 async function handlePasskeyRegister() {
-    const name = prompt('Give this Passkey a name (e.g. Work Laptop, YubiKey):', `Passkey ${new Date().toLocaleDateString()}`);
+    const name = await helpers.showInput('Give this Passkey a name (e.g. Work Laptop, YubiKey):', 'Register Passkey', 'Passkey Name', `Passkey ${new Date().toLocaleDateString()}`);
     if (name === null) return; // User cancelled
 
     try {
@@ -1105,7 +1109,6 @@ async function handlePasskeyRegister() {
         state.currentConfig = cfg;
         import('./renderers.js').then(m => {
             m.updateMFAStatus(cfg);
-            m.renderMFAManageList?.(cfg);
         });
     } catch (e) {
         if (e.name !== 'NotAllowedError') {
@@ -1124,7 +1127,6 @@ async function handleMFADisable() {
         state.currentConfig = cfg;
         import('./renderers.js').then(m => {
             m.updateMFAStatus(cfg);
-            m.renderMFAManageList?.(cfg);
         });
         getEl('mfa-setup-area').classList.add('hidden');
     } catch (e) {
@@ -1148,7 +1150,6 @@ window.deleteMFAMethod = async (type, id, event) => {
         state.currentConfig = cfg;
         import('./renderers.js').then(m => {
             m.updateMFAStatus(cfg);
-            m.renderMFAManageList?.(cfg);
         });
     } catch (e) {
         helpers.showAlert('Failed to remove method: ' + e.message);

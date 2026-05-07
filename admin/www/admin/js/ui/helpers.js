@@ -101,6 +101,45 @@ export const showConfirm = (msg, title = 'Confirmation', isDanger = false) => {
     });
 };
 
+export const showInput = (msg, title = 'Input Required', placeholder = '', defaultValue = '') => {
+    return new Promise(resolve => {
+        const modal = document.getElementById('input-modal');
+        const titleEl = document.getElementById('input-modal-title');
+        const labelEl = document.getElementById('input-modal-label');
+        const inputEl = document.getElementById('input-modal-value');
+        const okBtn = document.getElementById('input-modal-confirm');
+        const cancelBtn = document.getElementById('input-modal-cancel');
+        
+        if (modal && titleEl && labelEl && inputEl && okBtn && cancelBtn) {
+            titleEl.textContent = title;
+            labelEl.textContent = msg;
+            inputEl.placeholder = placeholder;
+            inputEl.value = defaultValue;
+            
+            modal.classList.remove('hidden');
+            inputEl.focus();
+            
+            const handle = (result) => {
+                modal.classList.add('hidden');
+                window.removeEventListener('keydown', escListener);
+                resolve(result);
+            };
+            
+            const escListener = (e) => { 
+                if (e.key === 'Escape') handle(null);
+                if (e.key === 'Enter') handle(inputEl.value);
+            };
+            window.addEventListener('keydown', escListener);
+            
+            okBtn.onclick = () => handle(inputEl.value);
+            cancelBtn.onclick = () => handle(null);
+            modal.onclick = (e) => { if (e.target === modal) handle(null); };
+        } else {
+            resolve(prompt(msg, defaultValue));
+        }
+    });
+};
+
 export const createGradient = (ctx, color) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, 400);
     gradient.addColorStop(0, color.replace('1)', '0.4)'));
