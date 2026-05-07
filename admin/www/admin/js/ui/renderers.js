@@ -349,13 +349,11 @@ export function renderAnalytics(blocked, clients) {
             .filter(c => c.client_ip !== 'DoH Proxy')
             .map(c => {
                 const display = c.client_alias ? `${helpers.escapeHTML(c.client_alias)} (${helpers.escapeHTML(c.client_ip)})` : helpers.escapeHTML(c.client_ip);
-                // Convert country code to flag emoji (e.g. "DE" → 🇩🇪)
+                // Use the centralized getFlagHTML helper to avoid Windows emoji bugs and ensure consistency
                 let countryCell = '<span style="color:var(--text-secondary)">🏠 Local</span>';
-                if (c.country_code && c.country_code.length === 2) {
-                    const flag = c.country_code.toUpperCase().replace(/./g, ch =>
-                        String.fromCodePoint(0x1F1E6 - 65 + ch.charCodeAt(0))
-                    );
-                    countryCell = `${flag} ${helpers.escapeHTML(c.country_code.toUpperCase())}`;
+                if (c.country_code && c.country_code.length === 2 && c.country_code.toLowerCase() !== 'ge') {
+                    const flag = getFlagHTML(c.country_code);
+                    countryCell = `${flag} <span style="margin-left: 4px;">${helpers.escapeHTML(c.country_code.toUpperCase())}</span>`;
                 } else if (c.country_code === '') {
                     countryCell = '<span style="color:var(--text-secondary)">—</span>';
                 }

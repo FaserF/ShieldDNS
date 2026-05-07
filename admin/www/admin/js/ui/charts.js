@@ -21,7 +21,7 @@ export const renderTrafficChart = (data, onClickHour) => {
     if (!isChartAvailable()) return;
     const ctx = document.getElementById('traffic-chart').getContext('2d');
     const labels = [];
-    const allowed = [];
+    const total = [];
     const blocked = [];
     
     const now = new Date();
@@ -44,16 +44,16 @@ export const renderTrafficChart = (data, onClickHour) => {
             return pStartOfHour.getTime() === startOfHour.getTime();
         });
         
-        allowed.push(match ? match.allowed : 0);
+        total.push(match ? match.total : 0);
         blocked.push(match ? match.blocked : 0);
     }
 
-    const allowedColor = 'rgba(99, 102, 241, 1)'; // Indigo
+    const totalColor = 'rgba(99, 102, 241, 1)'; // Indigo
     const blockedColor = 'rgba(239, 68, 68, 1)'; // Red
 
     if (trafficChart) {
         trafficChart.data.labels = labels;
-        trafficChart.data.datasets[0].data = allowed;
+        trafficChart.data.datasets[0].data = total;
         trafficChart.data.datasets[1].data = blocked;
         trafficChart.update();
         return;
@@ -65,12 +65,12 @@ export const renderTrafficChart = (data, onClickHour) => {
             labels: labels,
             datasets: [
                 {
-                    label: 'Allowed Queries',
-                    data: allowed,
-                    borderColor: allowedColor,
-                    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                    label: 'Total Queries',
+                    data: total,
+                    borderColor: totalColor,
+                    backgroundColor: 'rgba(99, 102, 241, 0.15)',
                     borderWidth: 2,
-                    tension: 0.4,
+                    tension: 0.35,
                     fill: true,
                     pointRadius: 0,
                     pointHoverRadius: 4,
@@ -79,9 +79,9 @@ export const renderTrafficChart = (data, onClickHour) => {
                     label: 'Blocked Queries',
                     data: blocked,
                     borderColor: blockedColor,
-                    backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.4)',
                     borderWidth: 2,
-                    tension: 0.4,
+                    tension: 0.35,
                     fill: true,
                     pointRadius: 0,
                     pointHoverRadius: 4,
@@ -124,20 +124,13 @@ export const renderTrafficChart = (data, onClickHour) => {
                                 label += context.parsed.y.toLocaleString();
                             }
                             return label;
-                        },
-                        footer: (tooltipItems) => {
-                            let total = 0;
-                            tooltipItems.forEach(function(tooltipItem) {
-                                total += tooltipItem.parsed.y;
-                            });
-                            return 'Total: ' + total.toLocaleString();
                         }
                     }
                 }
             },
             scales: {
                 y: {
-                    stacked: true,
+                    stacked: false,
                     beginAtZero: true,
                     grid: { color: 'rgba(255, 255, 255, 0.05)' },
                     ticks: { 
@@ -147,7 +140,7 @@ export const renderTrafficChart = (data, onClickHour) => {
                     }
                 },
                 x: {
-                    stacked: true,
+                    stacked: false,
                     grid: { display: false },
                     ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }
                 }

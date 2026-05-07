@@ -316,7 +316,11 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 		if a, ok := aggMap[key]; ok {
 			res.Total = a.total
 			res.Blocked = a.blocked
-			res.Allowed = a.total - a.blocked
+			// Ensure allowed is not negative and total is consistent
+			if res.Total < res.Blocked {
+				res.Total = res.Blocked
+			}
+			res.Allowed = res.Total - res.Blocked
 		}
 		result[i] = res
 	}
@@ -382,8 +386,15 @@ func handleTopClients(w http.ResponseWriter, r *http.Request) {
 		if aliases != nil {
 			alias = aliases[client_ip]
 		}
-		// Look up the country code from the shared GeoIP cache (non-blocking)
-		countryCode := GetCountryCodeCached(client_ip)
+		// Look up the country code from any available cache
+		countryCode := ""
+		if val, ok := ipInfoCache.Load(client_ip); ok {
+			countryCode = val.(IPInfo).CountryCode
+		}
+		if countryCode == "" || countryCode == "-" || countryCode == "geo" {
+			countryCode = GetCountryCodeCached(client_ip)
+		}
+
 		if countryCode == "geo" || countryCode == "-" {
 			countryCode = ""
 		}
@@ -391,7 +402,7 @@ func handleTopClients(w http.ResponseWriter, r *http.Request) {
 			"client_ip":    client_ip,
 			"client_alias": alias,
 			"count":        count,
-			"country_code": countryCode,
+			"country_code": strings.ToLower(countryCode),
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")

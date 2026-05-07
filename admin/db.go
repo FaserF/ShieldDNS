@@ -238,8 +238,11 @@ func startLogWorker(ctx context.Context) {
 				flushLogs(toFlush)
 
 			case <-aggTicker.C:
-				targetHour := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-				aggregateHourlyStats(ctx, targetHour)
+				slog.Info("Starting hourly stats catch-up...")
+				for i := 1; i <= 24; i++ {
+					targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+					aggregateHourlyStats(ctx, targetHour)
+				}
 
 			case <-refreshTicker.C:
 				// Re-load stats from DB to ensure the 24h rolling window is accurate on the dashboard.
@@ -311,6 +314,18 @@ func initializeStatsFromDB() {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	aggregateHourlyStats(appCtx, time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05"))
+
+	// Run full catch-up in background on startup
+	go func() {
+		time.Sleep(5 * time.Second)
+		slog.Info("Starting initial stats catch-up...")
+		for i := 1; i <= 24; i++ {
+			targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
+			aggregateHourlyStats(appCtx, targetHour)
+		}
+	}()
+
 	total, blocked, cacheHits, err := Get24hStats()
 	if err != nil {
 		slog.Error("Failed to initialize stats from DB", "error", err)
