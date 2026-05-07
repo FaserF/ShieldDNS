@@ -52,7 +52,7 @@ func loadMaliciousFromDisk() {
 	slog.Info("Loaded malicious IPs from disk", "count", len(ips))
 }
 
-func syncMaliciousIPs() error {
+func syncMaliciousIPs(restartCore bool) error {
 	configLock.RLock()
 	enabled := config.MaliciousIPBlockingEnabled
 	configLock.RUnlock()
@@ -110,7 +110,9 @@ func syncMaliciousIPs() error {
 
 	// Re-generate Corefile to apply changes
 	updateCorefile()
-	restartCoreDNS()
+	if restartCore {
+		restartCoreDNS()
+	}
 
 	return nil
 }
@@ -191,7 +193,7 @@ func startMaliciousUpdater(ctx context.Context) {
 				ticker.Stop()
 				stopTicker = true
 			case <-ticker.C:
-				syncMaliciousIPs()
+				syncMaliciousIPs(true)
 			}
 		}
 	}

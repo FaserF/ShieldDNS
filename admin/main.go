@@ -217,8 +217,8 @@ func startWorkers() {
 	// Trigger initial blocklist and malicious updates in background
 	// Sequential execution prevents multiple concurrent CoreDNS restarts
 	go func() {
-		updateBlocklist(nil)
-		syncMaliciousIPs()
+		updateBlocklist(nil, false)
+		syncMaliciousIPs(true)
 		slog.Info("ShieldDNS Ready: Blocklists and Threat Intelligence loaded")
 	}()
 

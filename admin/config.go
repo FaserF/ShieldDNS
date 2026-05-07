@@ -285,7 +285,7 @@ func atomicWriteFile(filename string, data []byte) error {
 
 var blocklistUpdateLock sync.Mutex
 
-func updateBlocklist(cfg *Config) {
+func updateBlocklist(cfg *Config, restartCore bool) {
 	blocklistUpdateLock.Lock()
 	defer blocklistUpdateLock.Unlock()
 
@@ -369,10 +369,10 @@ func updateBlocklist(cfg *Config) {
 	}
 
 	saveConfig()
-	applyCurrentRules(newBlockAttribution, newAllowAttribution, allowDomains, customMappings, blockPageIP)
+	applyCurrentRules(newBlockAttribution, newAllowAttribution, allowDomains, customMappings, blockPageIP, restartCore)
 }
 
-func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]string, allowSet map[string]struct{}, mappings map[string]string, blockIP string) {
+func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]string, allowSet map[string]struct{}, mappings map[string]string, blockIP string, restartCore bool) {
 	// Remove allowlisted domains (and their subdomains) from attribution in O(N) time
 	for ad := range attribution {
 		// Exact match
@@ -452,7 +452,9 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 	os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
 
 	slog.Info("Rules updated", "host_file", CombinedHostsPath, "count", len(attribution))
-	restartCoreDNS()
+	if restartCore {
+		restartCoreDNS()
+	}
 }
 
 func reloadRulesFast() {
@@ -468,7 +470,7 @@ func reloadRulesFastNoLock(cfg *Config) {
 	blockAttributionLock.RLock()
 	if blockAttribution == nil {
 		blockAttributionLock.RUnlock()
-		go updateBlocklist(cfg)
+		go updateBlocklist(cfg, true)
 		return
 	}
 
@@ -510,7 +512,7 @@ func reloadRulesFastNoLock(cfg *Config) {
 		}
 	}
 
-	applyCurrentRules(newAttribution, newAllowAttribution, allowDomains, cfg.CustomMappings, cfg.BlockPageIP)
+	applyCurrentRules(newAttribution, newAllowAttribution, allowDomains, cfg.CustomMappings, cfg.BlockPageIP, true)
 }
 
 func processList(list *List, blockMap map[string][]string, allowMap map[string]struct{}, allowAttr map[string][]string) {
@@ -678,7 +680,7 @@ func startBackgroundUpdater(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			updateBlocklist(nil)
+			updateBlocklist(nil, true)
 		}
 	}
 }

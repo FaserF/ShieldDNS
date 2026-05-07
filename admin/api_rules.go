@@ -288,7 +288,7 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 
 				saveConfigNoLock()
 				configLock.Unlock()
-				go updateBlocklist(nil)
+				go updateBlocklist(nil, true)
 				updateCorefile()
 				w.WriteHeader(http.StatusOK)
 				return
@@ -296,7 +296,7 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	go updateBlocklist(nil)
+	go updateBlocklist(nil, true)
 	go updateVersions()
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -354,7 +354,7 @@ func handleResetLists(w http.ResponseWriter, r *http.Request) {
 	configLock.Unlock()
 
 	// Trigger background update
-	go updateBlocklist(nil)
+	go updateBlocklist(nil, true)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))

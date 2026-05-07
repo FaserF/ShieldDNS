@@ -139,6 +139,23 @@ func (w *LogWriter) Write(p []byte) (n int, err error) {
 					break
 				}
 			}
+			// Additional specific handshake noise patterns
+			if !isNoise && isTLS {
+				extraNoise := []string{
+					"client sent an HTTP request to an HTTPS server",
+					"first record does not look like a TLS handshake",
+					"unsupported SSLv2 handshake received",
+					"client offered only unsupported versions",
+					"client requested unsupported application protocols",
+					"no cipher suite supported by both client and server",
+				}
+				for _, pattern := range extraNoise {
+					if strings.Contains(msg, pattern) {
+						isNoise = true
+						break
+					}
+				}
+			}
 		}
 
 		if isNoise {
@@ -649,7 +666,7 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 		}
 
 		updateCorefile()
-		go updateBlocklist(nil)
+		go updateBlocklist(nil, true)
 
 		ip := r.Header.Get("X-Real-IP")
 		if ip == "" {
@@ -676,7 +693,7 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 	configLock.Unlock()
 
 	updateCorefile()
-	go updateBlocklist(nil)
+	go updateBlocklist(nil, true)
 
 	slog.Info("System Configuration Restored from JSON")
 	w.WriteHeader(http.StatusOK)
@@ -819,7 +836,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			restartMaliciousUpdater()
 			// If it was just enabled, trigger an immediate sync
 			if config.MaliciousIPBlockingEnabled && !configHold.MaliciousIPBlockingEnabled {
-				go syncMaliciousIPs()
+				go syncMaliciousIPs(true)
 			}
 		}
 
@@ -850,7 +867,7 @@ func handleFullReload(w http.ResponseWriter, r *http.Request) {
 	// and we don't want the frontend to timeout.
 	go func() {
 		// 1. Reload all blocklists (Synchronously within this goroutine)
-		updateBlocklist(nil)
+		updateBlocklist(nil, true)
 
 		// 2. Ensure Corefile is up to date with any newly fetched dynamic content/config
 		updateCorefile()

@@ -130,7 +130,7 @@ func TestBlockAttribution(t *testing.T) {
 		os.Remove("test_blocklist.hosts")
 	}()
 
-	updateBlocklist(nil)
+	updateBlocklist(nil, false)
 
 	blockAttributionLock.RLock()
 	defer blockAttributionLock.RUnlock()
