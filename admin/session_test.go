@@ -16,9 +16,7 @@ func TestSessionManagement(t *testing.T) {
 	configLock.Lock()
 	pwd := "test-password-123"
 	hash, _ := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
-	config = Config{
-		AdminPasswordHashed: string(hash),
-	}
+	config.AdminPasswordHashed = string(hash)
 	configLock.Unlock()
 
 	// 1. Test Login generates session
@@ -84,7 +82,7 @@ func TestSessionManagement(t *testing.T) {
 
 func TestLoginThrottling(t *testing.T) {
 	configLock.Lock()
-	config = Config{AdminPasswordHashed: "some-hash"}
+	config.AdminPasswordHashed = "some-hash"
 	configLock.Unlock()
 
 	ip := "1.2.3.4"

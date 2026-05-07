@@ -229,10 +229,8 @@ func TestUpdateCorefile(t *testing.T) {
 	tmpFile.Close() // Close immediately so atomicWriteFile can overwrite it
 
 	configLock.Lock()
-	config = Config{
-		Upstreams:       []string{"1.1.1.1"},
-		PreferEncrypted: false,
-	}
+	config.Upstreams = []string{"1.1.1.1"}
+	config.PreferEncrypted = false
 	configLock.Unlock()
 	healthyUpstreams = []string{"1.1.1.1"}
 	healthyDoT = []string{}
@@ -332,10 +330,8 @@ func TestSmartSorting(t *testing.T) {
 	tmpFile.Close() // Close immediately so atomicWriteFile can overwrite it
 
 	configLock.Lock()
-	config = Config{
-		Upstreams:          []string{"1.1.1.1", "8.8.8.8"},
-		UseFastestUpstream: true,
-	}
+	config.Upstreams = []string{"1.1.1.1", "8.8.8.8"}
+	config.UseFastestUpstream = true
 	configLock.Unlock()
 	healthyUpstreams = []string{"1.1.1.1", "8.8.8.8"}
 

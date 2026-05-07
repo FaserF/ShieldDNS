@@ -209,13 +209,12 @@ func TestBlockedClientsPreservedInConfigUpdate(t *testing.T) {
 // are included in the CoreDNS ACL rule output alongside geo-blocked countries.
 func TestGetGeoACLRulesIncludesBlockedClients(t *testing.T) {
 	configLock.Lock()
-	config = Config{
-		BlockedCountries: []string{}, // no country blocks
-		BlockedClients:   []string{"1.2.3.4", "10.20.30.40"},
-	}
+	config.BlockedCountries = []string{}
+	config.BlockedClients = []string{"1.2.3.4", "10.20.30.40"}
+	snap := config.Clone()
 	configLock.Unlock()
 
-	rules := getGeoACLRules()
+	rules := getGeoACLRules(snap)
 
 	if rules == "" {
 		t.Fatal("expected ACL rules to be non-empty when BlockedClients is set")

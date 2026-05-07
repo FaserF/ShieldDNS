@@ -292,17 +292,15 @@ func TestUpdateCorefileTemplate(t *testing.T) {
 	defer os.Unsetenv("KEY_FILE")
 
 	configLock.Lock()
-	oldConfig := config
-	config = Config{
-		Upstreams:       []string{"1.1.1.1"},
-		PreferEncrypted: false,
-		DNSSECEnabled:   true,
-		ServeStale:      true,
-	}
+	oldConfig := config.Clone()
+	config.Upstreams = []string{"1.1.1.1"}
+	config.PreferEncrypted = false
+	config.DNSSECEnabled = true
+	config.ServeStale = true
 	configLock.Unlock()
 	defer func() {
 		configLock.Lock()
-		config = oldConfig
+		config = *oldConfig
 		configLock.Unlock()
 	}()
 
