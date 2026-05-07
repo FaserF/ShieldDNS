@@ -131,11 +131,7 @@ func updateMaliciousMemory(ips []string) {
 }
 
 func IsMaliciousIP(ip string) bool {
-	configLock.RLock()
-	enabled := config.MaliciousIPBlockingEnabled
-	configLock.RUnlock()
-
-	if !enabled {
+	if !config.MaliciousIPBlockingEnabled {
 		return false
 	}
 
@@ -145,11 +141,7 @@ func IsMaliciousIP(ip string) bool {
 }
 
 func getMaliciousIPRules() []string {
-	configLock.RLock()
-	enabled := config.MaliciousIPBlockingEnabled
-	configLock.RUnlock()
-
-	if !enabled {
+	if !config.MaliciousIPBlockingEnabled {
 		return nil
 	}
 

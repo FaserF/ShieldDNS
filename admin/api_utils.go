@@ -282,11 +282,13 @@ func GetCountryCodeCached(ip string) string {
 	return "-"
 }
 
+var geoIPResolver = resolveGeoIP
+
 // fetchGeoIP fetches full GeoIP data for an IP and stores it in geoCache and ipInfoCache.
 // It is the single source of truth for all GeoIP lookups.
 // After a successful lookup it also upgrades BlockedClientsInfo so all UI views are consistent.
 func fetchGeoIP(ctx context.Context, ip string) {
-	resolved, err := resolveGeoIP(ctx, ip)
+	resolved, err := geoIPResolver(ctx, ip)
 	if err != nil {
 		return
 	}
@@ -324,11 +326,7 @@ func fetchGeoIP(ctx context.Context, ip string) {
 		if entry, ok := config.BlockedClientsInfo[ip]; ok && (entry.CountryCode == "" || entry.CountryCode == "-") {
 			entry.CountryCode = resolved.CountryCode
 			config.BlockedClientsInfo[ip] = entry
-			go func() {
-				configLock.Lock()
-				saveConfigNoLock()
-				configLock.Unlock()
-			}()
+			saveConfigNoLock()
 		}
 	}
 	configLock.Unlock()

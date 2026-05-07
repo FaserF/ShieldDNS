@@ -37,6 +37,18 @@ func TestMain(m *testing.M) {
 	initDB()
 	testMode = true
 
+	// Override GeoIP with mock to avoid network lookups in tests
+	geoIPResolver = func(ctx context.Context, ip string) (IPInfo, error) {
+		return IPInfo{
+			IP:          ip,
+			Country:     "Germany",
+			CountryCode: "DE",
+			City:        "Berlin",
+			ISP:         "Test ISP",
+			ExpiresAt:   time.Now().Add(24 * time.Hour),
+		}, nil
+	}
+
 	// Run tests
 	exitCode := m.Run()
 
@@ -47,6 +59,15 @@ func TestMain(m *testing.M) {
 }
 
 func TestHandleStats(t *testing.T) {
+	// Reset cache and disable DB to force fallback to atomic counters
+	statsCacheMu.Lock()
+	statsCacheTime = time.Time{}
+	statsCacheMu.Unlock()
+	
+	oldDB := db
+	db = nil
+	defer func() { db = oldDB }()
+
 	statsLock.Lock()
 	stats.TotalQueries = 100
 	stats.BlockedQueries = 25

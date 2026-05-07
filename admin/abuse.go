@@ -43,6 +43,20 @@ func analyzeQuery(clientIP, domain, status string) {
 
 	now := time.Now()
 
+	// Fast check: is already blocked?
+	configLock.RLock()
+	isBlocked := false
+	for _, c := range config.BlockedClients {
+		if c == clientIP {
+			isBlocked = true
+			break
+		}
+	}
+	configLock.RUnlock()
+	if isBlocked {
+		return
+	}
+
 	// --- 1. Total Query Rate Limit (>= 1000 queries / 60s) ---
 	counters.allQueryTimes = append(counters.allQueryTimes, now)
 	counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 60*time.Second)
@@ -189,6 +203,16 @@ func blockClientAuto(ip, reason string) {
 	}
 	slog.Warn("Abuse Detection triggered", "ip", ip, "reason", reason)
 
+	cc := GetCountryCodeCached(ip)
+
+	// If the IP was already in the malicious intelligence feed, append it to the reason
+	// to make it clear why the block was triggered/escalated.
+	if IsMaliciousIP(ip) {
+		if !strings.Contains(reason, "Malicious") {
+			reason += " (Malicious Source)"
+		}
+	}
+
 	configLock.Lock()
 	if config.BlockedClients == nil {
 		config.BlockedClients = []string{}
@@ -205,15 +229,6 @@ func blockClientAuto(ip, reason string) {
 		}
 	}
 
-	cc := GetCountryCodeCached(ip)
-	
-	// If the IP was already in the malicious intelligence feed, append it to the reason
-	// to make it clear why the block was triggered/escalated.
-	if IsMaliciousIP(ip) {
-		if !strings.Contains(reason, "Malicious") {
-			reason += " (Malicious Source)"
-		}
-	}
 
 	config.BlockedClients = append(config.BlockedClients, ip)
 	config.BlockedClientsInfo[ip] = BlockedClientInfo{
