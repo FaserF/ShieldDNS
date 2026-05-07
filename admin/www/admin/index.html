@@ -960,7 +960,7 @@
                                 <h2>Currently Blocked Clients</h2>
                                 <p class="help">Detailed list of all client-side bans.</p>
                             </div>
-                            <button class="modal-close-btn" id="blocked-clients-close-btn">&times;</button>
+                            <button type="button" class="modal-close-btn" id="blocked-clients-close-btn">&times;</button>
                         </div>
 
                         <div class="table-header-actions" style="margin-top: 20px;">
@@ -996,7 +996,7 @@
                         </div>
 
                         <div class="modal-footer-actions mt-4">
-                            <button class="btn primary" id="blocked-clients-done-btn" style="min-width: 120px;">Close</button>
+                            <button type="button" class="btn primary" id="blocked-clients-done-btn" style="min-width: 120px;">Close</button>
                         </div>
                     </div>
                 </div>
@@ -1126,7 +1126,7 @@
                     <div class="form-group">
                         <input type="password" id="setup-confirm" placeholder="Confirm Password">
                     </div>
-                    <button class="btn primary full-width" onclick="nextSetupStep(2)">Next Step</button>
+                    <button type="button" class="btn primary full-width" onclick="nextSetupStep(2)">Next Step</button>
                 </div>
 
                 <div id="setup-pane-2" class="setup-pane hidden">
@@ -1176,8 +1176,8 @@
                         </div>
                     </div>
                     <div class="modal-actions">
-                        <button class="btn secondary" onclick="nextSetupStep(1)">Back</button>
-                        <button class="btn primary" onclick="nextSetupStep(3)">Next Step</button>
+                        <button type="button" class="btn secondary" onclick="nextSetupStep(1)">Back</button>
+                        <button type="button" class="btn primary" onclick="nextSetupStep(3)">Next Step</button>
                     </div>
                 </div>
 
@@ -1188,8 +1188,8 @@
                         <!-- Presets will be injected here with checkboxes -->
                     </div>
                     <div class="modal-actions">
-                        <button class="btn secondary" onclick="nextSetupStep(2)">Back</button>
-                        <button class="btn primary" id="setup-finish-btn">Finish Setup</button>
+                        <button type="button" class="btn secondary" onclick="nextSetupStep(2)">Back</button>
+                        <button type="button" class="btn primary" id="setup-finish-btn">Finish Setup</button>
                     </div>
                 </div>
             </div>
@@ -1203,7 +1203,7 @@
                 <div class="form-group">
                     <input type="password" id="login-password" placeholder="Password">
                 </div>
-                <button class="btn primary full-width" id="login-confirm-btn">Login</button>
+                <button type="button" class="btn primary full-width" id="login-confirm-btn">Login</button>
             </div>
         </div>
     </div>
@@ -1234,8 +1234,8 @@
             </div>
             <input type="hidden" id="list-type" value="block">
             <div class="modal-actions">
-                <button class="btn secondary" id="modal-cancel">Cancel</button>
-                <button class="btn primary" id="modal-confirm">Add List</button>
+                <button type="button" class="btn secondary" id="modal-cancel">Cancel</button>
+                <button type="button" class="btn primary" id="modal-confirm">Add List</button>
             </div>
         </div>
     </div>
@@ -1338,8 +1338,8 @@
                     </div>
                 </div>
                 <div class="modal-actions">
-                    <button id="cancel-api-key-btn" class="btn secondary">Cancel</button>
-                    <button id="save-api-key-btn" class="btn primary">Generate</button>
+                    <button type="button" id="cancel-api-key-btn" class="btn secondary">Cancel</button>
+                    <button type="button" id="save-api-key-btn" class="btn primary">Generate</button>
                 </div>
             </div>
             <div id="api-key-result" class="hidden">
@@ -1348,11 +1348,11 @@
                     style="background: var(--bg-body); padding: 15px; border-radius: 8px; border: 1px dashed var(--border); margin: 15px 0; display: flex; flex-direction: column; gap: 10px; align-items: center;">
                     <code id="api-key-value"
                         style="font-family: monospace; color: var(--accent); font-size: 1.1rem; word-break: break-all;">-</code>
-                    <button id="copy-api-key-btn" class="btn btn-sm secondary" style="width: auto;">Copy to
+                    <button type="button" id="copy-api-key-btn" class="btn btn-sm secondary" style="width: auto;">Copy to
                         Clipboard</button>
                 </div>
                 <div class="modal-actions">
-                    <button id="close-api-key-modal-btn" class="btn primary">Done</button>
+                    <button type="button" id="close-api-key-modal-btn" class="btn primary">Done</button>
                 </div>
             </div>
         </div>
@@ -1369,8 +1369,8 @@
                     style="color:var(--accent)">System Backup</a> before continuing!
             </div>
             <div class="modal-actions">
-                <button class="btn secondary" id="reset-cancel-1">Cancel</button>
-                <button class="btn danger" id="reset-confirm-1">I have a backup, continue</button>
+                <button type="button" class="btn secondary" id="reset-cancel-1">Cancel</button>
+                <button type="button" class="btn danger" id="reset-confirm-1">I have a backup, continue</button>
             </div>
         </div>
     </div>
@@ -1387,8 +1387,8 @@
                 <input type="text" id="reset-final-input" placeholder="RESET" autocomplete="off">
             </div>
             <div class="modal-actions">
-                <button class="btn secondary" id="reset-cancel-2">Abort</button>
-                <button class="btn danger" id="reset-confirm-2" disabled>Wipe Everything & Restart</button>
+                <button type="button" class="btn secondary" id="reset-cancel-2">Abort</button>
+                <button type="button" class="btn danger" id="reset-confirm-2" disabled>Wipe Everything & Restart</button>
             </div>
         </div>
     </div>
@@ -1408,7 +1408,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="alert-title">Notification</h2>
-                <button class="modal-close-btn" onclick="this.closest('.modal').classList.add('hidden')">&times;</button>
+                <button type="button" class="modal-close-btn" onclick="this.closest('.modal').classList.add('hidden')">&times;</button>
             </div>
             <p id="alert-message" class="modal-body-text"></p>
             <div class="modal-actions centered">
@@ -1422,12 +1422,12 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="confirm-title">Confirmation</h2>
-                <button class="modal-close-btn" onclick="this.closest('.modal').classList.add('hidden')">&times;</button>
+                <button type="button" class="modal-close-btn" onclick="this.closest('.modal').classList.add('hidden')">&times;</button>
             </div>
             <p id="confirm-message" class="modal-body-text"></p>
             <div class="modal-actions">
-                <button class="btn secondary full-width" id="confirm-cancel">Cancel</button>
-                <button class="btn primary full-width" id="confirm-yes">Confirm</button>
+                <button type="button" class="btn secondary full-width" id="confirm-cancel">Cancel</button>
+                <button type="button" class="btn primary full-width" id="confirm-yes">Confirm</button>
             </div>
         </div>
     </div>
@@ -1437,7 +1437,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="modal-list-name">List Details</h2>
-                <button class="modal-close-btn" id="close-list-details-btn">&times;</button>
+                <button type="button" class="modal-close-btn" id="close-list-details-btn">&times;</button>
             </div>
 
             <div class="list-details-body">
@@ -1479,7 +1479,7 @@
             </div>
 
             <div class="modal-actions" style="margin-top: 30px;">
-                <button class="btn primary full-width" id="close-list-details-btn-2">Close</button>
+                <button type="button" class="btn primary full-width" id="close-list-details-btn-2">Close</button>
             </div>
         </div>
     </div>
@@ -1492,24 +1492,24 @@
                 <div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <h2 id="ip-info-title" style="margin-bottom: 0;">Client Details</h2>
-                        <button class="btn btn-sm secondary" id="edit-alias-btn" title="Edit Alias"><i
+                        <button type="button" class="btn btn-sm secondary" id="edit-alias-btn" title="Edit Alias"><i
                                 class="fas fa-edit"></i></button>
                     </div>
                     <div id="alias-edit-box" class="hidden"
                         style="margin-top: 5px; display: flex; gap: 5px; max-width: 300px;">
                         <input type="text" id="client-alias-input" placeholder="Custom Alias (e.g. Work Laptop)"
                             style="padding: 5px 10px; font-size: 0.8rem;">
-                        <button class="btn btn-sm primary" id="save-alias-btn">Save</button>
+                        <button type="button" class="btn btn-sm primary" id="save-alias-btn">Save</button>
                     </div>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <button id="ip-block-btn" class="btn btn-sm danger" style="padding: 6px 14px; display: none;">
+                    <button type="button" id="ip-block-btn" class="btn btn-sm danger" style="padding: 6px 14px; display: none;">
                         <i class="fas fa-ban"></i> Block Client
                     </button>
-                    <button id="ip-unblock-btn" class="btn btn-sm secondary" style="padding: 6px 14px; display: none;">
+                    <button type="button" id="ip-unblock-btn" class="btn btn-sm secondary" style="padding: 6px 14px; display: none;">
                         <i class="fas fa-check-circle"></i> Unblock Client
                     </button>
-                    <button class="modal-close-btn" id="ip-info-close-btn">&times;</button>
+                    <button type="button" class="modal-close-btn" id="ip-info-close-btn">&times;</button>
                 </div>
             </div>
             <p id="ip-info-subtitle" class="help" style="margin-top: -15px; margin-bottom: 10px;"></p>
@@ -1621,8 +1621,8 @@
             </div>
 
             <div class="modal-footer-actions">
-                <button class="btn secondary" id="ip-info-view-all-btn">View full log for this client</button>
-                <button class="btn primary" id="ip-info-done-btn" style="min-width: 120px;">Done</button>
+                <button type="button" class="btn secondary" id="ip-info-view-all-btn">View full log for this client</button>
+                <button type="button" class="btn primary" id="ip-info-done-btn" style="min-width: 120px;">Done</button>
             </div>
 
         </div>
@@ -1638,9 +1638,9 @@
                 </div>
                 <div class="modal-header-actions">
                     <div id="domain-status-badge" class="badge">Checking...</div>
-                    <button id="domain-block-btn" class="btn btn-sm danger hidden">Block Domain</button>
-                    <button id="domain-allow-btn" class="btn btn-sm secondary hidden">Allow Domain</button>
-                    <button class="modal-close-btn" id="domain-info-close-btn">&times;</button>
+                    <button type="button" id="domain-block-btn" class="btn btn-sm danger hidden">Block Domain</button>
+                    <button type="button" id="domain-allow-btn" class="btn btn-sm secondary hidden">Allow Domain</button>
+                    <button type="button" class="modal-close-btn" id="domain-info-close-btn">&times;</button>
                 </div>
             </div>
 
@@ -1721,8 +1721,8 @@
 
             <div
                 style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
-                <button class="btn secondary" id="domain-info-view-logs-btn">View all logs for this domain</button>
-                <button class="btn primary" id="domain-info-done-btn" style="min-width: 120px;">Done</button>
+                <button type="button" class="btn secondary" id="domain-info-view-logs-btn">View all logs for this domain</button>
+                <button type="button" class="btn primary" id="domain-info-done-btn" style="min-width: 120px;">Done</button>
             </div>
         </div>
     </div>
@@ -1745,7 +1745,7 @@
             </div>
             <div id="activity-log-stream" class="log-container"></div>
             <div class="modal-footer">
-                <button id="activity-close-btn" class="btn secondary">Done</button>
+                <button type="button" id="activity-close-btn" class="btn secondary">Done</button>
             </div>
         </div>
     </div>
@@ -1796,7 +1796,7 @@
             }
         }
     </script>
-    <button id="scrollToTop" class="scroll-btn hidden">
+    <button type="button" id="scrollToTop" class="scroll-btn hidden">
         <i class="fas fa-arrow-up"></i>
     </button>
 </body>
