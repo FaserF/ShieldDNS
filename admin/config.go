@@ -218,6 +218,21 @@ func saveConfig() {
 }
 
 func saveConfigNoLock() {
+	// CRITICAL SAFETY CHECK: Never save an empty or masked password/API keys if setup is done.
+	// This prevents the "json:-" regression from corrupting the config on disk.
+	if config.SetupDone {
+		if config.AdminPasswordHashed == "" || config.AdminPasswordHashed == "********" {
+			slog.Error("CRITICAL: Attempted to save config with invalid password hash. ABORTING SAVE TO PREVENT CONFIG LOSS.")
+			return
+		}
+		for _, k := range config.APIKeys {
+			if k.TokenHash == "********" {
+				slog.Error("CRITICAL: Attempted to save config with masked API key hashes. ABORTING SAVE TO PREVENT CONFIG LOSS.")
+				return
+			}
+		}
+	}
+
 	debugModeEnabled.Store(config.DebugMode)
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {

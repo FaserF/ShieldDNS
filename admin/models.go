@@ -27,8 +27,8 @@ type Config struct {
 	CustomMappings             map[string]string            `json:"custom_mappings"`
 	AutoblockWhitelist         []string                     `json:"autoblock_whitelist"`
 	SetupDone                  bool                         `json:"setup_done"`
-	AdminPasswordHashed        string                       `json:"-"`
-	APIKeys                    []APIKey                     `json:"-"`
+	AdminPasswordHashed        string                       `json:"admin_password_hashed"`
+	APIKeys                    []APIKey                     `json:"api_keys"`
 	FilteringEnabled           bool                         `json:"filtering_enabled"`
 	AdminDomain                string                       `json:"admin_domain"`  // e.g. dns.fabiseitz.de
 	BlockPageIP                string                       `json:"block_page_ip"` // IP of the ShieldDNS server
@@ -65,7 +65,7 @@ type BlockedClientInfo struct {
 type APIKey struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
-	TokenHash   string    `json:"-"`
+	TokenHash   string    `json:"token_hash"`
 	Permissions []string  `json:"permissions"`
 	CreatedAt   time.Time `json:"created_at"`
 	LastUsed    time.Time `json:"last_used"`
@@ -294,4 +294,21 @@ func (c *Config) Clone() *Config {
 	}
 
 	return &newCfg
+}
+
+// SanitizedCopy returns a copy of the config with sensitive fields masked.
+// This is used for API responses to prevent leaking hashes.
+func (c *Config) SanitizedCopy() Config {
+	clone := *c
+	if clone.AdminPasswordHashed != "" {
+		clone.AdminPasswordHashed = "********"
+	}
+	if clone.APIKeys != nil {
+		clone.APIKeys = make([]APIKey, len(c.APIKeys))
+		for i, k := range c.APIKeys {
+			k.TokenHash = "********"
+			clone.APIKeys[i] = k
+		}
+	}
+	return clone
 }

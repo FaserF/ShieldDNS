@@ -781,6 +781,18 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		if newConfig.APIKeys == nil && config.APIKeys != nil {
 			newConfig.APIKeys = config.APIKeys
+		} else if newConfig.APIKeys != nil && config.APIKeys != nil {
+			// Restore masked token hashes
+			for i, newKey := range newConfig.APIKeys {
+				if newKey.TokenHash == "********" {
+					for _, oldKey := range config.APIKeys {
+						if oldKey.ID == newKey.ID {
+							newConfig.APIKeys[i].TokenHash = oldKey.TokenHash
+							break
+						}
+					}
+				}
+			}
 		}
 		if len(newConfig.Lists) == 0 && len(config.Lists) > 0 {
 			newConfig.Lists = config.Lists
@@ -788,7 +800,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if len(newConfig.Allowlists) == 0 && len(config.Allowlists) > 0 {
 			newConfig.Allowlists = config.Allowlists
 		}
-		if newConfig.AdminPasswordHashed == "" {
+		if newConfig.AdminPasswordHashed == "" || newConfig.AdminPasswordHashed == "********" {
 			newConfig.AdminPasswordHashed = config.AdminPasswordHashed
 		}
 		if newConfig.LastLogin.IsZero() {
@@ -866,7 +878,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		restartCoreDNS() // Ensure Corefile changes (ACL) are applied
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(config)
+		json.NewEncoder(w).Encode(config.SanitizedCopy())
 		return
 	}
 
@@ -879,7 +891,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(config)
+	json.NewEncoder(w).Encode(config.SanitizedCopy())
 }
 
 func handleFullReload(w http.ResponseWriter, r *http.Request) {
