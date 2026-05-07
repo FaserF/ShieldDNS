@@ -206,6 +206,15 @@ func blockClientAuto(ip, reason string) {
 	}
 
 	cc := GetCountryCodeCached(ip)
+	
+	// If the IP was already in the malicious intelligence feed, append it to the reason
+	// to make it clear why the block was triggered/escalated.
+	if IsMaliciousIP(ip) {
+		if !strings.Contains(reason, "Malicious") {
+			reason += " (Malicious Source)"
+		}
+	}
+
 	config.BlockedClients = append(config.BlockedClients, ip)
 	config.BlockedClientsInfo[ip] = BlockedClientInfo{
 		Reason:      reason,
