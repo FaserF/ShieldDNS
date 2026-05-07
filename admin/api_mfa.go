@@ -76,8 +76,8 @@ func (u WebAuthnUser) WebAuthnCredentials() []webauthn.Credential {
 		// Smart Healing: If this is a legacy credential (both backup flags false),
 		// we temporarily align it with the incoming assertion to pass the consistency check.
 		if hasIncoming && string(c.ID) == string(incomingID) && !c.BackupEligible && !c.BackupState {
-			flags.BackupEligible = incomingFlags.BackupEligible()
-			flags.BackupState = incomingFlags.BackupState()
+			flags.BackupEligible = incomingFlags.HasBackupEligible()
+			flags.BackupState = incomingFlags.HasBackupState()
 		}
 
 		res[i] = webauthn.Credential{
