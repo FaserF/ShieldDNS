@@ -16,6 +16,8 @@ import { showActivityOverlay, hideActivityOverlay } from './ui/activity.js';
 /**
  * Global Initialization
  */
+window.state = state; // Expose for testing/debugging
+
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     
