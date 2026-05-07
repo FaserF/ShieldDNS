@@ -752,6 +752,15 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if len(newConfig.AutoblockWhitelist) == 0 && len(config.AutoblockWhitelist) > 0 {
 			newConfig.AutoblockWhitelist = config.AutoblockWhitelist
 		}
+		if len(newConfig.CustomBlocked) == 0 && len(config.CustomBlocked) > 0 {
+			newConfig.CustomBlocked = config.CustomBlocked
+		}
+		if len(newConfig.CustomAllowed) == 0 && len(config.CustomAllowed) > 0 {
+			newConfig.CustomAllowed = config.CustomAllowed
+		}
+		if newConfig.CustomMappings == nil && config.CustomMappings != nil {
+			newConfig.CustomMappings = config.CustomMappings
+		}
 
 		// Security: Prevent blocking the server's host country
 		if detectedServerCountry != "" || newConfig.ServerCountry != "" {

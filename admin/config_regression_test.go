@@ -16,6 +16,7 @@ func TestConfigPersistenceRegression(t *testing.T) {
 	config.APIKeys = []APIKey{
 		{ID: "k1", Name: "Key 1", TokenHash: "hash1"},
 	}
+	config.CustomMappings = map[string]string{"dns.local": "127.0.0.1"}
 	config.SetupDone = true
 	config.AdminDomain = "original.domain"
 	configLock.Unlock()
@@ -67,6 +68,9 @@ func TestConfigPersistenceRegression(t *testing.T) {
 	}
 	if config.APIKeys[0].TokenHash != "hash1" {
 		t.Errorf("CRITICAL REGRESSION: APIKey TokenHash was lost/overwritten by masked value! Got: %s", config.APIKeys[0].TokenHash)
+	}
+	if config.CustomMappings["dns.local"] != "127.0.0.1" {
+		t.Errorf("CRITICAL REGRESSION: CustomMappings were lost!")
 	}
 	if !config.SetupDone {
 		t.Errorf("CRITICAL REGRESSION: SetupDone was lost!")
