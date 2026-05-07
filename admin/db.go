@@ -311,50 +311,28 @@ func initializeStatsFromDB() {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
+	total, blocked, cacheHits, err := Get24hStats()
+	if err != nil {
+		slog.Error("Failed to initialize stats from DB", "error", err)
+		return
+	}
 
 	statsLock.Lock()
 	defer statsLock.Unlock()
 
-	// 1. Total, Blocked, Cache Hits and Latency (last 24h)
-	// Optimization: Use hourly_stats for the first 23 hours, and queries for the current hour
-	var total, blocked, cacheHits int64
-	var avgLatency float64
+	atomic.StoreInt64(&stats.TotalQueries, total)
+	atomic.StoreInt64(&stats.BlockedQueries, blocked)
+	atomic.StoreInt64(&stats.CacheHits, cacheHits)
 
-	// Current hour start
-	curHour := time.Now().UTC().Truncate(time.Hour).Format("2006-01-02 15:04:05")
-
-	// Get aggregated stats for the previous 23 hours
-	row := db.QueryRowContext(ctx, `
-		SELECT 
-			COALESCE(SUM(total), 0), 
-			COALESCE(SUM(blocked), 0),
-			COALESCE(SUM(cache_hits), 0)
-		FROM hourly_stats 
-		WHERE timestamp > datetime('now', '-24 hours') AND timestamp < ?
-	`, curHour)
-	row.Scan(&total, &blocked, &cacheHits)
-
-	// Get current hour's live stats and overall average latency
-	var curTotal, curBlocked, curCacheHits int64
-	row = db.QueryRowContext(ctx, `
-		SELECT 
-			COUNT(*), 
-			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END), 0),
-			COALESCE(AVG(CASE WHEN duration_ms > 0 THEN duration_ms ELSE NULL END), 0)
-		FROM queries 
-		WHERE timestamp >= ?
-	`, curHour)
-	row.Scan(&curTotal, &curBlocked, &curCacheHits, &avgLatency)
-
-	atomic.StoreInt64(&stats.TotalQueries, total+curTotal)
-	atomic.StoreInt64(&stats.BlockedQueries, blocked+curBlocked)
-	atomic.StoreInt64(&stats.CacheHits, cacheHits+curCacheHits)
-	stats.AverageLatency = avgLatency
-	stats.LastUpdate = time.Now()
+	slog.Info("Stats initialized from DB (Rolling 24h Window)",
+		"total", total,
+		"blocked", blocked,
+		"cache_hits", cacheHits)
 
 	// 2. Query Types (last 24h)
+	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
 	if stats.QueryTypes == nil {
 		stats.QueryTypes = make(map[string]int64)
 	}
@@ -649,4 +627,41 @@ func ParseFlexibleTime(ts string) (time.Time, error) {
 	}
 	// 3. Fallback to ISO-8601 without timezone
 	return time.Parse("2006-01-02T15:04:05", ts)
+}
+
+func Get24hStats() (int64, int64, int64, error) {
+	if db == nil {
+		return 0, 0, 0, fmt.Errorf("DB not initialized")
+	}
+
+	var total, blocked, cacheHits int64
+	now := time.Now().UTC()
+	curHour := now.Truncate(time.Hour)
+	curHourStr := curHour.Format("2006-01-02 15:04:05")
+
+	// 1. Sum from hourly_stats (historical buckets)
+	err := db.QueryRow(`
+		SELECT COALESCE(SUM(total), 0), COALESCE(SUM(blocked), 0), COALESCE(SUM(cache_hits), 0)
+		FROM hourly_stats 
+		WHERE timestamp > datetime('now', '-24 hours') AND timestamp < ?
+	`, curHourStr).Scan(&total, &blocked, &cacheHits)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	// 2. Add current hour from queries table (live data)
+	var curTotal, curBlocked, curCacheHits int64
+	err = db.QueryRow(`
+		SELECT 
+			COUNT(*), 
+			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END), 0)
+		FROM queries
+		WHERE timestamp >= ?
+	`, curHourStr).Scan(&curTotal, &curBlocked, &curCacheHits)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	return total + curTotal, blocked + curBlocked, cacheHits + curCacheHits, nil
 }

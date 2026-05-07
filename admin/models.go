@@ -129,6 +129,7 @@ type HourStats struct {
 	Time    time.Time `json:"time"`
 	Total   int64     `json:"total"`
 	Blocked int64     `json:"blocked"`
+	Allowed int64     `json:"allowed"`
 }
 
 type DomainCount struct {

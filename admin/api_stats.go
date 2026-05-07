@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -16,49 +17,49 @@ import (
 var (
 	cachedUniqueClients int
 	lastUniqueUpdate    time.Time
+	statsCache          Stats
+	statsCacheTime      time.Time
+	statsCacheMu        sync.Mutex
 )
 
 func handleStats(w http.ResponseWriter, r *http.Request) {
+	statsCacheMu.Lock()
+	if time.Since(statsCacheTime) < 10*time.Second {
+		s := statsCache
+		statsCacheMu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(s)
+		return
+	}
+	statsCacheMu.Unlock()
+
 	statsLock.RLock()
 	s := stats
-
-	// Reload atomic counters to get latest values safely
-	s.TotalQueries = atomic.LoadInt64(&stats.TotalQueries)
-	s.BlockedQueries = atomic.LoadInt64(&stats.BlockedQueries)
-	s.CacheHits = atomic.LoadInt64(&stats.CacheHits)
-
-	if len(s.QueryTypes) > 0 {
-		// Deep copy map under read lock
-		newQt := make(map[string]int64)
-		for k, v := range s.QueryTypes {
-			newQt[k] = v
-		}
-		s.QueryTypes = newQt
-	}
-	if len(s.TopCountries) > 0 {
-		newTc := make(map[string]int64)
-		for k, v := range s.TopCountries {
-			// Skip unresolved ('-'), empty, and local/internal ('geo') entries
-			if k != "-" && k != "" && k != "geo" {
-				newTc[k] = v
-			}
-		}
-		s.TopCountries = newTc
-	}
 	statsLock.RUnlock()
 
+	// 1. Get true 24h rolling totals from DB
+	total, blocked, cacheHits, err := Get24hStats()
+	if err != nil {
+		slog.Error("Error getting 24h stats for API", "error", err)
+		// Fallback to atomic counters if DB fails
+		s.TotalQueries = atomic.LoadInt64(&stats.TotalQueries)
+		s.BlockedQueries = atomic.LoadInt64(&stats.BlockedQueries)
+		s.CacheHits = atomic.LoadInt64(&stats.CacheHits)
+	} else {
+		s.TotalQueries = total
+		s.BlockedQueries = blocked
+		s.CacheHits = cacheHits
+	}
+
+	// 2. Refresh dynamic fields
 	blockAttributionLock.RLock()
 	s.BlockedDomains = int64(len(blockAttribution))
 	blockAttributionLock.RUnlock()
 
-	// Keep global stats in sync
-	statsLock.Lock()
-	stats.BlockedDomains = s.BlockedDomains
-	statsLock.Unlock()
-
-	// Query unique clients (cached for 1 minute)
+	// Unique clients (cached for 1 minute independently)
 	statsLock.RLock()
 	lastUpdate := lastUniqueUpdate
+	cachedUC := cachedUniqueClients
 	statsLock.RUnlock()
 
 	if db != nil && time.Since(lastUpdate) > 1*time.Minute {
@@ -69,31 +70,28 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 			cachedUniqueClients = uniqueClients
 			lastUniqueUpdate = time.Now()
 			statsLock.Unlock()
+			s.UniqueClients = uniqueClients
 		} else {
-			slog.Debug("Failed to query unique clients for stats", "error", err)
+			s.UniqueClients = cachedUC
 		}
+	} else {
+		s.UniqueClients = cachedUC
 	}
 
-	statsLock.RLock()
-	s.UniqueClients = cachedUniqueClients
-	statsLock.RUnlock()
-
+	// 3. Versions and Metadata
 	s.Version = Version
 	s.CoreDNSVersion = getCoreDNSVersion()
 	s.AlpineVersion = getOSVersion()
-
-	// Get latest versions for update check
 	latest := getLatestVersions()
 	s.LatestVersion = latest.ShieldDNS
 	s.LatestCoreDNSVersion = latest.CoreDNS
 	s.LatestAlpineVersion = latest.Alpine
 
-	// Calculate DB size
 	if info, err := os.Stat(DBPath); err == nil {
 		s.DBSizeMB = float64(info.Size()) / (1024 * 1024)
 	}
 
-	// System Stats
+	// 4. System Resource Usage
 	sysStats := make(map[string]interface{})
 	fillCPUStats(sysStats)
 	fillRAMStats(sysStats)
@@ -101,40 +99,32 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 
 	if val, ok := sysStats["ram_used_mb"]; ok {
 		s.RAMUsedMB = float64(val.(int64))
-	} else if ram, ok := sysStats["ram"].(map[string]interface{}); ok {
-		if used, ok := ram["used"].(float64); ok {
-			s.RAMUsedMB = used / (1024 * 1024)
-		}
 	}
-
 	if val, ok := sysStats["ram_total_mb"]; ok {
 		s.RAMTotalMB = float64(val.(int64))
-	} else if ram, ok := sysStats["ram"].(map[string]interface{}); ok {
-		if total, ok := ram["total"].(float64); ok {
-			s.RAMTotalMB = total / (1024 * 1024)
-		}
 	}
 	if val, ok := sysStats["uptime_seconds"]; ok {
 		s.UptimeSeconds = val.(int64)
 	}
 	if val, ok := sysStats["cpu_percent"]; ok {
-		// Note: stats_linux.go doesn't currently provide cpu_percent, but we can add it or just use load
 		s.CPUUsage = val.(float64)
 	} else if val, ok := sysStats["cpu_load"]; ok {
-		// Handle different types depending on platform (string slice from linux, float slice from others)
 		if load, ok := val.([]string); ok && len(load) > 0 {
 			if f, err := strconv.ParseFloat(load[0], 64); err == nil {
 				s.CPUUsage = f
 			}
-		} else if load, ok := val.([]float64); ok && len(load) > 0 {
-			s.CPUUsage = load[0]
 		}
 	}
 
-	// Abuse Detection Stats
 	configLock.RLock()
 	s.NumAutoBlocked = len(config.BlockedClientsInfo)
 	configLock.RUnlock()
+
+	// Update Cache
+	statsCacheMu.Lock()
+	statsCache = s
+	statsCacheTime = time.Now()
+	statsCacheMu.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s)
@@ -294,20 +284,18 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 		if err := rows.Scan(&ts, &total, &blocked); err != nil {
 			continue
 		}
-		// Normalize key to hour precision (strip minutes/seconds)
-		t, err := ParseFlexibleTime(ts)
-		if err != nil {
-			continue
-		}
+		t, _ := ParseFlexibleTime(ts)
 		key := t.UTC().Truncate(time.Hour).Format("2006-01-02 15:04:05")
 		aggMap[key] = agg{total: total, blocked: blocked}
 	}
 
-	// For the current hour, read live from queries table
+	// 2. Add current hour from queries table
+	var curTotal, curBlocked int64
 	curHour := now.Truncate(time.Hour)
 	curHourStr := curHour.Format("2006-01-02 15:04:05")
-	nextHourStr := curHour.Add(time.Hour).Format("2006-01-02 15:04:05")
-	var curTotal, curBlocked int64
+	nextHour := curHour.Add(1 * time.Hour)
+	nextHourStr := nextHour.Format("2006-01-02 15:04:05")
+
 	db.QueryRow(`
 		SELECT
 			COUNT(*),
@@ -315,16 +303,20 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 		FROM queries
 		WHERE timestamp >= ? AND timestamp < ?
 	`, curHourStr, nextHourStr).Scan(&curTotal, &curBlocked)
+
 	aggMap[curHourStr] = agg{total: curTotal, blocked: curBlocked}
 
-	// Merge into result array — always 24 entries ordered oldest→newest
+	// 3. Construct result array
 	result := make([]HourStats, 24)
 	for i, s := range slots {
 		key := s.hour.Format("2006-01-02 15:04:05")
-		res := HourStats{Time: s.hour}
+		res := HourStats{
+			Time: s.hour,
+		}
 		if a, ok := aggMap[key]; ok {
 			res.Total = a.total
 			res.Blocked = a.blocked
+			res.Allowed = a.total - a.blocked
 		}
 		result[i] = res
 	}

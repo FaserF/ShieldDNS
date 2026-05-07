@@ -19,26 +19,23 @@ const isChartAvailable = () => {
 
 export const renderTrafficChart = (data, onClickHour) => {
     if (!isChartAvailable()) return;
-    const canvas = document.getElementById('traffic-chart');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-
-    // Align data to the last 24 hours precisely
-    const now = new Date();
+    const ctx = document.getElementById('traffic-chart').getContext('2d');
     const labels = [];
     const allowed = [];
     const blocked = [];
-
+    
+    const now = new Date();
+    // Generate exactly 24 hour slots ending now
     for (let i = 23; i >= 0; i--) {
         const d = new Date(now.getTime() - i * 60 * 60 * 1000);
         const h = d.getHours();
         const hourStr = `${h}:00`;
         labels.push(hourStr);
-
-        // Snap d to the hour for robust matching
+        
+        // Find match in data
         const startOfHour = new Date(d);
         startOfHour.setMinutes(0, 0, 0);
-
+        
         const match = (data || []).find(p => {
             if (!p.time) return false;
             const pd = new Date(p.time);
@@ -46,18 +43,13 @@ export const renderTrafficChart = (data, onClickHour) => {
             pStartOfHour.setMinutes(0, 0, 0);
             return pStartOfHour.getTime() === startOfHour.getTime();
         });
-
-        const totalVal = match ? match.total : 0;
-        const blockedVal = match ? match.blocked : 0;
         
-        // Use 'Allowed' and 'Blocked' for stacking
-        // This ensures the top of the stack represents the Total Volume
-        allowed.push(Math.max(0, totalVal - blockedVal));
-        blocked.push(blockedVal);
+        allowed.push(match ? match.allowed : 0);
+        blocked.push(match ? match.blocked : 0);
     }
 
-    const allowedColor = 'rgba(92, 107, 192, 1)';
-    const blockedColor = 'rgba(239, 68, 68, 1)';
+    const allowedColor = 'rgba(99, 102, 241, 1)'; // Indigo
+    const blockedColor = 'rgba(239, 68, 68, 1)'; // Red
 
     if (trafficChart) {
         trafficChart.data.labels = labels;
@@ -73,89 +65,97 @@ export const renderTrafficChart = (data, onClickHour) => {
             labels: labels,
             datasets: [
                 {
-                    label: 'Allowed',
+                    label: 'Allowed Queries',
                     data: allowed,
                     borderColor: allowedColor,
-                    backgroundColor: createGradient(ctx, allowedColor),
-                    fill: true,
-                    tension: 0.4,
+                    backgroundColor: 'rgba(99, 102, 241, 0.2)',
                     borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
                     pointRadius: 0,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: allowedColor,
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    stack: 'stack1'
+                    pointHoverRadius: 4,
                 },
                 {
-                    label: 'Blocked',
+                    label: 'Blocked Queries',
                     data: blocked,
                     borderColor: blockedColor,
-                    backgroundColor: createGradient(ctx, blockedColor),
-                    fill: true,
-                    tension: 0.4,
+                    backgroundColor: 'rgba(239, 68, 68, 0.6)',
                     borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
                     pointRadius: 0,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: blockedColor,
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    stack: 'stack1'
+                    pointHoverRadius: 4,
                 }
             ]
         },
         options: {
-            animation: {
-                duration: 1200,
-                easing: 'easeOutQuart'
-            },
-            onClick: (e, activeEls) => {
-                if (activeEls.length > 0 && onClickHour) {
-                    const idx = activeEls[0].index;
-                    const hourLabel = labels[idx];
-                    onClickHour(hourLabel);
-                }
-            },
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
             plugins: {
-                legend: { display: false },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                        color: '#94a3b8',
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 20,
+                        font: { size: 11 }
+                    }
+                },
                 tooltip: {
+                    mode: 'index',
+                    intersect: false,
                     backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#cbd5e1',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
                     padding: 12,
-                    cornerRadius: 8,
+                    displayColors: true,
                     callbacks: {
                         label: function(context) {
                             let label = context.dataset.label || '';
-                            if (label) label += ': ';
+                            if (label) {
+                                label += ': ';
+                            }
                             if (context.parsed.y !== null) {
-                                label += new Intl.NumberFormat().format(context.parsed.y);
+                                label += context.parsed.y.toLocaleString();
                             }
                             return label;
                         },
-                        footer: function(items) {
+                        footer: (tooltipItems) => {
                             let total = 0;
-                            items.forEach(item => total += item.parsed.y);
-                            return 'Total: ' + new Intl.NumberFormat().format(total);
+                            tooltipItems.forEach(function(tooltipItem) {
+                                total += tooltipItem.parsed.y;
+                            });
+                            return 'Total: ' + total.toLocaleString();
                         }
                     }
                 }
             },
             scales: {
-                y: { 
+                y: {
                     stacked: true,
-                    beginAtZero: true, 
-                    grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }, 
-                    ticks: { color: '#64748b', font: { size: 11 } } 
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { 
+                        color: '#64748b', 
+                        font: { size: 10 },
+                        callback: value => value.toLocaleString()
+                    }
                 },
-                x: { 
-                    grid: { display: false }, 
-                    ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 0 } 
+                x: {
+                    stacked: true,
+                    grid: { display: false },
+                    ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }
                 }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
             }
         }
     });
