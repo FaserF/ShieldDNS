@@ -62,15 +62,12 @@ func syncCountryIPs(countryCode string) error {
 	return err
 }
 
-// getGeoACLRules generates the 'acl' block content for CoreDNS
-// combining both geo-blocked countries and manually blocked client IPs.
-func getGeoACLRules() string {
-	configLock.RLock()
-	countries := make([]string, len(config.BlockedCountries))
-	copy(countries, config.BlockedCountries)
-	blockedClients := make([]string, len(config.BlockedClients))
-	copy(blockedClients, config.BlockedClients)
-	configLock.RUnlock()
+func getGeoACLRules(cfg *Config) string {
+	if cfg == nil {
+		return ""
+	}
+	countries := cfg.BlockedCountries
+	blockedClients := cfg.BlockedClients
 
 	var rules []string
 
@@ -128,7 +125,7 @@ func getGeoACLRules() string {
 	}
 
 	// Add malicious IPs from threat feed
-	rules = append(rules, getMaliciousIPRules()...)
+	rules = append(rules, getMaliciousIPRules(cfg)...)
 
 	// Validate rule formats to prevent Corefile injection
 	var safeRules []string

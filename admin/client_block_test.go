@@ -177,10 +177,8 @@ func TestHandleClientBlock(t *testing.T) {
 // /api/config does not accidentally clear BlockedClients.
 func TestBlockedClientsPreservedInConfigUpdate(t *testing.T) {
 	configLock.Lock()
-	config = Config{
-		AdminPasswordHashed: "existing-hash",
-		BlockedClients:      []string{"10.10.10.10"},
-	}
+	config.AdminPasswordHashed = "existing-hash"
+	config.BlockedClients = []string{"10.10.10.10"}
 	configLock.Unlock()
 
 	// Send a partial config update that does NOT include blocked_clients

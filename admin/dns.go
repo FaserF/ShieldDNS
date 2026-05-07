@@ -543,12 +543,7 @@ func resolveHost(host string) string {
 
 func updateCorefile() {
 	configLock.RLock()
-	preferEncrypted := config.PreferEncrypted
-	smart := config.UseFastestUpstream
-	policy := config.SmartSelectionPolicy
-	serveStale := config.ServeStale
-	dnssec := config.DNSSECEnabled
-	filtering := config.FilteringEnabled
+	cfg := config.Clone()
 	configLock.RUnlock()
 
 	healthLock.RLock()
@@ -558,7 +553,7 @@ func updateCorefile() {
 	copy(hDoT, healthyDoT)
 	healthLock.RUnlock()
 
-	if smart {
+	if cfg.UseFastestUpstream {
 		latencyLock.RLock()
 		sort.Slice(hDNS, func(i, j int) bool {
 			return latencyMap[hDNS[i]] < latencyMap[hDNS[j]]
@@ -571,7 +566,7 @@ func updateCorefile() {
 
 	var upstreams []string
 	var dotServerName string
-	if preferEncrypted {
+	if cfg.PreferEncrypted {
 		for _, u := range hDoT {
 			host, port := splitAddr(u, "853")
 			ip := resolveHost(host)
@@ -595,12 +590,12 @@ func updateCorefile() {
 	upstreamStr := strings.Join(upstreams, " ")
 
 	policyVal := ""
-	if smart {
-		if policy == "random" {
+	if cfg.UseFastestUpstream {
+		if cfg.SmartSelectionPolicy == "random" {
 			policyVal = "random"
-		} else if policy == "broadcast" {
+		} else if cfg.SmartSelectionPolicy == "broadcast" {
 			policyVal = "broadcast"
-			if preferEncrypted && len(hDoT) > 0 {
+			if cfg.PreferEncrypted && len(hDoT) > 0 {
 				upstreamStr = "tls://" + strings.Join(hDoT, " tls://")
 			}
 		} else {
@@ -642,16 +637,16 @@ func updateCorefile() {
 		DNSPort:          dnsPort,
 		DOTPort:          dotPort,
 		InternalDOHPort:  internalDOHPort,
-		DNSSEC:           dnssec,
-		ServeStale:       serveStale,
+		DNSSEC:           cfg.DNSSECEnabled,
+		ServeStale:       cfg.ServeStale,
 		Upstreams:        upstreamStr,
 		TLSServerName:    dotServerName,
 		Policy:           policyVal,
 		HostsPath:        CombinedHostsPath,
-		GeoACLRules:      getGeoACLRules(),
+		GeoACLRules:      getGeoACLRules(cfg),
 		CertFile:         certFile,
 		KeyFile:          keyFile,
-		FilteringEnabled: filtering,
+		FilteringEnabled: cfg.FilteringEnabled,
 		HasCerts:         hasCerts,
 	}
 

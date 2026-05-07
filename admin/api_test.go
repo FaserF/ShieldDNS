@@ -16,23 +16,21 @@ import (
 func TestAuthMiddleware(t *testing.T) {
 	// Initialize minimal config
 	configLock.Lock()
-	config = Config{
-		APIKeys: []APIKey{
-			{
-				ID:          "test-1",
-				Name:        "Read Only",
-				TokenHash:   hashToken("test-token-read"),
-				Permissions: []string{"read:stats"},
-			},
-			{
-				ID:          "test-2",
-				Name:        "Full Access",
-				TokenHash:   hashToken("test-token-full"),
-				Permissions: []string{"read:all"},
-			},
+	config.APIKeys = []APIKey{
+		{
+			ID:          "test-1",
+			Name:        "Read Only",
+			TokenHash:   hashToken("test-token-read"),
+			Permissions: []string{"read:stats"},
 		},
-		AdminPasswordHashed: "dummy-hash",
+		{
+			ID:          "test-2",
+			Name:        "Full Access",
+			TokenHash:   hashToken("test-token-full"),
+			Permissions: []string{"read:all"},
+		},
 	}
+	config.AdminPasswordHashed = "dummy-hash"
 	configLock.Unlock()
 
 	handler := authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +69,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 func TestNoAPIKeysRejectsAll(t *testing.T) {
 	configLock.Lock()
-	config = Config{APIKeys: []APIKey{}}
+	config.APIKeys = []APIKey{}
 	configLock.Unlock()
 
 	handler := authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +88,7 @@ func TestNoAPIKeysRejectsAll(t *testing.T) {
 
 func TestToggleFiltering(t *testing.T) {
 	configLock.Lock()
-	config = Config{FilteringEnabled: true}
+	config.FilteringEnabled = true
 	configLock.Unlock()
 
 	reqBody, _ := json.Marshal(map[string]bool{"enabled": false})
@@ -157,7 +155,7 @@ func TestCustomRuleSanitization(t *testing.T) {
 // TestHandleRestore verifies that a valid config JSON can be restored via a multipart upload.
 func TestHandleRestore(t *testing.T) {
 	configLock.Lock()
-	config = Config{AdminPasswordHashed: "existing-hash"}
+	config.AdminPasswordHashed = "existing-hash"
 	configLock.Unlock()
 
 	// Note: handleConfig actually replaces the global config with what's in the body
@@ -306,10 +304,8 @@ func TestHandleQueriesWithFiltering(t *testing.T) {
 }
 func TestHandleMobileConfig(t *testing.T) {
 	configLock.Lock()
-	config = Config{
-		BlockPageIP: "1.2.3.4",
-		AdminDomain: "dns.example.com",
-	}
+	config.BlockPageIP = "1.2.3.4"
+	config.AdminDomain = "dns.example.com"
 	configLock.Unlock()
 
 	req := httptest.NewRequest("GET", "/api/mobileconfig", nil)
@@ -393,7 +389,7 @@ func TestIsValidDomain(t *testing.T) {
 
 func TestHandleRuleAddValidation(t *testing.T) {
 	configLock.Lock()
-	config = Config{AdminPasswordHashed: "test"}
+	config.AdminPasswordHashed = "test"
 	configLock.Unlock()
 
 	tests := []struct {
@@ -429,7 +425,7 @@ func TestHandleRuleAddValidation(t *testing.T) {
 
 func TestHandleConfigRejectsInvalidCustomRules(t *testing.T) {
 	configLock.Lock()
-	config = Config{AdminPasswordHashed: "existing-hash"}
+	config.AdminPasswordHashed = "existing-hash"
 	configLock.Unlock()
 
 	configLock.RLock()
@@ -460,10 +456,8 @@ func TestHandleConfigRejectsInvalidCustomRules(t *testing.T) {
 
 func TestHandleClientAlias(t *testing.T) {
 	configLock.Lock()
-	config = Config{
-		ClientAliases: map[string]string{
-			"1.1.1.1": "Cloudflare",
-		},
+	config.ClientAliases = map[string]string{
+		"1.1.1.1": "Cloudflare",
 	}
 	configLock.Unlock()
 

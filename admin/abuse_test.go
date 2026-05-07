@@ -9,13 +9,11 @@ import (
 func TestAnalyzeQueryDomainFlood(t *testing.T) {
 	// Reset state
 	configLock.Lock()
-	config = Config{
-		AbuseDetectionEnabled: true,
-		AbuseDGAThreshold:     3.8,
-		AbuseDGAMinLen:        8,
-		BlockedClients:        []string{},
-		BlockedClientsInfo:    make(map[string]BlockedClientInfo),
-	}
+	config.AbuseDetectionEnabled = true
+	config.AbuseDGAThreshold = 3.8
+	config.AbuseDGAMinLen = 8
+	config.BlockedClients = []string{}
+	config.BlockedClientsInfo = make(map[string]BlockedClientInfo)
 	configLock.Unlock()
 
 	abuseMu.Lock()
@@ -84,13 +82,11 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 	// Reset state
 	configLock.Lock()
-	config = Config{
-		AbuseDetectionEnabled: true,
-		AbuseDGAThreshold:     3.8,
-		AbuseDGAMinLen:        8,
-		BlockedClients:        []string{},
-		BlockedClientsInfo:    make(map[string]BlockedClientInfo),
-	}
+	config.AbuseDetectionEnabled = true
+	config.AbuseDGAThreshold = 3.8
+	config.AbuseDGAMinLen = 8
+	config.BlockedClients = []string{}
+	config.BlockedClientsInfo = make(map[string]BlockedClientInfo)
 	configLock.Unlock()
 
 	abuseMu.Lock()
@@ -136,16 +132,18 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 }
 
 func TestAbuseDetectionDisabled(t *testing.T) {
-	// ... (rest of old TestAbuseDetectionDisabled)
 	// Reset state
 	configLock.Lock()
-	config = Config{
-		AbuseDetectionEnabled: false,
-		AbuseDGAThreshold:     3.8,
-		AbuseDGAMinLen:        8,
-		BlockedClients:        []string{},
-	}
+	config.AbuseDetectionEnabled = false
+	config.AbuseDGAThreshold = 3.8
+	config.AbuseDGAMinLen = 8
+	config.BlockedClients = []string{}
+	config.BlockedClientsInfo = make(map[string]BlockedClientInfo)
 	configLock.Unlock()
+
+	abuseMu.Lock()
+	abuseCounters = make(map[string]*clientAbuseCounters)
+	abuseMu.Unlock()
 
 	ip := "9.9.9.9"
 
