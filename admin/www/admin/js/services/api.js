@@ -110,5 +110,6 @@ export const endpoints = {
     highRiskCountries: basePath + '/api/system/high-risk-countries',
     serverCountry: basePath + '/api/system/server-country',
     login: basePath + '/api/login',
+    logout: basePath + '/api/logout',
     setup: basePath + '/api/setup'
 };
