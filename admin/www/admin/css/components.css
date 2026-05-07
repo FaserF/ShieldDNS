@@ -92,6 +92,14 @@
     letter-spacing: 0.025em;
 }
 
+#mfa-challenge-code {
+    letter-spacing: 0.6rem;
+    font-family: Inter, monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-align: center;
+}
+
 .stat-card .value {
     font-size: 2.25rem;
     font-weight: 700;
@@ -270,7 +278,7 @@ input:checked + .slider:before {
 /* MFA Specific Styles */
 #mfa-view .form-group input {
     letter-spacing: 0.5rem;
-    font-family: 'Inter', monospace;
+    font-family: Inter, monospace;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -280,10 +288,10 @@ input:checked + .slider:before {
 }
 
 .auth-box {
-    animation: authSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: auth-slide-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes authSlideIn {
+@keyframes auth-slide-in {
     from { opacity: 0; transform: translateY(20px) scale(0.98); }
     to { opacity: 1; transform: translateY(0) scale(1); }
 }

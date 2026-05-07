@@ -995,7 +995,10 @@ export async function initMFA() {
             } else {
                 getEl('mfa-manage-area').classList.remove('hidden');
                 getEl('mfa-totp-setup').classList.add('hidden');
-                import('./renderers.js').then(m => m.renderPasskeys());
+                import('./renderers.js').then(m => {
+                    m.renderPasskeys();
+                    m.updateMFAStatus();
+                });
             }
         }
     });
@@ -1010,12 +1013,6 @@ export async function initMFA() {
     getEl('mfa-add-passkey-btn')?.addEventListener('click', handlePasskeyRegister);
     getEl('mfa-add-totp-btn')?.addEventListener('click', startTOTPSetup);
     getEl('mfa-disable-all-btn')?.addEventListener('click', handleMFADisable);
-    getEl('mfa-toggle-btn')?.addEventListener('click', () => {
-        getEl('mfa-setup-area').classList.toggle('hidden');
-        getEl('mfa-manage-area').classList.remove('hidden');
-        getEl('mfa-totp-setup').classList.add('hidden');
-        import('./renderers.js').then(m => m.updateMFAStatus());
-    });
 }
 
 async function startTOTPSetup() {
@@ -1036,11 +1033,13 @@ async function startTOTPSetup() {
 }
 
 async function handleTOTPVerify() {
-    const code = getEl('mfa-setup-verify-code').value;
+    const code = getEl('mfa-setup-verify-code').value.trim();
     const name = getEl('mfa-setup-totp-name').value.trim();
     const secret = getEl('mfa-qr-code').dataset.secret;
 
-    if (!code) return helpers.showToast('Please enter the 6-digit code', 'info');
+    if (!/^\d{6}$/.test(code)) {
+        return helpers.showToast('Please enter a valid 6-digit code', 'info');
+    }
 
     const btn = getEl('mfa-complete-setup');
     helpers.setBtnLoading(btn, true, 'Verifying...');

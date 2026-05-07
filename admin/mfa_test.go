@@ -136,9 +136,12 @@ func TestMFAMultiMethod(t *testing.T) {
 		}
 	})
 
-	// 6. Test Deletion
 	t.Run("Delete MFA Method", func(t *testing.T) {
 		configLock.RLock()
+		if len(config.TOTPConfigs) == 0 {
+			configLock.RUnlock()
+			t.Fatal("No TOTP configs found to delete")
+		}
 		idToDelete := config.TOTPConfigs[0].ID
 		configLock.RUnlock()
 

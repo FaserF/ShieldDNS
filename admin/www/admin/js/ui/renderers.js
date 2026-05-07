@@ -471,7 +471,9 @@ export function renderDiagnostics(d) {
             }
         }
     }
-} export function renderAPIKeys(keys) {
+}
+
+export function renderAPIKeys(keys) {
     const list = getEl('api-keys-list') || getEl('api-keys-list-container');
     if (!list) return;
 
@@ -510,7 +512,6 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
 
     const sanitize = (val, fallback = 'N/A') => (!val || val === '-' || val === 'geo' || val === 'none') ? fallback : val;
 
-    const fallbackSpan = (txt) => `<span class="info-empty">${txt}</span>`;
     const toggleEl = (id, show) => { const el = getEl(id); if (el) el.style.display = show ? '' : 'none'; };
 
     // Hostname visibility
@@ -551,7 +552,6 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
 
     // Provider & ASN
     const provider = stats.isp || stats.org;
-    const hasProvider = !!provider;
     setTxt('ip-info-isp', provider || (stats.is_private ? 'Local Network' : 'Unknown Provider'));
     
     const hasAS = stats.as && stats.as !== '-' && stats.as !== 'none';
@@ -824,7 +824,7 @@ export function renderPasskeys(cfg) {
     }
 
     list.innerHTML = creds.map(c => {
-        const idStr = typeof c.ID === 'string' ? c.ID : helpers.base64FromBuffer(c.ID);
+        const idStr = typeof c.id === 'string' ? c.id : helpers.base64FromBuffer(c.id);
         return `
             <div class="mfa-item">
                 <div class="mfa-item-info">

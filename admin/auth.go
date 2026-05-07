@@ -307,7 +307,7 @@ func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(CookieName); err == nil {
 		if val, found := sessionStore.Load(cookie.Value); found {
 			sess := val.(Session)
-			if time.Now().Before(sess.ExpiresAt) {
+			if time.Now().Before(sess.ExpiresAt) && sess.MFAVerified {
 				loggedIn = true
 			}
 		}
@@ -413,7 +413,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		UserAgent:   r.UserAgent(),
 		CreatedAt:   time.Now(),
 		ExpiresAt:   time.Now().Add(SessionDuration),
-		MFAVerified: !mfaEnabled,
+		MFAVerified: !mfaEnabled, // Will be false if MFA is enabled
 	}
 	sessionStore.Store(token, sess)
 

@@ -425,10 +425,9 @@ func refreshStats() {
 	atomic.StoreInt64(&stats.CacheHits, cacheHits)
 
 	// Update Query Types quietly
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-
-	if stats.QueryTypes == nil {
+	if err := db.PingContext(ctx); err != nil {
 		stats.QueryTypes = make(map[string]int64)
 	}
 	tRows, err := db.QueryContext(ctx, `

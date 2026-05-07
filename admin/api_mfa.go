@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pquerna/otp/totp"
 	"github.com/skip2/go-qrcode"
+	"log/slog"
 )
 
 // WebAuthnUser implements webauthn.User interface
@@ -61,29 +62,37 @@ func (u WebAuthnUser) WebAuthnIcon() string {
 }
 
 var (
-	wa *webauthn.WebAuthn
+	wa           *webauthn.WebAuthn
+	webauthnOnce sync.Once
+	webauthnMu   sync.RWMutex
 	// Temporary store for registration/authentication sessions
 	waSessionStore sync.Map // sessionToken -> webauthn.SessionData
 )
 
 func initWebAuthn() {
-	configLock.RLock()
-	domain := config.AdminDomain
-	configLock.RUnlock()
+	webauthnOnce.Do(func() {
+		configLock.RLock()
+		domain := config.AdminDomain
+		configLock.RUnlock()
 
-	if domain == "" {
-		domain = "localhost"
-	}
+		if domain == "" {
+			domain = "localhost"
+		}
 
-	var err error
-	wa, err = webauthn.New(&webauthn.Config{
-		RPDisplayName: "ShieldDNS",
-		RPID:          domain,
-		RPOrigins:     []string{fmt.Sprintf("https://%s", domain)},
+		newWa, err := webauthn.New(&webauthn.Config{
+			RPDisplayName: "ShieldDNS",
+			RPID:          domain,
+			RPOrigins:     []string{fmt.Sprintf("https://%s", domain)},
+		})
+		if err != nil {
+			slog.Error("failed to create webauthn", "error", err)
+			return
+		}
+
+		webauthnMu.Lock()
+		wa = newWa
+		webauthnMu.Unlock()
 	})
-	if err != nil {
-		fmt.Printf("failed to create webauthn: %v\n", err)
-	}
 }
 
 var (
@@ -319,8 +328,15 @@ func handleMFAChallenge(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
-	if wa == nil {
-		initWebAuthn()
+	initWebAuthn()
+
+	webauthnMu.RLock()
+	currentWA := wa
+	webauthnMu.RUnlock()
+
+	if currentWA == nil {
+		http.Error(w, "WebAuthn not initialized", http.StatusServiceUnavailable)
+		return
 	}
 
 	cookie, err := r.Cookie(CookieName)
@@ -329,7 +345,7 @@ func handleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	options, session, err := wa.BeginRegistration(WebAuthnUser{})
+	options, session, err := currentWA.BeginRegistration(WebAuthnUser{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -357,7 +373,16 @@ func handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	session := val.(webauthn.SessionData)
 
-	credential, err := wa.FinishRegistration(WebAuthnUser{}, session, r)
+	webauthnMu.RLock()
+	currentWA := wa
+	webauthnMu.RUnlock()
+
+	if currentWA == nil {
+		http.Error(w, "WebAuthn not initialized", http.StatusServiceUnavailable)
+		return
+	}
+
+	credential, err := currentWA.FinishRegistration(WebAuthnUser{}, session, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -395,8 +420,15 @@ func handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
-	if wa == nil {
-		initWebAuthn()
+	initWebAuthn()
+
+	webauthnMu.RLock()
+	currentWA := wa
+	webauthnMu.RUnlock()
+
+	if currentWA == nil {
+		http.Error(w, "WebAuthn not initialized", http.StatusServiceUnavailable)
+		return
 	}
 
 	cookie, err := r.Cookie(CookieName)
@@ -405,7 +437,7 @@ func handleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	options, session, err := wa.BeginLogin(WebAuthnUser{})
+	options, session, err := currentWA.BeginLogin(WebAuthnUser{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -430,7 +462,16 @@ func handleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	session := val.(webauthn.SessionData)
 
-	_, err = wa.FinishLogin(WebAuthnUser{}, session, r)
+	webauthnMu.RLock()
+	currentWA := wa
+	webauthnMu.RUnlock()
+
+	if currentWA == nil {
+		http.Error(w, "WebAuthn not initialized", http.StatusServiceUnavailable)
+		return
+	}
+
+	_, err = currentWA.FinishLogin(WebAuthnUser{}, session, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
