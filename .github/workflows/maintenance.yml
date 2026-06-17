@@ -1,0 +1,53 @@
+name: Maintenance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 02:00 UTC
+
+permissions:
+  contents: read
+  actions: write
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-maintenance
+  cancel-in-progress: true
+
+jobs:
+  maintenance:
+    name: System Maintenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 30
+          keep_minimum_runs: 5
+
+      - name: Remove old artifacts
+        uses: c-hive/gha-remove-artifacts@v1
+        with:
+          age: '1 month'
+          skip-recent: 5
+
+      - name: Set up Node.js for GHCR cleanup
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Clean up old GHCR images
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ -f .github/scripts/cleanup_ghcr.js ]; then
+            node .github/scripts/cleanup_ghcr.js
+          else
+            echo "cleanup_ghcr.js not found, skipping GHCR cleanup."
+          fi

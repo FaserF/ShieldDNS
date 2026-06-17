@@ -207,17 +207,17 @@ jobs:
             $totalCommitCount = [int](git rev-list --count $countRange 2>$null)
           } catch { $totalCommitCount = 0 }
 
-          # Generate changelog via script
+          # Generate changelog via Python script
           $changelogMd = ""
-          $changelogScript = Join-Path $PWD ".github/scripts/generate_changelog.ps1"
+          $changelogScript = Join-Path $PWD ".github/scripts/generate_changelog.py"
           if (Test-Path $changelogScript) {
             try {
-              $clArgs = @{
-                FromTag      = $changelog_from
-                TotalCommits = [string]$totalCommitCount
-                Repo         = $repo
-              }
-              $changelogLines = & pwsh -NoProfile -NonInteractive -File $changelogScript @clArgs 2>$null
+              $clArgs = @(
+                "--from-tag", $changelog_from,
+                "--total-commits", [string]$totalCommitCount,
+                "--repo", $repo
+              )
+              $changelogLines = python $changelogScript @clArgs 2>$null
               $changelogMd = if ($changelogLines) { $changelogLines -join "`n" } else { "_No categorised changes detected._" }
             } catch {
               $changelogMd = "_Changelog could not be generated automatically._"

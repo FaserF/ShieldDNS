@@ -780,15 +780,15 @@ export function initEvents(fetchConfig) {
                     const invalidFlags = new Set(['ap', 'a1', 'a2', 'o1', 'xx', 'geo', 'unknown']);
                     const isInvalid = invalidFlags.has(cleanCode) || cleanCode.length !== 2;
                     const override = cleanCode === 'an' ? 'nl' : cleanCode;
-                    const flagHTML = isInvalid
-                        ? `<i class="fas fa-globe" style="color: var(--accent); opacity: 0.6; margin-right: 12px; width: 20px; text-align: center;"></i>`
-                        : `<img src="https://flagcdn.com/w20/${override}.png" alt="${code}" style="margin-right: 12px; height: 15px; border-radius: 2px;" onerror="this.outerHTML='<i class=\x22fas fa-globe\x22 style=\x22color: var(--accent); opacity: 0.6; margin-right: 12px;\x22></i>';">`;
+                    const flagHTML = isInvalid ?
+                        `<i class="fas fa-globe" style="color: var(--accent); opacity: 0.6; margin-right: 12px; width: 20px; text-align: center;"></i>` :
+                        `<img src="https://flagcdn.com/w20/${override}.png" alt="${code}" style="margin-right: 12px; height: 15px; border-radius: 2px;" onerror="this.outerHTML='<i class=\x22fas fa-globe\x22 style=\x22color: var(--accent); opacity: 0.6; margin-right: 12px;\x22></i>';">`;
                     return `
                     <div class="dropdown-item" data-code="${code}" style="padding: 10px; cursor: pointer; display: flex; align-items: center; border-bottom: 1px solid var(--border);">
                         ${flagHTML}
                         <span>${name} (${code})</span>
                     </div>
-                `}).join('');
+                `; }).join('');
                 countryDropdown.classList.remove('hidden');
             } else {
                 countryDropdown.classList.add('hidden');
@@ -906,7 +906,11 @@ export function initEvents(fetchConfig) {
         const password = getEl('backup-password').value;
         const token = localStorage.getItem('api_token');
         closeModal(backupModal);
-        window.location.href = `${api.endpoints.backup}?token=${token}&type=${type}&password=${encodeURIComponent(password)}`;
+        const backupUrl = new URL(api.endpoints.backup, window.location.origin);
+        backupUrl.searchParams.set('token', token);
+        backupUrl.searchParams.set('type', type);
+        backupUrl.searchParams.set('password', password);
+        window.location.href = backupUrl.toString();
     });
 
     let uploadedFile = null;

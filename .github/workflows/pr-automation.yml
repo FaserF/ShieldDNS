@@ -1,0 +1,43 @@
+name: PR Automation
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-pr-auto
+  cancel-in-progress: true
+
+jobs:
+  automate:
+    name: PR Automation Tasks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.pull_request.head.repo.fork == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
+    steps:
+      - name: Auto-Label PR
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          sync-labels: true
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 1
+
+      - name: Fix line endings (CRLF → LF) in shell scripts
+        run: |
+          find . -name "*.sh" ! -path "./.git/*" ! -path "./node_modules/*" -exec sed -i 's/\r$//' {} +
+
+      - name: Commit auto-fixes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: fix line endings in shell scripts"
+          branch: ${{ github.head_ref }}
+          file_pattern: "*.sh"
