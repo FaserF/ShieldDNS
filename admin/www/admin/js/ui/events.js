@@ -113,6 +113,98 @@ export function initEvents(fetchConfig) {
         });
     });
 
+    // Preset Selection Settings
+    const settingsPresetSelector = getEl('settings-preset-selector');
+    settingsPresetSelector?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (!val) return;
+        
+        const host = window.location.hostname || 'shielddns.local';
+        
+        if (val === 'shielddns') {
+            state.currentConfig.upstreams = ["86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"];
+            state.currentConfig.upstream_dot = ["unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"];
+            state.currentConfig.prefer_encrypted = true;
+            state.currentConfig.admin_domain = host;
+            state.currentConfig.block_page_ip = host;
+            state.currentConfig.sign_mobileconfig = true;
+            state.currentConfig.abuse_detection_enabled = true;
+            state.currentConfig.dnssec_enabled = true;
+            state.currentConfig.serve_stale = true;
+            state.currentConfig.use_fastest_upstream = true;
+            state.currentConfig.smart_selection_policy = "fastest";
+            state.currentConfig.latency_test_interval = 10;
+            state.currentConfig.diagnostics_refresh_interval = 30;
+            state.currentConfig.retention_days = 30;
+            state.currentConfig.malicious_ip_blocking_enabled = true;
+            state.currentConfig.malicious_ip_interval = 8;
+            state.currentConfig.verify_upstream_tls = true;
+            state.currentConfig.blocked_countries = [];
+        } else if (val === 'minimal') {
+            state.currentConfig.upstreams = ["86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"];
+            state.currentConfig.upstream_dot = ["unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"];
+            state.currentConfig.prefer_encrypted = true;
+            state.currentConfig.admin_domain = host;
+            state.currentConfig.block_page_ip = host;
+            state.currentConfig.sign_mobileconfig = false;
+            state.currentConfig.abuse_detection_enabled = false;
+            state.currentConfig.dnssec_enabled = true;
+            state.currentConfig.serve_stale = true;
+            state.currentConfig.use_fastest_upstream = true;
+            state.currentConfig.smart_selection_policy = "fastest";
+            state.currentConfig.latency_test_interval = 10;
+            state.currentConfig.diagnostics_refresh_interval = 60;
+            state.currentConfig.retention_days = 7;
+            state.currentConfig.malicious_ip_blocking_enabled = false;
+            state.currentConfig.malicious_ip_interval = 24;
+            state.currentConfig.verify_upstream_tls = true;
+            state.currentConfig.blocked_countries = [];
+        } else if (val === 'maxperf') {
+            state.currentConfig.upstreams = ["86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"];
+            state.currentConfig.upstream_dot = ["unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"];
+            state.currentConfig.prefer_encrypted = true;
+            state.currentConfig.admin_domain = host;
+            state.currentConfig.block_page_ip = host;
+            state.currentConfig.sign_mobileconfig = true;
+            state.currentConfig.abuse_detection_enabled = true;
+            state.currentConfig.dnssec_enabled = true;
+            state.currentConfig.serve_stale = true;
+            state.currentConfig.use_fastest_upstream = true;
+            state.currentConfig.smart_selection_policy = "fastest";
+            state.currentConfig.latency_test_interval = 5;
+            state.currentConfig.diagnostics_refresh_interval = 300;
+            state.currentConfig.retention_days = 14;
+            state.currentConfig.malicious_ip_blocking_enabled = true;
+            state.currentConfig.malicious_ip_interval = 12;
+            state.currentConfig.verify_upstream_tls = true;
+            state.currentConfig.blocked_countries = [];
+        } else if (val === 'faserf') {
+            state.currentConfig.upstreams = ["86.54.11.100", "9.9.9.9", "1.1.1.1", "8.8.8.8", "1.0.0.1"];
+            state.currentConfig.upstream_dot = ["unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"];
+            state.currentConfig.prefer_encrypted = true;
+            state.currentConfig.admin_domain = "dns.fabiseitz.de";
+            state.currentConfig.block_page_ip = "89.168.74.120";
+            state.currentConfig.sign_mobileconfig = true;
+            state.currentConfig.abuse_detection_enabled = true;
+            state.currentConfig.dnssec_enabled = false;
+            state.currentConfig.serve_stale = true;
+            state.currentConfig.use_fastest_upstream = true;
+            state.currentConfig.smart_selection_policy = "fastest";
+            state.currentConfig.latency_test_interval = 15;
+            state.currentConfig.diagnostics_refresh_interval = 300;
+            state.currentConfig.retention_days = 90;
+            state.currentConfig.malicious_ip_blocking_enabled = true;
+            state.currentConfig.malicious_ip_interval = 12;
+            state.currentConfig.verify_upstream_tls = true;
+            state.currentConfig.blocked_countries = ["CN", "RU", "IR", "KP", "VN", "BR", "BY", "IQ", "UA"];
+        }
+        
+        renderConfig(state.currentConfig);
+        setSettingsDirty(true);
+        helpers.showToast(`Loaded preset: ${val}`);
+        settingsPresetSelector.value = "";
+    });
+
     // General Update/Refresh
     const refreshBtn = getEl('refresh-btn');
     refreshBtn?.addEventListener('click', async () => {
@@ -683,12 +775,20 @@ export function initEvents(fetchConfig) {
             ).slice(0, 10);
             
             if (matches.length > 0) {
-                countryDropdown.innerHTML = matches.map(([code, name]) => `
+                countryDropdown.innerHTML = matches.map(([code, name]) => {
+                    const cleanCode = code.toLowerCase();
+                    const invalidFlags = new Set(['ap', 'a1', 'a2', 'o1', 'xx', 'geo', 'unknown']);
+                    const isInvalid = invalidFlags.has(cleanCode) || cleanCode.length !== 2;
+                    const override = cleanCode === 'an' ? 'nl' : cleanCode;
+                    const flagHTML = isInvalid
+                        ? `<i class="fas fa-globe" style="color: var(--accent); opacity: 0.6; margin-right: 12px; width: 20px; text-align: center;"></i>`
+                        : `<img src="https://flagcdn.com/w20/${override}.png" alt="${code}" style="margin-right: 12px; height: 15px; border-radius: 2px;" onerror="this.outerHTML='<i class=\x22fas fa-globe\x22 style=\x22color: var(--accent); opacity: 0.6; margin-right: 12px;\x22></i>';">`;
+                    return `
                     <div class="dropdown-item" data-code="${code}" style="padding: 10px; cursor: pointer; display: flex; align-items: center; border-bottom: 1px solid var(--border);">
-                        <img src="https://flagcdn.com/w20/${code.toLowerCase()}.png" alt="${code}" style="margin-right: 12px;">
+                        ${flagHTML}
                         <span>${name} (${code})</span>
                     </div>
-                `).join('');
+                `}).join('');
                 countryDropdown.classList.remove('hidden');
             } else {
                 countryDropdown.classList.add('hidden');

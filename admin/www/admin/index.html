@@ -591,6 +591,19 @@
                 </div>
                 <form id="settings-form">
                     <div class="settings-section">
+                        <h2>Configuration Presets ⚙️</h2>
+                        <div class="form-group">
+                            <p class="help">Apply a configuration preset to populate settings values. You must click "Save Configuration" at the bottom to save the changes.</p>
+                            <select id="settings-preset-selector" class="form-control" style="width: 100%; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                                <option value="">-- Select Preset to Load --</option>
+                                <option value="shielddns">ShieldDNS Defaults</option>
+                                <option value="minimal">Minimal Defaults</option>
+                                <option value="maxperf">Max Performance</option>
+                                <option value="faserf">FaserF Defaults</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="settings-section">
                         <h2>Global DNS Settings ⚙️</h2>
                         <div class="form-group checkbox-group">
                             <div class="checkbox-text">
@@ -1192,6 +1205,16 @@
                 <div id="setup-pane-2" class="setup-pane hidden">
                     <h2>Step 2: Upstream Configuration</h2>
                     <p>Configure how ShieldDNS should resolve requests.</p>
+                    <div class="form-group">
+                        <label>Load Configuration Preset</label>
+                        <select id="setup-preset-selector" class="form-control" style="width: 100%; margin-bottom: 15px; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                            <option value="">-- Select Preset to Load --</option>
+                            <option value="shielddns">ShieldDNS Defaults</option>
+                            <option value="minimal">Minimal Defaults</option>
+                            <option value="maxperf">Max Performance</option>
+                            <option value="faserf">FaserF Defaults</option>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label>DNS Servers (Standard)</label>
                         <input type="text" id="setup-upstreams"

@@ -161,14 +161,70 @@ export async function nextSetupStep(step) {
     }
 }
 
+export function applySetupPreset(presetName) {
+    if (!presetName) return;
+    
+    const host = window.location.hostname || 'shielddns.local';
+    
+    if (presetName === 'shielddns') {
+        getEl('setup-upstreams').value = "86.54.11.100, 1.1.1.1, 9.9.9.9, 8.8.8.8, 1.0.0.1";
+        getEl('setup-dot-upstreams').value = "unfiltered.joindns4.eu, dns.quad9.net, one.one.one.one, dns.google";
+        getEl('setup-admin-domain').value = host;
+        if (getEl('setup-prefer-encrypted')) getEl('setup-prefer-encrypted').checked = true;
+        if (getEl('setup-abuse-detection')) getEl('setup-abuse-detection').checked = true;
+        if (getEl('setup-malicious-blocking')) getEl('setup-malicious-blocking').checked = true;
+        if (getEl('setup-serve-stale')) getEl('setup-serve-stale').checked = true;
+        if (getEl('setup-verify-tls')) getEl('setup-verify-tls').checked = true;
+        if (getEl('setup-sign-profiles')) getEl('setup-sign-profiles').checked = true;
+    } else if (presetName === 'minimal') {
+        getEl('setup-upstreams').value = "86.54.11.100, 1.1.1.1, 9.9.9.9, 8.8.8.8, 1.0.0.1";
+        getEl('setup-dot-upstreams').value = "unfiltered.joindns4.eu, dns.quad9.net, one.one.one.one, dns.google";
+        getEl('setup-admin-domain').value = host;
+        if (getEl('setup-prefer-encrypted')) getEl('setup-prefer-encrypted').checked = true;
+        if (getEl('setup-abuse-detection')) getEl('setup-abuse-detection').checked = false;
+        if (getEl('setup-malicious-blocking')) getEl('setup-malicious-blocking').checked = false;
+        if (getEl('setup-serve-stale')) getEl('setup-serve-stale').checked = true;
+        if (getEl('setup-verify-tls')) getEl('setup-verify-tls').checked = true;
+        if (getEl('setup-sign-profiles')) getEl('setup-sign-profiles').checked = false;
+    } else if (presetName === 'maxperf') {
+        getEl('setup-upstreams').value = "86.54.11.100, 1.1.1.1, 9.9.9.9, 8.8.8.8, 1.0.0.1";
+        getEl('setup-dot-upstreams').value = "unfiltered.joindns4.eu, dns.quad9.net, one.one.one.one, dns.google";
+        getEl('setup-admin-domain').value = host;
+        if (getEl('setup-prefer-encrypted')) getEl('setup-prefer-encrypted').checked = true;
+        if (getEl('setup-abuse-detection')) getEl('setup-abuse-detection').checked = true;
+        if (getEl('setup-malicious-blocking')) getEl('setup-malicious-blocking').checked = true;
+        if (getEl('setup-serve-stale')) getEl('setup-serve-stale').checked = true;
+        if (getEl('setup-verify-tls')) getEl('setup-verify-tls').checked = true;
+        if (getEl('setup-sign-profiles')) getEl('setup-sign-profiles').checked = true;
+    } else if (presetName === 'faserf') {
+        getEl('setup-upstreams').value = "86.54.11.100, 9.9.9.9, 1.1.1.1, 8.8.8.8, 1.0.0.1";
+        getEl('setup-dot-upstreams').value = "unfiltered.joindns4.eu, dns.quad9.net, one.one.one.one, dns.google";
+        getEl('setup-admin-domain').value = "dns.fabiseitz.de";
+        if (getEl('setup-prefer-encrypted')) getEl('setup-prefer-encrypted').checked = true;
+        if (getEl('setup-abuse-detection')) getEl('setup-abuse-detection').checked = true;
+        if (getEl('setup-malicious-blocking')) getEl('setup-malicious-blocking').checked = true;
+        if (getEl('setup-serve-stale')) getEl('setup-serve-stale').checked = true;
+        if (getEl('setup-verify-tls')) getEl('setup-verify-tls').checked = true;
+        if (getEl('setup-sign-profiles')) getEl('setup-sign-profiles').checked = true;
+    }
+}
+
 async function loadSetupPresets() {
     const container = getEl('setup-presets');
-    if (!container || container.children.length > 0) return;
+    if (!container) return;
     
     try {
         const presets = await api.apiFetch(api.endpoints.presets);
         container.innerHTML = '';
-        presets.slice(0, 6).forEach(p => {
+        const selectedPreset = getEl('setup-preset-selector')?.value || 'shielddns';
+        
+        presets.forEach(p => {
+            let checked = false;
+            if (selectedPreset === 'minimal') {
+                checked = p.name.includes("ShieldDNS Official Blocklist");
+            } else {
+                checked = !!p.is_recommended;
+            }
             const div = document.createElement('div');
             div.className = 'preset-item-minimal';
             div.style.display = 'flex';
@@ -176,7 +232,7 @@ async function loadSetupPresets() {
             div.style.gap = '10px';
             div.style.marginBottom = '8px';
             div.innerHTML = `
-                <input type="checkbox" id="setup-preset-${p.name}" data-url="${p.url}" data-name="${p.name}" checked>
+                <input type="checkbox" id="setup-preset-${p.name}" data-url="${p.url}" data-name="${p.name}" ${checked ? 'checked' : ''}>
                 <label for="setup-preset-${p.name}" style="cursor:pointer;">${p.name} <span class="help" style="font-size:0.7rem; opacity:0.6;">(${p.category || 'General'})</span></label>
             `;
             container.appendChild(div);

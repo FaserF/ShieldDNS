@@ -23,6 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Attach Setup/Auth listeners globally
     getEl('setup-finish-btn')?.addEventListener('click', auth.finishSetup);
+    getEl('setup-preset-selector')?.addEventListener('change', (e) => {
+        auth.applySetupPreset(e.target.value);
+    });
     getEl('login-confirm-btn')?.addEventListener('click', auth.handleLogin);
     getEl('login-password')?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') auth.handleLogin();

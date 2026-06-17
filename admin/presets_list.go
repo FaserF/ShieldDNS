@@ -5,6 +5,8 @@ var DefaultPresets = []List{
 	{Name: "ShieldDNS Official Blocklist", URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/blocklists/default.txt", Enabled: true, Category: "Official", IsRecommended: true},
 
 	// --- General Blocking ---
+	{Name: "AdGuard Base Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
+	{Name: "EasyList (Domains)", URL: "https://justdomains.github.io/blocklists/lists/easylist-justdomains.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
 	{Name: "HaGeZi Multi (Light)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt", Enabled: false, Category: "General Blocking"},
 	{Name: "HaGeZi Multi (Normal)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/multi.txt", Enabled: false, Category: "General Blocking"},
 	{Name: "HaGeZi Multi (Pro)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
@@ -19,8 +21,11 @@ var DefaultPresets = []List{
 	{Name: "AdAway Default Blocklist", URL: "https://raw.githubusercontent.com/AdAway/adaway.github.io/master/hosts.txt", Enabled: false, Category: "Legacy & Redundant"},
 
 	// --- Privacy & Tracking ---
-	{Name: "AdGuard Tracking Protection", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_3.txt", Enabled: false, Category: "Privacy & Tracking"},
+	{Name: "AdGuard Tracking Protection", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_3.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
 	{Name: "AdGuard Annoyances Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
+	{Name: "EasyPrivacy (Domains)", URL: "https://justdomains.github.io/blocklists/lists/easyprivacy-justdomains.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
+	{Name: "AdGuard URL Tracking Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_17.txt", Enabled: false, Category: "Privacy & Tracking"},
+	{Name: "HaGeZi CNAME Cloaking", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/cname-tracking.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
 	{Name: "uBlock Origin Filter List", URL: "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt", Enabled: false, Category: "Privacy & Tracking"},
 	{Name: "Lightswitch05 (Ads & Tracking Extended)", URL: "https://raw.githubusercontent.com/lightswitch05/hosts/master/docs/lists/ads-and-tracking-extended.txt", Enabled: false, Category: "Privacy & Tracking"},
 	{Name: "EasyPrivacy (Hmirror)", URL: "https://raw.githubusercontent.com/hectorm/hmirror/master/data/easyprivacy/list.txt", Enabled: false, Category: "Privacy & Tracking"},
@@ -58,7 +63,8 @@ var DefaultPresets = []List{
 	{Name: "Game Console Adblock (DandelionSprout)", URL: "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/GameConsoleAdblockList.txt", Enabled: false, Category: "Specialized & Content"},
 
 	// --- Regional & Languages ---
-	{Name: "KADhost (German Blocklist)", URL: "https://raw.githubusercontent.com/FiltersHeroes/KADhosts/master/KADhosts.txt", Enabled: false, Category: "Regional & Languages"},
+	{Name: "AdGuard German Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_6.txt", Enabled: false, Category: "Regional & Languages", IsRecommended: true},
+	{Name: "KADhost (German Blocklist)", URL: "https://raw.githubusercontent.com/FiltersHeroes/KADhosts/master/KADhosts.txt", Enabled: false, Category: "Regional & Languages", IsRecommended: true},
 	{Name: "hostsVN", URL: "https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts", Enabled: false, Category: "Regional & Languages"},
 	{Name: "German Websites Ad", URL: "https://raw.githubusercontent.com/deathbybandaid/piholeparser/master/Subscribable-Lists/CountryCodesLists/Germany.txt", Enabled: false, Category: "Regional & Languages"},
 	{Name: "AdGuard German Blocklist Optimized", URL: "https://filters.adtidy.org/extension/ublock/filters/6_optimized.txt", Enabled: false, Category: "Regional & Languages", IsRecommended: true},

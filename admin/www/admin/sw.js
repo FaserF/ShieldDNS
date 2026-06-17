@@ -4,6 +4,15 @@ const ASSETS = [
     './',
     'index.html',
     'style.css',
+    'css/variables.css',
+    'css/base.css',
+    'css/layout.css',
+    'css/components.css',
+    'css/widgets.css',
+    'css/tables.css',
+    'css/utilities.css',
+    'css/responsive.css',
+    'css/ui-fixes.css',
     'js/app.js',
     'utils.js',
     'manifest.json',
@@ -62,7 +71,7 @@ self.addEventListener('fetch', (event) => {
     if (event.request.url.includes('/api/')) return;
 
     event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
+        caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
             const fetchPromise = fetch(event.request).then((networkResponse) => {
                 // If it's a valid response, update the cache
                 if (networkResponse && networkResponse.status === 200) {
@@ -74,7 +83,7 @@ self.addEventListener('fetch', (event) => {
                 return networkResponse;
             }).catch((err) => {
                 // Return cached response if offline/fetch fails, don't crash the worker
-                console.warn(`[SW] Fetch failed for ${event.request.url}:`, err);
+                console.debug(`[SW] Fetch failed for ${event.request.url}:`, err);
                 return cachedResponse || new Response('Network error occurred', { status: 503, statusText: 'Service Unavailable' });
             });
 
