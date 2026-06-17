@@ -2,7 +2,7 @@
   "project": "ShieldDNS",
   "purpose": "High-performance DNS appliance and security gateway with integrated web administration panel.",
   "connections_map_reference": "project_connections.json (defines component linking for UI and backend files)",
-  "timestamp": "2026-06-17T09:01:17.144453",
+  "timestamp": "2026-06-17T07:07:23.385566",
   "stack": {
     "backend": "Go (embedded FS assets), SQLite (query database), CoreDNS (DNS server)",
     "frontend": "Vanilla HTML5, CSS3 (variables & flex/grid layout), Vanilla JS (ES6 modules)",
@@ -370,6 +370,7 @@
   },
   "file_tree": {
     ".": [
+      "AGENTS.MD",
       "Dockerfile",
       "LICENSE",
       "README.md",
@@ -463,10 +464,6 @@
       "navigation.js",
       "state.js"
     ],
-    "admin/www/admin/js/services": [
-      "api.js",
-      "fetch.js"
-    ],
     "admin/www/admin/js/ui": [
       "activity.js",
       "charts.js",
@@ -476,8 +473,9 @@
       "scroller.js",
       "ui.js"
     ],
-    "data": [
-      "config.json"
+    "admin/www/admin/js/services": [
+      "api.js",
+      "fetch.js"
     ]
   }
 }
