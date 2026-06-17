@@ -30,7 +30,7 @@ jobs:
           find . -name "*.sh" ! -path "./.git/*" ! -path "./node_modules/*" -exec sed -i 's/\r$//' {} +
 
       - name: Commit auto-fixes
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
         with:
           commit_message: "style: fix line endings in shell scripts"
           branch: ${{ github.head_ref }}
