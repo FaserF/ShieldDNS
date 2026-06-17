@@ -10,6 +10,9 @@ export async function apiFetch(endpoint, options = {}) {
             ...options.headers,
             'X-Shield-Request': 'true'
         };
+        if (options.body instanceof FormData) {
+            delete options.headers['Content-Type'];
+        }
     }
     const response = await fetch(endpoint, options);
     

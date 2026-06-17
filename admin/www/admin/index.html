@@ -825,10 +825,9 @@
                         <p class="help">Download a full system backup (.zip) or restore your configuration (.json).</p>
                         <div class="btn-group mt-3">
                             <button type="button" class="btn secondary" id="backup-btn">Download Full Backup</button>
-                            <input type="file" id="restore-file-input" accept=".json" style="display:none">
+                            <input type="file" id="restore-file-input" accept=".json,.zip" style="display:none">
                             <button type="button" class="btn secondary" id="restore-btn"
-                                onclick="document.getElementById('restore-file-input').click()">Restore Config
-                                (.json)</button>
+                                onclick="document.getElementById('restore-file-input').click()">Backup einspielen (.zip, .json)</button>
                             <button type="button" class="btn danger" id="clear-logs-btn">Clear Query Log</button>
                             <button type="button" class="btn danger" id="reset-system-btn">Factory Reset</button>
                         </div>
@@ -1842,6 +1841,105 @@
                 style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
                 <button type="button" class="btn secondary" id="domain-info-view-logs-btn">View all logs for this domain</button>
                 <button type="button" class="btn primary" id="domain-info-done-btn" style="min-width: 120px;">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup Creator Modal -->
+    <div id="backup-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>System-Backup erstellen</h2>
+            <p class="help">Wähle den Typ des Backups und schütze es optional mit einem Kennwort.</p>
+            <div class="form-group mt-3">
+                <label>Backup-Typ</label>
+                <select id="backup-type" class="form-control" style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+                    <option value="settings">Nur Einstellungen (Settings only)</option>
+                    <option value="full">Einstellungen + Daten (Settings + Data)</option>
+                </select>
+            </div>
+            <div class="form-group mt-3">
+                <label>Kennwort (Optional)</label>
+                <p class="help">Schützt Ihr Backup durch sichere AES-256-Verschlüsselung.</p>
+                <input type="password" id="backup-password" class="form-control" placeholder="Kennwort leer lassen für unverschlüsselt..." style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+            </div>
+            <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
+                <button type="button" class="btn secondary" id="backup-modal-cancel">Abbrechen</button>
+                <button type="button" class="btn primary" id="backup-modal-confirm">Download</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Decrypt Password Prompt Modal -->
+    <div id="restore-password-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Verschlüsseltes Backup importieren</h2>
+            <p class="help">Dieses Backup ist verschlüsselt. Bitte geben Sie das Entschlüsselungskennwort ein.</p>
+            <div class="form-group mt-3">
+                <label>Kennwort</label>
+                <input type="password" id="restore-decrypt-password" class="form-control" placeholder="Entschlüsselungskennwort..." style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+            </div>
+            <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
+                <button type="button" class="btn secondary" id="restore-password-cancel">Abbrechen</button>
+                <button type="button" class="btn primary" id="restore-password-confirm">Entschlüsseln</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore Preview Modal -->
+    <div id="restore-preview-modal" class="modal hidden">
+        <div class="modal-content modal-lg" style="max-width:800px; width:90%;">
+            <h2>Backup-Übersicht & Selektion</h2>
+            <p class="help" style="margin-bottom:20px;">Wählen Sie aus, welche Elemente aus dem Backup importiert werden sollen. Rot markierte Zeilen überschreiben bestehende Einstellungen.</p>
+            
+            <div class="restore-categories-selection mt-3" style="background:var(--bg-input); padding:16px; border-radius:8px; border:1px solid var(--border); margin-bottom:20px;">
+                <div style="margin-bottom: 12px; display: flex; gap: 16px; flex-wrap: wrap;">
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-dns" checked> DNS & Upstreams
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-filtering" checked> Filter-Optionen
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-lists" checked> Block-/Erlaubnislisten
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-clients" checked> Client-Einstellungen
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-abuse" checked> Bedrohungsschutz
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-system" checked> System-Optionen
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-auth" checked> Passwörter & MFA / API
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;" id="sel-cat-data-wrapper">
+                        <input type="checkbox" id="sel-cat-data" checked> Abfrage-Verlauf (Daten)
+                    </label>
+                </div>
+            </div>
+
+            <div class="overflow-x mt-3" style="max-height: 350px; overflow-y: auto; margin-bottom:20px; border:1px solid var(--border); border-radius:8px;">
+                <table class="query-table" style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:var(--bg-input);">
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Einstellung</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Kategorie</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Aktueller Wert</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Backup Wert</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="restore-preview-tbody">
+                        <!-- Dynamic content -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
+                <button type="button" class="btn secondary" id="restore-preview-cancel">Abbrechen</button>
+                <button type="button" class="btn primary" id="restore-preview-confirm">Ausgewähltes importieren</button>
             </div>
         </div>
     </div>

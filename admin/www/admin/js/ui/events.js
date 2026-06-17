@@ -754,35 +754,170 @@ export function initEvents(fetchConfig) {
         });
     }
 
-    getEl('backup-btn')?.addEventListener('click', async () => {
-        try {
-            const token = localStorage.getItem('api_token');
-            window.location.href = `${api.endpoints.backup}?token=${token}`;
-        } catch (err) {
-            helpers.showAlert('Backup failed: ' + err.message);
-        }
+    // Backup & Restore handlers
+    const backupModal = getEl('backup-modal');
+    const restorePasswordModal = getEl('restore-password-modal');
+    const restorePreviewModal = getEl('restore-preview-modal');
+
+    const closeModal = (modal) => {
+        modal?.classList.add('hidden');
+    };
+
+    const openModal = (modal) => {
+        modal?.classList.remove('hidden');
+    };
+
+    getEl('backup-btn')?.addEventListener('click', () => {
+        getEl('backup-password').value = '';
+        getEl('backup-type').value = 'settings';
+        openModal(backupModal);
     });
+
+    getEl('backup-modal-cancel')?.addEventListener('click', () => closeModal(backupModal));
+    getEl('backup-modal-confirm')?.addEventListener('click', () => {
+        const type = getEl('backup-type').value;
+        const password = getEl('backup-password').value;
+        const token = localStorage.getItem('api_token');
+        closeModal(backupModal);
+        window.location.href = `${api.endpoints.backup}?token=${token}&type=${type}&password=${encodeURIComponent(password)}`;
+    });
+
+    let uploadedFile = null;
+    let decryptionPassword = '';
 
     getEl('restore-file-input')?.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        uploadedFile = file;
+        decryptionPassword = '';
+        e.target.value = '';
+        await handleRestorePreview();
+    });
+
+    getEl('restore-password-cancel')?.addEventListener('click', () => closeModal(restorePasswordModal));
+    getEl('restore-preview-cancel')?.addEventListener('click', () => closeModal(restorePreviewModal));
+
+    getEl('restore-password-confirm')?.addEventListener('click', async () => {
+        decryptionPassword = getEl('restore-decrypt-password').value;
+        closeModal(restorePasswordModal);
+        await handleRestorePreview();
+    });
+
+    async function handleRestorePreview() {
+        const formData = new FormData();
+        formData.append('config', uploadedFile);
+        formData.append('action', 'preview');
+        if (decryptionPassword) {
+            formData.append('password', decryptionPassword);
+        }
+
+        helpers.showToast('Analysiere Backup...', 'info');
+        try {
+            const res = await api.apiFetch(api.endpoints.restore, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (res.encrypted) {
+                getEl('restore-decrypt-password').value = '';
+                openModal(restorePasswordModal);
+                helpers.showToast('Kennwort erforderlich', 'warning');
+                return;
+            }
+
+            const tbody = getEl('restore-preview-tbody');
+            tbody.innerHTML = '';
+            const preview = res.preview;
+            const hasData = res.has_data;
+
+            const dataWrapper = getEl('sel-cat-data-wrapper');
+            const dataCheckbox = getEl('sel-cat-data');
+            if (hasData) {
+                dataWrapper.style.display = 'flex';
+                dataCheckbox.checked = true;
+            } else {
+                dataWrapper.style.display = 'none';
+                dataCheckbox.checked = false;
+            }
+
+            const keys = Object.keys(preview).sort((a, b) => {
+                if (preview[a].category !== preview[b].category) {
+                    return preview[a].category.localeCompare(preview[b].category);
+                }
+                return a.localeCompare(b);
+            });
+
+            for (const key of keys) {
+                const item = preview[key];
+                const tr = document.createElement('tr');
+                if (item.changed) {
+                    tr.style.background = 'rgba(239, 68, 68, 0.08)';
+                }
+
+                const formatVal = (v) => {
+                    if (v === null || v === undefined) return '—';
+                    if (typeof v === 'object') return JSON.stringify(v);
+                    return String(v);
+                };
+
+                const currentText = formatVal(item.current);
+                const backupText = formatVal(item.backup);
+
+                tr.innerHTML = `
+                    <td style="padding:10px; border-bottom:1px solid var(--border); font-weight:bold;">${key}</td>
+                    <td style="padding:10px; border-bottom:1px solid var(--border);"><span class="badge" style="background:var(--bg-card); color:var(--text-secondary); border:1px solid var(--border); padding:2px 8px; border-radius:4px;">${item.category}</span></td>
+                    <td style="padding:10px; border-bottom:1px solid var(--border); color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${currentText.replace(/"/g, '&quot;')}">${currentText}</td>
+                    <td style="padding:10px; border-bottom:1px solid var(--border); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${backupText.replace(/"/g, '&quot;')}">${backupText}</td>
+                    <td style="padding:10px; border-bottom:1px solid var(--border); font-weight:bold; color:${item.changed ? '#ef4444' : '#22c55e'}">${item.changed ? 'Überschreibt' : 'Identisch'}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            openModal(restorePreviewModal);
+        } catch (err) {
+            helpers.showAlert('Vorschau fehlgeschlagen: ' + err.message);
+        }
+    }
+
+    getEl('restore-preview-confirm')?.addEventListener('click', async () => {
+        closeModal(restorePreviewModal);
+
+        const categories = [];
+        if (getEl('sel-cat-dns').checked) categories.push('dns');
+        if (getEl('sel-cat-filtering').checked) categories.push('filtering');
+        if (getEl('sel-cat-lists').checked) categories.push('lists');
+        if (getEl('sel-cat-clients').checked) categories.push('clients');
+        if (getEl('sel-cat-abuse').checked) categories.push('abuse');
+        if (getEl('sel-cat-system').checked) categories.push('system');
+        if (getEl('sel-cat-auth').checked) categories.push('auth');
+        if (getEl('sel-cat-data').checked) categories.push('data');
+
+        if (categories.length === 0) {
+            helpers.showAlert('Bitte wähle mindestens eine Kategorie aus, die importiert werden soll.');
+            return;
+        }
 
         const formData = new FormData();
-        formData.append('config', file); // API expects 'config' field
+        formData.append('config', uploadedFile);
+        formData.append('action', 'apply');
+        formData.append('selected_categories', JSON.stringify(categories));
+        if (decryptionPassword) {
+            formData.append('password', decryptionPassword);
+        }
 
-        helpers.showToast('Restoring system...', 'info');
-        showActivityOverlay('System Restoration', 'Applying configuration and database backup...');
+        helpers.showToast('Wiederherstellung läuft...', 'info');
+        showActivityOverlay('System-Wiederherstellung', 'Wende selektierte Einstellungen an...');
         try {
             await api.apiFetch(api.endpoints.restore, {
                 method: 'POST',
                 body: formData
             });
-            helpers.showToast('System restored successfully!');
+            helpers.showToast('Wiederherstellung erfolgreich abgeschlossen!');
             hideActivityOverlay(true);
             setTimeout(() => window.location.reload(), 2500);
         } catch (err) {
             hideActivityOverlay(false);
-            helpers.showAlert('Restore failed: ' + err.message);
+            helpers.showAlert('Wiederherstellung fehlgeschlagen: ' + err.message);
         }
     });
 
