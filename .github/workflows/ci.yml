@@ -141,14 +141,14 @@ jobs:
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('verify_layout.js') }}
+          key: ${{ runner.os }}-playwright-1.61.0
           restore-keys: |
             ${{ runner.os }}-playwright-
 
       - name: Install Playwright
         run: |
           npm init -y
-          npm install playwright
+          npm install playwright@1.61.0
           # Only install system dependencies for Chromium (much faster!)
           npx playwright install-deps chromium
           if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
