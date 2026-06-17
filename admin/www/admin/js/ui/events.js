@@ -266,6 +266,33 @@ export function initEvents(fetchConfig) {
     getEl('cancel-api-key-btn')?.addEventListener('click', () => getEl('api-key-modal')?.classList.add('hidden'));
     getEl('close-api-key-modal-btn')?.addEventListener('click', () => getEl('api-key-modal')?.classList.add('hidden'));
 
+    // API Key Presets
+    const setPerms = (perms) => {
+        const ids = [
+            'perm-admin', 'perm-stats', 'perm-logs', 'perm-health',
+            'perm-config-read', 'perm-config-write', 'perm-diag',
+            'perm-rules-read', 'perm-rules-write', 'perm-maint', 'perm-system'
+        ];
+        ids.forEach(id => {
+            const el = getEl(id);
+            if (el) {
+                el.checked = perms.includes(id);
+            }
+        });
+    };
+
+    getEl('preset-ha-btn')?.addEventListener('click', () => {
+        setPerms(['perm-stats', 'perm-health', 'perm-config-read', 'perm-config-write', 'perm-rules-read', 'perm-rules-write']);
+    });
+
+    getEl('preset-monitoring-btn')?.addEventListener('click', () => {
+        setPerms(['perm-stats', 'perm-health', 'perm-diag', 'perm-system']);
+    });
+
+    getEl('preset-clear-btn')?.addEventListener('click', () => {
+        setPerms([]);
+    });
+
     // API Key search
     getEl('api-keys-search')?.addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase();
@@ -811,7 +838,7 @@ export function initEvents(fetchConfig) {
             formData.append('password', decryptionPassword);
         }
 
-        helpers.showToast('Analysiere Backup...', 'info');
+        helpers.showToast('Analyzing backup...', 'info');
         try {
             const res = await api.apiFetch(api.endpoints.restore, {
                 method: 'POST',
@@ -821,7 +848,7 @@ export function initEvents(fetchConfig) {
             if (res.encrypted) {
                 getEl('restore-decrypt-password').value = '';
                 openModal(restorePasswordModal);
-                helpers.showToast('Kennwort erforderlich', 'warning');
+                helpers.showToast('Password required', 'warning');
                 return;
             }
 
@@ -868,14 +895,14 @@ export function initEvents(fetchConfig) {
                     <td style="padding:10px; border-bottom:1px solid var(--border);"><span class="badge" style="background:var(--bg-card); color:var(--text-secondary); border:1px solid var(--border); padding:2px 8px; border-radius:4px;">${item.category}</span></td>
                     <td style="padding:10px; border-bottom:1px solid var(--border); color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${currentText.replace(/"/g, '&quot;')}">${currentText}</td>
                     <td style="padding:10px; border-bottom:1px solid var(--border); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${backupText.replace(/"/g, '&quot;')}">${backupText}</td>
-                    <td style="padding:10px; border-bottom:1px solid var(--border); font-weight:bold; color:${item.changed ? '#ef4444' : '#22c55e'}">${item.changed ? 'Überschreibt' : 'Identisch'}</td>
+                    <td style="padding:10px; border-bottom:1px solid var(--border); font-weight:bold; color:${item.changed ? '#ef4444' : '#22c55e'}">${item.changed ? 'Overwrites' : 'Identical'}</td>
                 `;
                 tbody.appendChild(tr);
             }
 
             openModal(restorePreviewModal);
         } catch (err) {
-            helpers.showAlert('Vorschau fehlgeschlagen: ' + err.message);
+            helpers.showAlert('Preview failed: ' + err.message);
         }
     }
 
@@ -893,7 +920,7 @@ export function initEvents(fetchConfig) {
         if (getEl('sel-cat-data').checked) categories.push('data');
 
         if (categories.length === 0) {
-            helpers.showAlert('Bitte wähle mindestens eine Kategorie aus, die importiert werden soll.');
+            helpers.showAlert('Please select at least one category to import.');
             return;
         }
 
@@ -905,19 +932,19 @@ export function initEvents(fetchConfig) {
             formData.append('password', decryptionPassword);
         }
 
-        helpers.showToast('Wiederherstellung läuft...', 'info');
-        showActivityOverlay('System-Wiederherstellung', 'Wende selektierte Einstellungen an...');
+        helpers.showToast('Restoration in progress...', 'info');
+        showActivityOverlay('System Restoration', 'Applying selected configurations...');
         try {
             await api.apiFetch(api.endpoints.restore, {
                 method: 'POST',
                 body: formData
             });
-            helpers.showToast('Wiederherstellung erfolgreich abgeschlossen!');
+            helpers.showToast('Restoration completed successfully!');
             hideActivityOverlay(true);
             setTimeout(() => window.location.reload(), 2500);
         } catch (err) {
             hideActivityOverlay(false);
-            helpers.showAlert('Wiederherstellung fehlgeschlagen: ' + err.message);
+            helpers.showAlert('Restoration failed: ' + err.message);
         }
     });
 

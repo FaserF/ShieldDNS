@@ -58,7 +58,7 @@
                 <span>CoreDNS Online</span>
             </div>
             <div class="version-info" style="display:flex; justify-content:space-between; align-items:center;">
-                <span>ShieldDNS <span id="app-version">v0.0.0</span></span>
+                <span>ShieldDNS <a href="#" id="app-version-link" target="_blank" style="color:inherit; text-decoration:none; cursor:pointer; font-weight:bold;"><span id="app-version">v0.0.0</span></a></span>
                 <button id="theme-toggle" class="btn secondary"
                     style="padding: 4px 8px; font-size: 0.8rem; height: auto;" title="Toggle Theme">
                     <i class="fas fa-moon"></i>
@@ -696,10 +696,10 @@
                         <div class="form-group">
                             <div class="label-with-info">
                                 <label>DoH Query Rate Limit (req/s)</label>
-                                <i class="fas fa-info-circle info-icon" data-tooltip="The maximum number of DNS-over-HTTPS queries allowed per client per second. Prevents flood-based DoS attacks. Default: 30."></i>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="The maximum number of DNS-over-HTTPS queries allowed per client per second. Prevents flood-based DoS attacks. Default: 50."></i>
                             </div>
-                            <p class="help">Max requests per client per second on the DoH endpoint (Default: 30).</p>
-                            <input type="number" id="doh-rate-limit-input" min="1" max="1000" value="30">
+                            <p class="help">Max requests per client per second on the DoH endpoint (Default: 50).</p>
+                            <input type="number" id="doh-rate-limit-input" min="1" max="1000" value="50">
                         </div>
                     </div>
 
@@ -827,7 +827,7 @@
                             <button type="button" class="btn secondary" id="backup-btn">Download Full Backup</button>
                             <input type="file" id="restore-file-input" accept=".json,.zip" style="display:none">
                             <button type="button" class="btn secondary" id="restore-btn"
-                                onclick="document.getElementById('restore-file-input').click()">Backup einspielen (.zip, .json)</button>
+                                onclick="document.getElementById('restore-file-input').click()">Restore Backup (.zip, .json)</button>
                             <button type="button" class="btn danger" id="clear-logs-btn">Clear Query Log</button>
                             <button type="button" class="btn danger" id="reset-system-btn">Factory Reset</button>
                         </div>
@@ -1361,6 +1361,14 @@
                     <label>Key Name</label>
                     <input type="text" id="api-key-name" placeholder="e.g., Home Assistant, Monitoring">
                 </div>
+                <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
+                    <label>Permission Presets</label>
+                    <div style="display:flex; gap:8px; margin-top:4px;">
+                        <button type="button" class="btn secondary" id="preset-ha-btn" style="flex:1; padding:6px 12px; font-size:0.8rem;">HomeAssistant</button>
+                        <button type="button" class="btn secondary" id="preset-monitoring-btn" style="flex:1; padding:6px 12px; font-size:0.8rem;">Monitoring</button>
+                        <button type="button" class="btn secondary" id="preset-clear-btn" style="flex:1; padding:6px 12px; font-size:0.8rem;">Clear</button>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Permissions Scopes</label>
                     <div class="checkbox-group-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:10px;">
@@ -1848,22 +1856,22 @@
     <!-- Backup Creator Modal -->
     <div id="backup-modal" class="modal hidden">
         <div class="modal-content">
-            <h2>System-Backup erstellen</h2>
-            <p class="help">Wähle den Typ des Backups und schütze es optional mit einem Kennwort.</p>
+            <h2>Create System Backup</h2>
+            <p class="help">Select the backup type and optionally protect it with a password.</p>
             <div class="form-group mt-3">
-                <label>Backup-Typ</label>
+                <label>Backup Type</label>
                 <select id="backup-type" class="form-control" style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
-                    <option value="settings">Nur Einstellungen (Settings only)</option>
-                    <option value="full">Einstellungen + Daten (Settings + Data)</option>
+                    <option value="settings">Settings only</option>
+                    <option value="full">Settings + Data</option>
                 </select>
             </div>
             <div class="form-group mt-3">
-                <label>Kennwort (Optional)</label>
-                <p class="help">Schützt Ihr Backup durch sichere AES-256-Verschlüsselung.</p>
-                <input type="password" id="backup-password" class="form-control" placeholder="Kennwort leer lassen für unverschlüsselt..." style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+                <label>Password (Optional)</label>
+                <p class="help">Secures your backup with AES-256 encryption.</p>
+                <input type="password" id="backup-password" class="form-control" placeholder="Leave empty for unencrypted..." style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
             </div>
             <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
-                <button type="button" class="btn secondary" id="backup-modal-cancel">Abbrechen</button>
+                <button type="button" class="btn secondary" id="backup-modal-cancel">Cancel</button>
                 <button type="button" class="btn primary" id="backup-modal-confirm">Download</button>
             </div>
         </div>
@@ -1872,15 +1880,15 @@
     <!-- Decrypt Password Prompt Modal -->
     <div id="restore-password-modal" class="modal hidden">
         <div class="modal-content">
-            <h2>Verschlüsseltes Backup importieren</h2>
-            <p class="help">Dieses Backup ist verschlüsselt. Bitte geben Sie das Entschlüsselungskennwort ein.</p>
+            <h2>Import Encrypted Backup</h2>
+            <p class="help">This backup is encrypted. Please enter the decryption password.</p>
             <div class="form-group mt-3">
-                <label>Kennwort</label>
-                <input type="password" id="restore-decrypt-password" class="form-control" placeholder="Entschlüsselungskennwort..." style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+                <label>Password</label>
+                <input type="password" id="restore-decrypt-password" class="form-control" placeholder="Decryption password..." style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
             </div>
             <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
-                <button type="button" class="btn secondary" id="restore-password-cancel">Abbrechen</button>
-                <button type="button" class="btn primary" id="restore-password-confirm">Entschlüsseln</button>
+                <button type="button" class="btn secondary" id="restore-password-cancel">Cancel</button>
+                <button type="button" class="btn primary" id="restore-password-confirm">Decrypt</button>
             </div>
         </div>
     </div>
@@ -1888,8 +1896,8 @@
     <!-- Restore Preview Modal -->
     <div id="restore-preview-modal" class="modal hidden">
         <div class="modal-content modal-lg" style="max-width:800px; width:90%;">
-            <h2>Backup-Übersicht & Selektion</h2>
-            <p class="help" style="margin-bottom:20px;">Wählen Sie aus, welche Elemente aus dem Backup importiert werden sollen. Rot markierte Zeilen überschreiben bestehende Einstellungen.</p>
+            <h2>Backup Overview & Selection</h2>
+            <p class="help" style="margin-bottom:20px;">Select the components to restore. Red rows indicate settings that will overwrite your current configuration.</p>
             
             <div class="restore-categories-selection mt-3" style="background:var(--bg-input); padding:16px; border-radius:8px; border:1px solid var(--border); margin-bottom:20px;">
                 <div style="margin-bottom: 12px; display: flex; gap: 16px; flex-wrap: wrap;">
@@ -1897,25 +1905,25 @@
                         <input type="checkbox" id="sel-cat-dns" checked> DNS & Upstreams
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
-                        <input type="checkbox" id="sel-cat-filtering" checked> Filter-Optionen
+                        <input type="checkbox" id="sel-cat-filtering" checked> Filtering Options
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
-                        <input type="checkbox" id="sel-cat-lists" checked> Block-/Erlaubnislisten
+                        <input type="checkbox" id="sel-cat-lists" checked> Blocklists / Allowlists
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
-                        <input type="checkbox" id="sel-cat-clients" checked> Client-Einstellungen
+                        <input type="checkbox" id="sel-cat-clients" checked> Client Settings
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
-                        <input type="checkbox" id="sel-cat-abuse" checked> Bedrohungsschutz
+                        <input type="checkbox" id="sel-cat-abuse" checked> Threat Intelligence
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
-                        <input type="checkbox" id="sel-cat-system" checked> System-Optionen
+                        <input type="checkbox" id="sel-cat-system" checked> System Options
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
-                        <input type="checkbox" id="sel-cat-auth" checked> Passwörter & MFA / API
+                        <input type="checkbox" id="sel-cat-auth" checked> Passwords & MFA / API
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;" id="sel-cat-data-wrapper">
-                        <input type="checkbox" id="sel-cat-data" checked> Abfrage-Verlauf (Daten)
+                        <input type="checkbox" id="sel-cat-data" checked> Query Log (Data)
                     </label>
                 </div>
             </div>
@@ -1924,10 +1932,10 @@
                 <table class="query-table" style="width:100%; border-collapse:collapse;">
                     <thead>
                         <tr style="background:var(--bg-input);">
-                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Einstellung</th>
-                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Kategorie</th>
-                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Aktueller Wert</th>
-                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Backup Wert</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Setting</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Category</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Current Value</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Backup Value</th>
                             <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Status</th>
                         </tr>
                     </thead>
@@ -1938,12 +1946,11 @@
             </div>
 
             <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
-                <button type="button" class="btn secondary" id="restore-preview-cancel">Abbrechen</button>
-                <button type="button" class="btn primary" id="restore-preview-confirm">Ausgewähltes importieren</button>
+                <button type="button" class="btn secondary" id="restore-preview-cancel">Cancel</button>
+                <button type="button" class="btn primary" id="restore-preview-confirm">Import Selected</button>
             </div>
         </div>
     </div>
-
     <!-- System Activity Modal -->
     <div id="activity-modal" class="modal hidden">
         <div class="modal-content large">

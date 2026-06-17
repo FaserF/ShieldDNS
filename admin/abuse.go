@@ -135,7 +135,7 @@ func analyzeQuery(clientIP, domain, status string) {
 		if !bypass && len(sub) > dgaMinLen && CalculateEntropy(sub) > dgaThreshold {
 			counters.dgaTimes = append(counters.dgaTimes, now)
 			counters.dgaTimes = pruneWindow(counters.dgaTimes, now, 5*time.Minute)
-			if len(counters.dgaTimes) >= 15 {
+			if len(counters.dgaTimes) >= 50 {
 				go blockClientAuto(clientIP, "Abuse: DGA Detected (high-entropy subdomain pattern)")
 				return
 			}

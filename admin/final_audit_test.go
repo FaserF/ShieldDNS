@@ -24,7 +24,7 @@ func TestDGAWhitelist(t *testing.T) {
 	delete(abuseCounters, clientIP)
 	abuseMu.Unlock()
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 60; i++ {
 		analyzeQuery(clientIP, domain, "Allowed")
 	}
 
@@ -46,7 +46,7 @@ func TestDGAWhitelist(t *testing.T) {
 	domain2 := "v8n2m9p1q6w5x3z0l0k7j4.com"
 	clientIP2 := "5.6.7.8"
 
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 60; i++ {
 		analyzeQuery(clientIP2, domain2, "Allowed")
 	}
 

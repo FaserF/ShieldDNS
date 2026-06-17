@@ -42,7 +42,14 @@ export function renderDashStats(data) {
     }
 
     const appVer = getEl('app-version');
-    if (appVer) appVer.textContent = data.version;
+    if (appVer) {
+        appVer.textContent = data.version;
+        const appVerLink = getEl('app-version-link');
+        if (appVerLink && data.version) {
+            const tag = data.version.startsWith('v') ? data.version : `v${data.version}`;
+            appVerLink.href = `https://github.com/FaserF/ShieldDNS/releases/tag/${tag}`;
+        }
+    }
     const aboutAppVer = getEl('about-shielddns-ver');
     if (aboutAppVer) aboutAppVer.textContent = data.version;
 }
