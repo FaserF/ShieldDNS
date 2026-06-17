@@ -1,0 +1,37 @@
+{
+  "version": "1.9.0",
+  "commit_id": "a26db09",
+  "generated_at": "2026-06-17T06:56:55Z",
+  "code": {
+    "backend": {
+      "files": 40,
+      "lines": 11840
+    },
+    "frontend": {
+      "files": 35,
+      "lines": 9797
+    },
+    "other": {
+      "files": 18,
+      "lines": 1793
+    },
+    "total": {
+      "files": 93,
+      "lines": 23430
+    }
+  },
+  "tests": {
+    "backend": {
+      "files": 17,
+      "tests": 65
+    },
+    "frontend": {
+      "files": 4,
+      "tests": 5
+    },
+    "total": {
+      "files": 21,
+      "tests": 70
+    }
+  }
+}

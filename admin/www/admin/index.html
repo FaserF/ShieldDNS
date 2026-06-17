@@ -1165,6 +1165,68 @@
                             </a>
                         </div>
                     </div>
+
+                    <!-- Project Statistics -->
+                    <div class="stat-card card" style="grid-column: span 2;">
+                        <h3>Project Statistics</h3>
+                        <p class="help" style="margin-bottom: 15px;">Codebase metrics generated during the build process.</p>
+                        <div class="project-stats-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+                            <div>
+                                <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-primary);"><i class="fas fa-code" style="color: var(--color-primary); margin-right: 6px;"></i> Code Breakdown</h4>
+                                <table class="query-table" style="width:100%; font-size:0.8rem;">
+                                    <thead>
+                                        <tr>
+                                            <th>Layer</th>
+                                            <th style="text-align: right;">Files</th>
+                                            <th style="text-align: right;">Lines</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="about-stats-code-body">
+                                        <!-- Will be populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div>
+                                <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-primary);"><i class="fas fa-flask" style="color: var(--color-primary); margin-right: 6px;"></i> Test Coverage</h4>
+                                <table class="query-table" style="width:100%; font-size:0.8rem;">
+                                    <thead>
+                                        <tr>
+                                            <th>Suite</th>
+                                            <th style="text-align: right;">Files</th>
+                                            <th style="text-align: right;">Tests</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="about-stats-tests-body">
+                                        <!-- Will be populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                            <span id="about-stats-generated"></span>
+                            <span id="about-stats-commit"></span>
+                        </div>
+                    </div>
+
+                    <!-- Project Contributors -->
+                    <div class="stat-card card" style="grid-column: span 2;">
+                        <h3>Project Contributors</h3>
+                        <p class="help" style="margin-bottom: 15px;">List of project contributors sorted by commit count.</p>
+                        <div style="max-height: 250px; overflow-y: auto;">
+                            <table class="query-table" style="width:100%; font-size:0.8rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Last Commit</th>
+                                        <th style="text-align: right;">Commits</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="about-contributors-body">
+                                    <!-- Will be populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="query-log-container card about-footer">

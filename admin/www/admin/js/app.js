@@ -72,7 +72,8 @@ function initializeApp() {
         'diagnostics': () => { fetchService.fetchDiagnostics(); nav.startDiagTimer(() => fetchService.fetchDiagnostics()); },
         'lists': () => { fetchService.fetchPresets(); fetchService.fetchAllowlistPresets(); },
         'settings': () => { fetchService.fetchConfig(); fetchService.fetchAPIKeys(); },
-        'dashboard': () => fetchService.fetchStats()
+        'dashboard': () => fetchService.fetchStats(),
+        'about': () => loadAboutData()
     });
 
     // 2. Init global event listeners
@@ -501,3 +502,17 @@ window.recheckUpstreams = async (btn) => {
         if (btn) helpers.setBtnLoading(btn, false);
     }
 };
+
+async function loadAboutData() {
+    try {
+        const [statsRes, contribsRes] = await Promise.all([
+            fetch('assets/project_stats.json').then(r => r.ok ? r.json() : null),
+            fetch('assets/contributors.json').then(r => r.ok ? r.json() : null)
+        ]);
+        if (statsRes || contribsRes) {
+            render.renderAboutData(statsRes, contribsRes);
+        }
+    } catch (e) {
+        console.error('Failed to load about data:', e);
+    }
+}

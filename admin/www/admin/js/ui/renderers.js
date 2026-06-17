@@ -854,3 +854,96 @@ export function renderPasskeys(cfg) {
         `;
     }).join('');
 }
+
+export function renderAboutData(stats, contributors) {
+    // 1. Render Code breakdown
+    const codeBody = getEl('about-stats-code-body');
+    if (codeBody && stats && stats.code) {
+        const c = stats.code;
+        codeBody.innerHTML = `
+            <tr>
+                <td><strong>Backend (Go)</strong></td>
+                <td style="text-align: right;">${(c.backend.files || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(c.backend.lines || 0).toLocaleString()}</td>
+            </tr>
+            <tr>
+                <td><strong>Frontend (Admin UI)</strong></td>
+                <td style="text-align: right;">${(c.frontend.files || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(c.frontend.lines || 0).toLocaleString()}</td>
+            </tr>
+            <tr>
+                <td><strong>Other</strong></td>
+                <td style="text-align: right;">${(c.other.files || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(c.other.lines || 0).toLocaleString()}</td>
+            </tr>
+            <tr style="border-top: 1px solid rgba(255,255,255,0.1); font-weight: bold; color: var(--color-primary);">
+                <td>Total</td>
+                <td style="text-align: right;">${(c.total.files || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(c.total.lines || 0).toLocaleString()}</td>
+            </tr>
+        `;
+    }
+
+    // 2. Render Test coverage
+    const testsBody = getEl('about-stats-tests-body');
+    if (testsBody && stats && stats.tests) {
+        const t = stats.tests;
+        testsBody.innerHTML = `
+            <tr>
+                <td><strong>Backend (Go Tests)</strong></td>
+                <td style="text-align: right;">${(t.backend.files || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(t.backend.tests || 0).toLocaleString()}</td>
+            </tr>
+            <tr>
+                <td><strong>Frontend (UI Tests)</strong></td>
+                <td style="text-align: right;">${(t.frontend.files || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(t.frontend.tests || 0).toLocaleString()}</td>
+            </tr>
+            <tr style="border-top: 1px solid rgba(255,255,255,0.1); font-weight: bold; color: var(--color-primary);">
+                <td>Total</td>
+                <td style="text-align: right;">${(t.total.files || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(t.total.tests || 0).toLocaleString()}</td>
+            </tr>
+        `;
+    }
+
+    // 3. Render Metadata
+    const generatedEl = getEl('about-stats-generated');
+    if (generatedEl && stats && stats.generated_at) {
+        const date = new Date(stats.generated_at);
+        generatedEl.textContent = `Stats generated: ${date.toLocaleString()}`;
+    }
+    const commitEl = getEl('about-stats-commit');
+    if (commitEl && stats && stats.commit_id && stats.commit_id !== 'unknown') {
+        commitEl.innerHTML = `Commit: <a href="https://github.com/FaserF/ShieldDNS/commit/${stats.commit_id}" target="_blank" style="color: var(--color-primary); font-family: monospace;">${stats.commit_id}</a>`;
+    }
+
+    // 4. Render Contributors
+    const contribBody = getEl('about-contributors-body');
+    if (contribBody) {
+        if (contributors && contributors.length > 0) {
+            contribBody.innerHTML = contributors.map(c => `
+                <tr>
+                    <td>
+                        ${c.profile_url ? `
+                            <a href="${c.profile_url}" target="_blank" style="color: var(--color-primary); display: inline-flex; align-items: center; gap: 6px;">
+                                <strong>${helpers.escapeHTML(c.username)}</strong>
+                                ${c.is_bot ? `<span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05); color: var(--text-muted);">Bot</span>` : ''}
+                                <i class="fas fa-external-link-alt" style="font-size: 0.65rem; opacity: 0.7;"></i>
+                            </a>
+                        ` : `
+                            <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                <strong>${helpers.escapeHTML(c.username)}</strong>
+                                ${c.is_bot ? `<span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05); color: var(--text-muted);">Bot</span>` : ''}
+                            </span>
+                        `}
+                    </td>
+                    <td style="font-family: monospace; color: var(--text-muted);">${c.last_commit_date || 'N/A'}</td>
+                    <td style="text-align: right; font-family: monospace;">${(c.commit_count || 0).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        } else {
+            contribBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No contributor data available.</td></tr>';
+        }
+    }
+}

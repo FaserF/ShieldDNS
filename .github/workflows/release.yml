@@ -3,29 +3,37 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      bump_type:
-        description: 'Version bump type'
+      release_type:
+        description: "Type of release (stable, beta, dev)"
         required: true
-        default: 'patch'
+        default: "stable"
         type: choice
         options:
-          - patch
-          - minor
+          - stable
+          - beta
+          - dev
+      increment_level:
+        description: "Increment level (major, minor, patch, none. Use 'none' to increment pre-release suffix e.g. b0 -> b1)"
+        required: true
+        default: "patch"
+        type: choice
+        options:
           - major
-      recreate_release:
-        description: 'Recreate existing release (no version bump)'
+          - minor
+          - patch
+          - none
+      version_override:
+        description: "Target base version (optional, e.g. 1.9.0)"
         required: false
-        default: false
-        type: boolean
-      prerelease:
-        description: 'Mark as Pre-release'
-        required: false
-        default: false
-        type: boolean
+        type: string
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: faserf/shielddns
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-release
+  cancel-in-progress: true
 
 jobs:
   release:
@@ -37,142 +45,323 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@v5
         with:
           python-version: '3.14.6'
 
-      - name: 🛠️ Ensure LF Line Endings & Correct Version
-        id: versioning
+      - name: Calculate Version & Generate Changelog
+        id: get_version
+        shell: pwsh
+        env:
+          RELEASE_TYPE: ${{ github.event.inputs.release_type }}
+          INCREMENT_LEVEL: ${{ github.event.inputs.increment_level }}
+          VERSION_OVERRIDE: ${{ github.event.inputs.version_override }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 1. Force Unix line endings on all relevant files
-          find . -type f \( -name "*.sh" -o -name "Dockerfile" -o -name "*.go" -o -name "*.json" -o -name "*.yml" \) -print0 | xargs -0 sed -i 's/\r$//'
+          $type = $env:RELEASE_TYPE
+          $level = $env:INCREMENT_LEVEL
+          $repo = $env:REPO.ToLower()
+          
+          # 1. Get the latest tag (matching vX.Y.Z...) from GitHub API
+          $latest_tag = ""
+          if ($env:GITHUB_TOKEN) {
+            try {
+              $latest_tag = gh api repos/$repo/tags --jq '.[].name' 2>$null | Where-Object { $_ -match '^v?\d+\.\d+\.\d+(?:(?:b|-dev)\d+)?$' } | Select-Object -First 1
+            } catch {
+              Write-Host "Warning: Failed to fetch tags from GitHub API, falling back to git tags."
+            }
+          }
 
-          # 2. Handle Versioning
-          if [ "${{ github.event.inputs.recreate_release }}" = "true" ]; then
-            echo "Recreating existing release. Skipping version bump."
-            VERSION=$(grep -oP 'Version\s*=\s*"v\K[^"]+' admin/main.go)
-          else
-            python .github/scripts/bump_version.py ${{ github.event.inputs.bump_type }}
-            # Reset Subversion to 0 on release
-            sed -i 's/Subversion = "[^"]*"/Subversion = "0"/' admin/main.go
-            VERSION=$(grep -oP 'Version\s*=\s*"v\K[^"]+' admin/main.go)
-          fi
-          echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # Fallback to local git tags
+          if ([string]::IsNullOrEmpty($latest_tag)) {
+            $latest_tag = git tag -l "[0-9]*" "v[0-9]*" --sort=-v:refname | Where-Object { $_ -match '^v?\d+\.\d+\.\d+(?:(?:b|-dev)\d+)?$' } | Select-Object -First 1
+          }
 
-      - name: 📝 Build Changelog
-        id: build_changelog
+          Write-Host "Latest detected tag: $latest_tag"
+
+          if ($latest_tag -match '^v?(\d+)\.(\d+)\.(\d+)(?:(b|-dev)(\d+))?') {
+            $latest_major = [int]$matches[1]
+            $latest_minor = [int]$matches[2]
+            $latest_patch = [int]$matches[3]
+            $latest_pre_type = $matches[4] # "b" or "-dev" or $null
+            $latest_pre_num = if ($matches[5] -ne $null) { [int]$matches[5] } else { $null }
+          } else {
+            # Fall back to hardcoded default
+            $latest_major = 1; $latest_minor = 9; $latest_patch = 0
+            $latest_pre_type = $null
+            $latest_pre_num = $null
+          }
+
+          # Determine base version
+          $base_major = $latest_major
+          $base_minor = $latest_minor
+          $base_patch = $latest_patch
+
+          if ($level -eq "major") {
+            if ($latest_pre_type -and $latest_minor -eq 0 -and $latest_patch -eq 0) {
+              # Don't double increment if already a major pre-release
+            } else {
+              $base_major++
+              $base_minor = 0
+              $base_patch = 0
+            }
+          } elseif ($level -eq "minor") {
+            if ($latest_pre_type -and $latest_patch -eq 0) {
+              # Don't double increment if already a minor pre-release
+            } else {
+              $base_minor++
+              $base_patch = 0
+            }
+          } elseif ($level -eq "patch") {
+            if ($latest_pre_type) {
+              # Don't double increment if already a pre-release
+            } else {
+              $base_patch++
+            }
+          }
+
+          $base_version = "$base_major.$base_minor.$base_patch"
+          if (![string]::IsNullOrEmpty($env:VERSION_OVERRIDE)) { $base_version = $env:VERSION_OVERRIDE }
+
+          $version = ""; $tag = ""; $is_prerelease = "false"
+
+          if ($type -eq "stable") {
+            $version = $base_version
+            $tag = "v$version"
+            $is_prerelease = "false"
+          } else {
+            $is_prerelease = "true"
+            $prefix = if ($type -eq "beta") { "b" } else { "-dev" }
+
+            if ($latest_pre_type -eq $prefix -and "$latest_major.$latest_minor.$latest_patch" -eq $base_version) {
+              $next_n = $latest_pre_num + 1
+            } else {
+              $pattern = "v$($base_version)$($prefix)*"
+              $tags = git tag -l $pattern
+              $max_n = -1
+              if ($tags) {
+                foreach ($t in $tags) {
+                  if ($t -match "$($prefix)(\d+)") {
+                    $n = [int]$matches[1]
+                    if ($n -gt $max_n) { $max_n = $n }
+                  }
+                }
+              }
+              $next_n = $max_n + 1
+            }
+
+            if ($type -eq "beta") {
+              $version = "$($base_version)b$next_n"
+              $tag = "v$version"
+            } else {
+              $sha = git rev-parse --short HEAD
+              $version = "$($base_version)-dev$($next_n)+$sha"
+              $tag = "v$version"
+            }
+          }
+
+          $docker_tag = $version -replace '\+', '.'
+
+          # Determine changelog base tag
+          $changelog_from = ""
+          $changelog_label = "initial release — full history"
+
+          if ($type -eq "stable") {
+            $stableTag = git tag -l --sort=-v:refname 2>$null | Where-Object { $_ -match '^v?\d+\.\d+\.\d+$' } | Select-Object -First 1
+            if ($stableTag) {
+              $changelog_from = $stableTag
+              $changelog_label = "since last stable release (``$stableTag``)"
+            }
+          } elseif ($type -eq "beta") {
+            $prevBeta = git tag -l "v${base_version}b*" --sort=-v:refname 2>$null | Where-Object { $_ -match "^v?${base_version}b\d+$" } | Select-Object -First 1
+            if ($prevBeta) {
+              $changelog_from = $prevBeta
+              $changelog_label = "since previous beta (``$prevBeta``)"
+            } else {
+              $stableTag = git tag -l --sort=-v:refname 2>$null | Where-Object { $_ -match '^v?\d+\.\d+\.\d+$' } | Select-Object -First 1
+              if ($stableTag) {
+                $changelog_from = $stableTag
+                $changelog_label = "since last stable release (``$stableTag``) — first beta of $base_version"
+              }
+            }
+          } else {
+            if ($latest_tag) {
+              $changelog_from = $latest_tag
+              $changelog_label = "since ``$latest_tag``"
+            }
+          }
+
+          Write-Host "Changelog base: '$changelog_from' ($changelog_label)"
+
+          # Count commits
+          $totalCommitCount = 0
+          try {
+            $countRange = if ($changelog_from) { "${changelog_from}..HEAD" } else { "HEAD" }
+            $totalCommitCount = [int](git rev-list --count $countRange 2>$null)
+          } catch { $totalCommitCount = 0 }
+
+          # Generate changelog via script
+          $changelogMd = ""
+          $changelogScript = Join-Path $PWD ".github/scripts/generate_changelog.ps1"
+          if (Test-Path $changelogScript) {
+            try {
+              $clArgs = @{
+                FromTag      = $changelog_from
+                TotalCommits = [string]$totalCommitCount
+                Repo         = $repo
+              }
+              $changelogLines = & pwsh -NoProfile -NonInteractive -File $changelogScript @clArgs 2>$null
+              $changelogMd = if ($changelogLines) { $changelogLines -join "`n" } else { "_No categorised changes detected._" }
+            } catch {
+              $changelogMd = "_Changelog could not be generated automatically._"
+            }
+          } else {
+            $changelogMd = "_Changelog script not found._"
+          }
+
+          # Release risk analysis
+          $diffRange = if ($changelog_from) { "${changelog_from}..HEAD" } else { "HEAD" }
+          $changedFiles = @()
+          try { $changedFiles = git diff --name-only $diffRange 2>$null } catch {}
+          $totalFiles = if ($changedFiles) { $changedFiles.Count } else { 0 }
+          
+          $backendCount = 0; $frontendCount = 0; $ciCount = 0; $docsCount = 0
+          foreach ($f in $changedFiles) {
+            if ($f -match '^admin/.*\.go$') { $backendCount++ }
+            elseif ($f -match '^admin/www/') { $frontendCount++ }
+            elseif ($f -match '^\.github/' -or $f -match '^scripts/' -or $f -match '^Dockerfile$') { $ciCount++ }
+            elseif ($f -match '^docs/' -or $f -match '\.md$') { $docsCount++ }
+          }
+
+          $severity = "Standard"
+          $alertType = "NOTE"
+          $preamble = "This release introduces minor updates."
+          if ($totalFiles -gt 40 -or $type -ne "stable") {
+            $severity = "Standard"
+            $alertType = "NOTE"
+          }
+
+          $impactSummary = [System.Collections.Generic.List[string]]::new()
+          if ($totalFiles -gt 0) {
+            if ($backendCount -gt 0) { $pct = [math]::Round(($backendCount / $totalFiles) * 100); $impactSummary.Add("⚙️ Go Backend ($backendCount files · $pct%)") }
+            if ($frontendCount -gt 0) { $pct = [math]::Round(($frontendCount / $totalFiles) * 100); $impactSummary.Add("💻 Admin UI ($frontendCount files · $pct%)") }
+            if ($ciCount -gt 0) { $pct = [math]::Round(($ciCount / $totalFiles) * 100); $impactSummary.Add("🚀 CI/CD ($ciCount files · $pct%)") }
+            if ($docsCount -gt 0) { $pct = [math]::Round(($docsCount / $totalFiles) * 100); $impactSummary.Add("📖 Docs ($docsCount files · $pct%)") }
+          }
+          $impactStr = if ($impactSummary.Count -gt 0) { $impactSummary -join "  ·  " } else { "No codebase changes detected." }
+
+          # Build Risk Warning Block
+          $noteParts = [System.Collections.Generic.List[string]]::new()
+          $noteParts.Add("> [!$alertType]")
+          $noteParts.Add("> **Release Risk: $severity**")
+          $noteParts.Add("> $preamble")
+          $noteParts.Add(">")
+          $noteParts.Add("> **Affected areas:** $impactStr")
+          $prereleaseNote = "`n" + ($noteParts -join "`n") + "`n"
+
+          # Assemble full body
+          $bodyParts = [System.Collections.Generic.List[string]]::new()
+          $bodyParts.Add("# ShieldDNS $version")
+          $bodyParts.Add("")
+          $bodyParts.Add($prereleaseNote)
+          $bodyParts.Add("## 📋 What's Changed")
+          $bodyParts.Add("")
+          $bodyParts.Add($changelogMd)
+          $bodyParts.Add("")
+          $bodyParts.Add("## 🐳 Docker Image")
+          $bodyParts.Add("Official image available at: ``ghcr.io/$repo:$docker_tag``")
+          $bodyParts.Add("")
+          $body = $bodyParts -join "`n"
+          $body | Out-File -FilePath "CHANGELOG_BODY.md" -Encoding utf8
+
+          # Outputs
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "docker_tag=$docker_tag" >> $env:GITHUB_OUTPUT
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "is_prerelease=$is_prerelease" >> $env:GITHUB_OUTPUT
+
+      - name: 🛠️ Sync Versions & Run Stats Collection
+        shell: pwsh
+        env:
+          NEW_VERSION: ${{ steps.get_version.outputs.version }}
         run: |
-          # Get the previous tag (if any)
-          PREV_TAG=$(git tag --list --sort=-v:refname | head -n 1 || echo "")
-          python .github/scripts/generate_changelog.py "$PREV_TAG"
+          $ver = $env:NEW_VERSION
+          $base_version = $ver
+          if ($ver -match '^(\d+\.\d+\.\d+)') {
+            $base_version = $Matches[1]
+          }
 
-      - name: Create Release Tag
+          # Update VERSION file
+          $base_version | Out-File -FilePath "VERSION" -Encoding utf8 -NoNewline
+
+          # Update admin/main.go constants
+          $mainGoPath = "admin/main.go"
+          if (Test-Path $mainGoPath) {
+             $content = Get-Content $mainGoPath -Raw
+             $content = $content -replace 'Version\s*=\s*"[^"]+"', "Version        = `"v$ver`""
+             $content = $content -replace 'Subversion\s*=\s*"[^"]+"', 'Subversion = "0"'
+             $content | Out-File $mainGoPath -Encoding utf8 -NoNewline
+          }
+
+          # Run collect stats
+          python .github/scripts/collect_stats.py
+
+      - name: Commit version and static assets
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          
-          # Only commit if we actually bumped the version
-          if [ "${{ github.event.inputs.recreate_release }}" != "true" ]; then
-            git add admin/main.go
-            if ! git diff --staged --quiet; then
-              git commit -m "chore: bump version to v${{ env.NEW_VERSION }} [skip ci]"
-            fi
+          git add VERSION admin/main.go admin/www/admin/assets/project_stats.json admin/www/admin/assets/contributors.json admin/www/admin/assets/contributors_fallback.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: release version ${{ steps.get_version.outputs.version }} [skip ci]"
             git pull --rebase origin main
+            git push origin HEAD:main
           fi
-          
-          # Handle Tag Recreation
-          if git rev-parse "v${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
-            if [ "${{ github.event.inputs.recreate_release }}" = "true" ]; then
-              echo "Force-pushing existing tag v${{ env.NEW_VERSION }}"
-              git tag -f v${{ env.NEW_VERSION }}
-              git push origin v${{ env.NEW_VERSION }} -f
-            else
-              echo "Error: Tag v${{ env.NEW_VERSION }} already exists but re-release was not selected."
-              exit 1
-            fi
+
+          # Tag creation
+          if git rev-parse "${{ steps.get_version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag exists. Skip creation."
           else
-            git tag v${{ env.NEW_VERSION }}
-            git push origin main --tags
+            git tag ${{ steps.get_version.outputs.tag }}
+            git push origin ${{ steps.get_version.outputs.tag }}
           fi
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to the Container registry
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🗑️ Delete existing Docker image version (if any)
-        run: |
-          PACKAGE_NAME="${{ env.IMAGE_NAME }}"
-          VERSION_TAG="v${{ env.NEW_VERSION }}"
-          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          # Try to find version ID for the tag. Since we don't know if it's org or user, we try one first.
-          # Based on common ShieldDNS usage, it's likely a user.
-          echo "Checking for existing version $VERSION_TAG of $PACKAGE_NAME..."
-          
-          # Try Org first, then User if not found/error
-          VERSION_ID=$(gh api "orgs/${OWNER_LC}/packages/container/${PACKAGE_NAME//\//%2F}/versions" --paginate -q ".[] | select(.metadata.container.tags[] == \"$VERSION_TAG\") | .id" 2>/dev/null || \
-                      gh api "users/${OWNER_LC}/packages/container/${PACKAGE_NAME//\//%2F}/versions" --paginate -q ".[] | select(.metadata.container.tags[] == \"$VERSION_TAG\") | .id" 2>/dev/null || echo "")
-          
-          if [ -n "$VERSION_ID" ]; then
-            echo "Deleting existing version $VERSION_TAG (ID: $VERSION_ID)"
-            # Try Org delete then User delete
-            gh api -X DELETE "orgs/${OWNER_LC}/packages/container/${PACKAGE_NAME//\//%2F}/versions/$VERSION_ID" 2>/dev/null || \
-            gh api -X DELETE "users/${OWNER_LC}/packages/container/${PACKAGE_NAME//\//%2F}/versions/$VERSION_ID" 2>/dev/null || echo "Failed to delete via API, push will overwrite."
-          else
-            echo "No existing version found for $VERSION_TAG"
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push Docker image
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@v5
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.NEW_VERSION }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.docker_tag }}
 
       - name: Create Release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.NEW_VERSION }}
-          name: Release v${{ env.NEW_VERSION }}
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: Release ${{ steps.get_version.outputs.version }}
           body_path: CHANGELOG_BODY.md
           draft: false
-          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          prerelease: ${{ steps.get_version.outputs.is_prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🚀 Bump to next Development Version
-        if: ${{ !github.event.inputs.recreate_release }}
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Use our updated script to bump to the next patch version with a -dev suffix
-          # We use the short SHA to identify the dev build base
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          python .github/scripts/bump_version.py patch "-dev+${SHORT_SHA}"
-          
-          DEV_VERSION=$(grep -oP 'Version\s*=\s*"v\K[^"]+' admin/main.go)
-          echo "Bumping main branch to development version: v$DEV_VERSION"
-          
-          git add admin/main.go
-          git commit -m "chore: pivot to development v$DEV_VERSION [skip ci]"
-          git push origin main
