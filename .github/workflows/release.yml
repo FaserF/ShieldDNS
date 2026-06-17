@@ -276,7 +276,7 @@ jobs:
           $bodyParts.Add($changelogMd)
           $bodyParts.Add("")
           $bodyParts.Add("## 🐳 Docker Image")
-          $bodyParts.Add("Official image available at: ``ghcr.io/$repo:$docker_tag``")
+          $bodyParts.Add("Official image available at: ``ghcr.io/${repo}:$docker_tag``")
           $bodyParts.Add("")
           $body = $bodyParts -join "`n"
           $body | Out-File -FilePath "CHANGELOG_BODY.md" -Encoding utf8
