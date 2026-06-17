@@ -1,0 +1,483 @@
+{
+  "project": "ShieldDNS",
+  "purpose": "High-performance DNS appliance and security gateway with integrated web administration panel.",
+  "connections_map_reference": "project_connections.json (defines component linking for UI and backend files)",
+  "timestamp": "2026-06-17T09:01:17.144453",
+  "stack": {
+    "backend": "Go (embedded FS assets), SQLite (query database), CoreDNS (DNS server)",
+    "frontend": "Vanilla HTML5, CSS3 (variables & flex/grid layout), Vanilla JS (ES6 modules)",
+    "proxy": "DNS-over-HTTPS proxy to internal CoreDNS engine"
+  },
+  "env_required": [
+    "ADMIN_PORT",
+    "BLOCK_PAGE_IP",
+    "CERT_FILE",
+    "DEBUG",
+    "DNAT",
+    "INGRESS_PORT",
+    "INTERNAL_DOH_PORT",
+    "KEY_FILE",
+    "TCP",
+    "UDP"
+  ],
+  "rbac_controls": [
+    "Admin password hash verification",
+    "CSRF token protection via X-Shield-Request"
+  ],
+  "integrated_systems": [
+    "CoreDNS",
+    "MaxMind GeoIP database",
+    "WebAuthn / TOTP MFA"
+  ],
+  "ai_instructions": {
+    "code_style": [
+      "Strict adherence to Go idioms, slog for backend logging",
+      "Responsive CSS without framework dependencies (Vanilla Flexbox and Grid)",
+      "Vanilla JS ES6 import/export modules for core, services, and ui components",
+      "Preserve HTML structures and unique DOM IDs"
+    ],
+    "development_rules": [
+      "All backend route updates in main.go must align with js/services/api.js endpoints",
+      "Embedded assets (go:embed) require compiling the binary to test changes",
+      "Keep functions and classes concise and perform regular lint checks via jshint"
+    ]
+  },
+  "commands": {
+    "run_go_backend": "go run admin/main.go (runs administrative server locally)",
+    "build_go_binary": "go build -o shielddns-admin ./admin (compiles with assets embedded)",
+    "run_tests": "go test ./admin/... (runs unit tests)"
+  },
+  "architecture": {
+    "backend_go_endpoints": [
+      "/dns-query -> DoHRateLimitMiddleware(newDoHProxy(() [Auth: False]",
+      "/api/auth-status -> handleAuthStatus() [Auth: False]",
+      "/api/setup -> handleSetup() [Auth: False]",
+      "/api/login -> handleLogin() [Auth: False]",
+      "/api/logout -> handleLogout() [Auth: False]",
+      "/api/mobileconfig -> handleMobileConfig() [Auth: False]",
+      "/api/qr -> handleQR() [Auth: False]",
+      "/api/stats -> handleStats() [Auth: False]",
+      "/api/stats/history -> handleStatsHistory() [Auth: False]",
+      "/api/system-logs -> handleSystemLogs() [Auth: False]",
+      "/api/events -> handleEvents() [Auth: False]",
+      "/api/diagnostics -> handleDiagnostics() [Auth: False]",
+      "/api/diagnostics/recheck -> handleRecheckUpstreams() [Auth: False]",
+      "/api/ip-info -> handleIPInfo() [Auth: False]",
+      "/api/presets -> handlePresets() [Auth: False]",
+      "/api/presets/allow -> handlePresetAllowlists() [Auth: False]",
+      "/api/countries -> handleGetCountries() [Auth: False]",
+      "/api/system/high-risk-countries -> handleHighRiskCountries() [Auth: False]",
+      "/api/system/server-country -> handleServerCountry() [Auth: False]",
+      "/api/clients -> handleGetAllClients() [Auth: False]",
+      "/api/metrics -> handleMetrics() [Auth: False]",
+      "/api/config -> handleConfig() [Auth: False]",
+      "/api/refresh -> handleRefresh() [Auth: False]",
+      "/api/queries -> handleQueries() [Auth: False]",
+      "/api/system/full-reload -> handleFullReload() [Auth: False]",
+      "/api/history -> handleHistory() [Auth: False]",
+      "/api/search -> handleSearch() [Auth: False]",
+      "/api/top-blocked -> handleTopBlocked() [Auth: False]",
+      "/api/top-clients -> handleTopClients() [Auth: False]",
+      "/api/client/top-domains -> handleTopDomainsForClient() [Auth: False]",
+      "/api/client/top-blocked -> handleClientTopBlocked() [Auth: False]",
+      "/api/client/stats -> handleClientStats() [Auth: False]",
+      "/api/client/alias -> handleClientAlias() [Auth: False]",
+      "/api/client/block -> handleClientBlock() [Auth: False]",
+      "/api/export -> handleExport() [Auth: False]",
+      "/api/backup -> handleBackup() [Auth: False]",
+      "/api/restore -> handleRestore() [Auth: False]",
+      "/api/logs/clear -> handleClearLogs() [Auth: False]",
+      "/api/change-password -> handleChangePassword() [Auth: False]",
+      "/api/mfa/challenge -> handleMFAChallenge() [Auth: False]",
+      "/api/mfa/totp/setup -> handleTOTPSetup() [Auth: False]",
+      "/api/mfa/totp/verify -> handleTOTPVerify() [Auth: False]",
+      "/api/mfa/disable -> handleMFADisable() [Auth: False]",
+      "/api/mfa/delete -> handleMFADelete() [Auth: False]",
+      "/api/mfa/webauthn/register/start -> handleWebAuthnRegisterStart() [Auth: False]",
+      "/api/mfa/webauthn/register/finish -> handleWebAuthnRegisterFinish() [Auth: False]",
+      "/api/mfa/webauthn/login/start -> handleWebAuthnLoginStart() [Auth: False]",
+      "/api/mfa/webauthn/login/finish -> handleWebAuthnLoginFinish() [Auth: False]",
+      "/api/tokens -> handleGetTokens() [Auth: False]",
+      "/api/tokens/create -> handleCreateToken() [Auth: False]",
+      "/api/tokens/update -> handleUpdateToken() [Auth: False]",
+      "/api/tokens/delete -> handleDeleteToken() [Auth: False]",
+      "/api/domain/stats -> handleDomainStats() [Auth: False]",
+      "/api/domain/clients -> handleDomainClients() [Auth: False]",
+      "/api/filtering/toggle -> handleToggleFiltering() [Auth: False]",
+      "/api/filtering/status -> handleFilteringStatus() [Auth: False]",
+      "/api/rules/add -> handleRuleAdd() [Auth: False]",
+      "/api/rules/remove -> handleRuleRemove() [Auth: False]",
+      "/api/reset -> handleReset() [Auth: False]",
+      "/api/config/reset-lists -> handleResetLists() [Auth: False]",
+      "/api/block-info -> handleBlockInfo() [Auth: False]",
+      "/api/health -> handleHealth() [Auth: False]",
+      "/admin -> adminHandler() [Auth: False]",
+      "/admin/ -> adminHandler() [Auth: False]"
+    ],
+    "frontend_views": [
+      "about",
+      "analytics",
+      "custom-rules",
+      "dashboard",
+      "diagnostics",
+      "lists",
+      "queries",
+      "settings",
+      "system-logs"
+    ],
+    "frontend_js_endpoints": [
+      {
+        "name": "stats",
+        "route": "/api/api/stats"
+      },
+      {
+        "name": "history",
+        "route": "/api/api/history"
+      },
+      {
+        "name": "statsHistory",
+        "route": "/api/api/stats/history"
+      },
+      {
+        "name": "config",
+        "route": "/api/api/config"
+      },
+      {
+        "name": "queries",
+        "route": "/api/api/queries"
+      },
+      {
+        "name": "search",
+        "route": "/api/api/search"
+      },
+      {
+        "name": "events",
+        "route": "/api/api/events"
+      },
+      {
+        "name": "tokens",
+        "route": "/api/api/tokens"
+      },
+      {
+        "name": "createToken",
+        "route": "/api/api/tokens/create"
+      },
+      {
+        "name": "updateToken",
+        "route": "/api/api/tokens/update"
+      },
+      {
+        "name": "deleteToken",
+        "route": "/api/api/tokens/delete"
+      },
+      {
+        "name": "presets",
+        "route": "/api/api/presets"
+      },
+      {
+        "name": "allowlistPresets",
+        "route": "/api/api/presets/allow"
+      },
+      {
+        "name": "countries",
+        "route": "/api/api/countries"
+      },
+      {
+        "name": "authStatus",
+        "route": "/api/api/auth-status"
+      },
+      {
+        "name": "topBlocked",
+        "route": "/api/api/top-blocked"
+      },
+      {
+        "name": "topClients",
+        "route": "/api/api/top-clients"
+      },
+      {
+        "name": "diagnostics",
+        "route": "/api/api/diagnostics"
+      },
+      {
+        "name": "systemLogs",
+        "route": "/api/api/system-logs"
+      },
+      {
+        "name": "refresh",
+        "route": "/api/api/refresh"
+      },
+      {
+        "name": "toggleFiltering",
+        "route": "/api/api/filtering/toggle"
+      },
+      {
+        "name": "addRule",
+        "route": "/api/api/rules/add"
+      },
+      {
+        "name": "removeRule",
+        "route": "/api/api/rules/remove"
+      },
+      {
+        "name": "fullReload",
+        "route": "/api/api/system/full-reload"
+      },
+      {
+        "name": "reset",
+        "route": "/api/api/reset"
+      },
+      {
+        "name": "resetLists",
+        "route": "/api/api/config/reset-lists"
+      },
+      {
+        "name": "clientBlock",
+        "route": "/api/api/client/block"
+      },
+      {
+        "name": "clientAlias",
+        "route": "/api/api/client/alias"
+      },
+      {
+        "name": "clientStats",
+        "route": "/api/api/client/stats"
+      },
+      {
+        "name": "clientTopDomains",
+        "route": "/api/api/client/top-domains"
+      },
+      {
+        "name": "clientTopBlocked",
+        "route": "/api/api/client/top-blocked"
+      },
+      {
+        "name": "domainStats",
+        "route": "/api/api/domain/stats"
+      },
+      {
+        "name": "domainClients",
+        "route": "/api/api/domain/clients"
+      },
+      {
+        "name": "changePassword",
+        "route": "/api/api/change-password"
+      },
+      {
+        "name": "backup",
+        "route": "/api/api/backup"
+      },
+      {
+        "name": "restore",
+        "route": "/api/api/restore"
+      },
+      {
+        "name": "blockInfo",
+        "route": "/api/api/block-info"
+      },
+      {
+        "name": "recheckDiagnostics",
+        "route": "/api/api/diagnostics/recheck"
+      },
+      {
+        "name": "ipInfo",
+        "route": "/api/api/ip-info"
+      },
+      {
+        "name": "clients",
+        "route": "/api/api/clients"
+      },
+      {
+        "name": "blockedClients",
+        "route": "/api/api/config"
+      },
+      {
+        "name": "metrics",
+        "route": "/api/api/metrics"
+      },
+      {
+        "name": "exportLogs",
+        "route": "/api/api/export"
+      },
+      {
+        "name": "clearLogs",
+        "route": "/api/api/logs/clear"
+      },
+      {
+        "name": "filteringStatus",
+        "route": "/api/api/filtering/status"
+      },
+      {
+        "name": "health",
+        "route": "/api/api/health"
+      },
+      {
+        "name": "highRiskCountries",
+        "route": "/api/api/system/high-risk-countries"
+      },
+      {
+        "name": "serverCountry",
+        "route": "/api/api/system/server-country"
+      },
+      {
+        "name": "login",
+        "route": "/api/api/login"
+      },
+      {
+        "name": "logout",
+        "route": "/api/api/logout"
+      },
+      {
+        "name": "setup",
+        "route": "/api/api/setup"
+      },
+      {
+        "name": "mfaChallenge",
+        "route": "/api/api/mfa/challenge"
+      },
+      {
+        "name": "mfaTOTPSetup",
+        "route": "/api/api/mfa/totp/setup"
+      },
+      {
+        "name": "mfaTOTPVerify",
+        "route": "/api/api/mfa/totp/verify"
+      },
+      {
+        "name": "mfaDisable",
+        "route": "/api/api/mfa/disable"
+      },
+      {
+        "name": "mfaDelete",
+        "route": "/api/api/mfa/delete"
+      },
+      {
+        "name": "mfaWebAuthnRegisterStart",
+        "route": "/api/api/mfa/webauthn/register/start"
+      },
+      {
+        "name": "mfaWebAuthnRegisterFinish",
+        "route": "/api/api/mfa/webauthn/register/finish"
+      },
+      {
+        "name": "mfaWebAuthnLoginStart",
+        "route": "/api/api/mfa/webauthn/login/start"
+      },
+      {
+        "name": "mfaWebAuthnLoginFinish",
+        "route": "/api/api/mfa/webauthn/login/finish"
+      }
+    ]
+  },
+  "file_tree": {
+    ".": [
+      "Dockerfile",
+      "LICENSE",
+      "README.md",
+      "docker-compose.yml",
+      "renovate.json",
+      "run.sh",
+      "verify_layout.js"
+    ],
+    "admin": [
+      "abuse.go",
+      "abuse_test.go",
+      "api.go",
+      "api_mfa.go",
+      "api_rules.go",
+      "api_stats.go",
+      "api_system.go",
+      "api_test.go",
+      "api_tokens.go",
+      "api_utils.go",
+      "assets.go",
+      "auth.go",
+      "auth_test.go",
+      "backup_restore_test.go",
+      "client_api_test.go",
+      "client_block_test.go",
+      "config.go",
+      "config_regression_test.go",
+      "config_test.go",
+      "crypto_backup.go",
+      "db.go",
+      "db_test.go",
+      "dns.go",
+      "dns_test.go",
+      "final_audit_test.go",
+      "geo.go",
+      "ingress_test.go",
+      "integration_test.go",
+      "main.go",
+      "main_test.go",
+      "malicious.go",
+      "metrics.go",
+      "mfa_test.go",
+      "models.go",
+      "presets_list.go",
+      "presets_test.go",
+      "session_test.go",
+      "stats_linux.go",
+      "stats_other.go",
+      "stats_windows.go",
+      "versions.go",
+      "watchdog.go"
+    ],
+    "admin/www": [
+      "blocked.css",
+      "blocked.html",
+      "index.html",
+      "style.css"
+    ],
+    "admin/www/admin": [
+      "index.html",
+      "interaction.spec.js",
+      "layout_test.js",
+      "manifest.json",
+      "mobile_test.js",
+      "style.css",
+      "sw.js",
+      "utils.js",
+      "visual_audit.spec.js"
+    ],
+    "admin/www/admin/assets": [
+      "contributors.json",
+      "contributors_fallback.json",
+      "project_stats.json"
+    ],
+    "admin/www/admin/css": [
+      "base.css",
+      "components.css",
+      "layout.css",
+      "responsive.css",
+      "tables.css",
+      "ui-fixes.css",
+      "utilities.css",
+      "variables.css",
+      "widgets.css"
+    ],
+    "admin/www/admin/js": [
+      "app.js"
+    ],
+    "admin/www/admin/js/core": [
+      "auth.js",
+      "navigation.js",
+      "state.js"
+    ],
+    "admin/www/admin/js/services": [
+      "api.js",
+      "fetch.js"
+    ],
+    "admin/www/admin/js/ui": [
+      "activity.js",
+      "charts.js",
+      "events.js",
+      "helpers.js",
+      "renderers.js",
+      "scroller.js",
+      "ui.js"
+    ],
+    "data": [
+      "config.json"
+    ]
+  }
+}
