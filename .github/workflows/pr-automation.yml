@@ -19,12 +19,6 @@ jobs:
     timeout-minutes: 10
     if: github.event.pull_request.head.repo.fork == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
     steps:
-      - name: Auto-Label PR
-        uses: actions/labeler@v5
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          sync-labels: true
-
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
