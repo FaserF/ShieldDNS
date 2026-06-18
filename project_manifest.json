@@ -2,7 +2,7 @@
   "project": "ShieldDNS",
   "purpose": "High-performance DNS appliance and security gateway with integrated web administration panel.",
   "connections_map_reference": "project_connections.json (defines component linking for UI and backend files)",
-  "timestamp": "2026-06-17T21:39:15.585970",
+  "timestamp": "2026-06-18T07:14:11.461996",
   "stack": {
     "backend": "Go (embedded FS assets), SQLite (query database), CoreDNS (DNS server)",
     "frontend": "Vanilla HTML5, CSS3 (variables & flex/grid layout), Vanilla JS (ES6 modules)",
@@ -74,6 +74,8 @@
       "/api/refresh -> handleRefresh() [Auth: False]",
       "/api/queries -> handleQueries() [Auth: False]",
       "/api/system/full-reload -> handleFullReload() [Auth: False]",
+      "/api/system/check-version -> handleCheckVersion() [Auth: False]",
+      "/api/system/update -> handleSystemUpdate() [Auth: False]",
       "/api/history -> handleHistory() [Auth: False]",
       "/api/search -> handleSearch() [Auth: False]",
       "/api/top-blocked -> handleTopBlocked() [Auth: False]",
@@ -365,6 +367,14 @@
       {
         "name": "mfaWebAuthnLoginFinish",
         "route": "/api/api/mfa/webauthn/login/finish"
+      },
+      {
+        "name": "checkVersion",
+        "route": "/api/api/system/check-version"
+      },
+      {
+        "name": "systemUpdate",
+        "route": "/api/api/system/update"
       }
     ]
   },
