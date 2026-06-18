@@ -1147,6 +1147,80 @@
                     </div>
 
                     <div class="stat-card card">
+                        <h3>ShieldDNS Updates</h3>
+                        <div class="update-section" style="margin-top: 15px;">
+                            <div class="diag-list">
+                                <div class="diag-item">
+                                    <span>Latest Available Version:</span>
+                                    <span id="update-latest-ver" class="badge">Checking...</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                                <button id="btn-check-updates" class="btn secondary" style="flex: 1;"><i class="fas fa-sync-alt"></i> Check Now</button>
+                                <button id="btn-update-now" class="btn btn-danger" style="flex: 1; display: none;"><i class="fas fa-download"></i> Update Now</button>
+                            </div>
+                            
+                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+                            
+                            <div class="settings-form">
+                                <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <div>
+                                        <label for="update-channel" style="font-weight: 500;">Update Channel</label>
+                                        <p class="help">Choose which channel of updates to follow.</p>
+                                    </div>
+                                    <select id="update-channel" class="input-select" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        <option value="stable">Stable</option>
+                                        <option value="beta">Beta (Pre-release)</option>
+                                        <option value="dev">Dev (main branch)</option>
+                                    </select>
+                                </div>
+                                <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <div>
+                                        <label for="auto-update-enabled" style="font-weight: 500;">Auto-Update</label>
+                                        <p class="help">Install updates automatically during the night.</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="auto-update-enabled">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div id="auto-update-time-container" class="setting-item" style="display: none; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <label for="auto-update-hour" style="font-weight: 500;">Update Time</label>
+                                        <p class="help">Select preferred hour to apply updates.</p>
+                                    </div>
+                                    <select id="auto-update-hour" class="input-select" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        <option value="0">00:00</option>
+                                        <option value="1">01:00</option>
+                                        <option value="2">02:00</option>
+                                        <option value="3">03:00</option>
+                                        <option value="4">04:00</option>
+                                        <option value="5">05:00</option>
+                                        <option value="6">06:00</option>
+                                        <option value="7">07:00</option>
+                                        <option value="8">08:00</option>
+                                        <option value="9">09:00</option>
+                                        <option value="10">10:00</option>
+                                        <option value="11">11:00</option>
+                                        <option value="12">12:00</option>
+                                        <option value="13">13:00</option>
+                                        <option value="14">14:00</option>
+                                        <option value="15">15:00</option>
+                                        <option value="16">16:00</option>
+                                        <option value="17">17:00</option>
+                                        <option value="18">18:00</option>
+                                        <option value="19">19:00</option>
+                                        <option value="20">20:00</option>
+                                        <option value="21">21:00</option>
+                                        <option value="22">22:00</option>
+                                        <option value="23">23:00</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card card">
                         <h3>Project Links</h3>
                         <div class="project-links-grid" style="margin-top:20px">
                             <a href="https://github.com/FaserF/ShieldDNS" target="_blank" class="project-link-item">

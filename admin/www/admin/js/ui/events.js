@@ -1163,6 +1163,86 @@ export function initEvents(fetchConfig) {
 
     // Init MFA management
     initMFA();
+
+    // Updates Events
+    getEl('auto-update-enabled')?.addEventListener('change', (e) => {
+        const timeContainer = getEl('auto-update-time-container');
+        if (timeContainer) {
+            timeContainer.style.display = e.target.checked ? 'flex' : 'none';
+        }
+    });
+
+    getEl('btn-check-updates')?.addEventListener('click', async (e) => {
+        const btn = e.target;
+        helpers.setBtnLoading(btn, true, 'Checking...');
+        try {
+            const res = await api.apiFetch(api.endpoints.checkVersion, { method: 'POST' });
+            if (res && res.ShieldDNS) {
+                helpers.showToast('Version check complete');
+                const latestVer = getEl('update-latest-ver');
+                if (latestVer) {
+                    latestVer.textContent = res.ShieldDNS;
+                }
+                const btnUpdate = getEl('btn-update-now');
+                if (btnUpdate) {
+                    const currentVer = getEl('about-shielddns-ver')?.textContent;
+                    if (currentVer && res.ShieldDNS && currentVer !== res.ShieldDNS) {
+                        btnUpdate.style.display = 'block';
+                    } else {
+                        btnUpdate.style.display = 'none';
+                    }
+                }
+            } else {
+                helpers.showToast('No version info returned', 'info');
+            }
+        } catch (err) {
+            helpers.showAlert('Failed to check versions: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    });
+
+    getEl('btn-update-now')?.addEventListener('click', async (e) => {
+        const btn = e.target;
+        const confirmed = await helpers.showConfirm('Are you sure you want to update ShieldDNS? A full backup will be downloaded first, and then the server will perform the self-update via Docker.', 'Update ShieldDNS', true);
+        if (!confirmed) return;
+
+        helpers.setBtnLoading(btn, true, 'Initiating backup...');
+        
+        try {
+            const token = localStorage.getItem('api_token') || '';
+            const backupUrl = `${api.endpoints.backup}?type=full&token=${token}`;
+            
+            const link = document.createElement('a');
+            link.href = backupUrl;
+            link.setAttribute('download', 'shielddns-backup.zip');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            helpers.showToast('Backup download started. Starting update...', 'info');
+
+            setTimeout(async () => {
+                showActivityOverlay('System Update', 'Applying ShieldDNS update via Docker compose. This may take a minute...');
+                try {
+                    await api.apiFetch(api.endpoints.systemUpdate, { method: 'POST' });
+                    helpers.showToast('Update initiated successfully!', 'success');
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 15000);
+                } catch (err) {
+                    hideActivityOverlay(false);
+                    helpers.showAlert('Update failed to start: ' + err.message);
+                    helpers.setBtnLoading(btn, false);
+                }
+            }, 1500);
+
+        } catch (err) {
+            helpers.showAlert('Update failed: ' + err.message);
+            helpers.setBtnLoading(btn, false);
+        }
+    });
 }
 
 export async function saveConfig(fetchConfig) {
@@ -1195,7 +1275,10 @@ export async function saveConfig(fetchConfig) {
         malicious_ip_blocking_enabled: getEl('malicious-check')?.checked,
         malicious_ip_interval: parseInt(getEl('malicious-interval-input')?.value) || 8,
         verify_upstream_tls: getEl('verify-upstream-tls-check')?.checked,
-        server_country: getEl('manual-server-country-select')?.value || ''
+        server_country: getEl('manual-server-country-select')?.value || '',
+        update_channel: getEl('update-channel')?.value || 'stable',
+        auto_update_enabled: getEl('auto-update-enabled')?.checked,
+        auto_update_hour: parseInt(getEl('auto-update-hour')?.value) !== undefined ? parseInt(getEl('auto-update-hour')?.value) : 3
     };
 
     try {

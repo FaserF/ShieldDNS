@@ -233,6 +233,7 @@ func startWorkers() {
 	go startDBWorker(appCtx)
 	go startLogWorker(appCtx)
 	go startAbuseCleanup(appCtx)
+	go startAutoUpdateWorker(appCtx)
 }
 
 func setupRouter() *http.ServeMux {
@@ -269,6 +270,8 @@ func setupRouter() *http.ServeMux {
 	mux.Handle("/api/refresh", authMiddleware(http.HandlerFunc(handleRefresh)))
 	mux.Handle("/api/queries", authMiddleware(http.HandlerFunc(handleQueries)))
 	mux.Handle("/api/system/full-reload", authMiddleware(http.HandlerFunc(handleFullReload)))
+	mux.Handle("/api/system/check-version", authMiddleware(http.HandlerFunc(handleCheckVersion)))
+	mux.Handle("/api/system/update", authMiddleware(http.HandlerFunc(handleSystemUpdate)))
 	mux.Handle("/api/history", authMiddleware(http.HandlerFunc(handleHistory)))
 	mux.Handle("/api/search", authMiddleware(http.HandlerFunc(handleSearch)))
 	mux.Handle("/api/top-blocked", authMiddleware(http.HandlerFunc(handleTopBlocked)))

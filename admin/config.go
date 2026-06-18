@@ -70,6 +70,9 @@ func loadConfig() {
 		MaliciousIPInterval:        8,
 		DoHRateLimit:               50,
 		AutoblockWhitelist:         []string{"127.0.0.1", "::1"},
+		AutoUpdateEnabled:          false,
+		AutoUpdateHour:             3,
+		UpdateChannel:              "stable",
 	}
 
 	isNew := false
@@ -95,6 +98,9 @@ func loadConfig() {
 		}
 		if config.AutoblockWhitelist == nil {
 			config.AutoblockWhitelist = []string{"127.0.0.1", "::1"}
+		}
+		if config.UpdateChannel == "" {
+			config.UpdateChannel = "stable"
 		}
 	} else {
 		isNew = true

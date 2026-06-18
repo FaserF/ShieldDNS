@@ -56,6 +56,9 @@ type Config struct {
 	MFAEnabled                 bool                         `json:"mfa_enabled"`
 	TOTPConfigs                []TOTPConfig                 `json:"totp_configs"`
 	WebAuthnCredentials        []WebAuthnCredential         `json:"webauthn_credentials"`
+	AutoUpdateEnabled          bool                         `json:"auto_update_enabled"`
+	AutoUpdateHour             int                          `json:"auto_update_hour"`
+	UpdateChannel              string                       `json:"update_channel"`
 }
 
 type BlockedClientInfo struct {

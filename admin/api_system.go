@@ -620,19 +620,9 @@ func applyBackupConfig(current *Config, backup *Config, selectedCategories []str
 	}
 }
 
-func handleBackup(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename=shielddns-backup.zip")
-
+func GenerateBackupZIP(includeData bool) ([]byte, error) {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-
-	// 1. Snapshot the database consistently if full backup is requested
-	backupType := r.URL.Query().Get("type")
-	includeData := backupType == "full" || backupType == ""
-
-	var tmpDB string
-	dbConsistent := false
 
 	type backupFile struct {
 		Path     string
@@ -649,11 +639,11 @@ func handleBackup(w http.ResponseWriter, r *http.Request) {
 		files = append(files, backupFile{Path: AllowlistPath, Target: "allow.hosts", WithLock: false})
 	}
 
+	var tmpDB string
 	if includeData {
 		tmpDB = filepath.Join(os.TempDir(), fmt.Sprintf("shielddns-backup-%d.db", time.Now().UnixNano()))
 		if db != nil {
 			if _, err := db.Exec("VACUUM INTO ?", tmpDB); err == nil {
-				dbConsistent = true
 				defer os.Remove(tmpDB)
 				files = append(files, backupFile{Path: tmpDB, Target: "shielddns.db", WithLock: false})
 			} else {
@@ -698,11 +688,24 @@ func handleBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	zw.Close()
+	return buf.Bytes(), nil
+}
 
-	backupData := buf.Bytes()
+func handleBackup(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename=shielddns-backup.zip")
+
+	backupType := r.URL.Query().Get("type")
+	includeData := backupType == "full" || backupType == ""
+
+	backupData, err := GenerateBackupZIP(includeData)
+	if err != nil {
+		http.Error(w, "Failed to generate backup ZIP: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	password := r.URL.Query().Get("password")
 	if password != "" {
-		var err error
 		backupData, err = EncryptBackup(backupData, password)
 		if err != nil {
 			http.Error(w, "Failed to encrypt backup: "+err.Error(), http.StatusInternalServerError)
@@ -716,7 +719,47 @@ func handleBackup(w http.ResponseWriter, r *http.Request) {
 	if ip == "" {
 		ip, _, _ = net.SplitHostPort(r.RemoteAddr)
 	}
-	slog.Info("System backup downloaded", "ip", ip, "consistent_db", dbConsistent, "type", backupType, "encrypted", password != "")
+	slog.Info("System backup downloaded", "ip", ip, "type", backupType, "encrypted", password != "")
+}
+
+func handleCheckVersion(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	latest := checkVersionsNow()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(latest)
+}
+
+func handleSystemUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	configLock.RLock()
+	channel := config.UpdateChannel
+	configLock.RUnlock()
+
+	// 1. Force a backup on the server before updating
+	err := createAutoBackup()
+	if err != nil {
+		slog.Error("Pre-update backup failed, aborting update", "error", err)
+		http.Error(w, "Pre-update backup failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Trigger self-update
+	err = triggerUpdate(channel)
+	if err != nil {
+		slog.Error("Self-update trigger failed", "error", err)
+		http.Error(w, "Self-update failed to initiate: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "message": "Update initiated successfully. Container is recreating..."})
 }
 
 func handleRestore(w http.ResponseWriter, r *http.Request) {
@@ -1115,6 +1158,12 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		if newConfig.WebAuthnCredentials == nil && config.WebAuthnCredentials != nil {
 			newConfig.WebAuthnCredentials = config.WebAuthnCredentials
+		}
+		if newConfig.UpdateChannel == "" {
+			newConfig.UpdateChannel = config.UpdateChannel
+		}
+		if newConfig.AutoUpdateHour < 0 || newConfig.AutoUpdateHour > 23 {
+			newConfig.AutoUpdateHour = config.AutoUpdateHour
 		}
 
 		// Security: Validate Upstreams and UpstreamDoT for malicious injections

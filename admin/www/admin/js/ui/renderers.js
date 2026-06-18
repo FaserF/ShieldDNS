@@ -58,6 +58,19 @@ export function renderDashStats(data) {
     }
     const aboutAppVer = getEl('about-shielddns-ver');
     if (aboutAppVer) aboutAppVer.textContent = data.version;
+
+    const latestVer = getEl('update-latest-ver');
+    if (latestVer) {
+        latestVer.textContent = data.latest_version || 'Unknown';
+        const btnUpdate = getEl('btn-update-now');
+        if (btnUpdate) {
+            if (data.version && data.latest_version && data.version !== data.latest_version) {
+                btnUpdate.style.display = 'block';
+            } else {
+                btnUpdate.style.display = 'none';
+            }
+        }
+    }
 }
 
 export function renderQueries(queries) {
@@ -187,6 +200,18 @@ export function renderConfig(cfg) {
     renderAutoblockWhitelist(cfg.autoblock_whitelist || []);
 
     if (getEl('verify-upstream-tls-check')) getEl('verify-upstream-tls-check').checked = !!cfg.verify_upstream_tls;
+
+    // Updates Settings
+    if (getEl('update-channel')) getEl('update-channel').value = cfg.update_channel || 'stable';
+    if (getEl('auto-update-enabled')) {
+        const autoUpCheck = getEl('auto-update-enabled');
+        autoUpCheck.checked = !!cfg.auto_update_enabled;
+        const timeContainer = getEl('auto-update-time-container');
+        if (timeContainer) {
+            timeContainer.style.display = autoUpCheck.checked ? 'flex' : 'none';
+        }
+    }
+    if (getEl('auto-update-hour')) getEl('auto-update-hour').value = cfg.auto_update_hour !== undefined ? cfg.auto_update_hour.toString() : '3';
 
     updateMFAStatus(cfg);
 

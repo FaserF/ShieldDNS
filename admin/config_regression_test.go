@@ -20,6 +20,9 @@ func TestConfigPersistenceRegression(t *testing.T) {
 	config.RetentionDays = 30
 	config.SetupDone = true
 	config.AdminDomain = "original.domain"
+	config.AutoUpdateEnabled = true
+	config.AutoUpdateHour = 3
+	config.UpdateChannel = "stable"
 	configLock.Unlock()
 
 	// 2. Simulate a GET request to /api/config (which uses SanitizedCopy)
@@ -47,6 +50,9 @@ func TestConfigPersistenceRegression(t *testing.T) {
 	// 3. Simulate a POST request from the frontend using the sanitized config
 	// The frontend sends back the masked values.
 	sanitized.AdminDomain = "new.domain" // Change a non-sensitive field
+	sanitized.AutoUpdateEnabled = false
+	sanitized.AutoUpdateHour = 4
+	sanitized.UpdateChannel = "beta"
 
 	reqBody, _ := json.Marshal(sanitized)
 	rrPost := httptest.NewRecorder()
@@ -57,12 +63,21 @@ func TestConfigPersistenceRegression(t *testing.T) {
 		t.Fatalf("POST /api/config failed: %v", rrPost.Code)
 	}
 
-	// 4. Verify that the global config has RESTORED the sensitive values
+	// 4. Verify that the global config has RESTORED the sensitive values and updated new settings
 	configLock.RLock()
 	defer configLock.RUnlock()
 
 	if config.AdminDomain != "new.domain" {
 		t.Errorf("AdminDomain was not updated: %s", config.AdminDomain)
+	}
+	if config.AutoUpdateEnabled != false {
+		t.Errorf("AutoUpdateEnabled was not updated, got %t", config.AutoUpdateEnabled)
+	}
+	if config.AutoUpdateHour != 4 {
+		t.Errorf("AutoUpdateHour was not updated, got %d", config.AutoUpdateHour)
+	}
+	if config.UpdateChannel != "beta" {
+		t.Errorf("UpdateChannel was not updated, got %s", config.UpdateChannel)
 	}
 	if config.AdminPasswordHashed != "original-password-hash" {
 		t.Errorf("CRITICAL REGRESSION: AdminPasswordHashed was lost/overwritten by masked value! Got: %s", config.AdminPasswordHashed)
@@ -97,5 +112,14 @@ func TestConfigPersistenceRegression(t *testing.T) {
 	}
 	if diskConfig.APIKeys[0].TokenHash != "hash1" {
 		t.Errorf("CRITICAL PERSISTENCE REGRESSION: APIKey TokenHash was NOT saved to disk! Got: %s", diskConfig.APIKeys[0].TokenHash)
+	}
+	if diskConfig.AutoUpdateEnabled != false {
+		t.Errorf("AutoUpdateEnabled was NOT saved to disk properly, got %t", diskConfig.AutoUpdateEnabled)
+	}
+	if diskConfig.AutoUpdateHour != 4 {
+		t.Errorf("AutoUpdateHour was NOT saved to disk properly, got %d", diskConfig.AutoUpdateHour)
+	}
+	if diskConfig.UpdateChannel != "beta" {
+		t.Errorf("UpdateChannel was NOT saved to disk properly, got %s", diskConfig.UpdateChannel)
 	}
 }

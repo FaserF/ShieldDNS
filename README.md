@@ -258,6 +258,8 @@ Immediately take control of your network without managing external lists:
 - **Data Retention & Maintenance**: Configurable history purging (e.g., 7, 30, 90 days) augmented with automated background SQL VACUUM tasks to maintain database performance and optimize disk space.
 - **System Backups**: One-click `.zip` backup of configuration and query history.
 - **Config Restore**: Upload a `config.json` directly from the Settings page to instantly restore a previous configuration.
+- **Manual & Automated Updates**: Check for and apply updates (Stable, Beta, or Dev channels) directly from the UI. An "Update Now" action automatically triggers a full backup download before pulling the new Docker image and restarting the container.
+- **Nightly Auto-Updates**: Schedule automated update checks and installations once a day at a specified hour (e.g., 3:00 AM) with automatic local backup generation as a safety fallback.
 - **Dark & Light Mode**: Toggle the UI theme — preference is saved locally.
 - **Optimized Default Lists**: Ships with a single curated default (HaGeZi Multi Normal). Avoids enabling multiple overlapping lists (e.g., OISD + HaGeZi + AdGuard) by default, which would triple RAM usage with near-zero added coverage.
 - **Streaming Blocklist Downloader**: Lists are processed line-by-line via streaming (not loaded fully into RAM) — critical for low-memory hardware like Raspberry Pi 3/4.

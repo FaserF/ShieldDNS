@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -145,6 +149,11 @@ func updateVersions() {
 	latestVersions.LastCheck = time.Now()
 	versionLock.Unlock()
 
+	if testMode {
+		slog.Info("Mocking updateVersions in testMode")
+		return
+	}
+
 	slog.Debug("Checking for component updates (GitHub/Alpine)")
 
 	var wg sync.WaitGroup
@@ -152,7 +161,11 @@ func updateVersions() {
 
 	go func() {
 		defer wg.Done()
-		v := fetchGitHubLatestTag("FaserF/ShieldDNS")
+		configLock.RLock()
+		channel := config.UpdateChannel
+		configLock.RUnlock()
+
+		v := fetchShieldDNSVersion(channel)
 		if v != "" {
 			versionLock.Lock()
 			latestVersions.ShieldDNS = v
@@ -190,9 +203,93 @@ func updateVersions() {
 		"Alpine", latestVersions.Alpine)
 }
 
+func fetchShieldDNSVersion(channel string) string {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	if channel == "beta" {
+		req, err := http.NewRequest("GET", "https://api.github.com/repos/FaserF/ShieldDNS/releases", nil)
+		if err != nil {
+			return ""
+		}
+		req.Header.Set("User-Agent", "ShieldDNS-Updater")
+		resp, err := client.Do(req)
+		if err != nil {
+			slog.Error("Error fetching beta version info", "error", err)
+			return ""
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return ""
+		}
+		var releases []struct {
+			TagName string `json:"tag_name"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil || len(releases) == 0 {
+			return ""
+		}
+		return releases[0].TagName
+	}
+
+	if channel == "dev" {
+		req, err := http.NewRequest("GET", "https://api.github.com/repos/FaserF/ShieldDNS/commits?sha=main", nil)
+		if err != nil {
+			return ""
+		}
+		req.Header.Set("User-Agent", "ShieldDNS-Updater")
+		resp, err := client.Do(req)
+		if err != nil {
+			slog.Error("Error fetching dev version info", "error", err)
+			return ""
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return ""
+		}
+		var commits []struct {
+			SHA string `json:"sha"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil || len(commits) == 0 {
+			return ""
+		}
+		sha := commits[0].SHA
+		if len(sha) > 7 {
+			sha = sha[:7]
+		}
+		return "dev-" + sha
+	}
+
+	// Default to stable
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/FaserF/ShieldDNS/releases/latest", nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "ShieldDNS-Updater")
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Error("Error fetching latest stable version", "error", err)
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	var data struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return ""
+	}
+	return data.TagName
+}
+
 func fetchGitHubLatestTag(repo string) string {
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get("https://api.github.com/repos/" + repo + "/releases/latest")
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/"+repo+"/releases/latest", nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "ShieldDNS-Updater")
+	resp, err := client.Do(req)
 	if err != nil {
 		slog.Error("Error fetching latest version", "repo", repo, "error", err)
 		return ""
@@ -213,7 +310,6 @@ func fetchGitHubLatestTag(repo string) string {
 }
 
 func fetchAlpineLatest() string {
-	// Alpine Linux stable releases: https://alpinelinux.org/releases.json
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get("https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/latest-releases.yaml")
 	if err != nil {
@@ -221,19 +317,10 @@ func fetchAlpineLatest() string {
 	}
 	defer resp.Body.Close()
 
-	// The file is YAML, but we can just look for the version string as a simple heuristic
-	// Example content:
-	// - branch: v3.21
-	//   arch: x86_64
-	//   version: 3.21.3
-
-	// Actually, let's just use the branch part or the first version we find.
-	// Since it's a small file, we can read it.
-	lr := io.LimitReader(resp.Body, 1*1024*1024) // 1MB limit for YAML
+	lr := io.LimitReader(resp.Body, 1*1024*1024)
 	b, _ := io.ReadAll(lr)
 	content := string(b)
 
-	// Simple parsing for "version: X.Y.Z"
 	lines := strings.Split(content, "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "version:") {
@@ -244,4 +331,199 @@ func fetchAlpineLatest() string {
 		}
 	}
 	return ""
+}
+
+func checkVersionsNow() VersionInfo {
+	updateVersions()
+	versionLock.RLock()
+	defer versionLock.RUnlock()
+	return latestVersions
+}
+
+func createAutoBackup() error {
+	slog.Info("Creating pre-update backup...")
+	backupBytes, err := GenerateBackupZIP(true)
+	if err != nil {
+		return fmt.Errorf("failed to generate backup ZIP: %w", err)
+	}
+
+	backupFile := filepath.Join(DataDir, "backup_before_update.zip")
+	err = os.WriteFile(backupFile, backupBytes, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write backup file: %w", err)
+	}
+
+	slog.Info("Backup created successfully before update", "path", backupFile)
+	return nil
+}
+
+func triggerUpdate(channel string) error {
+	if testMode {
+		slog.Info("Mocking self-update trigger in testMode")
+		return nil
+	}
+	if _, err := os.Stat("/var/run/docker.sock"); err == nil {
+		return triggerDockerComposeUpdate(channel)
+	}
+	return fmt.Errorf("self-update is only supported when running via Docker with /var/run/docker.sock mounted")
+}
+
+func triggerDockerComposeUpdate(channel string) error {
+	socketPath := "/var/run/docker.sock"
+	tag := "latest"
+	if channel == "beta" {
+		tag = "beta"
+	} else if channel == "dev" {
+		tag = "dev"
+	}
+
+	client := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", socketPath)
+			},
+		},
+	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("failed to get hostname: %w", err)
+	}
+
+	resp, err := client.Get("http://localhost/containers/" + hostname + "/json")
+	if err != nil {
+		return fmt.Errorf("failed to inspect container via Docker API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Docker API returned status %d on inspect", resp.StatusCode)
+	}
+
+	var inspectData struct {
+		Config struct {
+			Labels map[string]string `json:"Labels"`
+		} `json:"Config"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&inspectData); err != nil {
+		return fmt.Errorf("failed to decode container inspect data: %w", err)
+	}
+
+	composeDir := inspectData.Config.Labels["com.docker.compose.project.working_dir"]
+	if composeDir == "" {
+		return fmt.Errorf("container is not running via Docker Compose (missing com.docker.compose.project.working_dir label)")
+	}
+
+	helperName := "shielddns-update-helper"
+	cmdStr := fmt.Sprintf("sleep 3 && docker compose -f %s/docker-compose.yml pull && docker compose -f %s/docker-compose.yml up -d --remove-orphans", composeDir, composeDir)
+
+	createPayload := map[string]interface{}{
+		"Image": "docker:cli",
+		"Cmd":   []string{"sh", "-c", cmdStr},
+		"HostConfig": map[string]interface{}{
+			"Binds": []string{
+				"/var/run/docker.sock:/var/run/docker.sock",
+				composeDir + ":" + composeDir,
+			},
+			"AutoRemove": true,
+		},
+	}
+
+	payloadBytes, err := json.Marshal(createPayload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal helper container config: %w", err)
+	}
+
+	reqDelete, _ := http.NewRequest("DELETE", "http://localhost/containers/"+helperName+"?force=true", nil)
+	client.Do(reqDelete)
+
+	reqCreate, err := http.NewRequest("POST", "http://localhost/containers/create?name="+helperName, strings.NewReader(string(payloadBytes)))
+	if err != nil {
+		return fmt.Errorf("failed to build create request for helper container: %w", err)
+	}
+	reqCreate.Header.Set("Content-Type", "application/json")
+
+	respCreate, err := client.Do(reqCreate)
+	if err != nil {
+		return fmt.Errorf("failed to create helper container: %w", err)
+	}
+	defer respCreate.Body.Close()
+
+	if respCreate.StatusCode != http.StatusCreated && respCreate.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(respCreate.Body)
+		return fmt.Errorf("failed to create helper container, status: %d, body: %s", respCreate.StatusCode, string(bodyBytes))
+	}
+
+	var createResult struct {
+		ID string `json:"Id"`
+	}
+	if err := json.NewDecoder(respCreate.Body).Decode(&createResult); err != nil {
+		return fmt.Errorf("failed to decode create helper result: %w", err)
+	}
+
+	reqStart, err := http.NewRequest("POST", "http://localhost/containers/"+createResult.ID+"/start", nil)
+	if err != nil {
+		return fmt.Errorf("failed to build start request for helper: %w", err)
+	}
+	respStart, err := client.Do(reqStart)
+	if err != nil {
+		return fmt.Errorf("failed to start helper container: %w", err)
+	}
+	defer respStart.Body.Close()
+
+	if respStart.StatusCode != http.StatusNoContent && respStart.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to start helper container, status: %d", respStart.StatusCode)
+	}
+
+	slog.Info("Successfully launched helper container to pull and recreate ShieldDNS", "helper_id", createResult.ID[:12], "tag", tag)
+	return nil
+}
+
+func startAutoUpdateWorker(ctx context.Context) {
+	slog.Info("Auto-update worker started")
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	lastAutoUpdateDay := -1
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			configLock.RLock()
+			enabled := config.AutoUpdateEnabled
+			hour := config.AutoUpdateHour
+			channel := config.UpdateChannel
+			configLock.RUnlock()
+
+			if !enabled {
+				continue
+			}
+
+			now := time.Now()
+			if now.Hour() == hour && now.Day() != lastAutoUpdateDay {
+				lastAutoUpdateDay = now.Day()
+				slog.Info("Auto-update hour reached. Checking for updates...", "hour", hour, "channel", channel)
+
+				currentVer := Version
+				latestVer := fetchShieldDNSVersion(channel)
+
+				if latestVer != "" && latestVer != currentVer {
+					slog.Info("New version found for auto-update", "current", currentVer, "latest", latestVer)
+					err := createAutoBackup()
+					if err != nil {
+						slog.Error("Auto-update failed: could not create pre-update backup", "error", err)
+						continue
+					}
+
+					slog.Info("Initiating auto-update...")
+					err = triggerUpdate(channel)
+					if err != nil {
+						slog.Error("Auto-update trigger failed", "error", err)
+					}
+				}
+			}
+		}
+	}
 }

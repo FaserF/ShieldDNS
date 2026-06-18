@@ -139,5 +139,7 @@ export const endpoints = {
     mfaWebAuthnRegisterStart: basePath + '/api/mfa/webauthn/register/start',
     mfaWebAuthnRegisterFinish: basePath + '/api/mfa/webauthn/register/finish',
     mfaWebAuthnLoginStart: basePath + '/api/mfa/webauthn/login/start',
-    mfaWebAuthnLoginFinish: basePath + '/api/mfa/webauthn/login/finish'
+    mfaWebAuthnLoginFinish: basePath + '/api/mfa/webauthn/login/finish',
+    checkVersion: basePath + '/api/system/check-version',
+    systemUpdate: basePath + '/api/system/update'
 };

@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAuthMiddleware(t *testing.T) {
@@ -534,5 +535,71 @@ func TestHandleQR(t *testing.T) {
 	handleQR(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for too-long data, got %v", rr.Code)
+	}
+}
+
+func TestHandleCheckVersion(t *testing.T) {
+	versionLock.Lock()
+	latestVersions = VersionInfo{
+		ShieldDNS: "v1.2.3",
+		CoreDNS:   "v1.14.3",
+		Alpine:    "3.23",
+		LastCheck: time.Now(),
+	}
+	versionLock.Unlock()
+
+	req := httptest.NewRequest("POST", "/api/system/check-version", nil)
+	rr := httptest.NewRecorder()
+	handleCheckVersion(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
+	}
+
+	var resp VersionInfo
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.ShieldDNS != "v1.2.3" {
+		t.Errorf("expected v1.2.3, got %s", resp.ShieldDNS)
+	}
+
+	// Reject GET request
+	reqGet := httptest.NewRequest("GET", "/api/system/check-version", nil)
+	rrGet := httptest.NewRecorder()
+	handleCheckVersion(rrGet, reqGet)
+	if rrGet.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", rrGet.Code)
+	}
+}
+
+func TestHandleSystemUpdate(t *testing.T) {
+	configLock.Lock()
+	config.UpdateChannel = "stable"
+	configLock.Unlock()
+
+	req := httptest.NewRequest("POST", "/api/system/update", nil)
+	rr := httptest.NewRecorder()
+	handleSystemUpdate(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode update response: %v", err)
+	}
+
+	if resp["success"] != true {
+		t.Errorf("expected success=true, got %v", resp["success"])
+	}
+
+	// Reject GET request
+	reqGet := httptest.NewRequest("GET", "/api/system/update", nil)
+	rrGet := httptest.NewRecorder()
+	handleSystemUpdate(rrGet, reqGet)
+	if rrGet.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", rrGet.Code)
 	}
 }
