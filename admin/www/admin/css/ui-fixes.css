@@ -23,6 +23,11 @@ select {
     transition: all 0.2s ease !important;
 }
 
+select option {
+    background-color: var(--bg-color) !important;
+    color: var(--text-primary) !important;
+}
+
 input:focus {
     background-color: hsla(var(--hue), 20%, 100%, 0.07) !important;
     border-color: var(--accent) !important;

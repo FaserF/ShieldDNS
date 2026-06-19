@@ -572,36 +572,62 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		defer file.Close()
 		reader = file
 	} else {
-		if !isValidListURL(list.URL) {
-			slog.Warn("Blocklist URL rejected: not a safe remote URL", "name", list.Name, "url", list.URL)
-			return
-		}
-		client := &http.Client{Timeout: 30 * time.Second}
-		req, err := http.NewRequest("GET", list.URL, nil)
-		if err != nil {
-			slog.Warn("Could not create request for remote list", "name", list.Name, "url", list.URL, "error", err)
-			return
-		}
-
-		// Use a browser-like User-Agent to avoid being blocked by strict servers (e.g., Frogeye)
-		req.Header.Set("User-Agent", fmt.Sprintf("ShieldDNS/%s (https://github.com/FaserF/ShieldDNS)", FullVersion))
-		req.Header.Set("Accept", "text/plain, */*")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			slog.Warn("Could not fetch remote list", "name", list.Name, "url", list.URL, "error", err)
-			return
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			slog.Warn("Remote list returned non-OK status", "name", list.Name, "status", resp.StatusCode)
-			return
+		useLocal := false
+		var localPath string
+		if strings.Contains(list.URL, "raw.githubusercontent.com/FaserF/ShieldDNS/") {
+			parts := strings.Split(list.URL, "/official/")
+			if len(parts) == 2 {
+				localPath = filepath.Join("official", parts[1])
+				if _, err := os.Stat(localPath); err == nil {
+					useLocal = true
+				}
+			}
 		}
 
-		// Capture remote update time with specialized GitHub support
-		list.RemoteUpdatedAt = getRemoteUpdateTime(list.URL, resp.Header)
+		if useLocal {
+			file, err := os.Open(localPath)
+			if err != nil {
+				slog.Warn("Could not open local official list fallback file", "name", list.Name, "path", localPath, "error", err)
+				return
+			}
+			defer file.Close()
+			list.RemoteUpdatedAt = time.Now()
+			if info, err := file.Stat(); err == nil {
+				list.RemoteUpdatedAt = info.ModTime()
+			}
+			reader = file
+		} else {
+			if !isValidListURL(list.URL) {
+				slog.Warn("Blocklist URL rejected: not a safe remote URL", "name", list.Name, "url", list.URL)
+				return
+			}
+			client := &http.Client{Timeout: 30 * time.Second}
+			req, err := http.NewRequest("GET", list.URL, nil)
+			if err != nil {
+				slog.Warn("Could not create request for remote list", "name", list.Name, "url", list.URL, "error", err)
+				return
+			}
 
-		reader = resp.Body
+			// Use a browser-like User-Agent to avoid being blocked by strict servers (e.g., Frogeye)
+			req.Header.Set("User-Agent", fmt.Sprintf("ShieldDNS/%s (https://github.com/FaserF/ShieldDNS)", FullVersion))
+			req.Header.Set("Accept", "text/plain, */*")
+
+			resp, err := client.Do(req)
+			if err != nil {
+				slog.Warn("Could not fetch remote list", "name", list.Name, "url", list.URL, "error", err)
+				return
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				slog.Warn("Remote list returned non-OK status", "name", list.Name, "status", resp.StatusCode)
+				return
+			}
+
+			// Capture remote update time with specialized GitHub support
+			list.RemoteUpdatedAt = getRemoteUpdateTime(list.URL, resp.Header)
+
+			reader = resp.Body
+		}
 	}
 
 	scanner := bufio.NewScanner(reader)
@@ -824,6 +850,45 @@ func refreshAllMetadata(onlyMissing bool) {
 			defer wg.Done()
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
+
+			// Local fallback check for official ShieldDNS lists
+			useLocal := false
+			var localPath string
+			if strings.Contains(list.URL, "raw.githubusercontent.com/FaserF/ShieldDNS/") {
+				parts := strings.Split(list.URL, "/official/")
+				if len(parts) == 2 {
+					localPath = filepath.Join("official", parts[1])
+					if _, err := os.Stat(localPath); err == nil {
+						useLocal = true
+					}
+				}
+			}
+
+			if useLocal {
+				file, err := os.Open(localPath)
+				if err == nil {
+					defer file.Close()
+					list.RemoteUpdatedAt = time.Now()
+					if info, err := file.Stat(); err == nil {
+						list.RemoteUpdatedAt = info.ModTime()
+					}
+					
+					scanner := bufio.NewScanner(file)
+					count := 0
+					for scanner.Scan() {
+						line := strings.TrimSpace(scanner.Text())
+						if line != "" && !strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "!") {
+							count++
+						}
+					}
+					list.Entries = count
+					
+					metadataMu.Lock()
+					metadataCache[list.URL] = list
+					metadataMu.Unlock()
+					return
+				}
+			}
 
 			if !isValidListURL(list.URL) {
 				slog.Warn("Metadata fetch skipped: not a safe remote URL", "url", list.URL)
