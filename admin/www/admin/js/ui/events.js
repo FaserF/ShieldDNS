@@ -293,6 +293,7 @@ export function initEvents(fetchConfig) {
         getEl('api-key-name').value = '';
         getEl('save-api-key-btn').textContent = 'Generate';
         delete getEl('save-api-key-btn').dataset.editId;
+        setPerms(['perm-stats', 'perm-health']);
         form.classList.remove('hidden');
         result.classList.add('hidden');
         modal.classList.remove('hidden');
@@ -371,14 +372,94 @@ export function initEvents(fetchConfig) {
                 el.checked = perms.includes(id);
             }
         });
+        updatePermissionStates();
     };
+
+    const updatePermissionStates = () => {
+        const admin = getEl('perm-admin');
+        const stats = getEl('perm-stats');
+        const logs = getEl('perm-logs');
+        const health = getEl('perm-health');
+        const configRead = getEl('perm-config-read');
+        const configWrite = getEl('perm-config-write');
+        const diag = getEl('perm-diag');
+        const rulesRead = getEl('perm-rules-read');
+        const rulesWrite = getEl('perm-rules-write');
+        const maint = getEl('perm-maint');
+        const system = getEl('perm-system');
+
+        if (!admin) return;
+
+        const allInputs = [
+            stats, logs, health, configRead, configWrite,
+            diag, rulesRead, rulesWrite, maint, system
+        ];
+
+        allInputs.forEach(el => {
+            if (el) el.disabled = false;
+        });
+
+        if (admin.checked) {
+            allInputs.forEach(el => {
+                if (el) {
+                    el.checked = true;
+                    el.disabled = true;
+                }
+            });
+            return;
+        }
+
+        if (configWrite && configWrite.checked) {
+            if (configRead) {
+                configRead.checked = true;
+                configRead.disabled = true;
+            }
+        }
+
+        if (rulesWrite && rulesWrite.checked) {
+            if (rulesRead) {
+                rulesRead.checked = true;
+                rulesRead.disabled = true;
+            }
+        }
+
+        const healthImplied =
+            (stats && stats.checked) ||
+            (system && system.checked) ||
+            (diag && diag.checked) ||
+            (configRead && configRead.checked) ||
+            (configWrite && configWrite.checked);
+
+        if (healthImplied) {
+            if (health) {
+                health.checked = true;
+                health.disabled = true;
+            }
+        }
+    };
+
+    [
+        'perm-admin', 'perm-stats', 'perm-logs', 'perm-health',
+        'perm-config-read', 'perm-config-write', 'perm-diag',
+        'perm-rules-read', 'perm-rules-write', 'perm-maint', 'perm-system'
+    ].forEach(id => {
+        getEl(id)?.addEventListener('change', updatePermissionStates);
+    });
 
     getEl('preset-ha-btn')?.addEventListener('click', () => {
         setPerms(['perm-stats', 'perm-health', 'perm-config-read', 'perm-config-write', 'perm-rules-read', 'perm-rules-write']);
+        const keyName = getEl('api-key-name');
+        if (keyName && !keyName.value.trim()) {
+            keyName.value = 'Home Assistant';
+        }
     });
 
     getEl('preset-monitoring-btn')?.addEventListener('click', () => {
         setPerms(['perm-stats', 'perm-health', 'perm-diag', 'perm-system']);
+        const keyName = getEl('api-key-name');
+        if (keyName && !keyName.value.trim()) {
+            keyName.value = 'Monitoring';
+        }
     });
 
     getEl('preset-clear-btn')?.addEventListener('click', () => {
@@ -574,6 +655,8 @@ export function initEvents(fetchConfig) {
         getEl('perm-rules-write').checked = key.permissions.includes('write:rules');
         getEl('perm-maint').checked = key.permissions.includes('write:maintenance');
         getEl('perm-system').checked = key.permissions.includes('read:system');
+        
+        updatePermissionStates();
         
         form.classList.remove('hidden');
         result.classList.add('hidden');

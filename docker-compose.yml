@@ -14,6 +14,7 @@ services:
       - PREFER_ENCRYPTED=true
       - CERT_FILE=/ssl/fullchain.pem
       - KEY_FILE=/ssl/privkey.pem
+      - DATA_DIR=/etc/shielddns
     volumes:
       - ./ssl:/ssl:ro
       - ./data:/etc/shielddns

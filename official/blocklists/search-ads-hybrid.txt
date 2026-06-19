@@ -1,0 +1,108 @@
+# Search Ads Hybrid Blocklist - ShieldDNS
+# Blocks display ads, banners, video ads, trackers, and telemetry for Google, Microsoft/Bing, and Yahoo
+# while avoiding domains like googleadservices.com and bat.bing.com to keep search click redirects working.
+
+# ==============================================================================
+# Google Ads, DoubleClick, and Analytics (excluding googleadservices.com)
+# ==============================================================================
+doubleclick.net
+www.doubleclick.net
+ads.doubleclick.net
+ad.doubleclick.net
+static.doubleclick.net
+stats.g.doubleclick.net
+securepubads.g.doubleclick.net
+googleads.g.doubleclick.net
+googleads2.g.doubleclick.net
+googleads3.g.doubleclick.net
+googleads4.g.doubleclick.net
+pubads.g.doubleclick.net
+cm.g.doubleclick.net
+bid.g.doubleclick.net
+fls.doubleclick.net
+g.doubleclick.net
+pagead.l.doubleclick.net
+partnerad.l.doubleclick.net
+ad.mo.doubleclick.net
+inv-nets.doubleclick.net
+googlesyndication.com
+www.googlesyndication.com
+pagead.googlesyndication.com
+pagead2.googlesyndication.com
+pagead.l.googlesyndication.com
+tpc.googlesyndication.com
+adm.ur.googlesyndication.com
+safeframe.googlesyndication.com
+video-ad-stats.googlesyndication.com
+2mdn.net
+static.2mdn.net
+www.2mdn.net
+googletagservices.com
+www.googletagservices.com
+googletagmanager.com
+www.googletagmanager.com
+google-analytics.com
+www.google-analytics.com
+ssl.google-analytics.com
+analytics.google.com
+adservice.google.com
+ads.google.com
+www.ads.google.com
+app-measurement.com
+www.app-measurement.com
+googleadapis.com
+www.googleadapis.com
+
+# ==============================================================================
+# Microsoft & Bing Ads (excluding bat.bing.com)
+# ==============================================================================
+ads.msn.com
+ads1.msn.com
+ads2.msn.com
+rad.msn.com
+a.ads1.msn.com
+a.ads2.msn.com
+choice.microsoft.com
+choice.microsoft.com.nsatc.net
+c.bing.com
+ads.bing.com
+telemetry.microsoft.com
+vortex.data.microsoft.com
+browser.events.data.microsoft.com
+ads1.msads.net
+ads2.msads.net
+a.ads2.msads.net
+xandr.com
+adnxs.com
+ib.adnxs.com
+secure.adnxs.com
+bingads.microsoft.com
+ads.microsoft.com
+c.msn.com
+clarity.ms
+www.clarity.ms
+c.clarity.ms
+d.clarity.ms
+
+# ==============================================================================
+# Yahoo, Flurry & YieldManager Ads
+# ==============================================================================
+ads.yahoo.com
+adserver.yahoo.com
+advertising.yahoo.com
+gemini.yahoo.com
+beap.gemini.yahoo.com
+analytics.yahoo.com
+sp.analytics.yahoo.com
+geo.yahoo.com
+ad.yieldmanager.com
+content.yieldmanager.com
+yldmgrimg.net
+ad.flurry.com
+data.flurry.com
+analytics.query.yahoo.com
+adss.yahoo.com
+ads.yimg.com
+yads.yahoo.com
+oath.com
+www.oath.com

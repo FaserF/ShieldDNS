@@ -162,6 +162,7 @@ export async function nextSetupStep(step) {
 }
 
 export function applySetupPreset(presetName) {
+    state.selectedSetupPreset = presetName;
     if (!presetName) return;
     
     const host = window.location.hostname || 'shielddns.local';
@@ -291,6 +292,64 @@ export async function finishSetup() {
             });
         });
 
+        let extraParams = {
+            filtering_enabled: true
+        };
+        if (state.selectedSetupPreset === 'faserf') {
+            Object.assign(extraParams, {
+                block_page_ip: "89.168.74.120",
+                dnssec_enabled: false,
+                use_fastest_upstream: true,
+                smart_selection_policy: "fastest",
+                latency_test_interval: 15,
+                diagnostics_refresh_interval: 300,
+                retention_days: 90,
+                malicious_ip_interval: 12,
+                blocked_countries: ["CN", "RU", "IR", "KP", "VN", "BR", "BY", "IQ", "UA"],
+                abuse_detection_enabled: true,
+                abuse_dga_threshold: 0.65,
+                abuse_dga_min_len: 8,
+                malicious_ip_blocking_enabled: true,
+                serve_stale: true,
+                verify_upstream_tls: true,
+                doh_rate_limit: 100,
+                auto_update_enabled: true,
+                auto_update_hour: 4,
+                update_channel: "stable",
+                server_country: "DE"
+            });
+        } else if (state.selectedSetupPreset === 'maxperf') {
+            Object.assign(extraParams, {
+                dnssec_enabled: true,
+                use_fastest_upstream: true,
+                smart_selection_policy: "fastest",
+                latency_test_interval: 5,
+                diagnostics_refresh_interval: 300,
+                retention_days: 14,
+                malicious_ip_interval: 12
+            });
+        } else if (state.selectedSetupPreset === 'minimal') {
+            Object.assign(extraParams, {
+                dnssec_enabled: true,
+                use_fastest_upstream: true,
+                smart_selection_policy: "fastest",
+                latency_test_interval: 10,
+                diagnostics_refresh_interval: 60,
+                retention_days: 7,
+                malicious_ip_interval: 24
+            });
+        } else if (state.selectedSetupPreset === 'shielddns') {
+            Object.assign(extraParams, {
+                dnssec_enabled: true,
+                use_fastest_upstream: true,
+                smart_selection_policy: "fastest",
+                latency_test_interval: 10,
+                diagnostics_refresh_interval: 30,
+                retention_days: 30,
+                malicious_ip_interval: 8
+            });
+        }
+
         await api.apiFetch(api.endpoints.config, {
             method: 'POST',
             body: JSON.stringify({
@@ -304,7 +363,8 @@ export async function finishSetup() {
                 verify_upstream_tls: verifyTls,
                 sign_mobileconfig: signProfiles,
                 lists: selectedLists,
-                setup_done: true
+                setup_done: true,
+                ...extraParams
             })
         });
         

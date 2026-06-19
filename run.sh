@@ -67,7 +67,9 @@ else
     FALLBACK_DNS_SERVER=${FALLBACK_DNS_SERVER:-"1.1.1.1"}
     BLOCK_PAGE_IP=${BLOCK_PAGE_IP:-"127.0.0.1"}
     export BLOCK_PAGE_IP
+    export DATA_DIR="${DATA_DIR:-/etc/shielddns}"
 fi
+
 
 # ------------------------------------------------------------------------------
 # 2. Permission & Privilege Management
