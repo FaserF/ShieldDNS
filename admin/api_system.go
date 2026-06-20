@@ -1213,7 +1213,10 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		config = newConfig
 		if err := saveConfigNoLock(); err != nil {
 			slog.Error("Failed to save config in handleConfig", "error", err)
-			http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+			config = configHold
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to save configuration: %v", err)})
 			configLock.Unlock()
 			return
 		}
