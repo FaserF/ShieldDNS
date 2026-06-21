@@ -3,7 +3,6 @@ collect_stats.py — ShieldDNS project statistics collector.
 Creates project_stats.json and contributors.json in admin/www/admin/assets/ at build time.
 """
 
-import argparse
 import datetime
 import json
 import os

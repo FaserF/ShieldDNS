@@ -18,7 +18,6 @@ Usage:
 import argparse
 import re
 import subprocess
-import sys
 
 # ---------------------------------------------------------------------------
 # Noise patterns — commits matching ANY are silently dropped
