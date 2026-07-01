@@ -3,7 +3,7 @@
     "username": "FaserF",
     "name": "Fabian Seitz",
     "email": "fabian.seitz@pari.com",
-    "commit_count": 380,
+    "commit_count": 382,
     "last_commit_date": "2026-07-01",
     "profile_url": "https://github.com/FaserF",
     "is_bot": false
@@ -21,8 +21,8 @@
     "username": "GitHubAction",
     "name": "GitHub Action",
     "email": "action@github.com",
-    "commit_count": 54,
-    "last_commit_date": "2026-06-18",
+    "commit_count": 55,
+    "last_commit_date": "2026-07-01",
     "profile_url": "https://github.com/GitHubAction",
     "is_bot": false
   },
@@ -30,7 +30,7 @@
     "username": "github-actions[bot]",
     "name": "github-actions[bot]",
     "email": "github-actions[bot]@users.noreply.github.com",
-    "commit_count": 30,
+    "commit_count": 32,
     "last_commit_date": "2026-07-01",
     "profile_url": "https://github.com/github-actions[bot]",
     "is_bot": true
