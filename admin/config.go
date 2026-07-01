@@ -573,28 +573,28 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		reader = file
 	} else {
 		useLocal := false
-		var localPath string
+		var file *os.File
+		var err error
 		if strings.Contains(list.URL, "raw.githubusercontent.com/FaserF/ShieldDNS/") {
 			parts := strings.Split(list.URL, "/official/")
 			if len(parts) == 2 {
 				switch parts[1] {
 				case "allowlists/default.txt":
-					localPath = "official/allowlists/default.txt"
+					file, err = os.Open("official/allowlists/default.txt")
 					useLocal = true
 				case "blocklists/default.txt":
-					localPath = "official/blocklists/default.txt"
+					file, err = os.Open("official/blocklists/default.txt")
 					useLocal = true
 				case "blocklists/search-ads-hybrid.txt":
-					localPath = "official/blocklists/search-ads-hybrid.txt"
+					file, err = os.Open("official/blocklists/search-ads-hybrid.txt")
 					useLocal = true
 				}
 			}
 		}
 
 		if useLocal {
-			file, err := os.Open(localPath)
 			if err != nil {
-				slog.Warn("Could not open local official list fallback file", "name", list.Name, "path", localPath, "error", err)
+				slog.Warn("Could not open local official list fallback file", "name", list.Name, "error", err)
 				return
 			}
 			defer file.Close()
@@ -861,26 +861,26 @@ func refreshAllMetadata(onlyMissing bool) {
 
 			// Local fallback check for official ShieldDNS lists
 			useLocal := false
-			var localPath string
+			var file *os.File
+			var err error
 			if strings.Contains(list.URL, "raw.githubusercontent.com/FaserF/ShieldDNS/") {
 				parts := strings.Split(list.URL, "/official/")
 				if len(parts) == 2 {
 					switch parts[1] {
 					case "allowlists/default.txt":
-						localPath = "official/allowlists/default.txt"
+						file, err = os.Open("official/allowlists/default.txt")
 						useLocal = true
 					case "blocklists/default.txt":
-						localPath = "official/blocklists/default.txt"
+						file, err = os.Open("official/blocklists/default.txt")
 						useLocal = true
 					case "blocklists/search-ads-hybrid.txt":
-						localPath = "official/blocklists/search-ads-hybrid.txt"
+						file, err = os.Open("official/blocklists/search-ads-hybrid.txt")
 						useLocal = true
 					}
 				}
 			}
 
 			if useLocal {
-				file, err := os.Open(localPath)
 				if err == nil {
 					defer file.Close()
 					list.RemoteUpdatedAt = time.Now()
