@@ -347,16 +347,19 @@ jobs:
           $tag = "${{ steps.get_version.outputs.tag }}"
           $repo = "${{ github.repository }}"
           $orgOrUser = $repo.Split("/")[0]
-          $repoName = $repo.Split("/")[1]
+          $repoName = ($repo.Split("/")[1]).ToLower()
 
           Write-Host "Running Re-Release for tag $tag..."
 
           # 1. Delete GitHub release if exists
           try {
-            $release = gh api "repos/$repo/releases/tags/$tag" | ConvertFrom-Json
-            if ($release -and $release.id) {
-              Write-Host "Deleting release id $($release.id) for tag $tag"
-              gh api -X DELETE "repos/$repo/releases/$($release.id)"
+            $releaseJson = gh api "repos/$repo/releases/tags/$tag" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $releaseJson) {
+              $release = $releaseJson | ConvertFrom-Json
+              if ($release -and $release.id) {
+                Write-Host "Deleting release id $($release.id) for tag $tag"
+                gh api -X DELETE "repos/$repo/releases/$($release.id)" 2>$null | Out-Null
+              }
             }
           } catch {
             Write-Host "No release found to delete or error: $_"
@@ -365,7 +368,7 @@ jobs:
           # 2. Delete remote tag
           try {
             Write-Host "Deleting remote tag $tag"
-            git push origin --delete $tag
+            git push origin --delete $tag 2>$null
           } catch {
             Write-Host "Failed to delete remote tag: $_"
           }
@@ -378,33 +381,31 @@ jobs:
 
           # 4. Delete GHCR Docker package version matching docker_tag
           $docker_tag = "${{ steps.get_version.outputs.docker_tag }}"
-          Write-Host "Checking for GHCR package version matching docker_tag: $docker_tag"
-          try {
-            $versions = gh api "orgs/$orgOrUser/packages/container/$repoName/versions" | ConvertFrom-Json
-          } catch {
-            Write-Host "Failed to fetch org package versions, trying user packages..."
-            try {
-              $versions = gh api "users/$orgOrUser/packages/container/$repoName/versions" | ConvertFrom-Json
-            } catch {
-              Write-Host "Failed to fetch package versions: $_"
-              $versions = @()
+          Write-Host "Checking for GHCR package version matching docker_tag: $docker_tag in package: $repoName"
+          $versions = @()
+
+          # Try Org package versions
+          $versionsJson = gh api "orgs/$orgOrUser/packages/container/$repoName/versions" 2>$null
+          if ($LASTEXITCODE -eq 0 -and $versionsJson) {
+            $versions = $versionsJson | ConvertFrom-Json
+          } else {
+            Write-Host "Failed to fetch org package versions or package does not exist. Trying user packages..."
+            $versionsJson = gh api "users/$orgOrUser/packages/container/$repoName/versions" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $versionsJson) {
+              $versions = $versionsJson | ConvertFrom-Json
+            } else {
+              Write-Host "Failed to fetch user package versions or package does not exist."
             }
           }
 
           foreach ($v in $versions) {
             if ($v.metadata.container.tags -contains $docker_tag) {
               Write-Host "Deleting package version $($v.id) tagged with $docker_tag"
-              try {
-                if ($repo.Contains("/")) {
-                  # Check if org or user to delete
-                  gh api -X DELETE "orgs/$orgOrUser/packages/container/$repoName/versions/$($v.id)"
-                }
-              } catch {
-                try {
-                  gh api -X DELETE "users/$orgOrUser/packages/container/$repoName/versions/$($v.id)"
-                } catch {
-                  Write-Host "Failed to delete package version: $_"
-                }
+              # Try deleting org package first
+              gh api -X DELETE "orgs/$orgOrUser/packages/container/$repoName/versions/$($v.id)" 2>$null | Out-Null
+              if ($LASTEXITCODE -ne 0) {
+                # Try deleting user package
+                gh api -X DELETE "users/$orgOrUser/packages/container/$repoName/versions/$($v.id)" 2>$null | Out-Null
               }
             }
           }
