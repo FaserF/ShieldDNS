@@ -592,11 +592,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			}
 		}
 
-		if useLocal {
-			if err != nil {
-				slog.Warn("Could not open local official list fallback file", "name", list.Name, "error", err)
-				return
-			}
+		if useLocal && err == nil {
 			defer file.Close()
 			list.RemoteUpdatedAt = time.Now()
 			if info, err := file.Stat(); err == nil {
@@ -604,6 +600,9 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			}
 			reader = file
 		} else {
+			if useLocal && err != nil {
+				slog.Warn("Could not open local official list fallback file, falling back to remote", "name", list.Name, "error", err)
+			}
 			if !isValidListURL(list.URL) {
 				slog.Warn("Blocklist URL rejected: not a safe remote URL", "name", list.Name, "url", list.URL)
 				return

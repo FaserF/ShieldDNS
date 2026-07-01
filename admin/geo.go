@@ -124,9 +124,6 @@ func getGeoACLRules(cfg *Config) string {
 		}
 	}
 
-	// Add malicious IPs from threat feed
-	rules = append(rules, getMaliciousIPRules(cfg)...)
-
 	// Validate rule formats to prevent Corefile injection
 	var safeRules []string
 	for _, rule := range rules {
@@ -142,8 +139,16 @@ func getGeoACLRules(cfg *Config) string {
 		return ""
 	}
 
-	// Join all CIDRs/IPs into an acl block
-	return fmt.Sprintf("\n    acl {\n        block net %s\n    }", strings.Join(safeRules, " "))
+	// Build acl block with one rule per line to avoid CoreDNS line-length limits
+	var sb strings.Builder
+	sb.WriteString("\n    acl {\n")
+	for _, rule := range safeRules {
+		sb.WriteString("        block net ")
+		sb.WriteString(rule)
+		sb.WriteString("\n")
+	}
+	sb.WriteString("        allow\n    }")
+	return sb.String()
 }
 
 // GetCountryList returns a map of ISO codes to names for the UI

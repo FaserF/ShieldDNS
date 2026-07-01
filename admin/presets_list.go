@@ -26,7 +26,6 @@ var DefaultPresets = []List{
 	{Name: "AdGuard Annoyances Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
 	{Name: "EasyPrivacy (Domains)", URL: "https://justdomains.github.io/blocklists/lists/easyprivacy-justdomains.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
 	{Name: "AdGuard URL Tracking Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_17.txt", Enabled: false, Category: "Privacy & Tracking"},
-	{Name: "HaGeZi CNAME Cloaking", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/cname-tracking.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
 	{Name: "uBlock Origin Filter List", URL: "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt", Enabled: false, Category: "Privacy & Tracking"},
 	{Name: "Lightswitch05 (Ads & Tracking Extended)", URL: "https://raw.githubusercontent.com/lightswitch05/hosts/master/docs/lists/ads-and-tracking-extended.txt", Enabled: false, Category: "Privacy & Tracking"},
 	{Name: "EasyPrivacy (Hmirror)", URL: "https://raw.githubusercontent.com/hectorm/hmirror/master/data/easyprivacy/list.txt", Enabled: false, Category: "Privacy & Tracking"},

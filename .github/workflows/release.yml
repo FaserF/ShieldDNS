@@ -26,6 +26,11 @@ on:
         description: "Target base version (optional, e.g. 1.9.0)"
         required: false
         type: string
+      re_release:
+        description: "Re-Release current version (deletes existing release, tag, and docker image first)"
+        required: false
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -61,12 +66,14 @@ jobs:
           RELEASE_TYPE: ${{ github.event.inputs.release_type }}
           INCREMENT_LEVEL: ${{ github.event.inputs.increment_level }}
           VERSION_OVERRIDE: ${{ github.event.inputs.version_override }}
+          RE_RELEASE: ${{ github.event.inputs.re_release }}
           REPO: ${{ github.repository }}
           OWNER: ${{ github.repository_owner }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $type = $env:RELEASE_TYPE
           $level = $env:INCREMENT_LEVEL
+          $re_release = $env:RE_RELEASE -eq "true"
           $repo = $env:REPO.ToLower()
           
           # 1. Get the latest tag (matching vX.Y.Z...) from GitHub API
@@ -99,104 +106,138 @@ jobs:
             $latest_pre_num = $null
           }
 
-          # Determine base version
-          $base_major = $latest_major
-          $base_minor = $latest_minor
-          $base_patch = $latest_patch
+          $version = ""; $tag = ""; $is_prerelease = "false"; $original_release_date = ""
 
-          if ($level -eq "major") {
-            if ($latest_pre_type -and $latest_minor -eq 0 -and $latest_patch -eq 0) {
-              # Don't double increment if already a major pre-release
-            } else {
-              $base_major++
-              $base_minor = 0
-              $base_patch = 0
+          if ($re_release) {
+            if ([string]::IsNullOrEmpty($latest_tag)) {
+              Write-Error "No existing tag/release found to re-release."
+              exit 1
             }
-          } elseif ($level -eq "minor") {
-            if ($latest_pre_type -and $latest_patch -eq 0) {
-              # Don't double increment if already a minor pre-release
+            $tag = $latest_tag
+            $version = $tag -replace '^v', ''
+            if ($version -match 'b\d+' -or $version -match '-dev' -or $version -match '-rc' -or $version -match '-beta' -or $version -match '-alpha') {
+              $is_prerelease = "true"
             } else {
-              $base_minor++
-              $base_patch = 0
+              $is_prerelease = "false"
             }
-          } elseif ($level -eq "patch") {
-            if ($latest_pre_type) {
-              # Don't double increment if already a pre-release
-            } else {
-              $base_patch++
+            
+            if ($env:GITHUB_TOKEN) {
+              try {
+                $release_info = gh api "repos/$repo/releases/tags/$tag" | ConvertFrom-Json
+                $original_release_date = $release_info.published_at
+              } catch {}
             }
-          }
 
-          $base_version = "$base_major.$base_minor.$base_patch"
-          if (![string]::IsNullOrEmpty($env:VERSION_OVERRIDE)) { $base_version = $env:VERSION_OVERRIDE }
-
-          $version = ""; $tag = ""; $is_prerelease = "false"
-
-          if ($type -eq "stable") {
-            $version = $base_version
-            $tag = "v$version"
-            $is_prerelease = "false"
+            # Find previous tag for changelog
+            $prev_tag = ""
+            if ($env:GITHUB_TOKEN) {
+              try {
+                $prev_tag = gh api repos/$repo/tags --jq '.[].name' 2>$null | Where-Object { $_ -match '^v?\d+\.\d+\.\d+(?:(?:b|-dev)\d+)?$' } | Select-Object -Skip 1 -First 1
+              } catch {}
+            }
+            if ([string]::IsNullOrEmpty($prev_tag)) {
+              $prev_tag = git tag -l "[0-9]*" "v[0-9]*" --sort=-v:refname | Where-Object { $_ -match '^v?\d+\.\d+\.\d+(?:(?:b|-dev)\d+)?$' } | Select-Object -Skip 1 -First 1
+            }
+            $changelog_from = $prev_tag
+            $changelog_label = if ($prev_tag) { "since previous release (``$prev_tag``) due to re-release of ``$tag``" } else { "initial release — full history" }
           } else {
-            $is_prerelease = "true"
-            $prefix = if ($type -eq "beta") { "b" } else { "-dev" }
+            # Determine base version
+            $base_major = $latest_major
+            $base_minor = $latest_minor
+            $base_patch = $latest_patch
 
-            if ($latest_pre_type -eq $prefix -and "$latest_major.$latest_minor.$latest_patch" -eq $base_version) {
-              $next_n = $latest_pre_num + 1
+            if ($level -eq "major") {
+              if ($latest_pre_type -and $latest_minor -eq 0 -and $latest_patch -eq 0) {
+                # Don't double increment if already a major pre-release
+              } else {
+                $base_major++
+                $base_minor = 0
+                $base_patch = 0
+              }
+            } elseif ($level -eq "minor") {
+              if ($latest_pre_type -and $latest_patch -eq 0) {
+                # Don't double increment if already a minor pre-release
+              } else {
+                $base_minor++
+                $base_patch = 0
+              }
+            } elseif ($level -eq "patch") {
+              if ($latest_pre_type) {
+                # Don't double increment if already a pre-release
+              } else {
+                $base_patch++
+              }
+            }
+
+            $base_version = "$base_major.$base_minor.$base_patch"
+            if (![string]::IsNullOrEmpty($env:VERSION_OVERRIDE)) { $base_version = $env:VERSION_OVERRIDE }
+
+            if ($type -eq "stable") {
+              $version = $base_version
+              $tag = "v$version"
+              $is_prerelease = "false"
             } else {
-              $pattern = "v$($base_version)$($prefix)*"
-              $tags = git tag -l $pattern
-              $max_n = -1
-              if ($tags) {
-                foreach ($t in $tags) {
-                  if ($t -match "$($prefix)(\d+)") {
-                    $n = [int]$matches[1]
-                    if ($n -gt $max_n) { $max_n = $n }
+              $is_prerelease = "true"
+              $prefix = if ($type -eq "beta") { "b" } else { "-dev" }
+
+              if ($latest_pre_type -eq $prefix -and "$latest_major.$latest_minor.$latest_patch" -eq $base_version) {
+                $next_n = $latest_pre_num + 1
+              } else {
+                $pattern = "v$($base_version)$($prefix)*"
+                $tags = git tag -l $pattern
+                $max_n = -1
+                if ($tags) {
+                  foreach ($t in $tags) {
+                    if ($t -match "$($prefix)(\d+)") {
+                      $n = [int]$matches[1]
+                      if ($n -gt $max_n) { $max_n = $n }
+                    }
                   }
                 }
+                $next_n = $max_n + 1
               }
-              $next_n = $max_n + 1
+
+              if ($type -eq "beta") {
+                $version = "$($base_version)b$next_n"
+                $tag = "v$version"
+              } else {
+                $sha = git rev-parse --short HEAD
+                $version = "$($base_version)-dev$($next_n)+$sha"
+                $tag = "v$version"
+              }
             }
 
-            if ($type -eq "beta") {
-              $version = "$($base_version)b$next_n"
-              $tag = "v$version"
+            # Determine changelog base tag
+            $changelog_from = ""
+            $changelog_label = "initial release — full history"
+
+            if ($type -eq "stable") {
+              $stableTag = git tag -l --sort=-v:refname 2>$null | Where-Object { $_ -match '^v?\d+\.\d+\.\d+$' } | Select-Object -First 1
+              if ($stableTag) {
+                $changelog_from = $stableTag
+                $changelog_label = "since last stable release (``$stableTag``)"
+              }
+            } elseif ($type -eq "beta") {
+              $prevBeta = git tag -l "v${base_version}b*" --sort=-v:refname 2>$null | Where-Object { $_ -match "^v?${base_version}b\d+$" } | Select-Object -First 1
+              if ($prevBeta) {
+                $changelog_from = $prevBeta
+                $changelog_label = "since previous beta (``$prevBeta``)"
+              } else {
+                $stableTag = git tag -l --sort=-v:refname 2>$null | Where-Object { $_ -match '^v?\d+\.\d+\.\d+$' } | Select-Object -First 1
+                if ($stableTag) {
+                  $changelog_from = $stableTag
+                  $changelog_label = "since last stable release (``$stableTag``) — first beta of $base_version"
+                }
+              }
             } else {
-              $sha = git rev-parse --short HEAD
-              $version = "$($base_version)-dev$($next_n)+$sha"
-              $tag = "v$version"
+              if ($latest_tag) {
+                $changelog_from = $latest_tag
+                $changelog_label = "since ``$latest_tag``"
+              }
             }
           }
 
           $docker_tag = $version -replace '\+', '.'
-
-          # Determine changelog base tag
-          $changelog_from = ""
-          $changelog_label = "initial release — full history"
-
-          if ($type -eq "stable") {
-            $stableTag = git tag -l --sort=-v:refname 2>$null | Where-Object { $_ -match '^v?\d+\.\d+\.\d+$' } | Select-Object -First 1
-            if ($stableTag) {
-              $changelog_from = $stableTag
-              $changelog_label = "since last stable release (``$stableTag``)"
-            }
-          } elseif ($type -eq "beta") {
-            $prevBeta = git tag -l "v${base_version}b*" --sort=-v:refname 2>$null | Where-Object { $_ -match "^v?${base_version}b\d+$" } | Select-Object -First 1
-            if ($prevBeta) {
-              $changelog_from = $prevBeta
-              $changelog_label = "since previous beta (``$prevBeta``)"
-            } else {
-              $stableTag = git tag -l --sort=-v:refname 2>$null | Where-Object { $_ -match '^v?\d+\.\d+\.\d+$' } | Select-Object -First 1
-              if ($stableTag) {
-                $changelog_from = $stableTag
-                $changelog_label = "since last stable release (``$stableTag``) — first beta of $base_version"
-              }
-            }
-          } else {
-            if ($latest_tag) {
-              $changelog_from = $latest_tag
-              $changelog_label = "since ``$latest_tag``"
-            }
-          }
 
           Write-Host "Changelog base: '$changelog_from' ($changelog_label)"
 
@@ -278,6 +319,15 @@ jobs:
           $bodyParts.Add("## 🐳 Docker Image")
           $bodyParts.Add("Official image available at: ``ghcr.io/${repo}:$docker_tag``")
           $bodyParts.Add("")
+          
+          # Add Re-Release notice if applicable
+          if ($re_release -and $original_release_date) {
+            $dateTime = [DateTime]::Parse($original_release_date).ToString("yyyy-MM-dd HH:mm:ss UTC")
+            $notice = "> [!NOTE]`n> **Re-Release Notice**`n> This version was previously released on $dateTime.`n> The release, tag, and docker image were deleted and recreated."
+            $bodyParts.Add($notice)
+            $bodyParts.Add("")
+          }
+
           $body = $bodyParts -join "`n"
           $body | Out-File -FilePath "CHANGELOG_BODY.md" -Encoding utf8
 
@@ -286,6 +336,78 @@ jobs:
           echo "docker_tag=$docker_tag" >> $env:GITHUB_OUTPUT
           echo "tag=$tag" >> $env:GITHUB_OUTPUT
           echo "is_prerelease=$is_prerelease" >> $env:GITHUB_OUTPUT
+          echo "original_release_date=$original_release_date" >> $env:GITHUB_OUTPUT
+
+      - name: Re-Release - Delete existing release, tag and Docker image
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.re_release == 'true' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ steps.get_version.outputs.tag }}"
+          $repo = "${{ github.repository }}"
+          $orgOrUser = $repo.Split("/")[0]
+          $repoName = $repo.Split("/")[1]
+
+          Write-Host "Running Re-Release for tag $tag..."
+
+          # 1. Delete GitHub release if exists
+          try {
+            $release = gh api "repos/$repo/releases/tags/$tag" | ConvertFrom-Json
+            if ($release -and $release.id) {
+              Write-Host "Deleting release id $($release.id) for tag $tag"
+              gh api -X DELETE "repos/$repo/releases/$($release.id)"
+            }
+          } catch {
+            Write-Host "No release found to delete or error: $_"
+          }
+
+          # 2. Delete remote tag
+          try {
+            Write-Host "Deleting remote tag $tag"
+            git push origin --delete $tag
+          } catch {
+            Write-Host "Failed to delete remote tag: $_"
+          }
+
+          # 3. Delete local tag
+          if (git tag -l $tag) {
+            Write-Host "Deleting local tag $tag"
+            git tag -d $tag
+          }
+
+          # 4. Delete GHCR Docker package version matching docker_tag
+          $docker_tag = "${{ steps.get_version.outputs.docker_tag }}"
+          Write-Host "Checking for GHCR package version matching docker_tag: $docker_tag"
+          try {
+            $versions = gh api "orgs/$orgOrUser/packages/container/$repoName/versions" | ConvertFrom-Json
+          } catch {
+            Write-Host "Failed to fetch org package versions, trying user packages..."
+            try {
+              $versions = gh api "users/$orgOrUser/packages/container/$repoName/versions" | ConvertFrom-Json
+            } catch {
+              Write-Host "Failed to fetch package versions: $_"
+              $versions = @()
+            }
+          }
+
+          foreach ($v in $versions) {
+            if ($v.metadata.container.tags -contains $docker_tag) {
+              Write-Host "Deleting package version $($v.id) tagged with $docker_tag"
+              try {
+                if ($repo.Contains("/")) {
+                  # Check if org or user to delete
+                  gh api -X DELETE "orgs/$orgOrUser/packages/container/$repoName/versions/$($v.id)"
+                }
+              } catch {
+                try {
+                  gh api -X DELETE "users/$orgOrUser/packages/container/$repoName/versions/$($v.id)"
+                } catch {
+                  Write-Host "Failed to delete package version: $_"
+                }
+              }
+            }
+          }
 
       - name: 🛠️ Sync Versions & Run Stats Collection
         shell: pwsh
