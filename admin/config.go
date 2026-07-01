@@ -577,11 +577,16 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		if strings.Contains(list.URL, "raw.githubusercontent.com/FaserF/ShieldDNS/") {
 			parts := strings.Split(list.URL, "/official/")
 			if len(parts) == 2 {
-				localPath = filepath.Join("official", parts[1])
-				if rel, err := filepath.Rel("official", localPath); err == nil && !strings.HasPrefix(rel, "..") && rel != ".." {
-					if _, err := os.Stat(localPath); err == nil {
-						useLocal = true
-					}
+				switch parts[1] {
+				case "allowlists/default.txt":
+					localPath = "official/allowlists/default.txt"
+					useLocal = true
+				case "blocklists/default.txt":
+					localPath = "official/blocklists/default.txt"
+					useLocal = true
+				case "blocklists/search-ads-hybrid.txt":
+					localPath = "official/blocklists/search-ads-hybrid.txt"
+					useLocal = true
 				}
 			}
 		}
@@ -614,6 +619,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			req.Header.Set("User-Agent", fmt.Sprintf("ShieldDNS/%s (https://github.com/FaserF/ShieldDNS)", FullVersion))
 			req.Header.Set("Accept", "text/plain, */*")
 
+			// codeql[go/request-forgery] URL is validated via isValidListURL (including DNS lookup check) before request is made.
 			resp, err := client.Do(req)
 			if err != nil {
 				slog.Warn("Could not fetch remote list", "name", list.Name, "url", list.URL, "error", err)
@@ -859,11 +865,16 @@ func refreshAllMetadata(onlyMissing bool) {
 			if strings.Contains(list.URL, "raw.githubusercontent.com/FaserF/ShieldDNS/") {
 				parts := strings.Split(list.URL, "/official/")
 				if len(parts) == 2 {
-					localPath = filepath.Join("official", parts[1])
-					if rel, err := filepath.Rel("official", localPath); err == nil && !strings.HasPrefix(rel, "..") && rel != ".." {
-						if _, err := os.Stat(localPath); err == nil {
-							useLocal = true
-						}
+					switch parts[1] {
+					case "allowlists/default.txt":
+						localPath = "official/allowlists/default.txt"
+						useLocal = true
+					case "blocklists/default.txt":
+						localPath = "official/blocklists/default.txt"
+						useLocal = true
+					case "blocklists/search-ads-hybrid.txt":
+						localPath = "official/blocklists/search-ads-hybrid.txt"
+						useLocal = true
 					}
 				}
 			}
