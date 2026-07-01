@@ -178,6 +178,17 @@ func isValidListURL(rawURL string) bool {
 		if hostLower == "localhost" || strings.HasSuffix(hostLower, ".local") || strings.HasSuffix(hostLower, ".internal") || strings.HasSuffix(hostLower, ".lan") {
 			return false
 		}
+
+		// Resolve the hostname to check resolved IP addresses (prevents SSRF via DNS rebinding)
+		ips, err := net.LookupIP(host)
+		if err != nil {
+			return false // Block if host cannot be resolved
+		}
+		for _, ip := range ips {
+			if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+				return false
+			}
+		}
 	}
 
 	return true

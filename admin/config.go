@@ -578,8 +578,10 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			parts := strings.Split(list.URL, "/official/")
 			if len(parts) == 2 {
 				localPath = filepath.Join("official", parts[1])
-				if _, err := os.Stat(localPath); err == nil {
-					useLocal = true
+				if rel, err := filepath.Rel("official", localPath); err == nil && !strings.HasPrefix(rel, "..") && rel != ".." {
+					if _, err := os.Stat(localPath); err == nil {
+						useLocal = true
+					}
 				}
 			}
 		}
@@ -858,8 +860,10 @@ func refreshAllMetadata(onlyMissing bool) {
 				parts := strings.Split(list.URL, "/official/")
 				if len(parts) == 2 {
 					localPath = filepath.Join("official", parts[1])
-					if _, err := os.Stat(localPath); err == nil {
-						useLocal = true
+					if rel, err := filepath.Rel("official", localPath); err == nil && !strings.HasPrefix(rel, "..") && rel != ".." {
+						if _, err := os.Stat(localPath); err == nil {
+							useLocal = true
+						}
 					}
 				}
 			}
