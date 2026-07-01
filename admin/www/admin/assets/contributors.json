@@ -3,8 +3,8 @@
     "username": "FaserF",
     "name": "Fabian Seitz",
     "email": "fabian.seitz@pari.com",
-    "commit_count": 364,
-    "last_commit_date": "2026-06-18",
+    "commit_count": 380,
+    "last_commit_date": "2026-07-01",
     "profile_url": "https://github.com/FaserF",
     "is_bot": false
   },
@@ -12,8 +12,8 @@
     "username": "renovate[bot]",
     "name": "renovate[bot]",
     "email": "29139614+renovate[bot]@users.noreply.github.com",
-    "commit_count": 82,
-    "last_commit_date": "2026-06-17",
+    "commit_count": 93,
+    "last_commit_date": "2026-06-28",
     "profile_url": "https://github.com/apps/renovate",
     "is_bot": true
   },
@@ -21,8 +21,8 @@
     "username": "GitHubAction",
     "name": "GitHub Action",
     "email": "action@github.com",
-    "commit_count": 53,
-    "last_commit_date": "2026-06-17",
+    "commit_count": 54,
+    "last_commit_date": "2026-06-18",
     "profile_url": "https://github.com/GitHubAction",
     "is_bot": false
   },
@@ -30,8 +30,8 @@
     "username": "github-actions[bot]",
     "name": "github-actions[bot]",
     "email": "github-actions[bot]@users.noreply.github.com",
-    "commit_count": 10,
-    "last_commit_date": "2026-06-18",
+    "commit_count": 30,
+    "last_commit_date": "2026-07-01",
     "profile_url": "https://github.com/github-actions[bot]",
     "is_bot": true
   }

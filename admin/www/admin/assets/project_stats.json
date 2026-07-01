@@ -1,23 +1,23 @@
 {
-  "version": "1.10.1",
-  "commit_id": "ccb042e",
-  "generated_at": "2026-06-18T16:28:19Z",
+  "version": "1.10.2",
+  "commit_id": "3b51b62",
+  "generated_at": "2026-07-01T13:27:28Z",
   "code": {
     "backend": {
       "files": 40,
-      "lines": 12221
+      "lines": 12310
     },
     "frontend": {
       "files": 38,
-      "lines": 10246
+      "lines": 10410
     },
     "other": {
-      "files": 25,
-      "lines": 2472
+      "files": 24,
+      "lines": 2481
     },
     "total": {
-      "files": 103,
-      "lines": 24939
+      "files": 102,
+      "lines": 25201
     }
   },
   "tests": {
