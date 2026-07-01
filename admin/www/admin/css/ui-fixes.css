@@ -451,6 +451,26 @@ a:hover {
     gap: 16px;
 }
 
+.checkbox-group:has(> input[type="checkbox"]) {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkbox-group > input[type="checkbox"] {
+    margin: 0;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.checkbox-group > label:not(.switch) {
+    cursor: pointer;
+    margin-bottom: 0 !important;
+    font-weight: 500;
+}
+
 .checkbox-text {
     flex: 1;
     min-width: 0;

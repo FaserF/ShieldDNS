@@ -594,7 +594,7 @@
                         <h2>Configuration Presets ⚙️</h2>
                         <div class="form-group">
                             <p class="help">Apply a configuration preset to populate settings values. You must click "Save Configuration" at the bottom to save the changes.</p>
-                            <select id="settings-preset-selector" class="form-control" style="width: 100%; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                            <select id="settings-preset-selector" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
                                 <option value="">-- Select Preset to Load --</option>
                                 <option value="shielddns">ShieldDNS Defaults</option>
                                 <option value="minimal">Minimal Defaults</option>
@@ -1168,7 +1168,7 @@
                                         <label for="update-channel" style="font-weight: 500;">Update Channel</label>
                                         <p class="help">Choose which channel of updates to follow.</p>
                                     </div>
-                                    <select id="update-channel" class="input-select" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                    <select id="update-channel" class="input-select" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary);">
                                         <option value="stable">Stable</option>
                                         <option value="beta">Beta (Pre-release)</option>
                                         <option value="dev">Dev (main branch)</option>
@@ -1189,7 +1189,7 @@
                                         <label for="auto-update-hour" style="font-weight: 500;">Update Time</label>
                                         <p class="help">Select preferred hour to apply updates.</p>
                                     </div>
-                                    <select id="auto-update-hour" class="input-select" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                    <select id="auto-update-hour" class="input-select" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary);">
                                         <option value="0">00:00</option>
                                         <option value="1">01:00</option>
                                         <option value="2">02:00</option>
@@ -1343,7 +1343,7 @@
                     <p>Configure how ShieldDNS should resolve requests.</p>
                     <div class="form-group">
                         <label>Load Configuration Preset</label>
-                        <select id="setup-preset-selector" class="form-control" style="width: 100%; margin-bottom: 15px; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                        <select id="setup-preset-selector" class="form-control" style="width: 100%; margin-bottom: 15px; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
                             <option value="">-- Select Preset to Load --</option>
                             <option value="shielddns">ShieldDNS Defaults</option>
                             <option value="minimal">Minimal Defaults</option>
@@ -2019,7 +2019,7 @@
             <p class="help">Select the backup type and optionally protect it with a password.</p>
             <div class="form-group mt-3">
                 <label>Backup Type</label>
-                <select id="backup-type" class="form-control" style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+                <select id="backup-type" class="form-control" style="background:var(--card-bg); color:var(--text-primary); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
                     <option value="settings">Settings only</option>
                     <option value="full">Settings + Data</option>
                 </select>
@@ -2027,7 +2027,7 @@
             <div class="form-group mt-3">
                 <label>Password (Optional)</label>
                 <p class="help">Secures your backup with AES-256 encryption.</p>
-                <input type="password" id="backup-password" class="form-control" placeholder="Leave empty for unencrypted..." style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+                <input type="password" id="backup-password" class="form-control" placeholder="Leave empty for unencrypted..." style="background:hsla(var(--hue), 20%, 100%, 0.04); color:var(--text-primary); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
             </div>
             <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
                 <button type="button" class="btn secondary" id="backup-modal-cancel">Cancel</button>
@@ -2043,7 +2043,7 @@
             <p class="help">This backup is encrypted. Please enter the decryption password.</p>
             <div class="form-group mt-3">
                 <label>Password</label>
-                <input type="password" id="restore-decrypt-password" class="form-control" placeholder="Decryption password..." style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+                <input type="password" id="restore-decrypt-password" class="form-control" placeholder="Decryption password..." style="background:hsla(var(--hue), 20%, 100%, 0.04); color:var(--text-primary); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
             </div>
             <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
                 <button type="button" class="btn secondary" id="restore-password-cancel">Cancel</button>

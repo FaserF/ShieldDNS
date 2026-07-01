@@ -20,6 +20,13 @@
     --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     --primary: var(--accent);
     --chart-grid: hsla(0, 0%, 100%, 0.05);
+
+    /* Variable Aliases to prevent styling bugs with legacy/inline styles */
+    --bg-card: var(--card-bg);
+    --text: var(--text-primary);
+    --bg-input: hsla(var(--hue), 20%, 100%, 0.04);
+    --border-color: var(--border);
+    color-scheme: dark;
 }
 
 body.light {
@@ -35,4 +42,11 @@ body.light {
     --glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
     --inner-glow: inset 0 1px 1px 0 hsla(0, 0%, 100%, 1);
     --chart-grid: hsla(var(--hue), 20%, 0%, 0.05);
+
+    /* Variable Aliases for Light mode */
+    --bg-card: var(--card-bg);
+    --text: var(--text-primary);
+    --bg-input: hsla(var(--hue), 20%, 0%, 0.04);
+    --border-color: var(--border);
+    color-scheme: light;
 }

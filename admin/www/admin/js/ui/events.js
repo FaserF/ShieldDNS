@@ -865,7 +865,7 @@ export function initEvents(fetchConfig) {
                     const override = cleanCode === 'an' ? 'nl' : cleanCode;
                     const flagHTML = isInvalid ?
                         `<i class="fas fa-globe" style="color: var(--accent); opacity: 0.6; margin-right: 12px; width: 20px; text-align: center;"></i>` :
-                        `<img src="https://flagcdn.com/w20/${override}.png" alt="${code}" style="margin-right: 12px; height: 15px; border-radius: 2px;" onerror="this.outerHTML='<i class=\x22fas fa-globe\x22 style=\x22color: var(--accent); opacity: 0.6; margin-right: 12px;\x22></i>';">`;
+                        `<img src="https://flagcdn.com/w20/${override}.png" alt="${code}" style="margin-right: 12px; height: 15px; border-radius: 2px;" onerror="this.outerHTML='<i class=\'fas fa-globe\' style=\'color: var(--accent); opacity: 0.6; margin-right: 12px;\'></i>';">`;
                     return `
                     <div class="dropdown-item" data-code="${code}" style="padding: 10px; cursor: pointer; display: flex; align-items: center; border-bottom: 1px solid var(--border);">
                         ${flagHTML}

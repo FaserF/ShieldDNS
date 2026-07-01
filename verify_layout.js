@@ -72,6 +72,30 @@ async function testPage(url, pageName) {
             }
         });
 
+        // 3. Check for select dropdown styling bugs (like undefined CSS variables in inline styles)
+        const selects = Array.from(document.querySelectorAll('select'));
+        selects.forEach(sel => {
+            if (sel.getAttribute('style') && (sel.getAttribute('style').includes('bg-card') || sel.getAttribute('style').includes('var(--text)'))) {
+                issues.push(`Select ${sel.id || ''} uses undefined CSS variables in its inline style.`);
+            }
+        });
+
+        // 4. Check for layout stretch bug on regular checkboxes using .checkbox-group (should not use space-between)
+        const checkboxGroups = Array.from(document.querySelectorAll('.checkbox-group'));
+        checkboxGroups.forEach(group => {
+            const style = window.getComputedStyle(group);
+            const hasSwitch = group.querySelector('.switch') !== null || group.querySelector('.checkbox-text') !== null;
+            if (!hasSwitch && style.justifyContent === 'space-between') {
+                issues.push(`Checkbox group ${group.id || ''} has a regular checkbox but uses space-between layout, stretching the label.`);
+            }
+        });
+
+        // 5. Check for broken HTML markup leaks/literal escaping artifacts like ';"> in element texts
+        const bodyText = document.body.innerHTML;
+        if (bodyText.includes('\';">') || bodyText.includes('\';&quot;&gt;')) {
+            issues.push(`Found escaping bug / literal ';"> character sequence in the page body.`);
+        }
+
         return issues;
     });
 

@@ -18,7 +18,7 @@ const getFlagHTML = (code, size = 'w20') => {
     }
     const override = cleanCode === 'an' ? 'nl' : cleanCode;
     const width = size === 'w40' ? '18px' : '15px';
-    return `<img src="https://flagcdn.com/${size}/${override}.png" alt="${code}" style="height: ${width}; border-radius: 2px; vertical-align: middle;" onerror="this.outerHTML='<i class=\x22fas fa-globe\x22 style=\x22color: var(--accent); opacity: 0.6;\x22></i>';">`;
+    return `<img src="https://flagcdn.com/${size}/${override}.png" alt="${code}" style="height: ${width}; border-radius: 2px; vertical-align: middle;" onerror="this.outerHTML='<i class=\'fas fa-globe\' style=\'color: var(--accent); opacity: 0.6;\'></i>';">`;
 };
 
 export function renderDashStats(data) {

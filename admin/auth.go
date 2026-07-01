@@ -218,8 +218,8 @@ func authMiddleware(next http.Handler) http.Handler {
 							if k.TokenHash == hashed {
 								config.APIKeys[i].LastUsed = now
 								if err := saveConfigNoLock(); err != nil {
-							slog.Error("Failed to save config in cleanupSessions", "error", err)
-						}
+									slog.Error("Failed to save config in cleanupSessions", "error", err)
+								}
 								apiLastWrite.Store(hashed, now)
 								break
 							}

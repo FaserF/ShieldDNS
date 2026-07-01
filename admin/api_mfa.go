@@ -101,9 +101,9 @@ func (u WebAuthnUser) WebAuthnIcon() string {
 }
 
 var (
-	wa           *webauthn.WebAuthn
-	webauthnMu   sync.RWMutex
-	currentRPID  string
+	wa          *webauthn.WebAuthn
+	webauthnMu  sync.RWMutex
+	currentRPID string
 	// Temporary store for registration/authentication sessions
 	waSessionStore sync.Map // sessionToken -> webauthn.SessionData
 )
@@ -498,8 +498,8 @@ func handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 		UserVerified:   credential.Flags.UserVerified,
 		BackupEligible: credential.Flags.BackupEligible,
 		BackupState:    credential.Flags.BackupState,
-		Name:      name,
-		CreatedAt: time.Now(),
+		Name:           name,
+		CreatedAt:      time.Now(),
 	})
 	config.MFAEnabled = true
 	if err := saveConfigNoLock(); err != nil {

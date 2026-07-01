@@ -872,7 +872,7 @@ func refreshAllMetadata(onlyMissing bool) {
 					if info, err := file.Stat(); err == nil {
 						list.RemoteUpdatedAt = info.ModTime()
 					}
-					
+
 					scanner := bufio.NewScanner(file)
 					count := 0
 					for scanner.Scan() {
@@ -882,7 +882,7 @@ func refreshAllMetadata(onlyMissing bool) {
 						}
 					}
 					list.Entries = count
-					
+
 					metadataMu.Lock()
 					metadataCache[list.URL] = list
 					metadataMu.Unlock()
