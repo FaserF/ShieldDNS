@@ -244,28 +244,42 @@ export function renderConfig(cfg) {
     // Lists
     const activeBlocks = getEl('active-blocklists-list');
     if (activeBlocks) {
-        activeBlocks.innerHTML = (cfg.lists || []).map((list, i) => `
+        activeBlocks.innerHTML = (cfg.lists || []).map((list, i) => {
+            const ramMB = Math.round((list.entries || 0) * 1.1 / 1024);
+            const ramBadge = list.enabled ? `<span class="badge secondary" style="margin-left: 10px; font-weight: 500;">~${ramMB} MB RAM</span>` : '';
+            return `
             <div class="list-item" onclick="window.openListDetailsModal(${i}, 'block')">
-                <div class="list-info"><h3>${helpers.escapeHTML(list.name)}</h3><p>${helpers.escapeHTML(list.url)}</p></div>
+                <div class="list-info">
+                    <h3 style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">${helpers.escapeHTML(list.name)}${ramBadge}</h3>
+                    <p>${helpers.escapeHTML(list.url)}</p>
+                </div>
                 <div class="list-actions">
                     <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'block', event)">${list.enabled ? 'Disable' : 'Enable'}</button>
                     <button class="btn btn-sm secondary danger" onclick="event.stopPropagation(); window.removeList(${i}, 'block', event)" title="Remove List"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
-        `).join('') || '<p class="help">No active blocklists.</p>';
+            `;
+        }).join('') || '<p class="help">No active blocklists.</p>';
     }
 
     const activeAllows = getEl('active-allowlists-list');
     if (activeAllows) {
-        activeAllows.innerHTML = (cfg.allowlists || []).map((list, i) => `
+        activeAllows.innerHTML = (cfg.allowlists || []).map((list, i) => {
+            const ramMB = Math.round((list.entries || 0) * 1.1 / 1024);
+            const ramBadge = list.enabled ? `<span class="badge secondary" style="margin-left: 10px; font-weight: 500;">~${ramMB} MB RAM</span>` : '';
+            return `
             <div class="list-item" onclick="window.openListDetailsModal(${i}, 'allow')">
-                <div class="list-info"><h3>${helpers.escapeHTML(list.name)}</h3><p>${helpers.escapeHTML(list.url)}</p></div>
+                <div class="list-info">
+                    <h3 style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">${helpers.escapeHTML(list.name)}${ramBadge}</h3>
+                    <p>${helpers.escapeHTML(list.url)}</p>
+                </div>
                 <div class="list-actions">
                     <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'allow', event)">${list.enabled ? 'Disable' : 'Enable'}</button>
                     <button class="btn btn-sm secondary danger" onclick="event.stopPropagation(); window.removeList(${i}, 'allow', event)" title="Remove List"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
-        `).join('') || '<p class="help">No active allowlists.</p>';
+            `;
+        }).join('') || '<p class="help">No active allowlists.</p>';
     }
 
     const tags = getEl('blocked-countries-tags');

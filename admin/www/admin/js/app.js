@@ -342,6 +342,8 @@ window.showListDetails = (list) => {
     urlEl.textContent = list.url;
     urlEl.href = list.url;
     getEl('modal-list-entries').textContent = list.entries?.toLocaleString() || '0';
+    const ramMB = Math.round((list.entries || 0) * 1.1 / 1024);
+    getEl('modal-list-ram').textContent = `~${ramMB} MB`;
     
     // Standard Update (ShieldDNS last sync)
     const localDate = (list.updated_at && list.updated_at !== '0001-01-01T00:00:00Z') ? 
