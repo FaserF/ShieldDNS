@@ -1,7 +1,7 @@
 {
   "project": "ShieldDNS",
   "description": "Component connections map linking UI views, JS events, and Go controllers.",
-  "timestamp": "2026-07-13T10:09:15.881883",
+  "timestamp": "2026-07-13T23:58:32.322863",
   "connections": {
     "dns_core": {
       "purpose": "Core DNS engine, Corefile updating, DoH internal proxies, query logging, and dashboard statistics.",
