@@ -2,7 +2,7 @@
   "project": "ShieldDNS",
   "purpose": "High-performance DNS appliance and security gateway with integrated web administration panel.",
   "connections_map_reference": "project_connections.json (defines component linking for UI and backend files)",
-  "timestamp": "2026-07-16T10:41:26.546160",
+  "timestamp": "2026-07-17T00:44:03.796979",
   "stack": {
     "backend": "Go (embedded FS assets), SQLite (query database), CoreDNS (DNS server)",
     "frontend": "Vanilla HTML5, CSS3 (variables & flex/grid layout), Vanilla JS (ES6 modules)",
@@ -450,24 +450,12 @@
       "utils.js",
       "visual_audit.spec.js"
     ],
-    "admin/www/admin/assets": [
-      "contributors.json",
-      "contributors_fallback.json",
-      "project_stats.json"
-    ],
-    "admin/www/admin/css": [
-      "base.css",
-      "components.css",
-      "layout.css",
-      "responsive.css",
-      "tables.css",
-      "ui-fixes.css",
-      "utilities.css",
-      "variables.css",
-      "widgets.css"
-    ],
     "admin/www/admin/js": [
       "app.js"
+    ],
+    "admin/www/admin/js/services": [
+      "api.js",
+      "fetch.js"
     ],
     "admin/www/admin/js/core": [
       "auth.js",
@@ -483,9 +471,21 @@
       "scroller.js",
       "ui.js"
     ],
-    "admin/www/admin/js/services": [
-      "api.js",
-      "fetch.js"
+    "admin/www/admin/css": [
+      "base.css",
+      "components.css",
+      "layout.css",
+      "responsive.css",
+      "tables.css",
+      "ui-fixes.css",
+      "utilities.css",
+      "variables.css",
+      "widgets.css"
+    ],
+    "admin/www/admin/assets": [
+      "contributors.json",
+      "contributors_fallback.json",
+      "project_stats.json"
     ]
   }
 }
