@@ -2,7 +2,7 @@
   "project": "ShieldDNS",
   "purpose": "High-performance DNS appliance and security gateway with integrated web administration panel.",
   "connections_map_reference": "project_connections.json (defines component linking for UI and backend files)",
-  "timestamp": "2026-07-22T22:57:43.190822",
+  "timestamp": "2026-07-23T06:47:28.943764",
   "stack": {
     "backend": "Go (embedded FS assets), SQLite (query database), CoreDNS (DNS server)",
     "frontend": "Vanilla HTML5, CSS3 (variables & flex/grid layout), Vanilla JS (ES6 modules)",
