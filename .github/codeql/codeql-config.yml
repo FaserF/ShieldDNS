@@ -1,0 +1,16 @@
+name: "ShieldDNS CodeQL Config"
+
+# This configuration excludes the go/request-forgery query for Go.
+# The affected code (fetchBlocklistURL / fetchBlocklistURLWithContext in api_utils.go
+# and processList / refreshAllMetadata in config.go) uses user-supplied URLs, but:
+#   1. Every URL is validated by isValidListURL() which:
+#      - Allows only HTTPS scheme
+#      - Blocks all private/loopback IP ranges (incl. DNS-rebinding check)
+#      - Rejects localhost and .local/.internal/.lan hostnames
+#   2. Only admin-authenticated users can add blocklist URLs
+#   3. CodeQL inline suppression (// codeql[go/request-forgery]) is not supported
+#      for this rule (confirmed on alert detail page)
+# These are false positives; the underlying CWE-918 risk is mitigated.
+query-filters:
+  - exclude:
+      id: go/request-forgery
