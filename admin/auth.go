@@ -371,7 +371,9 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	failureLock.Lock()
 	if loginFailures[ip] >= 10 {
 		failureLock.Unlock()
-		slog.Warn("Login blocked due to too many failures", "ip", ip)
+		if !testMode {
+			slog.Warn("Login blocked due to too many failures", "ip", ip)
+		}
 		http.Error(w, "Too many login attempts. Please try again later.", http.StatusTooManyRequests)
 		return
 	}

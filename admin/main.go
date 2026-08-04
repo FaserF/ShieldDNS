@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"html/template"
 	"io/fs"
 	"log"
@@ -362,9 +363,25 @@ func newDoHProxy() http.Handler {
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
-	// Disable TLS verification for internal proxy to CoreDNS and add retry transport
+	// Internal proxy to CoreDNS running on loopback 127.0.0.1:5553.
+	tlsConfig := &tls.Config{}
+	certPath := os.Getenv("CERT_FILE")
+	if certPath != "" {
+		if certBytes, err := os.ReadFile(certPath); err == nil {
+			pool := x509.NewCertPool()
+			if pool.AppendCertsFromPEM(certBytes) {
+				tlsConfig.RootCAs = pool
+			}
+		}
+	}
+	if tlsConfig.RootCAs == nil {
+		// Fallback for self-signed or missing cert file on internal loopback
+		// codeql[go/disabled-certificate-check] Internal loopback proxy to localhost CoreDNS instance (127.0.0.1)
+		tlsConfig.InsecureSkipVerify = true
+	}
+
 	baseTransport := &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig:     tlsConfig,
 		MaxIdleConns:        200,
 		MaxIdleConnsPerHost: 100,
 		IdleConnTimeout:     90 * time.Second,

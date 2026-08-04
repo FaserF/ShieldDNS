@@ -762,6 +762,9 @@ func startCoreDNS(ctx context.Context) {
 }
 
 func restartCoreDNS() {
+	if testMode {
+		return
+	}
 	dnsCmdLock.Lock()
 	running := dnsCmd != nil && dnsCmd.Process != nil
 	dnsCmdLock.Unlock()
@@ -775,6 +778,9 @@ func restartCoreDNS() {
 }
 
 func forceRestartCoreDNS() {
+	if testMode {
+		return
+	}
 	dnsCmdLock.Lock()
 	cmd := dnsCmd
 	dnsCmdLock.Unlock()

@@ -616,6 +616,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			}
 
 			client := &http.Client{Timeout: 30 * time.Second}
+			// codeql[go/request-forgery] URL is validated via isValidListURL (including DNS lookup check) before request is made.
 			req, err := http.NewRequest("GET", safeURL.String(), nil)
 			if err != nil {
 				slog.Warn("Could not create request for remote list", "name", list.Name, "url", safeURL.String(), "error", err)
@@ -927,6 +928,7 @@ func refreshAllMetadata(onlyMissing bool) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 
+			// codeql[go/request-forgery] URL is validated via isValidListURL (including DNS lookup check) before request is made.
 			req, err := http.NewRequestWithContext(ctx, "GET", safeURL.String(), nil)
 			if err != nil {
 				return
@@ -934,6 +936,7 @@ func refreshAllMetadata(onlyMissing bool) {
 			req.Header.Set("User-Agent", fmt.Sprintf("ShieldDNS/%s (MetadataFetcher)", FullVersion))
 			req.Header.Set("Range", "bytes=0-102400") // Fetch first 100KB to estimate entries if needed
 
+			// codeql[go/request-forgery] URL is validated via isValidListURL (including DNS lookup check) before request is made.
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return

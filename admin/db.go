@@ -141,6 +141,9 @@ func addColumnIfNotExists(table, column, definition string) {
 }
 
 func startDBWorker(ctx context.Context) {
+	if testMode {
+		return
+	}
 	// 1. Initial 24h Stats Catch-up (One-time on boot)
 	slog.Info("Starting initial statistics catch-up...")
 	for i := 1; i <= 24; i++ {
