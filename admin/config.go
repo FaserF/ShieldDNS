@@ -603,14 +603,22 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			if useLocal && err != nil {
 				slog.Warn("Could not open local official list fallback file, falling back to remote", "name", list.Name, "error", err)
 			}
-			if !isValidListURL(list.URL) {
+			parsedURL, err := url.Parse(list.URL)
+			if err != nil || !isValidListURL(list.URL) {
 				slog.Warn("Blocklist URL rejected: not a safe remote URL", "name", list.Name, "url", list.URL)
 				return
 			}
+			safeURL := &url.URL{
+				Scheme:   parsedURL.Scheme,
+				Host:     parsedURL.Host,
+				Path:     parsedURL.Path,
+				RawQuery: parsedURL.RawQuery,
+			}
+
 			client := &http.Client{Timeout: 30 * time.Second}
-			req, err := http.NewRequest("GET", list.URL, nil)
+			req, err := http.NewRequest("GET", safeURL.String(), nil)
 			if err != nil {
-				slog.Warn("Could not create request for remote list", "name", list.Name, "url", list.URL, "error", err)
+				slog.Warn("Could not create request for remote list", "name", list.Name, "url", safeURL.String(), "error", err)
 				return
 			}
 
@@ -904,15 +912,25 @@ func refreshAllMetadata(onlyMissing bool) {
 				}
 			}
 
-			if !isValidListURL(list.URL) {
+			parsedURL, err := url.Parse(list.URL)
+			if err != nil || !isValidListURL(list.URL) {
 				slog.Warn("Metadata fetch skipped: not a safe remote URL", "url", list.URL)
 				return
+			}
+			safeURL := &url.URL{
+				Scheme:   parsedURL.Scheme,
+				Host:     parsedURL.Host,
+				Path:     parsedURL.Path,
+				RawQuery: parsedURL.RawQuery,
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 
-			req, _ := http.NewRequestWithContext(ctx, "GET", list.URL, nil)
+			req, err := http.NewRequestWithContext(ctx, "GET", safeURL.String(), nil)
+			if err != nil {
+				return
+			}
 			req.Header.Set("User-Agent", fmt.Sprintf("ShieldDNS/%s (MetadataFetcher)", FullVersion))
 			req.Header.Set("Range", "bytes=0-102400") // Fetch first 100KB to estimate entries if needed
 
