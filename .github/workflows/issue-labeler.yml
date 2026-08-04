@@ -15,8 +15,20 @@ jobs:
         with:
           script: |
             const issue = context.payload.issue;
-            const body = (issue.body || "").toLowerCase();
+            
+            // Ignore bot issues (e.g., Renovate, Dependabot) and Dependency Dashboard
+            if (issue.user && (issue.user.type === 'Bot' || issue.user.login.includes('renovate') || issue.user.login.endsWith('[bot]'))) {
+              console.log(`Skipping auto-labeling for bot issue by ${issue.user.login}`);
+              return;
+            }
+            
             const title = (issue.title || "").toLowerCase();
+            if (title.includes("dependency dashboard")) {
+              console.log('Skipping auto-labeling for Dependency Dashboard');
+              return;
+            }
+
+            const body = (issue.body || "").toLowerCase();
             const content = title + " " + body;
             
             const labelsToAdd = [];
