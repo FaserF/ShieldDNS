@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -604,48 +603,17 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			if useLocal && err != nil {
 				slog.Warn("Could not open local official list fallback file, falling back to remote", "name", list.Name, "error", err)
 			}
-			parsedURL, err := url.Parse(list.URL)
-			if err != nil || !isValidListURL(list.URL) {
-				slog.Warn("Blocklist URL rejected: not a safe remote URL", "name", list.Name, "url", list.URL)
+			if !isValidListURL(list.URL) {
+				// Give a specific message when the URL uses plain HTTP
+				if strings.HasPrefix(strings.ToLower(list.URL), "http://") {
+					slog.Warn("Blocklist URL rejected: only HTTPS is allowed, plain HTTP is insecure – skipping list", "name", list.Name, "url", list.URL)
+				} else {
+					slog.Warn("Blocklist URL rejected: not a safe remote URL", "name", list.Name, "url", list.URL)
+				}
 				return
 			}
-			scheme := strings.ToLower(parsedURL.Scheme)
-			if scheme != "http" && scheme != "https" {
-				slog.Warn("Blocklist URL rejected: invalid scheme", "name", list.Name, "url", list.URL)
-				return
-			}
-			host := parsedURL.Hostname()
-			if host == "" {
-				slog.Warn("Blocklist URL rejected: empty host", "name", list.Name, "url", list.URL)
-				return
-			}
-			targetHost := host
-			if port := parsedURL.Port(); port != "" {
-				targetHost = net.JoinHostPort(host, port)
-			}
-			safeURL := &url.URL{
-				Scheme:   scheme,
-				Host:     targetHost,
-				Path:     parsedURL.Path,
-				RawQuery: parsedURL.RawQuery,
-			}
-
-			client := &http.Client{Timeout: 30 * time.Second}
-			// lgtm[go/request-forgery] URL validated via isValidListURL and host sanitized
-			// codeql[go/request-forgery] URL validated via isValidListURL and host sanitized
-			req, err := http.NewRequest("GET", safeURL.String(), nil)
-			if err != nil {
-				slog.Warn("Could not create request for remote list", "name", list.Name, "url", safeURL.String(), "error", err)
-				return
-			}
-
-			// Use a browser-like User-Agent to avoid being blocked by strict servers (e.g., Frogeye)
-			req.Header.Set("User-Agent", fmt.Sprintf("ShieldDNS/%s (https://github.com/FaserF/ShieldDNS)", FullVersion))
-			req.Header.Set("Accept", "text/plain, */*")
-
-			// lgtm[go/request-forgery] URL validated via isValidListURL and host sanitized
-			// codeql[go/request-forgery] URL validated via isValidListURL and host sanitized
-			resp, err := client.Do(req)
+			ua := fmt.Sprintf("ShieldDNS/%s (https://github.com/FaserF/ShieldDNS)", FullVersion)
+			resp, err := fetchBlocklistURL(list.URL, ua, map[string]string{"Accept": "text/plain, */*"}, 30)
 			if err != nil {
 				slog.Warn("Could not fetch remote list", "name", list.Name, "url", list.URL, "error", err)
 				return
@@ -930,45 +898,17 @@ func refreshAllMetadata(onlyMissing bool) {
 				}
 			}
 
-			parsedURL, err := url.Parse(list.URL)
-			if err != nil || !isValidListURL(list.URL) {
+			if !isValidListURL(list.URL) {
 				slog.Warn("Metadata fetch skipped: not a safe remote URL", "url", list.URL)
 				return
 			}
-			scheme := strings.ToLower(parsedURL.Scheme)
-			if scheme != "http" && scheme != "https" {
-				return
-			}
-			host := parsedURL.Hostname()
-			if host == "" {
-				return
-			}
-			targetHost := host
-			if port := parsedURL.Port(); port != "" {
-				targetHost = net.JoinHostPort(host, port)
-			}
-			safeURL := &url.URL{
-				Scheme:   scheme,
-				Host:     targetHost,
-				Path:     parsedURL.Path,
-				RawQuery: parsedURL.RawQuery,
-			}
-
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 
-			// lgtm[go/request-forgery] URL validated via isValidListURL and host sanitized
-			// codeql[go/request-forgery] URL validated via isValidListURL and host sanitized
-			req, err := http.NewRequestWithContext(ctx, "GET", safeURL.String(), nil)
-			if err != nil {
-				return
-			}
-			req.Header.Set("User-Agent", fmt.Sprintf("ShieldDNS/%s (MetadataFetcher)", FullVersion))
-			req.Header.Set("Range", "bytes=0-102400") // Fetch first 100KB to estimate entries if needed
-
-			// lgtm[go/request-forgery] URL validated via isValidListURL and host sanitized
-			// codeql[go/request-forgery] URL validated via isValidListURL and host sanitized
-			resp, err := http.DefaultClient.Do(req)
+			ua := fmt.Sprintf("ShieldDNS/%s (MetadataFetcher)", FullVersion)
+			resp, err := fetchBlocklistURLWithContext(ctx, list.URL, ua, map[string]string{
+				"Range": "bytes=0-102400", // Fetch first 100KB to estimate entries if needed
+			})
 			if err != nil {
 				return
 			}

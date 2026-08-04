@@ -563,7 +563,7 @@ func saveClientUA(ip, ua string) {
 			user_agent = CASE WHEN excluded.user_agent != '' THEN excluded.user_agent ELSE clients.user_agent END,
 			last_seen = datetime('now')
 	`, ip, ua)
-	if err != nil {
+	if err != nil && !testMode {
 		slog.Error("Error saving client UA", "ip", ip, "error", err)
 	}
 }

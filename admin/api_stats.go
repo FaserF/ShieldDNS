@@ -40,7 +40,9 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	// 1. Get true 24h rolling totals from DB
 	total, blocked, cacheHits, err := Get24hStats()
 	if err != nil {
-		slog.Error("Error getting 24h stats for API", "error", err)
+		if !testMode {
+			slog.Error("Error getting 24h stats for API", "error", err)
+		}
 		// Fallback to atomic counters if DB fails
 		s.TotalQueries = atomic.LoadInt64(&stats.TotalQueries)
 		s.BlockedQueries = atomic.LoadInt64(&stats.BlockedQueries)

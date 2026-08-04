@@ -398,7 +398,9 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		loginFailures[ip]++
 		failureLock.Unlock()
 
-		slog.Warn("Failed login attempt", "ip", ip, "failure_count", count+1)
+		if !testMode {
+			slog.Warn("Failed login attempt", "ip", ip, "failure_count", count+1)
+		}
 
 		// Brute-force cooling: Artificial delay for repeated failures
 		if count >= 3 && !testMode {
