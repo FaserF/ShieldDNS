@@ -8,11 +8,11 @@ var DefaultPresets = []List{
 	// --- General Blocking ---
 	{Name: "AdGuard Base Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
 	{Name: "EasyList (Domains)", URL: "https://justdomains.github.io/blocklists/lists/easylist-justdomains.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
-	{Name: "HaGeZi Multi (Light)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt", Enabled: false, Category: "General Blocking"},
-	{Name: "HaGeZi Multi (Normal)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/multi.txt", Enabled: false, Category: "General Blocking"},
-	{Name: "HaGeZi Multi (Pro)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
-	{Name: "HaGeZi Multi (Pro++)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.plus.txt", Enabled: false, Category: "General Blocking"},
-	{Name: "HaGeZi Multi (Ultimate)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/ultimate.txt", Enabled: false, Category: "General Blocking"},
+	{Name: "HaGeZi Multi (Light)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/light.txt", Enabled: false, Category: "General Blocking"},
+	{Name: "HaGeZi Multi (Normal)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt", Enabled: false, Category: "General Blocking"},
+	{Name: "HaGeZi Multi (Pro)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
+	{Name: "HaGeZi Multi (Pro++)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.plus.txt", Enabled: false, Category: "General Blocking"},
+	{Name: "HaGeZi Multi (Ultimate)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/ultimate.txt", Enabled: false, Category: "General Blocking"},
 	{Name: "OISD Basic", URL: "https://small.oisd.nl", Enabled: false, Category: "General Blocking", IsRecommended: true},
 	{Name: "OISD Full", URL: "https://big.oisd.nl", Enabled: false, Category: "General Blocking"},
 	{Name: "Steven Black Unified", URL: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", Enabled: false, Category: "General Blocking"},
@@ -37,7 +37,7 @@ var DefaultPresets = []List{
 	{Name: "CERT.PL (AdBlock format - DNS4EU Partner)", URL: "https://hole.cert.pl/domains/v2/domains_adblock.txt", Enabled: false, Category: "Privacy & Tracking"},
 
 	// --- Security & Malware ---
-	{Name: "HaGeZi TIF (Threat Intelligence)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/tif.txt", Enabled: false, Category: "Security & Malware", IsRecommended: true},
+	{Name: "HaGeZi TIF (Threat Intelligence)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/tif.txt", Enabled: false, Category: "Security & Malware", IsRecommended: true},
 	{Name: "HaGeZi Fake (Fake Stores/Malware)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/fake.txt", Enabled: false, Category: "Security & Malware", IsRecommended: true},
 	{Name: "Phishing.Database (Phishing Domains)", URL: "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt", Enabled: false, Category: "Security & Malware", IsRecommended: true},
 	{Name: "The Big List of Hacked Sites", URL: "https://raw.githubusercontent.com/mitchellkrogza/The-Big-List-of-Hacked-Malware-Web-Sites/master/hacked-domains.list", Enabled: false, Category: "Security & Malware"},
@@ -82,6 +82,5 @@ var DefaultAllowlists = []List{
 	{Name: "AnudeepND", URL: "https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whitelist.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
 	{Name: "Optional", URL: "https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/optional-list.txt", Enabled: false, Category: "General Blocking"},
 	{Name: "Referral", URL: "https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/referral-sites.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
-	{Name: "ookangzheng whitelist", URL: "https://raw.githubusercontent.com/ookangzheng/blahdns/master/hosts/whitelist.txt", Enabled: false, Category: "Misc & Extra"},
 	{Name: "FaserF Whitelist Autopilot", URL: "https://raw.githubusercontent.com/FaserF/adguardhome_lists/master/whitelist_ms_autopilot", Enabled: false, Category: "Official", IsRecommended: true},
 }

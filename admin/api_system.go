@@ -171,6 +171,9 @@ func (w *LogWriter) Write(p []byte) (n int, err error) {
 					"client offered only unsupported versions",
 					"client requested unsupported application protocols",
 					"no cipher suite supported by both client and server",
+					"missing signature_algorithms",
+					"signature algorithms",
+					"no key exchanges supported",
 				}
 				for _, pattern := range extraNoise {
 					if strings.Contains(msg, pattern) {

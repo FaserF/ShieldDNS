@@ -149,7 +149,7 @@ func startDBWorker(ctx context.Context) {
 	}
 	slog.Info("Initial statistics catch-up complete")
 
-	ticker := time.NewTicker(24 * time.Hour)
+	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
 	cleanup := func() {
@@ -164,7 +164,9 @@ func startDBWorker(ctx context.Context) {
 				slog.Error("Error purging old queries", "error", err)
 			} else {
 				deleted, _ := res.RowsAffected()
-				slog.Info("Database maintenance: TTL purge complete", "days_retained", days, "rows_deleted", deleted)
+				if deleted > 0 {
+					slog.Info("Database maintenance: TTL purge complete", "days_retained", days, "rows_deleted", deleted)
+				}
 			}
 
 			// 2. Resource Safety: Hard cap on total queries (max 500k rows)
@@ -174,10 +176,10 @@ func startDBWorker(ctx context.Context) {
 				overage := totalRows - 500000 + 50000
 				res, err = db.ExecContext(ctx, "DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", overage)
 				if err != nil {
-					slog.Error("Database maintenance: Error during emergency row prune", "error", err)
+					slog.Error("Database maintenance: Error during row prune", "error", err)
 				} else {
 					deleted, _ := res.RowsAffected()
-					slog.Warn("Database maintenance: Row cap exceeded, emergency prune performed", "total_before", totalRows, "deleted", deleted)
+					slog.Info("Database maintenance: Row cap prune complete", "total_before", totalRows, "deleted", deleted)
 				}
 			}
 
