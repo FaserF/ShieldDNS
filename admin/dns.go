@@ -666,21 +666,23 @@ func updateCorefile() {
 }
 
 func startCoreDNS(ctx context.Context) {
+	if testMode {
+		return
+	}
 	for {
 		select {
 		case <-ctx.Done():
-			if dnsCmd != nil && dnsCmd.Process != nil {
-				dnsCmd.Process.Signal(os.Interrupt)
+			dnsCmdLock.Lock()
+			cmd := dnsCmd
+			dnsCmdLock.Unlock()
+			if cmd != nil && cmd.Process != nil {
+				cmd.Process.Signal(os.Interrupt)
 			}
 			return
 		default:
-			slog.Info("Starting CoreDNS")
-			dnsCmd = exec.CommandContext(ctx, "coredns", "-conf", CorefilePath)
-			stdout, _ := dnsCmd.StdoutPipe()
-			stderr, _ := dnsCmd.StderrPipe()
-
-			if err := dnsCmd.Start(); err != nil {
-				slog.Error("Error starting CoreDNS (executable missing or permission denied?)", "error", err)
+			dnsCmdLock.Lock()
+			if dnsCmd != nil && dnsCmd.Process != nil {
+				dnsCmdLock.Unlock()
 				select {
 				case <-ctx.Done():
 					return
@@ -688,6 +690,25 @@ func startCoreDNS(ctx context.Context) {
 					continue
 				}
 			}
+
+			slog.Info("Starting CoreDNS")
+			cmd := exec.CommandContext(ctx, "coredns", "-conf", CorefilePath)
+			stdout, _ := cmd.StdoutPipe()
+			stderr, _ := cmd.StderrPipe()
+
+			if err := cmd.Start(); err != nil {
+				slog.Error("Error starting CoreDNS (executable missing or permission denied?)", "error", err)
+				dnsCmdLock.Unlock()
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(1 * time.Second):
+					continue
+				}
+			}
+
+			dnsCmd = cmd
+			dnsCmdLock.Unlock()
 
 			go func(reader io.Reader) {
 				scanner := bufio.NewScanner(reader)
@@ -723,7 +744,11 @@ func startCoreDNS(ctx context.Context) {
 				}
 			}(stderr)
 
-			dnsCmd.Wait()
+			cmd.Wait()
+
+			dnsCmdLock.Lock()
+			dnsCmd = nil
+			dnsCmdLock.Unlock()
 
 			select {
 			case <-ctx.Done():
@@ -737,7 +762,11 @@ func startCoreDNS(ctx context.Context) {
 }
 
 func restartCoreDNS() {
-	if dnsCmd != nil && dnsCmd.Process != nil {
+	dnsCmdLock.Lock()
+	running := dnsCmd != nil && dnsCmd.Process != nil
+	dnsCmdLock.Unlock()
+
+	if running {
 		slog.Info("CoreDNS config/lists updated. CoreDNS reloading in-place via reload plugin.")
 		return
 	}
@@ -746,13 +775,17 @@ func restartCoreDNS() {
 }
 
 func forceRestartCoreDNS() {
-	if dnsCmd != nil && dnsCmd.Process != nil {
+	dnsCmdLock.Lock()
+	cmd := dnsCmd
+	dnsCmdLock.Unlock()
+
+	if cmd != nil && cmd.Process != nil {
 		slog.Info("Force restarting CoreDNS process...")
-		dnsCmd.Process.Signal(os.Interrupt)
+		cmd.Process.Signal(os.Interrupt)
 		go func(p *os.Process) {
 			time.Sleep(2 * time.Second)
 			p.Kill()
-		}(dnsCmd.Process)
+		}(cmd.Process)
 		time.Sleep(500 * time.Millisecond)
 	} else {
 		go startCoreDNS(appCtx)

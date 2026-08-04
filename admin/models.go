@@ -195,6 +195,7 @@ var (
 	stats      Stats
 	statsLock  sync.RWMutex
 	dnsCmd     *exec.Cmd
+	dnsCmdLock sync.Mutex
 
 	sessionStore sync.Map // token -> Session
 	sessionLock  sync.RWMutex
