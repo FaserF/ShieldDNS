@@ -329,6 +329,29 @@ func setupRouter() *http.ServeMux {
 	return mux
 }
 
+type retryTransport struct {
+	transport  http.RoundTripper
+	maxRetries int
+	retryDelay time.Duration
+}
+
+func (r *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	var resp *http.Response
+	var err error
+
+	for i := 0; i <= r.maxRetries; i++ {
+		resp, err = r.transport.RoundTrip(req)
+		if err == nil {
+			return resp, nil
+		}
+
+		if i < r.maxRetries {
+			time.Sleep(r.retryDelay)
+		}
+	}
+	return nil, err
+}
+
 // newDoHProxy creates a reverse proxy to forward /dns-query requests to the internal CoreDNS DoH port.
 func newDoHProxy() http.Handler {
 	internalPort := os.Getenv("INTERNAL_DOH_PORT")
@@ -339,9 +362,18 @@ func newDoHProxy() http.Handler {
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
-	// Disable TLS verification for internal proxy to CoreDNS
-	proxy.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	// Disable TLS verification for internal proxy to CoreDNS and add retry transport
+	baseTransport := &http.Transport{
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		MaxIdleConns:        200,
+		MaxIdleConnsPerHost: 100,
+		IdleConnTimeout:     90 * time.Second,
+	}
+
+	proxy.Transport = &retryTransport{
+		transport:  baseTransport,
+		maxRetries: 3,
+		retryDelay: 50 * time.Millisecond,
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
@@ -357,6 +389,7 @@ func newDoHProxy() http.Handler {
 
 	return proxy
 }
+
 
 func setupStaticHandlers(mux *http.ServeMux) {
 	// Root filesystem for everything under www/

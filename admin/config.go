@@ -685,13 +685,13 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			continue
 		}
 
-		// 4. Handle Hosts: 0.0.0.0 domain
+		// 4. Handle Hosts: 0.0.0.0 domain1 domain2 ...
 		if strings.HasPrefix(line, "0.0.0.0 ") || strings.HasPrefix(line, "127.0.0.1 ") || strings.HasPrefix(line, "::1 ") || strings.HasPrefix(line, ":: ") {
 			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				d := NormalizeDomain(parts[1])
+			for i := 1; i < len(parts); i++ {
+				d := NormalizeDomain(parts[i])
 				if d != "" {
-					if added := addDomain(d, isAllowlist, list.Name, false, blockMap, allowMap, allowAttr); added {
+					if added := addDomain(d, isAllowlist, list.Name, true, blockMap, allowMap, allowAttr); added {
 						count++
 					}
 				}
@@ -722,7 +722,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			for _, sub := range subParts {
 				d := NormalizeDomain(sub)
 				if d != "" {
-					if added := addDomain(d, isAllowlist, list.Name, false, blockMap, allowMap, allowAttr); added {
+					if added := addDomain(d, isAllowlist, list.Name, true, blockMap, allowMap, allowAttr); added {
 						count++
 					}
 				}

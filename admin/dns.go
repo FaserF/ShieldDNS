@@ -43,6 +43,12 @@ const CorefileTemplate = `.:{{.DNSPort}} {
     metadata
     health :8082
     reload 5s
+    {{if .FilteringEnabled}}
+    hosts {{.HostsPath}} {
+        reload 5s
+        fallthrough
+    }
+    {{end}}
     cache 7200 {
         success 50000
         denial 10000
@@ -50,16 +56,10 @@ const CorefileTemplate = `.:{{.DNSPort}} {
         {{if .ServeStale}}serve_stale 1h{{end}}
     }
     forward . {{.Upstreams}} {
-        health_check 10s
+        health_check 5s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
-    {{if .FilteringEnabled}}
-    hosts {{.HostsPath}} {
-        reload 5s
-        fallthrough
-    }
-    {{end}}
     {{.GeoACLRules}}
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
@@ -71,6 +71,10 @@ tls://.:{{.DOTPort}} {
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 5s
+    hosts {{.HostsPath}} {
+        reload 5s
+        fallthrough
+    }
     cache 7200 {
         success 50000
         denial 10000
@@ -78,13 +82,9 @@ tls://.:{{.DOTPort}} {
         {{if .ServeStale}}serve_stale 1h{{end}}
     }
     forward . {{.Upstreams}} {
-        health_check 10s
+        health_check 5s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
-    }
-    hosts {{.HostsPath}} {
-        reload 5s
-        fallthrough
     }
     {{.GeoACLRules}}
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
@@ -96,6 +96,10 @@ https://.:{{.InternalDOHPort}} {
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 5s
+    hosts {{.HostsPath}} {
+        reload 5s
+        fallthrough
+    }
     cache 7200 {
         success 50000
         denial 10000
@@ -103,13 +107,9 @@ https://.:{{.InternalDOHPort}} {
         {{if .ServeStale}}serve_stale 1h{{end}}
     }
     forward . {{.Upstreams}} {
-        health_check 10s
+        health_check 5s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
-    }
-    hosts {{.HostsPath}} {
-        reload 5s
-        fallthrough
     }
     {{.GeoACLRules}}
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
@@ -121,6 +121,10 @@ quic://.:{{.DOTPort}} {
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 5s
+    hosts {{.HostsPath}} {
+        reload 5s
+        fallthrough
+    }
     cache 7200 {
         success 50000
         denial 10000
@@ -128,13 +132,9 @@ quic://.:{{.DOTPort}} {
         {{if .ServeStale}}serve_stale 1h{{end}}
     }
     forward . {{.Upstreams}} {
-        health_check 10s
+        health_check 5s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
-    }
-    hosts {{.HostsPath}} {
-        reload 5s
-        fallthrough
     }
     {{.GeoACLRules}}
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
@@ -738,20 +738,27 @@ func startCoreDNS(ctx context.Context) {
 
 func restartCoreDNS() {
 	if dnsCmd != nil && dnsCmd.Process != nil {
-		slog.Info("Restarting CoreDNS to flush cache and apply updated lists")
-		// Try graceful termination first (SIGINT/SIGTERM)
-		dnsCmd.Process.Signal(os.Interrupt)
+		slog.Info("CoreDNS config/lists updated. CoreDNS reloading in-place via reload plugin.")
+		return
+	}
+	slog.Info("CoreDNS not running. Starting CoreDNS process...")
+	go startCoreDNS(appCtx)
+}
 
-		// Start a watchdog to force kill if it hangs
+func forceRestartCoreDNS() {
+	if dnsCmd != nil && dnsCmd.Process != nil {
+		slog.Info("Force restarting CoreDNS process...")
+		dnsCmd.Process.Signal(os.Interrupt)
 		go func(p *os.Process) {
 			time.Sleep(2 * time.Second)
-			p.Kill() // Fallback
+			p.Kill()
 		}(dnsCmd.Process)
-
-		// Give the old process a moment to release ports before the main loop restarts it
 		time.Sleep(500 * time.Millisecond)
+	} else {
+		go startCoreDNS(appCtx)
 	}
 }
+
 
 func parseLogLine(line string) {
 	// 1. Strip common prefixes added by CoreDNS or system logging

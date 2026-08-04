@@ -47,7 +47,7 @@ func startDNSWatchdog(ctx context.Context) {
 					statsLock.Unlock()
 
 					slog.Error("DNS health check failed 3 consecutive times. Initiating CoreDNS restart...")
-					restartCoreDNS()
+					forceRestartCoreDNS()
 					failureCount = 0 // Reset after restart attempt
 
 					// Extra wait to allow restart to settle
