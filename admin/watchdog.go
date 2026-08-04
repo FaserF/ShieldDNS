@@ -9,6 +9,9 @@ import (
 
 // startDNSWatchdog periodically checks if CoreDNS is actually responding to queries.
 func startDNSWatchdog(ctx context.Context) {
+	if testMode {
+		return
+	}
 	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
 	failureCount := 0

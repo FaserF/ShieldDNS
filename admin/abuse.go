@@ -201,7 +201,9 @@ func blockClientAuto(ip, reason string) {
 		slog.Info("Skipping auto-block for critical IP", "ip", ip, "reason", reason)
 		return
 	}
-	slog.Warn("Abuse Detection triggered", "ip", ip, "reason", reason)
+	if !testMode {
+		slog.Warn("Abuse Detection triggered", "ip", ip, "reason", reason)
+	}
 
 	cc := GetCountryCodeCached(ip)
 

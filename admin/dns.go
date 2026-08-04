@@ -1156,7 +1156,9 @@ func DoHRateLimitMiddleware(next http.Handler) http.Handler {
 		configLock.RUnlock()
 
 		if currentCount > limit {
-			slog.Warn("DoH Rate limit exceeded", "ip", clientIP, "limit", limit)
+			if !testMode {
+				slog.Warn("DoH Rate limit exceeded", "ip", clientIP, "limit", limit)
+			}
 			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}

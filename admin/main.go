@@ -364,7 +364,9 @@ func newDoHProxy() http.Handler {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
 	// Internal proxy to CoreDNS running on loopback 127.0.0.1:5553.
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{
+		ServerName: "localhost",
+	}
 	certPath := os.Getenv("CERT_FILE")
 	if certPath != "" {
 		if certBytes, err := os.ReadFile(certPath); err == nil {
@@ -373,11 +375,6 @@ func newDoHProxy() http.Handler {
 				tlsConfig.RootCAs = pool
 			}
 		}
-	}
-	if tlsConfig.RootCAs == nil {
-		// Fallback for self-signed or missing cert file on internal loopback
-		// codeql[go/disabled-certificate-check] Internal loopback proxy to localhost CoreDNS instance (127.0.0.1)
-		tlsConfig.InsecureSkipVerify = true
 	}
 
 	baseTransport := &http.Transport{
