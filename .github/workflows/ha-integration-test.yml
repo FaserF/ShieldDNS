@@ -1,0 +1,48 @@
+name: HA Integration Live End-to-End Test
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  live-integration-test:
+    name: ShieldDNS Container <-> HA Integration Live Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ShieldDNS Core
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Checkout ha-shielddns Integration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: 'FaserF/ha-shielddns'
+          path: 'ha-shielddns'
+
+      - name: Generate Self-Signed Certs & Start Container
+        run: |
+          mkdir ssl
+          openssl req -x509 -newkey rsa:4096 -keyout ssl/privkey.pem -out ssl/fullchain.pem -days 365 -nodes -subj "/CN=localhost"
+          docker run -d --name shielddns -p 8080:8080 -p 853:853 -v ${{ github.workspace }}/ssl:/ssl -e UPSTREAM_DNS=8.8.8.8 -e CERT_FILE=/ssl/fullchain.pem -e KEY_FILE=/ssl/privkey.pem -e DOH_PORT=8080 shielddns:test
+          sleep 5
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14.7'
+
+      - name: Install HA Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy pyyaml pytest pytest-asyncio pytest-cov homeassistant aiohttp pytest-homeassistant-custom-component
+
+      - name: Run Integration Tests Against Live ShieldDNS Container
+        run: |
+          cd ha-shielddns
+          SHIELDDNS_TEST_SERVER_URL="http://127.0.0.1:8080" PYTHONPATH=. pytest tests/
+
+      - name: Container Logs Output (Debugging)
+        if: always()
+        run: docker logs shielddns

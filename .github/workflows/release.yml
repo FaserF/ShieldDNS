@@ -41,7 +41,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ha-integration-test:
+    name: HA Integration Test
+    uses: ./.github/workflows/ha-integration-test.yml
+
   release:
+    needs: ha-integration-test
     runs-on: ubuntu-latest
     permissions:
       contents: write
