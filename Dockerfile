@@ -2,7 +2,7 @@
 FROM coredns/coredns:1.14.6@sha256:900f9c109f7a33545d3c811516e8376df9019147b750f5ce3e254468769176ea AS binary
 
 # Stage 2: Build Admin UI Backend
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine@sha256:70b46548e42db77e0966aaf3619fd068734dc6c77584d526b91126504fd95816 AS admin-build
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83 AS admin-build
 ARG TARGETARCH
 WORKDIR /app
 COPY admin/ .
