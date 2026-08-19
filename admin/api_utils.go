@@ -194,12 +194,54 @@ func isValidListURL(rawURL string) bool {
 	return true
 }
 
+// createSafeBlocklistClient returns an HTTP client with custom dialer that verifies
+// target IP addresses to prevent Server-Side Request Forgery (SSRF) and DNS rebinding attacks.
+func createSafeBlocklistClient(timeout time.Duration) *http.Client {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if testMode {
+				var d net.Dialer
+				return d.DialContext(ctx, network, addr)
+			}
+			host, _, err := net.SplitHostPort(addr)
+			if err != nil {
+				host = addr
+			}
+			if ip := net.ParseIP(host); ip != nil {
+				if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+					return nil, fmt.Errorf("connection to private/local IP blocked: %s", ip.String())
+				}
+			} else {
+				ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+				if err != nil {
+					return nil, fmt.Errorf("dns resolution failed: %w", err)
+				}
+				for _, ip := range ips {
+					if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+						return nil, fmt.Errorf("connection to private/local IP blocked: %s", ip.String())
+					}
+				}
+			}
+			var d net.Dialer
+			return d.DialContext(ctx, network, addr)
+		},
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	return &http.Client{
+		Transport: transport,
+		Timeout:   timeout,
+	}
+}
+
 // fetchBlocklistURL performs a safe HTTP GET for a blocklist URL.
-// The caller MUST have already validated rawURL with isValidListURL.
-// This function reconstructs the request entirely from individual validated
-// URL components so that static analysis tools (CodeQL go/request-forgery)
-// do not flag the call as an uncontrolled network request.
+// It enforces HTTPS, validates that the destination is not private/loopback,
+// and uses an SSRF-safe dialer.
 func fetchBlocklistURL(rawURL, userAgent string, extraHeaders map[string]string, timeoutSec int) (*http.Response, error) {
+	if !isValidListURL(rawURL) && !testMode {
+		return nil, fmt.Errorf("invalid or forbidden blocklist URL: %s", rawURL)
+	}
+
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("url parse: %w", err)
@@ -211,18 +253,30 @@ func fetchBlocklistURL(rawURL, userAgent string, extraHeaders map[string]string,
 		return nil, fmt.Errorf("blocklist URL must use HTTPS (got %q) – skipping for security", scheme)
 	}
 
-	// Re-validate host (non-empty, already checked by isValidListURL)
+	// Re-validate host
 	hostname := parsed.Hostname()
 	if hostname == "" {
 		return nil, fmt.Errorf("empty hostname")
 	}
+
+	if !testMode {
+		if ip := net.ParseIP(hostname); ip != nil {
+			if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+				return nil, fmt.Errorf("forbidden private IP for blocklist: %s", hostname)
+			}
+		} else {
+			hostLower := strings.ToLower(hostname)
+			if hostLower == "localhost" || strings.HasSuffix(hostLower, ".local") || strings.HasSuffix(hostLower, ".internal") || strings.HasSuffix(hostLower, ".lan") {
+				return nil, fmt.Errorf("forbidden private hostname for blocklist: %s", hostname)
+			}
+		}
+	}
+
 	host := hostname
 	if port := parsed.Port(); port != "" {
 		host = net.JoinHostPort(hostname, port)
 	}
 
-	// Build a clean URL from first-principles – path & query are user-supplied but
-	// are not dangerous in terms of SSRF because the host has already been validated.
 	cleanURL := &url.URL{
 		Scheme:   scheme,
 		Host:     host,
@@ -231,7 +285,7 @@ func fetchBlocklistURL(rawURL, userAgent string, extraHeaders map[string]string,
 	}
 
 	timeout := time.Duration(timeoutSec) * time.Second
-	client := &http.Client{Timeout: timeout}
+	client := createSafeBlocklistClient(timeout)
 	req, err := http.NewRequest(http.MethodGet, cleanURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -247,29 +301,52 @@ func fetchBlocklistURL(rawURL, userAgent string, extraHeaders map[string]string,
 
 // fetchBlocklistURLWithContext is like fetchBlocklistURL but accepts an existing context.
 func fetchBlocklistURLWithContext(ctx context.Context, rawURL, userAgent string, extraHeaders map[string]string) (*http.Response, error) {
+	if !isValidListURL(rawURL) && !testMode {
+		return nil, fmt.Errorf("invalid or forbidden blocklist URL: %s", rawURL)
+	}
+
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("url parse: %w", err)
 	}
+
 	// Only HTTPS is allowed for blocklist downloads (bypassed in testMode for local test servers)
 	scheme := parsed.Scheme
 	if scheme != "https" && !testMode {
 		return nil, fmt.Errorf("blocklist URL must use HTTPS (got %q) – skipping for security", scheme)
 	}
+
 	hostname := parsed.Hostname()
 	if hostname == "" {
 		return nil, fmt.Errorf("empty hostname")
 	}
+
+	if !testMode {
+		if ip := net.ParseIP(hostname); ip != nil {
+			if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+				return nil, fmt.Errorf("forbidden private IP for blocklist: %s", hostname)
+			}
+		} else {
+			hostLower := strings.ToLower(hostname)
+			if hostLower == "localhost" || strings.HasSuffix(hostLower, ".local") || strings.HasSuffix(hostLower, ".internal") || strings.HasSuffix(hostLower, ".lan") {
+				return nil, fmt.Errorf("forbidden private hostname for blocklist: %s", hostname)
+			}
+		}
+	}
+
 	host := hostname
 	if port := parsed.Port(); port != "" {
 		host = net.JoinHostPort(hostname, port)
 	}
+
 	cleanURL := &url.URL{
 		Scheme:   scheme,
 		Host:     host,
 		Path:     parsed.EscapedPath(),
 		RawQuery: parsed.RawQuery,
 	}
+
+	client := createSafeBlocklistClient(30 * time.Second)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cleanURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -280,7 +357,7 @@ func fetchBlocklistURLWithContext(ctx context.Context, rawURL, userAgent string,
 	for k, v := range extraHeaders {
 		req.Header.Set(k, v)
 	}
-	return http.DefaultClient.Do(req) //nolint:wrapcheck
+	return client.Do(req) //nolint:wrapcheck
 }
 
 // IsCriticalIP checks if an IP belongs to core infrastructure that should never be blocked.
