@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"html/template"
 	"io/fs"
 	"log"
@@ -364,17 +363,9 @@ func newDoHProxy() http.Handler {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
 	// Internal proxy to CoreDNS running on loopback 127.0.0.1:5553.
+	// CoreDNS uses the public domain cert (e.g. dns.fabiseitz.de), so skip verification for loopback.
 	tlsConfig := &tls.Config{
-		ServerName: "localhost",
-	}
-	certPath := os.Getenv("CERT_FILE")
-	if certPath != "" {
-		if certBytes, err := os.ReadFile(certPath); err == nil {
-			pool := x509.NewCertPool()
-			if pool.AppendCertsFromPEM(certBytes) {
-				tlsConfig.RootCAs = pool
-			}
-		}
+		InsecureSkipVerify: true,
 	}
 
 	baseTransport := &http.Transport{
