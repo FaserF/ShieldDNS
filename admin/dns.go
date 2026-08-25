@@ -71,10 +71,12 @@ tls://.:{{.DOTPort}} {
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 5s
+    {{if .FilteringEnabled}}
     hosts {{.HostsPath}} {
         reload 5s
         fallthrough
     }
+    {{end}}
     cache 7200 {
         success 50000
         denial 10000
@@ -96,10 +98,12 @@ https://.:{{.InternalDOHPort}} {
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 5s
+    {{if .FilteringEnabled}}
     hosts {{.HostsPath}} {
         reload 5s
         fallthrough
     }
+    {{end}}
     cache 7200 {
         success 50000
         denial 10000
@@ -121,10 +125,12 @@ quic://.:{{.DOTPort}} {
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 5s
+    {{if .FilteringEnabled}}
     hosts {{.HostsPath}} {
         reload 5s
         fallthrough
     }
+    {{end}}
     cache 7200 {
         success 50000
         denial 10000

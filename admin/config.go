@@ -294,22 +294,35 @@ func atomicWriteFile(filename string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	if _, err := f.Write(data); err != nil {
+		f.Close()
+		os.Remove(tmpFile)
 		return err
 	}
 
 	if err := f.Sync(); err != nil {
+		f.Close()
+		os.Remove(tmpFile)
 		return err
 	}
 
 	if err := f.Close(); err != nil {
+		os.Remove(tmpFile)
 		return err
 	}
 
 	if err := os.Rename(tmpFile, filename); err != nil {
-		return err
+		// On Windows, rename fails if the target file already exists
+		_ = os.Remove(filename)
+		if errRetry := os.Rename(tmpFile, filename); errRetry != nil {
+			// Fallback: write directly to target file
+			if errWrite := os.WriteFile(filename, data, 0644); errWrite != nil {
+				os.Remove(tmpFile)
+				return errRetry
+			}
+			os.Remove(tmpFile)
+		}
 	}
 	return nil
 }

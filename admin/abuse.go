@@ -85,21 +85,20 @@ func analyzeQuery(clientIP, domain, status string) {
 		}
 	}
 
-	// --- 4. Special TLD Scan (>= 1000 queries targeting one TLD, and that TLD covers >= 90% of total queries in 5 min) ---
+	// --- 4. Special TLD Scan (>= 300 unique subdomains/queries targeting one TLD, and that TLD covers >= 90% of total queries in 5 min) ---
 	tld := extractTLD(domain)
-	if tld != "" {
+	if tld != "" && !isInfrastructureDomain(domain) {
 		counters.tldCounts[tld] = append(counters.tldCounts[tld], now)
 		counters.tldCounts[tld] = pruneWindow(counters.tldCounts[tld], now, 5*time.Minute)
 
-		// For TLD checks, we need total queries in the last 5 mins. Since allQueryTimes only tracks 60s,
-		// we'll just sum all tldCounts (approx. total queries in 5m).
+		// For TLD checks, we need total queries in the last 5 mins.
 		total5m := 0
 		for _, times := range counters.tldCounts {
 			total5m += len(times)
 		}
 
-		if len(counters.tldCounts[tld]) >= 1000 && float64(len(counters.tldCounts[tld]))/float64(total5m) >= 0.90 {
-			go blockClientAuto(clientIP, "Abuse: TLD Scan Detected (>90% queries to single TLD)")
+		if len(counters.tldCounts[tld]) >= 1000 && float64(len(counters.tldCounts[tld]))/float64(total5m) >= 0.95 {
+			go blockClientAuto(clientIP, "Abuse: TLD Scan Detected (>95% queries to single TLD)")
 			return
 		}
 	}
