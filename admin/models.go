@@ -59,6 +59,7 @@ type Config struct {
 	AutoUpdateEnabled          bool                         `json:"auto_update_enabled"`
 	AutoUpdateHour             int                          `json:"auto_update_hour"`
 	UpdateChannel              string                       `json:"update_channel"`
+	MCPServerEnabled           bool                         `json:"mcp_server_enabled"`
 }
 
 type BlockedClientInfo struct {

@@ -316,6 +316,7 @@ export function initEvents(fetchConfig) {
         if (getEl('perm-rules-write').checked) perms.push('write:rules');
         if (getEl('perm-maint').checked) perms.push('write:maintenance');
         if (getEl('perm-system').checked) perms.push('read:system');
+        if (getEl('perm-mcp')?.checked) perms.push('exec:mcp');
 
         const currentEditId = getEl('save-api-key-btn').dataset.editId;
         const endpoint = currentEditId ? `${api.endpoints.createToken}?id=${currentEditId}` : api.endpoints.createToken;
@@ -364,7 +365,7 @@ export function initEvents(fetchConfig) {
         const ids = [
             'perm-admin', 'perm-stats', 'perm-logs', 'perm-health',
             'perm-config-read', 'perm-config-write', 'perm-diag',
-            'perm-rules-read', 'perm-rules-write', 'perm-maint', 'perm-system'
+            'perm-rules-read', 'perm-rules-write', 'perm-maint', 'perm-system', 'perm-mcp'
         ];
         ids.forEach(id => {
             const el = getEl(id);
@@ -387,12 +388,13 @@ export function initEvents(fetchConfig) {
         const rulesWrite = getEl('perm-rules-write');
         const maint = getEl('perm-maint');
         const system = getEl('perm-system');
+        const mcp = getEl('perm-mcp');
 
         if (!admin) return;
 
         const allInputs = [
             stats, logs, health, configRead, configWrite,
-            diag, rulesRead, rulesWrite, maint, system
+            diag, rulesRead, rulesWrite, maint, system, mcp
         ];
 
         allInputs.forEach(el => {
@@ -441,7 +443,7 @@ export function initEvents(fetchConfig) {
     [
         'perm-admin', 'perm-stats', 'perm-logs', 'perm-health',
         'perm-config-read', 'perm-config-write', 'perm-diag',
-        'perm-rules-read', 'perm-rules-write', 'perm-maint', 'perm-system'
+        'perm-rules-read', 'perm-rules-write', 'perm-maint', 'perm-system', 'perm-mcp'
     ].forEach(id => {
         getEl(id)?.addEventListener('change', updatePermissionStates);
     });
@@ -464,6 +466,19 @@ export function initEvents(fetchConfig) {
 
     getEl('preset-clear-btn')?.addEventListener('click', () => {
         setPerms([]);
+    });
+
+    getEl('mcp-copy-antigravity-config-btn')?.addEventListener('click', () => {
+        const host = window.location.origin || 'https://shielddns.local';
+        const cfg = JSON.stringify({
+            mcpServers: {
+                shielddns: {
+                    url: `${host}/api/mcp?token=<YOUR_API_TOKEN>`
+                }
+            }
+        }, null, 2);
+        navigator.clipboard.writeText(cfg);
+        helpers.showToast('Antigravity MCP configuration copied to clipboard!');
     });
 
     // API Key search
@@ -655,6 +670,7 @@ export function initEvents(fetchConfig) {
         getEl('perm-rules-write').checked = key.permissions.includes('write:rules');
         getEl('perm-maint').checked = key.permissions.includes('write:maintenance');
         getEl('perm-system').checked = key.permissions.includes('read:system');
+        if (getEl('perm-mcp')) getEl('perm-mcp').checked = key.permissions.includes('exec:mcp');
         
         updatePermissionStates();
         
@@ -1358,6 +1374,7 @@ export async function saveConfig(fetchConfig) {
         malicious_ip_blocking_enabled: getEl('malicious-check')?.checked,
         malicious_ip_interval: parseInt(getEl('malicious-interval-input')?.value) || 8,
         verify_upstream_tls: getEl('verify-upstream-tls-check')?.checked,
+        mcp_server_enabled: getEl('mcp-server-enabled-check')?.checked,
         server_country: getEl('manual-server-country-select')?.value || '',
         update_channel: getEl('update-channel')?.value || 'stable',
         auto_update_enabled: getEl('auto-update-enabled')?.checked,

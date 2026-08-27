@@ -200,6 +200,7 @@ export function renderConfig(cfg) {
     renderAutoblockWhitelist(cfg.autoblock_whitelist || []);
 
     if (getEl('verify-upstream-tls-check')) getEl('verify-upstream-tls-check').checked = !!cfg.verify_upstream_tls;
+    if (getEl('mcp-server-enabled-check')) getEl('mcp-server-enabled-check').checked = !!cfg.mcp_server_enabled;
 
     // Updates Settings
     if (getEl('update-channel')) getEl('update-channel').value = cfg.update_channel || 'stable';

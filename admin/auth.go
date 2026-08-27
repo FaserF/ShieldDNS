@@ -147,8 +147,8 @@ func csrfMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Mutating methods must have the custom header if using session cookies
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch {
-			// Skip CSRF check for API Key / Bearer requests
-			hasApiKey := r.Header.Get("X-API-Key") != "" || strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ")
+			// Skip CSRF check for API Key / Bearer requests or query token / MCP
+			hasApiKey := r.Header.Get("X-API-Key") != "" || strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") || r.URL.Query().Get("token") != "" || strings.HasPrefix(r.URL.Path, "/api/mcp")
 			if !hasApiKey && r.Header.Get("X-Shield-Request") != "true" {
 				http.Error(w, "Invalid request: Missing security header", http.StatusForbidden)
 				return
@@ -167,6 +167,9 @@ func authMiddleware(next http.Handler) http.Handler {
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				token = strings.TrimPrefix(authHeader, "Bearer ")
 			}
+		}
+		if token == "" {
+			token = r.URL.Query().Get("token")
 		}
 
 		if token != "" {
@@ -600,6 +603,8 @@ func getRequiredPermission(r *http.Request) string {
 		return "write:maintenance"
 	case strings.HasPrefix(path, "/api/tokens"), strings.HasPrefix(path, "/api/keys"):
 		return "write:system"
+	case strings.HasPrefix(path, "/api/mcp"):
+		return "exec:mcp"
 	}
 	return "admin:all"
 }

@@ -103,6 +103,7 @@
       "/api/tokens/create -> handleCreateToken() [Auth: False]",
       "/api/tokens/update -> handleUpdateToken() [Auth: False]",
       "/api/tokens/delete -> handleDeleteToken() [Auth: False]",
+      "/api/mcp -> handleMCP() [Auth: False]",
       "/api/domain/stats -> handleDomainStats() [Auth: False]",
       "/api/domain/clients -> handleDomainClients() [Auth: False]",
       "/api/filtering/toggle -> handleToggleFiltering() [Auth: False]",

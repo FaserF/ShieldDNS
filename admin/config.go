@@ -73,6 +73,7 @@ func loadConfig() {
 		AutoUpdateEnabled:          false,
 		AutoUpdateHour:             3,
 		UpdateChannel:              "stable",
+		MCPServerEnabled:           false,
 	}
 
 	isNew := false

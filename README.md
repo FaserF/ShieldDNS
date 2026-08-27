@@ -166,6 +166,7 @@ Authenticate by sending your API key in the `X-API-Key` header or as a `Bearer` 
 ### Permissions (RBAC)
 ShieldDNS uses a granular Role-Based Access Control model. Tokens can be restricted to:
 - `admin:all`: Full administrative access (Master Key).
+- `exec:mcp`: Access and execution rights for the native Model Context Protocol (MCP) server.
 - `read:stats`: Dashboard metrics and analytics history.
 - `read:logs`: Sensitive data including Query Logs and Client IPs.
 - `read:config` / `write:config`: View or modify global system settings.
@@ -186,8 +187,57 @@ ShieldDNS uses a granular Role-Based Access Control model. Tokens can be restric
     - `shielddns_db_size_bytes`: SQLite database size.
     - `shielddns_abuse_blocked_total`: Auto-blocking events.
 
-> [!IMPORTANT]
-> **Security Guard Policy**: If no API keys are defined in the Settings, all token-based authentication attempts are rejected by default.
+## 🤖 Model Context Protocol (MCP) Server & Antigravity Setup
+
+ShieldDNS Docker images ship with a **native embedded MCP Server** compliant with the [Model Context Protocol](https://modelcontextprotocol.io/) specification (JSON-RPC 2.0 / SSE transport). This enables AI coding assistants and autonomous agents (such as **Google Antigravity**, **Cursor**, or **Claude Desktop**) to monitor, analyze, and manage 100% of ShieldDNS features safely.
+
+### 🛡️ Security & Defaults
+- **Disabled by default**: The MCP server is off out of the box. Enable it in **Admin Settings -> Model Context Protocol (MCP)**.
+- **Granular RBAC**: MCP operations require the `exec:mcp` permission **plus** the specific permission corresponding to each tool (e.g. `read:stats`, `write:rules`, `write:config`).
+- **Direct Parameter Authentication**: Supports `?token=<API_TOKEN>` directly in the URL as well as `X-API-Key` and `Bearer` headers.
+
+### 🔌 Connecting in Antigravity
+
+In **Google Antigravity**, configure your ShieldDNS server in `antigravity.json` or `.antigravity/mcp_servers.json`:
+
+```json
+{
+  "mcpServers": {
+    "shielddns": {
+      "url": "https://your.shielddns-domain.com/api/mcp?token=YOUR_GENERATED_API_TOKEN"
+    }
+  }
+}
+```
+
+### 🛠️ Available MCP Tools (360° Control)
+
+| Tool Name | Required Permission | Description |
+|---|---|---|
+| `get_stats` | `read:stats` | Real-time & 24h stats (queries, blocks, latency, CPU/RAM, QPS) |
+| `get_queries` | `read:logs` | Query logs with search, status, and client filters |
+| `get_top_statistics` | `read:stats` | Top blocked domains and top client IPs in last 24h |
+| `get_domain_details` | `read:logs` | Domain analytics, top clients, and filter list matches |
+| `get_client_details` | `read:stats` | Client IP stats, aliases, top queries, and ban info |
+| `list_all_clients` | `read:stats` | List all discovered clients and their status |
+| `search_domain_status`| `read:logs` | Check domain blocking attribution across all lists |
+| `add_custom_rule` | `write:rules` | Add domain to Custom Whitelist or Blacklist |
+| `remove_custom_rule` | `write:rules` | Remove domain from Custom Whitelist or Blacklist |
+| `set_custom_mapping` | `write:rules` | Create/update local DNS override record (`domain -> IP`) |
+| `remove_custom_mapping`| `write:rules` | Remove local DNS override record |
+| `list_filter_lists` | `read:rules` | List all active threat/adblock filter lists |
+| `set_client_alias` | `write:rules` | Set friendly name for client IP |
+| `set_client_block` | `write:rules` | Block or unblock a client IP |
+| `get_geo_block_status` | `read:config` | View Geo-blocking status and blocked countries |
+| `update_geo_block` | `write:config` | Modify Geo-blocking rules and countries |
+| `toggle_malicious_ip_blocking` | `write:config` | Configure automated IP threat feeds |
+| `get_system_diagnostics` | `read:diagnostics` | Upstream RTT latencies, CoreDNS health, CPU & memory |
+| `recheck_upstreams` | `write:maintenance` | Trigger live upstream server reachability tests |
+| `get_system_logs` | `read:system` | Read daemon & CoreDNS terminal logs |
+| `trigger_system_refresh` | `write:maintenance` | Full system reload, list re-download, and cache flush |
+| `clear_query_logs` | `write:maintenance` | Purge query database records |
+| `get_configuration` | `read:config` | Read full sanitized configuration |
+| `update_configuration`| `write:config` | Modify upstreams, DoT, cache, rate limits, and DNSSEC |
 
 ## 🖥️ Admin Dashboard
 

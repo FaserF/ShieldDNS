@@ -303,6 +303,9 @@ func setupRouter() *http.ServeMux {
 	mux.Handle("/api/tokens/update", authMiddleware(http.HandlerFunc(handleUpdateToken)))
 	mux.Handle("/api/tokens/delete", authMiddleware(http.HandlerFunc(handleDeleteToken)))
 
+	// MCP (Model Context Protocol) API
+	mux.HandleFunc("/api/mcp", handleMCP)
+
 	mux.Handle("/api/domain/stats", authMiddleware(http.HandlerFunc(handleDomainStats)))
 	mux.Handle("/api/domain/clients", authMiddleware(http.HandlerFunc(handleDomainClients)))
 
