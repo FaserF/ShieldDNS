@@ -138,7 +138,7 @@ def get_github_repo_slug() -> str:
         match = re.search(r'github\.com[:/]([^/]+)/([^/.]+)', remote_url)
         if match:
             return f"{match.group(1)}/{match.group(2)}"
-    except Exception:
+    except Exception:  # noqa: BLE001
         pass
     return "FaserF/ShieldDNS"
 
@@ -178,7 +178,7 @@ def resolve_github_user_dynamic(name: str, email: str, sha: str, repo_slug: str)
                 is_bot = author_info.get("type") == "Bot" or "bot" in username.lower()
                 profile_url = f"https://github.com/apps/{username}" if is_bot else f"https://github.com/{username}"
                 return username, profile_url, is_bot
-    except Exception:
+    except Exception:  # noqa: BLE001
         pass
 
     username = name.replace(" ", "")
@@ -218,12 +218,12 @@ def collect_contributors() -> list[dict]:
             stderr=subprocess.DEVNULL,
             text=True
         )
-    except Exception:
+    except Exception:  # noqa: BLE001
         if os.path.exists(fallback_path):
             try:
                 with open(fallback_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass
         return None
 
@@ -234,7 +234,7 @@ def collect_contributors() -> list[dict]:
             with open(fallback_path, 'r', encoding='utf-8') as f:
                 fallback_data = json.load(f)
                 fallback_total_commits = sum(c.get("commit_count", 0) for c in fallback_data)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
     parsed_total_commits = len(git_log.strip().split('\n')) if git_log else 0
@@ -397,7 +397,7 @@ def collect() -> dict:
                 match = re.search(r'Version\s*=\s*"v?([^"]+)"', content)
                 if match:
                     version = match.group(1)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
     # Read current Git commit hash
@@ -410,7 +410,7 @@ def collect() -> dict:
             stderr=subprocess.DEVNULL
         )
         commit_id = git_hash.decode('utf-8').strip()
-    except Exception:
+    except Exception:  # noqa: BLE001
         env_commit = os.environ.get('GIT_COMMIT')
         if env_commit:
             commit_id = env_commit[:7]
@@ -456,14 +456,14 @@ def write_json(stats: dict, path: str = OUTPUT_JSON) -> None:
                     with open(fallback_path, 'r', encoding='utf-8') as f:
                         old_fallback = json.load(f)
                     should_write_fallback = check_contributors_changed(old_fallback, contribs)
-                except Exception:
+                except Exception:  # noqa: BLE001
                     pass
                     
             if should_write_fallback:
                 with open(fallback_path, 'w', encoding='utf-8') as f:
                     json.dump(contribs, f, indent=2)
                 print(f'[collect_stats] Contributors fallback JSON updated at {fallback_path}', file=sys.stderr)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
     else:
         if not os.path.exists(contributors_path):

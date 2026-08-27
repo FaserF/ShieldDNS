@@ -15,7 +15,7 @@ def get_latest_tag():
         # Filter for version-like tags
         version_tags = [t for t in tags if re.match(r'^v?\d+\.\d+\.\d+', t)]
         return version_tags[0] if version_tags else None
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -98,7 +98,7 @@ if __name__ == "__main__":
                 match = re.search(r'Version\s*=\s*"v?([^"]+)"', core_content)
                 if match:
                     latest_tag = match.group(1)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
     new_v = bump_version(latest_tag, bump_type, suffix)
