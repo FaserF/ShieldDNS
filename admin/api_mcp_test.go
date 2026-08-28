@@ -18,7 +18,7 @@ func setupMCPTestEnvironment() {
 			ID:          "mcp-full-id",
 			Name:        "MCP Admin Token",
 			TokenHash:   hashToken("mcp-secret-token"),
-			Permissions: []string{"exec:mcp", "read:stats", "write:rules", "read:logs", "read:diagnostics", "read:config", "write:config", "write:maintenance", "read:system"},
+			Permissions: []string{"exec:mcp", "read:stats", "read:rules", "write:rules", "read:logs", "read:diagnostics", "read:config", "write:config", "write:maintenance", "read:system", "read:health", "admin:all"},
 		},
 		{
 			ID:          "mcp-readonly-id",
@@ -190,5 +190,33 @@ func TestMCPToolExecutionPermissions(t *testing.T) {
 	json.NewDecoder(rr3.Body).Decode(&successResp)
 	if successResp.Result.IsError {
 		t.Errorf("expected add_custom_rule to succeed for full token, got: %v", successResp.Result.Content)
+	}
+
+	// 4. Test get_help tool
+	helpReq := bytes.NewBufferString(`{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"get_help","arguments":{"topic":"all"}}}`)
+	req4 := httptest.NewRequest("POST", "/api/mcp?token=mcp-secret-token", helpReq)
+	rr4 := httptest.NewRecorder()
+	handleMCP(rr4, req4)
+
+	var helpResp struct {
+		Result mcpToolResult `json:"result"`
+	}
+	json.NewDecoder(rr4.Body).Decode(&helpResp)
+	if helpResp.Result.IsError {
+		t.Errorf("expected get_help to succeed, got: %v", helpResp.Result.Content)
+	}
+
+	// 5. Test get_catalog_presets
+	presetsReq := bytes.NewBufferString(`{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"get_catalog_presets","arguments":{}}}`)
+	req5 := httptest.NewRequest("POST", "/api/mcp?token=mcp-secret-token", presetsReq)
+	rr5 := httptest.NewRecorder()
+	handleMCP(rr5, req5)
+
+	var presetsResp struct {
+		Result mcpToolResult `json:"result"`
+	}
+	json.NewDecoder(rr5.Body).Decode(&presetsResp)
+	if presetsResp.Result.IsError {
+		t.Errorf("expected get_catalog_presets to succeed, got: %v", presetsResp.Result.Content)
 	}
 }

@@ -202,6 +202,25 @@ export function renderConfig(cfg) {
     if (getEl('verify-upstream-tls-check')) getEl('verify-upstream-tls-check').checked = !!cfg.verify_upstream_tls;
     if (getEl('mcp-server-enabled-check')) getEl('mcp-server-enabled-check').checked = !!cfg.mcp_server_enabled;
 
+    // Dynamically calculate current server origin for MCP
+    const currentOrigin = cfg.admin_domain 
+        ? `https://${cfg.admin_domain}` 
+        : (window.location.origin || 'https://shielddns.local');
+
+    if (getEl('mcp-endpoint-url')) {
+        getEl('mcp-endpoint-url').textContent = `${currentOrigin}/api/mcp?token=<YOUR_API_TOKEN>`;
+    }
+    if (getEl('mcp-antigravity-config-code')) {
+        const agyConfig = JSON.stringify({
+            mcpServers: {
+                shielddns: {
+                    url: `${currentOrigin}/api/mcp?token=<YOUR_API_TOKEN>`
+                }
+            }
+        });
+        getEl('mcp-antigravity-config-code').textContent = agyConfig;
+    }
+
     // Updates Settings
     if (getEl('update-channel')) getEl('update-channel').value = cfg.update_channel || 'stable';
     if (getEl('auto-update-enabled')) {

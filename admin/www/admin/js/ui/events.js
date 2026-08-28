@@ -469,7 +469,9 @@ export function initEvents(fetchConfig) {
     });
 
     getEl('mcp-copy-antigravity-config-btn')?.addEventListener('click', () => {
-        const host = window.location.origin || 'https://shielddns.local';
+        const host = state.currentConfig?.admin_domain 
+            ? `https://${state.currentConfig.admin_domain}` 
+            : (window.location.origin || 'https://shielddns.local');
         const cfg = JSON.stringify({
             mcpServers: {
                 shielddns: {

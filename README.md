@@ -225,12 +225,21 @@ In **Google Antigravity**, configure your ShieldDNS server in `antigravity.json`
 | `remove_custom_rule` | `write:rules` | Remove domain from Custom Whitelist or Blacklist |
 | `set_custom_mapping` | `write:rules` | Create/update local DNS override record (`domain -> IP`) |
 | `remove_custom_mapping`| `write:rules` | Remove local DNS override record |
-| `list_filter_lists` | `read:rules` | List all active threat/adblock filter lists |
+| `toggle_global_filtering` | `write:rules` | Emergency kill-switch / toggle global filtering |
+| `manage_filter_lists`| `write:config` | List, add, remove, or toggle blocklists and allowlists |
+| `block_client_ip` | `write:rules` | Block or unblock a client IP |
 | `set_client_alias` | `write:rules` | Set friendly name for client IP |
-| `set_client_block` | `write:rules` | Block or unblock a client IP |
 | `get_geo_block_status` | `read:config` | View Geo-blocking status and blocked countries |
-| `update_geo_block` | `write:config` | Modify Geo-blocking rules and countries |
+| `set_blocked_countries`| `write:config` | Modify blocked country list |
 | `toggle_malicious_ip_blocking` | `write:config` | Configure automated IP threat feeds |
+| `get_catalog_presets`| `read:rules` | Get curated blocklist & allowlist catalogs |
+| `apply_recommended_presets` | `write:rules` | Apply all recommended blocklists |
+| `manage_autoblock_whitelist`| `write:config` | Manage IPs exempt from abuse rate-limits |
+| `list_api_tokens` | `admin:all` | List active API keys and permission scopes |
+| `create_api_token` | `admin:all` | Generate new API key with custom RBAC |
+| `delete_api_token` | `admin:all` | Revoke and delete API token |
+| `create_system_backup` | `write:maintenance`| Snapshot backup of database, config, & certs |
+| `check_updates` | `read:system` | Check for updates on current channel |
 | `get_system_diagnostics` | `read:diagnostics` | Upstream RTT latencies, CoreDNS health, CPU & memory |
 | `recheck_upstreams` | `write:maintenance` | Trigger live upstream server reachability tests |
 | `get_system_logs` | `read:system` | Read daemon & CoreDNS terminal logs |
@@ -238,6 +247,7 @@ In **Google Antigravity**, configure your ShieldDNS server in `antigravity.json`
 | `clear_query_logs` | `write:maintenance` | Purge query database records |
 | `get_configuration` | `read:config` | Read full sanitized configuration |
 | `update_configuration`| `write:config` | Modify upstreams, DoT, cache, rate limits, and DNSSEC |
+| `get_help` | `read:health` | Built-in troubleshooting, permissions, and tips for autonomous agents |
 
 ## 🖥️ Admin Dashboard
 
