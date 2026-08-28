@@ -203,9 +203,7 @@ export function renderConfig(cfg) {
     if (getEl('mcp-server-enabled-check')) getEl('mcp-server-enabled-check').checked = !!cfg.mcp_server_enabled;
 
     // Dynamically calculate current server origin for MCP
-    const currentOrigin = cfg.admin_domain 
-        ? `https://${cfg.admin_domain}` 
-        : (window.location.origin || 'https://shielddns.local');
+    const currentOrigin = (cfg && cfg.admin_domain) ? `https://${cfg.admin_domain}` : (window.location.origin || 'https://shielddns.local');
 
     if (getEl('mcp-endpoint-url')) {
         getEl('mcp-endpoint-url').textContent = `${currentOrigin}/api/mcp?token=<YOUR_API_TOKEN>`;
