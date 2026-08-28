@@ -189,6 +189,28 @@ func loadConfig() {
 }
 
 func ensureOfficialLists() {
+	// Auto-migrate broken/outdated upstream URLs from previous versions
+	urlMigrations := map[string]string{
+		"https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.txt":      "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt",
+		"https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/light.txt":    "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/light.txt",
+		"https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/multi.txt":    "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/multi.txt",
+		"https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.plus.txt": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.plus.txt",
+		"https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/ultimate.txt": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/ultimate.txt",
+	}
+
+	for i := range config.Lists {
+		if newURL, ok := urlMigrations[config.Lists[i].URL]; ok {
+			slog.Info("Migrated outdated list URL", "name", config.Lists[i].Name, "old_url", config.Lists[i].URL, "new_url", newURL)
+			config.Lists[i].URL = newURL
+		}
+	}
+	for i := range config.Allowlists {
+		if newURL, ok := urlMigrations[config.Allowlists[i].URL]; ok {
+			slog.Info("Migrated outdated allowlist URL", "name", config.Allowlists[i].Name, "old_url", config.Allowlists[i].URL, "new_url", newURL)
+			config.Allowlists[i].URL = newURL
+		}
+	}
+
 	hasOfficialBlock := false
 	for _, l := range config.Lists {
 		if strings.Contains(l.URL, "FaserF/ShieldDNS") {
