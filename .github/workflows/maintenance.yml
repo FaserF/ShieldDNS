@@ -31,7 +31,7 @@ jobs:
           keep_minimum_runs: 5
 
       - name: Remove old artifacts
-        uses: c-hive/gha-remove-artifacts@4bff15786ba0b91dd8ed7c32459eb72441ac1b6c # v1.7.0
+        uses: c-hive/gha-remove-artifacts@62c2fbea931baa7dd4a6b73ea5a799984a818f61 # v1.8.0
         with:
           age: '1 month'
           skip-recent: 5
