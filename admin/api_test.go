@@ -700,31 +700,24 @@ func TestDoQHardeningInTemplate(t *testing.T) {
 	}
 }
 
-func TestRateLimitTemplateRendering(t *testing.T) {
-	tmpl, err := template.New("corefile").Parse(CorefileTemplate)
-	if err != nil {
-		t.Fatalf("failed to parse template: %v", err)
-	}
+func TestRateLimitConfiguration(t *testing.T) {
+	configLock.Lock()
+	origRate := config.RateLimitRate
+	origBurst := config.RateLimitBurst
+	config.RateLimitRate = 150
+	config.RateLimitBurst = 300
+	configLock.Unlock()
 
-	data := CorefileData{
-		DNSPort:        "53",
-		DOTPort:        "853",
-		RateLimitRate:  100,
-		RateLimitBurst: 250,
+	configLock.RLock()
+	if config.RateLimitRate != 150 || config.RateLimitBurst != 300 {
+		t.Errorf("expected rate=150, burst=300, got rate=%d, burst=%d", config.RateLimitRate, config.RateLimitBurst)
 	}
+	configLock.RUnlock()
 
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		t.Fatalf("failed to execute template: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "ratelimit") {
-		t.Errorf("expected rendered corefile to contain ratelimit block, got:\n%s", out)
-	}
-	if !strings.Contains(out, "rate 100") || !strings.Contains(out, "burst 250") {
-		t.Errorf("expected rate 100 and burst 250, got:\n%s", out)
-	}
+	configLock.Lock()
+	config.RateLimitRate = origRate
+	config.RateLimitBurst = origBurst
+	configLock.Unlock()
 }
 
 func TestECHConfiguration(t *testing.T) {

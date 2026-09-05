@@ -51,12 +51,6 @@ const CorefileTemplate = `.:{{.DNSPort}} {
         fallthrough
     }
     {{end}}
-    {{if gt .RateLimitRate 0}}
-    ratelimit {
-        rate {{.RateLimitRate}}
-        burst {{.RateLimitBurst}}
-    }
-    {{end}}
     cache 3600 {
         success 50000
         denial 30000
@@ -89,12 +83,6 @@ tls://.:{{.DOTPort}} {
         fallthrough
     }
     {{end}}
-    {{if gt .RateLimitRate 0}}
-    ratelimit {
-        rate {{.RateLimitRate}}
-        burst {{.RateLimitBurst}}
-    }
-    {{end}}
     cache 3600 {
         success 50000
         denial 30000
@@ -124,12 +112,6 @@ https://.:{{.InternalDOHPort}} {
     hosts {{.HostsPath}} {
         reload 5s
         fallthrough
-    }
-    {{end}}
-    {{if gt .RateLimitRate 0}}
-    ratelimit {
-        rate {{.RateLimitRate}}
-        burst {{.RateLimitBurst}}
     }
     {{end}}
     cache 3600 {
@@ -165,12 +147,6 @@ quic://.:{{.DOTPort}} {
     hosts {{.HostsPath}} {
         reload 5s
         fallthrough
-    }
-    {{end}}
-    {{if gt .RateLimitRate 0}}
-    ratelimit {
-        rate {{.RateLimitRate}}
-        burst {{.RateLimitBurst}}
     }
     {{end}}
     cache 3600 {
@@ -789,12 +765,8 @@ func startCoreDNS(ctx context.Context) {
 				scanner := bufio.NewScanner(reader)
 				for scanner.Scan() {
 					line := scanner.Text()
-					configLock.RLock()
-					debug := config.DebugMode
-					configLock.RUnlock()
-					if debug {
-						slog.Error(line, "source", "coredns-err")
-					}
+					slog.Error(line, "source", "coredns-err")
+					AddSystemLog("[CoreDNS-ERR] " + line)
 				}
 			}(stderr)
 
