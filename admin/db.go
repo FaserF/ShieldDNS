@@ -43,6 +43,9 @@ func initDB() {
 		PRAGMA journal_mode=WAL;
 		PRAGMA synchronous=NORMAL;
 		PRAGMA auto_vacuum=INCREMENTAL;
+		PRAGMA cache_size=-16384;
+		PRAGMA mmap_size=67108864;
+		PRAGMA temp_store=MEMORY;
 		CREATE TABLE IF NOT EXISTS queries (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			timestamp DATETIME,

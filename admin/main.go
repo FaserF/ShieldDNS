@@ -414,6 +414,12 @@ func setupStaticHandlers(mux *http.ServeMux) {
 		// Fallback to searching manually if Sub fails, but it shouldn't
 	}
 
+	// Pre-parse the admin templates once at startup for high performance
+	adminTmpl, tmplErr := template.ParseFS(adminFS, "index.html", "views/*.html", "partials/*.html")
+	if tmplErr != nil {
+		slog.Error("Failed to pre-parse admin index templates", "error", tmplErr)
+	}
+
 	// 1. Admin Index & Assets Handler
 	adminHandler := func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/admin" {
@@ -422,11 +428,15 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			return
 		}
 		if r.URL.Path == "/admin/" || r.URL.Path == "/admin/index.html" {
-			tmpl, err := template.ParseFS(adminFS, "index.html", "views/*.html", "partials/*.html")
-			if err != nil {
-				slog.Error("Failed to parse admin index templates", "error", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
+			tmpl := adminTmpl
+			if tmpl == nil {
+				var err error
+				tmpl, err = template.ParseFS(adminFS, "index.html", "views/*.html", "partials/*.html")
+				if err != nil {
+					slog.Error("Failed to parse admin index templates", "error", err)
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
 			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			tmpl.Execute(w, struct {
