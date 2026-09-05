@@ -2,7 +2,7 @@
   "project": "ShieldDNS",
   "purpose": "High-performance DNS appliance and security gateway with integrated web administration panel.",
   "connections_map_reference": "project_connections.json (defines component linking for UI and backend files)",
-  "timestamp": "2026-09-05T22:37:21.049524",
+  "timestamp": "2026-09-05T22:50:36.547822",
   "stack": {
     "backend": "Go (embedded FS assets), SQLite (query database), CoreDNS (DNS server)",
     "frontend": "Vanilla HTML5, CSS3 (variables & flex/grid layout), Vanilla JS (ES6 modules)",
@@ -423,9 +423,6 @@
       "run.sh",
       "verify_layout.js"
     ],
-    "tools": [
-      "cloudflare_worker_template.js"
-    ],
     "admin": [
       "abuse.go",
       "abuse_test.go",
@@ -497,6 +494,23 @@
       "auth.html",
       "modals.html"
     ],
+    "admin/www/admin/assets": [
+      "cloudflare_worker_template.js",
+      "contributors.json",
+      "contributors_fallback.json",
+      "project_stats.json"
+    ],
+    "admin/www/admin/css": [
+      "base.css",
+      "components.css",
+      "layout.css",
+      "responsive.css",
+      "tables.css",
+      "ui-fixes.css",
+      "utilities.css",
+      "variables.css",
+      "widgets.css"
+    ],
     "admin/www/admin/views": [
       "about.html",
       "analytics.html",
@@ -512,9 +526,10 @@
     "admin/www/admin/js": [
       "app.js"
     ],
-    "admin/www/admin/js/services": [
-      "api.js",
-      "fetch.js"
+    "admin/www/admin/js/core": [
+      "auth.js",
+      "navigation.js",
+      "state.js"
     ],
     "admin/www/admin/js/ui": [
       "activity.js",
@@ -525,27 +540,12 @@
       "scroller.js",
       "ui.js"
     ],
-    "admin/www/admin/js/core": [
-      "auth.js",
-      "navigation.js",
-      "state.js"
+    "admin/www/admin/js/services": [
+      "api.js",
+      "fetch.js"
     ],
-    "admin/www/admin/css": [
-      "base.css",
-      "components.css",
-      "layout.css",
-      "responsive.css",
-      "tables.css",
-      "ui-fixes.css",
-      "utilities.css",
-      "variables.css",
-      "widgets.css"
-    ],
-    "admin/www/admin/assets": [
-      "cloudflare_worker_template.js",
-      "contributors.json",
-      "contributors_fallback.json",
-      "project_stats.json"
+    "tools": [
+      "cloudflare_worker_template.js"
     ]
   }
 }
