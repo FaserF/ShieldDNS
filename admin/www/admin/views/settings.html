@@ -1,4 +1,4 @@
-﻿{{define "settings"}}
+{{define "settings"}}
             <section id="settings" class="view hidden">
                 <header>
                     <h1>Settings</h1>
@@ -6,8 +6,17 @@
                 <div class="search-bar-integrated mb-4">
                     <input type="text" id="settings-search-input" placeholder="Search for settings (e.g. DNS, Security, DGA)..." autocomplete="off">
                 </div>
+
+                <div class="settings-tabs-nav" id="settings-tabs-nav">
+                    <button type="button" class="settings-tab-btn active" data-tab="all"><i class="fas fa-layer-group"></i> All</button>
+                    <button type="button" class="settings-tab-btn" data-tab="dns"><i class="fas fa-network-wired"></i> DNS & Networking</button>
+                    <button type="button" class="settings-tab-btn" data-tab="security"><i class="fas fa-shield-alt"></i> Threat Protection</button>
+                    <button type="button" class="settings-tab-btn" data-tab="system"><i class="fas fa-sliders-h"></i> System & Storage</button>
+                    <button type="button" class="settings-tab-btn" data-tab="access"><i class="fas fa-key"></i> Access & Security</button>
+                </div>
+
                 <form id="settings-form">
-                    <div class="settings-section">
+                    <div class="settings-section" data-category="dns">
                         <h2>Configuration Presets ⚙️</h2>
                         <div class="form-group">
                             <p class="help">Apply a configuration preset to populate settings values. You must click "Save Configuration" at the bottom to save the changes.</p>
@@ -20,7 +29,7 @@
                             </select>
                         </div>
                     </div>
-                    <div class="settings-section">
+                    <div class="settings-section" data-category="dns">
                         <h2>Global DNS Settings ⚙️</h2>
                         <div class="form-group checkbox-group">
                             <div class="checkbox-text">
@@ -72,7 +81,7 @@
                         </div>
                     </div>
 
-                    <div class="settings-section">
+                    <div class="settings-section" data-category="security">
                         <h2>Security & Abuse Detection 🛡️</h2>
                         <div class="form-group checkbox-group">
                             <div class="checkbox-text">
@@ -133,7 +142,7 @@
                         </div>
                     </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-category="access">
                     <h2>API Keys</h2>
                     <p class="help">Manage API keys for third-party monitoring and automation. Tokens are shown only
                         once.</p>
@@ -162,7 +171,7 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-category="access">
                     <h2>Model Context Protocol (MCP) 🤖</h2>
                     <p class="help">Enable native Model Context Protocol server for AI coding assistants and autonomous agents (e.g. Antigravity, Claude Desktop, Cursor).</p>
                     
@@ -199,7 +208,7 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-category="system">
                     <h2>Smart Networking & Maintenance</h2>
                     <div class="form-group checkbox-group">
                         <div class="checkbox-text">
@@ -301,7 +310,7 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-category="security">
                     <h2>Threat Intelligence 🛡️</h2>
                     <p class="help">Automatically block high-risk IP addresses from public threat feeds (blocklist.de).</p>
                     <div class="form-group checkbox-group" style="margin-bottom: 15px;">
@@ -327,7 +336,7 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-category="security">
                     <h2>Geo-Blocking 🌍</h2>
                     <p class="help">Block entire countries from accessing or resolving through this DNS server.</p>
                     <div class="form-group" style="position: relative;">
@@ -374,7 +383,7 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-category="security">
                     <h2>Client IP Blocking 🚫</h2>
                     <p class="help">Manually block specific client IP addresses or view automatically blocked clients.
                     </p>
@@ -467,7 +476,7 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-category="system">
                     <h2>Full System Refresh 🔄</h2>
                     <p class="help">Perform a total refresh of all system components. This will re-download all enabled
                         filter lists, reload all custom rules (IP/Geo), and restart the CoreDNS server to apply changes
@@ -483,7 +492,7 @@
 
                 </form>
 
-                <div class="settings-section">
+                <div class="settings-section" data-category="access">
                     <h2>Security 🔐</h2>
                     <form id="password-form">
                         <div class="form-group">
@@ -498,7 +507,7 @@
                     </form>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-category="access">
                     <h2>Multi-Factor Authentication (MFA) 🛡️</h2>
                     <p class="help">Add an extra layer of security to your account using TOTP (Authenticator App) or Passkeys (biometrics, security key, or device PIN).</p>
                     
@@ -559,7 +568,7 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-category="access">
                     <button id="logout-btn" class="btn danger">Logout</button>
                 </div>
 

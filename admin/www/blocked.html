@@ -18,15 +18,19 @@
         <div class="details">
             <div class="detail-item">
                 <span>Domain</span>
-                <span id="domain-name">...</span>
+                <span id="domain-name" class="font-bold">...</span>
             </div>
             <div class="detail-item">
-                <span>Reason</span>
-                <span id="block-reason">Content Filtering</span>
+                <span>Category / Reason</span>
+                <span id="block-reason"><span class="badge badge-warning">Content Filtering</span></span>
             </div>
             <div class="detail-item">
-                <span>Filter List</span>
-                <span id="filter-list">Loading...</span>
+                <span>Triggered Lists</span>
+                <span id="filter-list" class="filter-lists-wrapper">Loading...</span>
+            </div>
+            <div class="detail-item">
+                <span>Detection Type</span>
+                <span id="detection-type">DNS Filter Rule</span>
             </div>
             <div class="detail-item">
                 <span>Timestamp</span>
@@ -87,21 +91,50 @@
         fetch(`/api/block-info?domain=${encodeURIComponent(domain)}`)
             .then(r => r.json())
             .then(data => {
+                const reasonEl = document.getElementById('block-reason');
+                const listEl = document.getElementById('filter-list');
+                const detectionEl = document.getElementById('detection-type');
+
                 if (data.lists && data.lists.length > 0) {
-                    document.getElementById('filter-list').textContent = data.lists.join(', ');
-                    const firstList = data.lists[0];
-                    if (firstList.includes('Malware') || firstList.includes('Threat')) {
-                        document.getElementById('block-reason').textContent = 'Security Threat';
-                    } else if (firstList.includes('Porn') || firstList.includes('NSFW')) {
-                        document.getElementById('block-reason').textContent = 'Adult Content';
+                    listEl.innerHTML = data.lists.map(l => `<span class="list-tag">${escapeHTML(l)}</span>`).join('');
+                    
+                    const joined = data.lists.join(' ').toLowerCase();
+                    if (joined.includes('malware') || joined.includes('threat') || joined.includes('phishing') || joined.includes('ransomware') || joined.includes('c2')) {
+                        reasonEl.innerHTML = '<span class="badge badge-danger">🛡️ Malware / Security Threat</span>';
+                        detectionEl.textContent = 'High-Risk Threat Intelligence Feed';
+                    } else if (joined.includes('porn') || joined.includes('nsfw') || joined.includes('adult')) {
+                        reasonEl.innerHTML = '<span class="badge badge-warning">🔞 Adult / NSFW Content</span>';
+                        detectionEl.textContent = 'Parental / Content Filter';
+                    } else if (joined.includes('ad') || joined.includes('tracking') || joined.includes('telemetry')) {
+                        reasonEl.innerHTML = '<span class="badge badge-info">📊 Advertising & Tracker</span>';
+                        detectionEl.textContent = 'Privacy & Ad Filter';
+                    } else if (joined.includes('dga')) {
+                        reasonEl.innerHTML = '<span class="badge badge-danger">🤖 DGA Algorithm Detected</span>';
+                        detectionEl.textContent = 'Real-time Abuse Engine';
+                    } else {
+                        reasonEl.innerHTML = '<span class="badge badge-warning">🚫 Filtered Domain</span>';
+                        detectionEl.textContent = 'DNS Blocklist Rule';
                     }
                 } else {
-                    document.getElementById('filter-list').textContent = 'Custom Blocklist / Policy';
+                    listEl.innerHTML = '<span class="list-tag">Custom Policy / Wildcard Ban</span>';
+                    reasonEl.innerHTML = '<span class="badge badge-warning">Administrator Rule</span>';
+                    detectionEl.textContent = 'Manual Custom Rule';
                 }
             })
             .catch(() => {
-                document.getElementById('filter-list').textContent = 'Global Policy';
+                document.getElementById('filter-list').innerHTML = '<span class="list-tag">Global Policy</span>';
+                document.getElementById('block-reason').innerHTML = '<span class="badge badge-warning">Security Filter</span>';
             });
+
+        function escapeHTML(str) {
+            return String(str).replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag));
+        }
 
         /* ── Navigation helper ──────────────────────────────────────────── */
         function returnToSafety() {

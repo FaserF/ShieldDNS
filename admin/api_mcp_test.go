@@ -219,4 +219,32 @@ func TestMCPToolExecutionPermissions(t *testing.T) {
 	if presetsResp.Result.IsError {
 		t.Errorf("expected get_catalog_presets to succeed, got: %v", presetsResp.Result.Content)
 	}
+
+	// 6. Test get_blocked_clients
+	bcReq := bytes.NewBufferString(`{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"get_blocked_clients","arguments":{}}}`)
+	req6 := httptest.NewRequest("POST", "/api/mcp?token=mcp-secret-token", bcReq)
+	rr6 := httptest.NewRecorder()
+	handleMCP(rr6, req6)
+
+	var bcResp struct {
+		Result mcpToolResult `json:"result"`
+	}
+	json.NewDecoder(rr6.Body).Decode(&bcResp)
+	if bcResp.Result.IsError {
+		t.Errorf("expected get_blocked_clients to succeed, got: %v", bcResp.Result.Content)
+	}
+
+	// 7. Test optimize_security_profile
+	optReq := bytes.NewBufferString(`{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"optimize_security_profile","arguments":{"doh_rate_limit":60,"abuse_detection_enabled":true,"retention_days":14}}}`)
+	req7 := httptest.NewRequest("POST", "/api/mcp?token=mcp-secret-token", optReq)
+	rr7 := httptest.NewRecorder()
+	handleMCP(rr7, req7)
+
+	var optResp struct {
+		Result mcpToolResult `json:"result"`
+	}
+	json.NewDecoder(rr7.Body).Decode(&optResp)
+	if optResp.Result.IsError {
+		t.Errorf("expected optimize_security_profile to succeed, got: %v", optResp.Result.Content)
+	}
 }

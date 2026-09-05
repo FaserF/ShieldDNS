@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -1439,6 +1441,121 @@ var allMCPTools = []struct {
 				"action":    action,
 				"client_ip": clientIP,
 				"whitelist": config.AutoblockWhitelist,
+			}, nil
+		},
+	},
+	{
+		tool: mcpTool{
+			Name:        "get_blocked_clients",
+			Description: "List all currently blocked/banned client IPs with reason, timestamp, and geo country code.",
+			InputSchema: map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			},
+		},
+		requiredPerm: "read:config",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			configLock.RLock()
+			defer configLock.RUnlock()
+
+			type BlockedEntry struct {
+				IP          string    `json:"ip"`
+				Reason      string    `json:"reason"`
+				BlockedAt   time.Time `json:"blocked_at"`
+				Auto        bool      `json:"auto"`
+				CountryCode string    `json:"country_code"`
+				Alias       string    `json:"alias,omitempty"`
+			}
+
+			result := make([]BlockedEntry, 0, len(config.BlockedClients))
+			for _, ip := range config.BlockedClients {
+				info := config.BlockedClientsInfo[ip]
+				alias := config.ClientAliases[ip]
+				result = append(result, BlockedEntry{
+					IP:          ip,
+					Reason:      info.Reason,
+					BlockedAt:   info.BlockedAt,
+					Auto:        info.Auto,
+					CountryCode: info.CountryCode,
+					Alias:       alias,
+				})
+			}
+			return result, nil
+		},
+	},
+	{
+		tool: mcpTool{
+			Name:        "get_client_ip_info",
+			Description: "Look up IP geolocation, ASN, ISP, hostname, and country info for any client IP address.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"ip": map[string]interface{}{"type": "string", "description": "IP address to look up"},
+				},
+				"required": []string{"ip"},
+			},
+		},
+		requiredPerm: "read:stats",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			ip, _ := args["ip"].(string)
+			ip = strings.TrimSpace(ip)
+			if ip == "" {
+				return nil, fmt.Errorf("ip is required")
+			}
+			req, err := http.NewRequest(http.MethodGet, "/api/ip-info?ip="+url.QueryEscape(ip), nil)
+			if err != nil {
+				return nil, err
+			}
+			rr := httptest.NewRecorder()
+			handleIPInfo(rr, req)
+			if rr.Code != http.StatusOK {
+				return nil, fmt.Errorf("ip-info lookup failed: %s", rr.Body.String())
+			}
+			var info IPInfo
+			if err := json.Unmarshal(rr.Body.Bytes(), &info); err != nil {
+				return nil, err
+			}
+			return info, nil
+		},
+	},
+	{
+		tool: mcpTool{
+			Name:        "optimize_security_profile",
+			Description: "Tune DNS server protection settings: set DoH rate limits, abuse thresholds, and retention.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"doh_rate_limit":          map[string]interface{}{"type": "integer", "description": "Max queries per second per client (e.g. 30, 50)"},
+					"abuse_detection_enabled": map[string]interface{}{"type": "boolean", "description": "Enable automated abuse and DGA detection"},
+					"retention_days":          map[string]interface{}{"type": "integer", "description": "Query log retention in days (1-90)"},
+				},
+			},
+		},
+		requiredPerm: "write:config",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			configLock.Lock()
+			defer configLock.Unlock()
+
+			if rl, ok := args["doh_rate_limit"].(float64); ok && rl > 0 {
+				config.DoHRateLimit = int(rl)
+			}
+			if ad, ok := args["abuse_detection_enabled"].(bool); ok {
+				config.AbuseDetectionEnabled = ad
+			}
+			if rd, ok := args["retention_days"].(float64); ok && rd > 0 && rd <= 365 {
+				config.RetentionDays = int(rd)
+			}
+
+			if err := saveConfigNoLock(); err != nil {
+				return nil, fmt.Errorf("failed to save config: %w", err)
+			}
+
+			return map[string]interface{}{
+				"success":                 true,
+				"doh_rate_limit":          config.DoHRateLimit,
+				"abuse_detection_enabled": config.AbuseDetectionEnabled,
+				"retention_days":          config.RetentionDays,
+				"message":                 "Security profile optimized successfully",
 			}, nil
 		},
 	},

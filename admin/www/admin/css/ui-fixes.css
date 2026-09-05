@@ -420,20 +420,83 @@ a:hover {
 
 /* ── Settings Page ───────────────────────────────────────── */
 
+.settings-tabs-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    padding: 6px;
+    background: hsla(var(--hue), 24%, 100%, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow-x: auto;
+    scrollbar-width: none; /* Firefox */
+    -webkit-overflow-scrolling: touch;
+}
+
+.settings-tabs-nav::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+.settings-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.settings-tab-btn i {
+    font-size: 0.85rem;
+    opacity: 0.75;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.settings-tab-btn:hover {
+    color: var(--text-primary);
+    background: hsla(var(--hue), 24%, 100%, 0.05);
+}
+
+.settings-tab-btn.active {
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border-color: var(--border);
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3), 0 0 0 1px hsla(var(--hue), 75%, 68%, 0.15);
+}
+
+.settings-tab-btn.active i {
+    color: var(--accent);
+    opacity: 1;
+}
+
 .settings-section {
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 20px;
     padding: 32px;
     margin-bottom: 24px;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .settings-section > h2 {
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     font-weight: 700;
     margin-bottom: 20px;
     padding-bottom: 12px;
     border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .settings-section .form-group {
@@ -954,8 +1017,49 @@ a:hover {
         max-width: 100%;
     }
 
+    .settings-tabs-nav {
+        margin-bottom: 16px;
+        padding: 4px;
+        gap: 6px;
+    }
+
+    .settings-tab-btn {
+        padding: 8px 14px;
+        font-size: 0.8rem;
+    }
+
     .settings-section {
         padding: 20px 16px;
+        border-radius: 16px;
+        margin-bottom: 16px;
+    }
+
+    .settings-section > h2 {
+        font-size: 1.05rem;
+        margin-bottom: 16px;
+        padding-bottom: 10px;
+    }
+
+    .settings-section .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .settings-section .btn-group .btn {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 8px;
+    }
+
+    .blocked-clients-summary {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .blocked-clients-summary #view-blocked-clients-btn {
+        margin-left: 0 !important;
+        width: 100%;
     }
 
     .auth-box {
