@@ -79,6 +79,50 @@
                                 <span class="slider"></span>
                             </label>
                         </div>
+
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>DNS Rebinding Protection</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Optional protection against DNS rebinding attacks. When enabled, upstream responses attempting to resolve to private IP addresses (RFC 1918) are blocked. Explicit local mappings (like fritz.box or custom mappings) are always preserved. Default: OFF."></i>
+                                </div>
+                                <p class="help">Blocks upstream answers resolving to private IP ranges. <strong>Note:</strong> Custom local mappings (e.g. fritz.box, local routers) always remain reachable.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="dns-rebinding-protection-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-section" data-category="security">
+                        <h2>Privacy & Anonymization 🔒</h2>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Anonymize Client IPs (DSGVO / GDPR)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Masks client IP addresses in query logs and live feeds (/24 for IPv4, /64 for IPv6). Protects client privacy while maintaining network-level insights."></i>
+                                </div>
+                                <p class="help">Masks the last octet of IPv4 and host bits of IPv6 addresses in query logs (e.g. 192.168.1.0).</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="anonymize-client-ips-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Strip EDNS Client Subnet (ECS)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Prevents client subnet information from being forwarded to upstream DNS servers. Maximizes query anonymity towards upstreams."></i>
+                                </div>
+                                <p class="help">Strip client subnet data to prevent upstream servers from learning your network location.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="strip-ecs-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="settings-section" data-category="security">

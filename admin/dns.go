@@ -1077,14 +1077,20 @@ func parseLogLine(line string) {
 
 	configLock.RLock()
 	alias := config.ClientAliases[clientIP]
+	anonymizeIP := config.AnonymizeClientIPs
 	configLock.RUnlock()
+
+	loggedClientIP := clientIP
+	if anonymizeIP {
+		loggedClientIP = AnonymizeIP(clientIP)
+	}
 
 	q := Query{
 		Time:        time.Now(),
 		Domain:      qDomain,
 		Type:        qType,
 		Status:      status,
-		ClientIP:    clientIP,
+		ClientIP:    loggedClientIP,
 		ClientAlias: alias,
 		IsCacheHit:  isCacheHit,
 		DurationMs:  duration,

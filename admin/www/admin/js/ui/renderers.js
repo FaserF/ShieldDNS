@@ -206,6 +206,9 @@ export function renderConfig(cfg) {
 
     if (getEl('verify-upstream-tls-check')) getEl('verify-upstream-tls-check').checked = !!cfg.verify_upstream_tls;
     if (getEl('mcp-server-enabled-check')) getEl('mcp-server-enabled-check').checked = !!cfg.mcp_server_enabled;
+    if (getEl('anonymize-client-ips-check')) getEl('anonymize-client-ips-check').checked = !!cfg.anonymize_client_ips;
+    if (getEl('dns-rebinding-protection-check')) getEl('dns-rebinding-protection-check').checked = !!cfg.dns_rebinding_protection;
+    if (getEl('strip-ecs-check')) getEl('strip-ecs-check').checked = !!cfg.strip_ecs;
 
     // Dynamically calculate current server origin for MCP
     const currentOrigin = (cfg && cfg.admin_domain) ? `https://${cfg.admin_domain}` : (window.location.origin || 'https://shielddns.local');

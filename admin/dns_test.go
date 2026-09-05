@@ -340,3 +340,60 @@ func TestUpdateCorefileTemplate(t *testing.T) {
 		}
 	}
 }
+
+func TestAnonymizeIP(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"192.168.1.55", "192.168.1.0"},
+		{"10.0.0.123", "10.0.0.0"},
+		{"8.8.8.8", "8.8.8.0"},
+		{"2001:db8:abcd:0012:0000:0000:0000:0001", "2001:db8:abcd:12::"},
+		{"DoH Proxy", "DoH Proxy"},
+		{"localhost", "localhost"},
+		{"", ""},
+		{"not-an-ip", "not-an-ip"},
+	}
+
+	for _, tt := range tests {
+		res := AnonymizeIP(tt.input)
+		if res != tt.expected {
+			t.Errorf("AnonymizeIP(%q) = %q, expected %q", tt.input, res, tt.expected)
+		}
+	}
+}
+
+func TestParseLogLine_AnonymizedIP(t *testing.T) {
+	oldConfig := config.Clone()
+	defer func() {
+		configLock.Lock()
+		config = *oldConfig
+		configLock.Unlock()
+	}()
+
+	configLock.Lock()
+	config.AnonymizeClientIPs = true
+	configLock.Unlock()
+
+	bufferLock.Lock()
+	logBuffer = nil
+	bufferLock.Unlock()
+
+	recentQueriesLock.Lock()
+	recentQueries = make(map[string]querySignature)
+	recentQueriesLock.Unlock()
+
+	parseLogLine(`192.168.1.77:54321 A privacy-test.org. NOERROR qr,rd,ra 0.002s "TestBrowser" "192.168.1.77"`)
+
+	bufferLock.Lock()
+	defer bufferLock.Unlock()
+
+	if len(logBuffer) != 1 {
+		t.Fatalf("Expected 1 query in logBuffer, got %d", len(logBuffer))
+	}
+
+	if logBuffer[0].ClientIP != "192.168.1.0" {
+		t.Errorf("Expected masked IP 192.168.1.0, got %s", logBuffer[0].ClientIP)
+	}
+}

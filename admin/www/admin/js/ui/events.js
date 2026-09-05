@@ -1408,7 +1408,10 @@ export async function saveConfig(fetchConfig) {
         server_country: getEl('manual-server-country-select')?.value || '',
         update_channel: getEl('update-channel')?.value || 'stable',
         auto_update_enabled: getEl('auto-update-enabled')?.checked,
-        auto_update_hour: parseInt(getEl('auto-update-hour')?.value) !== undefined ? parseInt(getEl('auto-update-hour')?.value) : 3
+        auto_update_hour: parseInt(getEl('auto-update-hour')?.value) !== undefined ? parseInt(getEl('auto-update-hour')?.value) : 3,
+        anonymize_client_ips: getEl('anonymize-client-ips-check')?.checked,
+        dns_rebinding_protection: getEl('dns-rebinding-protection-check')?.checked,
+        strip_ecs: getEl('strip-ecs-check')?.checked
     };
 
     try {

@@ -74,6 +74,9 @@ func loadConfig() {
 		AutoUpdateHour:             3,
 		UpdateChannel:              "stable",
 		MCPServerEnabled:           false,
+		AnonymizeClientIPs:         false,
+		DNSRebindingProtection:     false,
+		StripECS:                   false,
 	}
 
 	isNew := false
