@@ -186,7 +186,20 @@ export function renderConfig(cfg) {
 
     if (getEl('prefer-encrypted-check')) getEl('prefer-encrypted-check').checked = !!cfg.prefer_encrypted;
     if (getEl('debug-mode-check')) getEl('debug-mode-check').checked = !!cfg.debug_mode;
-    if (getEl('sign-mobileconfig-check')) getEl('sign-mobileconfig-check').checked = !!cfg.sign_mobileconfig;
+    if (getEl('sign-mobileconfig-check')) {
+        const signEl = getEl('sign-mobileconfig-check');
+        const signHint = getEl('sign-mobileconfig-private-hint');
+        const isPurePrivate = cfg.cluster_instance_type === 'private';
+        if (isPurePrivate) {
+            signEl.checked = false;
+            signEl.disabled = true;
+            if (signHint) signHint.style.display = 'inline';
+        } else {
+            signEl.disabled = false;
+            signEl.checked = !!cfg.sign_mobileconfig;
+            if (signHint) signHint.style.display = 'none';
+        }
+    }
     if (getEl('abuse-detection-check')) getEl('abuse-detection-check').checked = !!cfg.abuse_detection_enabled;
     if (getEl('dnssec-check')) getEl('dnssec-check').checked = !!cfg.dnssec_enabled;
     if (getEl('serve-stale-check')) getEl('serve-stale-check').checked = !!cfg.serve_stale;
@@ -1012,3 +1025,91 @@ export function renderAboutData(stats, contributors) {
         }
     }
 }
+
+export function renderClusterStatus(cluster) {
+    if (!cluster) return;
+
+    // Role & profile selects
+    const roleSelect = getEl('cluster-role-select');
+    if (roleSelect && cluster.role) roleSelect.value = cluster.role;
+
+    const instSelect = getEl('cluster-inst-type-select');
+    if (instSelect && cluster.instance_type) instSelect.value = cluster.instance_type;
+
+    // Panels visibility
+    const primaryPanel = getEl('cluster-primary-panel');
+    const replicaPanel = getEl('cluster-replica-panel');
+    const warningBanner = getEl('cluster-warning-banner');
+
+    if (primaryPanel) primaryPanel.classList.toggle('hidden', cluster.role !== 'primary');
+    if (replicaPanel) replicaPanel.classList.toggle('hidden', cluster.role !== 'replica');
+
+    // Warning banner for replica disconnected from primary
+    if (warningBanner) {
+        if (cluster.role === 'replica' && cluster.connection_lost) {
+            warningBanner.classList.remove('hidden');
+            const msgEl = getEl('cluster-warning-msg');
+            if (msgEl) {
+                msgEl.textContent = cluster.last_sync_error 
+                    ? `Error: ${cluster.last_sync_error}. Using cached settings and offline credentials.`
+                    : 'Primary node unreachable. Using cached settings and offline credentials.';
+            }
+        } else {
+            warningBanner.classList.add('hidden');
+        }
+    }
+
+    // Populate Replica settings
+    if (cluster.role === 'replica') {
+        const urlInput = getEl('cluster-primary-url-input');
+        if (urlInput && cluster.primary_url) urlInput.value = cluster.primary_url;
+
+        const failoverCheck = getEl('cluster-failover-check');
+        if (failoverCheck) failoverCheck.checked = !!cluster.failover_mode;
+
+        const syncSelect = getEl('cluster-sync-interval');
+        if (syncSelect) syncSelect.value = String(cluster.sync_interval || 0);
+
+        const statusText = getEl('cluster-sync-status');
+        if (statusText) {
+            if (cluster.last_sync && cluster.last_sync !== '0001-01-01T00:00:00Z') {
+                const date = new Date(cluster.last_sync);
+                statusText.textContent = `Last sync: ${date.toLocaleTimeString()} ${date.toLocaleDateString()}`;
+            } else {
+                statusText.textContent = 'Not yet synced';
+            }
+        }
+    }
+
+    // Populate Primary replicas list
+    if (cluster.role === 'primary') {
+        const listContainer = getEl('cluster-replicas-list');
+        if (listContainer) {
+            const reps = cluster.replicas || [];
+            if (reps.length === 0) {
+                listContainer.innerHTML = '<div class="help">No replicas connected yet.</div>';
+            } else {
+                listContainer.innerHTML = reps.map(rep => {
+                    const lastSeen = rep.last_seen ? new Date(rep.last_seen).toLocaleString() : 'Never';
+                    const isOnline = rep.last_seen && (Date.now() - new Date(rep.last_seen).getTime() < 10 * 60 * 1000);
+                    return `
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--card-bg); border:1px solid var(--border); border-radius:6px; margin-bottom:8px;">
+                            <div>
+                                <div style="font-weight:600; display:flex; align-items:center; gap:8px;">
+                                    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${isOnline ? '#22c55e' : '#eab308'};"></span>
+                                    ${helpers.escapeHTML(rep.name)}
+                                    <span style="font-size:0.75rem; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.06); text-transform:uppercase;">${rep.instance_type}</span>
+                                </div>
+                                <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
+                                    ${helpers.escapeHTML(rep.url || 'No URL')} &bull; Last seen: ${lastSeen}
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm danger" onclick="window.revokeClusterReplica('${rep.id}')">Revoke</button>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+    }
+}
+

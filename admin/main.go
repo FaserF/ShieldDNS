@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -62,6 +63,58 @@ func main() {
 	// Ensure Corefile is generated with correct settings before starting CoreDNS
 	updateCorefile()
 	initWebAuthn()
+
+	// If configured as replica with sync interval or on startup, trigger initial sync in background
+	go func() {
+		time.Sleep(3 * time.Second) // wait for local server to be ready
+		configLock.RLock()
+		role := config.ClusterRole
+		pURL := config.ClusterPrimaryURL
+		pTok := config.ClusterPrimaryToken
+		iType := config.ClusterInstanceType
+		failover := config.ClusterFailoverMode
+		interval := config.ClusterSyncInterval
+		configLock.RUnlock()
+
+		if role == "replica" && pURL != "" && pTok != "" {
+			slog.Info("Cluster replica: starting background sync with Primary", "primary", pURL)
+			if err := performReplicaSync(pURL, pTok, iType, failover); err != nil {
+				atomic.StoreInt32(&clusterConnLost, 1)
+				clusterLastSyncError = err.Error()
+				slog.Warn("Cluster replica initial sync failed: continuing with cached configuration", "error", err)
+			} else {
+				atomic.StoreInt32(&clusterConnLost, 0)
+				clusterLastSyncError = ""
+				slog.Info("Cluster replica initial sync succeeded")
+			}
+
+			// Periodic sync if interval configured (> 0 minutes)
+			if interval > 0 {
+				ticker := time.NewTicker(time.Duration(interval) * time.Minute)
+				for range ticker.C {
+					configLock.RLock()
+					currRole := config.ClusterRole
+					currPURL := config.ClusterPrimaryURL
+					currPTok := config.ClusterPrimaryToken
+					currIType := config.ClusterInstanceType
+					currFailover := config.ClusterFailoverMode
+					configLock.RUnlock()
+
+					if currRole != "replica" || currPURL == "" {
+						break
+					}
+					if err := performReplicaSync(currPURL, currPTok, currIType, currFailover); err != nil {
+						atomic.StoreInt32(&clusterConnLost, 1)
+						clusterLastSyncError = err.Error()
+						slog.Warn("Cluster periodic sync failed", "error", err)
+					} else {
+						atomic.StoreInt32(&clusterConnLost, 0)
+						clusterLastSyncError = ""
+					}
+				}
+			}
+		}
+	}()
 
 	mux := setupRouter()
 
@@ -334,6 +387,17 @@ func setupRouter() *http.ServeMux {
 	mux.Handle("/api/tokens/update", authMiddleware(http.HandlerFunc(handleUpdateToken)))
 	mux.Handle("/api/tokens/delete", authMiddleware(http.HandlerFunc(handleDeleteToken)))
 
+	// Cluster & Federation API
+	mux.Handle("/api/cluster/status", authMiddleware(http.HandlerFunc(handleClusterStatus)))
+	mux.HandleFunc("/api/cluster/connection-status", handleClusterConnectionStatus)
+	mux.HandleFunc("/api/cluster/join", handleClusterJoin)
+	mux.Handle("/api/cluster/sync", authMiddleware(http.HandlerFunc(handleClusterSync)))
+	mux.Handle("/api/cluster/leave", authMiddleware(http.HandlerFunc(handleClusterLeave)))
+	mux.Handle("/api/cluster/settings", authMiddleware(http.HandlerFunc(handleClusterUpdateSettings)))
+	mux.HandleFunc("/api/cluster/replicas/register", handleClusterRegisterReplica)
+	mux.HandleFunc("/api/cluster/replicas/sync", handleClusterGetReplicaConfig)
+	mux.Handle("/api/cluster/replicas/revoke", authMiddleware(http.HandlerFunc(handleClusterRevokeReplica)))
+
 	// MCP (Model Context Protocol) API
 	mux.HandleFunc("/api/mcp", handleMCP)
 
@@ -583,7 +647,12 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			stripECS := config.StripECS
 			dnsRebinding := config.DNSRebindingProtection
 			filteringEnabled := config.FilteringEnabled
+			clusterRole := config.ClusterRole
+			clusterInstType := config.ClusterInstanceType
 			configLock.RUnlock()
+
+			isPrivate := clusterInstType == "private"
+			isHybrid := clusterInstType == "hybrid"
 
 			w.Header().Set("Content-Type", "text/html")
 			tmpl.Execute(w, struct {
@@ -597,9 +666,13 @@ func setupStaticHandlers(mux *http.ServeMux) {
 				StripECS          bool
 				DNSRebinding      bool
 				FilteringEnabled  bool
+				ClusterRole       string
+				InstanceType      string
+				IsPrivate         bool
+				IsHybrid          bool
 			}{
 				Host:              host,
-				SignEnabled:       signEnabled,
+				SignEnabled:       signEnabled && !isPrivate,
 				FullVersion:       FullVersion,
 				CacheVersion:      CacheVersion,
 				RetentionDays:     retentionDays,
@@ -608,6 +681,10 @@ func setupStaticHandlers(mux *http.ServeMux) {
 				StripECS:          stripECS,
 				DNSRebinding:      dnsRebinding,
 				FilteringEnabled:  filteringEnabled,
+				ClusterRole:       clusterRole,
+				InstanceType:      clusterInstType,
+				IsPrivate:         isPrivate,
+				IsHybrid:          isHybrid,
 			})
 			return
 		}

@@ -77,6 +77,13 @@ func loadConfig() {
 		AnonymizeClientIPs:         false,
 		DNSRebindingProtection:     false,
 		StripECS:                   false,
+		ClusterRole:                "standalone",
+		ClusterInstanceType:        "private",
+		ClusterPrimaryURL:          "",
+		ClusterPrimaryToken:        "",
+		ClusterSyncInterval:        0,
+		ClusterFailoverMode:        false,
+		ClusterReplicas:            []ClusterReplica{},
 	}
 
 	isNew := false
@@ -105,6 +112,15 @@ func loadConfig() {
 		}
 		if config.UpdateChannel == "" {
 			config.UpdateChannel = "stable"
+		}
+		if config.ClusterRole == "" {
+			config.ClusterRole = "standalone"
+		}
+		if config.ClusterInstanceType == "" {
+			config.ClusterInstanceType = "private"
+		}
+		if config.ClusterReplicas == nil {
+			config.ClusterReplicas = []ClusterReplica{}
 		}
 	} else {
 		isNew = true
@@ -1095,3 +1111,72 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 
 	return time.Time{}
 }
+
+// buildClusterConfigExport generates an export tailored for a replica, considering instance type.
+func buildClusterConfigExport(replicaType string, primaryURL string, failoverMode bool) ClusterConfigExport {
+	configLock.RLock()
+	defer configLock.RUnlock()
+
+	exp := ClusterConfigExport{
+		PrimaryURL:                 primaryURL,
+		AdminPasswordHashed:        config.AdminPasswordHashed,
+		FilteringEnabled:           config.FilteringEnabled,
+		Lists:                      make([]List, len(config.Lists)),
+		Allowlists:                 make([]List, len(config.Allowlists)),
+		CustomBlocked:              append([]string{}, config.CustomBlocked...),
+		CustomAllowed:              append([]string{}, config.CustomAllowed...),
+		CustomMappings:             make(map[string]string),
+		AutoblockWhitelist:         append([]string{}, config.AutoblockWhitelist...),
+		BlockedCountries:           append([]string{}, config.BlockedCountries...),
+		SmartSelectionPolicy:       config.SmartSelectionPolicy,
+		ServeStale:                 config.ServeStale,
+		DNSSECEnabled:              config.DNSSECEnabled,
+		AbuseDetectionEnabled:      config.AbuseDetectionEnabled,
+		AbuseDGAThreshold:          config.AbuseDGAThreshold,
+		AbuseDGAMinLen:             config.AbuseDGAMinLen,
+		MaliciousIPBlockingEnabled: config.MaliciousIPBlockingEnabled,
+		MaliciousIPInterval:        config.MaliciousIPInterval,
+		VerifyUpstreamTLS:          config.VerifyUpstreamTLS,
+		PreferEncrypted:            config.PreferEncrypted,
+		Upstreams:                  append([]string{}, config.Upstreams...),
+		UpstreamDoT:                append([]string{}, config.UpstreamDoT...),
+		DoHRateLimit:               config.DoHRateLimit,
+		DNSRebindingProtection:     config.DNSRebindingProtection,
+		StripECS:                   config.StripECS,
+		Timestamp:                  time.Now().UTC(),
+	}
+
+	copy(exp.Lists, config.Lists)
+	copy(exp.Allowlists, config.Allowlists)
+	for k, v := range config.CustomMappings {
+		exp.CustomMappings[k] = v
+	}
+
+	// Instance-type specific optimizations
+	if replicaType == "public" {
+		// Public nodes: stricter rate limits, always enforce malicious IP blocking and DGA detection
+		if exp.DoHRateLimit == 0 || exp.DoHRateLimit > 60 {
+			exp.DoHRateLimit = 60
+		}
+		exp.MaliciousIPBlockingEnabled = true
+		exp.AbuseDetectionEnabled = true
+		exp.DNSRebindingProtection = false // Usually not applicable/helpful for public resolvers
+	} else if replicaType == "hybrid" {
+		// Hybrid nodes: accessible publicly but also used as LAN/VPN resolver
+		if exp.DoHRateLimit == 0 || exp.DoHRateLimit < 120 {
+			exp.DoHRateLimit = 120
+		}
+		exp.MaliciousIPBlockingEnabled = true
+		exp.AbuseDetectionEnabled = true
+		exp.DNSRebindingProtection = false // Allow resolving external & internal domains without rejection
+	} else {
+		// Private (LAN) nodes: higher rate limit headroom, rebinding protection enabled
+		if exp.DoHRateLimit < 200 {
+			exp.DoHRateLimit = 200
+		}
+		exp.DNSRebindingProtection = true
+	}
+
+	return exp
+}
+

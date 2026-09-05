@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
@@ -342,14 +343,62 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct{ Password string }
+	var req struct {
+		Mode         string `json:"mode"` // "standalone", "primary", "replica"
+		Password     string `json:"password"`
+		InstanceType string `json:"instance_type"` // "private" or "public"
+		PrimaryURL   string `json:"primary_url"`
+		APIToken     string `json:"api_token"`
+		FailoverMode bool   `json:"failover_mode"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
+	if req.InstanceType != "public" && req.InstanceType != "private" && req.InstanceType != "hybrid" {
+		req.InstanceType = "private"
+	}
+	config.ClusterInstanceType = req.InstanceType
+
+	if req.Mode == "replica" {
+		if req.PrimaryURL == "" || req.APIToken == "" {
+			http.Error(w, "Primary URL and API Token are required for replica setup", http.StatusBadRequest)
+			return
+		}
+		// Temporarily unlock configLock to call join logic
+		configLock.Unlock()
+		joinReq, _ := json.Marshal(map[string]interface{}{
+			"primary_url":   req.PrimaryURL,
+			"api_token":     req.APIToken,
+			"instance_type": req.InstanceType,
+			"failover_mode": req.FailoverMode,
+			"name":          "Secondary Node",
+		})
+		joinHTTPReq, _ := http.NewRequest(http.MethodPost, "/api/cluster/join", bytes.NewReader(joinReq))
+		joinHTTPReq.RemoteAddr = r.RemoteAddr
+		joinRec := &bufferedResponseWriter{header: make(http.Header), body: new(bytes.Buffer)}
+		handleClusterJoin(joinRec, joinHTTPReq)
+		configLock.Lock()
+
+		if joinRec.code != 0 && joinRec.code != http.StatusOK {
+			http.Error(w, "Failed to connect to Primary: "+joinRec.body.String(), joinRec.code)
+			return
+		}
+
+		slog.Info("Cluster replica setup completed", "primary", req.PrimaryURL)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"mode":    "replica",
+			"message": "Connected to Primary node. You can log in using your Primary admin password.",
+		})
+		return
+	}
+
+	// Standalone or Primary mode requires password
 	if len(req.Password) < 12 {
-		http.Error(w, "Password too short", http.StatusBadRequest)
+		http.Error(w, "Password too short (minimum 12 characters)", http.StatusBadRequest)
 		return
 	}
 
@@ -359,16 +408,33 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	config.AdminPasswordHashed = string(hash)
+	config.SetupDone = true
+	if req.Mode == "primary" {
+		config.ClusterRole = "primary"
+	} else {
+		config.ClusterRole = "standalone"
+	}
+
 	if err := saveConfigNoLock(); err != nil {
 		slog.Error("Failed to save config in handleSetup", "error", err)
 		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
 		return
 	}
-	slog.Info("Admin setup completed", "ip", strings.Split(r.RemoteAddr, ":")[0])
+	slog.Info("Admin setup completed", "ip", strings.Split(r.RemoteAddr, ":")[0], "role", config.ClusterRole, "instance_type", config.ClusterInstanceType)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
+
+type bufferedResponseWriter struct {
+	header http.Header
+	body   *bytes.Buffer
+	code   int
+}
+
+func (b *bufferedResponseWriter) Header() http.Header         { return b.header }
+func (b *bufferedResponseWriter) Write(p []byte) (int, error) { return b.body.Write(p) }
+func (b *bufferedResponseWriter) WriteHeader(statusCode int)  { b.code = statusCode }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	ip := getClientIP(r)

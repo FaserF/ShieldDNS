@@ -158,6 +158,54 @@ export async function handlePasskeyLogin(evt) {
 /**
  * Setup Wizard
  */
+export function toggleSetupMode(mode) {
+    const pwdSection = getEl('setup-password-section');
+    const replicaSection = getEl('setup-replica-section');
+    if (mode === 'replica') {
+        pwdSection?.classList.add('hidden');
+        replicaSection?.classList.remove('hidden');
+    } else {
+        replicaSection?.classList.add('hidden');
+        pwdSection?.classList.remove('hidden');
+    }
+}
+window.toggleSetupMode = toggleSetupMode;
+
+export async function joinClusterSetup() {
+    const primaryURL = getEl('setup-primary-url')?.value?.trim();
+    const apiToken = getEl('setup-primary-token')?.value?.trim();
+    const instType = getEl('setup-instance-type')?.value || 'private';
+    const failover = getEl('setup-replica-failover')?.checked ?? true;
+
+    if (!primaryURL || !apiToken) {
+        helpers.showAlert('Please provide both Primary URL and an API Token.');
+        return;
+    }
+
+    const btn = getEl('setup-join-cluster-btn');
+    helpers.setBtnLoading(btn, true, 'Connecting to Primary...');
+
+    try {
+        const res = await api.apiFetch(api.endpoints.setup, {
+            method: 'POST',
+            body: JSON.stringify({
+                mode: 'replica',
+                primary_url: primaryURL,
+                api_token: apiToken,
+                instance_type: instType,
+                failover_mode: failover
+            })
+        });
+
+        await helpers.showAlert(res.message || 'Successfully connected to Primary Node! You can now log in using the Primary admin password.', 'Cluster Connected');
+        window.location.reload();
+    } catch (err) {
+        helpers.showAlert('Connection to Primary failed: ' + err.message);
+    } finally {
+        helpers.setBtnLoading(btn, false);
+    }
+}
+
 export async function nextSetupStep(step) {
     document.querySelectorAll('.setup-pane').forEach(p => p.classList.add('hidden'));
     const targetPane = document.getElementById(`setup-pane-${step}`);

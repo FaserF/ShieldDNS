@@ -1,4 +1,4 @@
-﻿{{define "auth-overlay"}}
+{{define "auth-overlay"}}
     <div id="auth-overlay" class="modal hidden">
         <div class="modal-content auth-box">
             <div id="setup-view" class="hidden">
@@ -14,15 +14,68 @@
                 </div>
 
                 <div id="setup-pane-1" class="setup-pane">
-                    <h2>Step 1: Admin Password</h2>
-                    <p>Set a strong password to protect your dashboard. (Min 12 characters)</p>
-                    <div class="form-group">
-                        <input type="password" id="setup-password" placeholder="New Password" minlength="12">
+                    <h2>Step 1: Role & Security</h2>
+                    <p>Choose how this ShieldDNS instance will operate.</p>
+                    
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">Instance Mode</label>
+                        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                            <label style="flex: 1; border: 1px solid var(--border); padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: var(--card-bg);">
+                                <input type="radio" name="setup-mode" value="standalone" checked onchange="toggleSetupMode(this.value)">
+                                <div>
+                                    <strong>Primary / Standalone</strong>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Main DNS server with local management</div>
+                                </div>
+                            </label>
+                            <label style="flex: 1; border: 1px solid var(--border); padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: var(--card-bg);">
+                                <input type="radio" name="setup-mode" value="replica" onchange="toggleSetupMode(this.value)">
+                                <div>
+                                    <strong>Secondary (Replica)</strong>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Connects to existing Primary via Token</div>
+                                </div>
+                            </label>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <input type="password" id="setup-confirm" placeholder="Confirm Password">
+
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">Deployment Environment</label>
+                        <select id="setup-instance-type" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                            <option value="private" selected>Private / Local Network (LAN / Internal Appliance)</option>
+                            <option value="public">Public Internet Node (Dedicated Server, Cloud VPS, Mobile DoH/DoT)</option>
+                            <option value="hybrid">Hybrid Node (External Gateway &amp; Local/VPN Resolver with Failover)</option>
+                        </select>
+                        <p class="help" style="font-size: 0.8rem; margin-top: 4px; color: var(--text-secondary);">Optimizes rate limits, TLS/profile signing, and security policies automatically.</p>
                     </div>
-                    <button type="button" class="btn primary full-width" onclick="nextSetupStep(2)">Next Step</button>
+
+                    <!-- Mode: Standalone/Primary Password fields -->
+                    <div id="setup-password-section">
+                        <p>Set a strong password for this dashboard. (Min 12 characters)</p>
+                        <div class="form-group">
+                            <input type="password" id="setup-password" placeholder="New Password" minlength="12">
+                        </div>
+                        <div class="form-group">
+                            <input type="password" id="setup-confirm" placeholder="Confirm Password">
+                        </div>
+                        <button type="button" class="btn primary full-width" onclick="nextSetupStep(2)">Next Step</button>
+                    </div>
+
+                    <!-- Mode: Replica Join fields -->
+                    <div id="setup-replica-section" class="hidden">
+                        <div class="form-group">
+                            <label>Primary ShieldDNS URL</label>
+                            <input type="url" id="setup-primary-url" placeholder="https://dns.yourdomain.com:8443">
+                            <p class="help">URL or IP of your Primary ShieldDNS instance.</p>
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="setup-primary-token" placeholder="Primary API Token">
+                            <p class="help">Create an API token in Settings -> API Tokens on the Primary instance.</p>
+                        </div>
+                        <div class="form-group checkbox-group" style="margin-bottom: 15px;">
+                            <input type="checkbox" id="setup-replica-failover" checked>
+                            <label for="setup-replica-failover">Use Primary as upstream DNS (Failover resolver)</label>
+                        </div>
+                        <button type="button" class="btn primary full-width" id="setup-join-cluster-btn">Connect to Primary Node</button>
+                    </div>
                 </div>
 
                 <div id="setup-pane-2" class="setup-pane hidden">

@@ -13,6 +13,7 @@
                     <button type="button" class="settings-tab-btn" data-tab="security"><i class="fas fa-shield-alt"></i> Threat Protection</button>
                     <button type="button" class="settings-tab-btn" data-tab="system"><i class="fas fa-sliders-h"></i> System & Storage</button>
                     <button type="button" class="settings-tab-btn" data-tab="access"><i class="fas fa-key"></i> Access & Security</button>
+                    <button type="button" class="settings-tab-btn" data-tab="cluster"><i class="fas fa-network-wired"></i> Cluster & Multi-Node</button>
                 </div>
 
                 <form id="settings-form">
@@ -134,7 +135,7 @@
                                     <i class="fas fa-info-circle info-icon" data-tooltip="Uses your server SSL certificate to cryptographically sign generated profiles. This prevents the 'Not Verified' warning on iOS devices."></i>
                                 </div>
                                 <p class="help">Use the server's SSL certificate to sign generated profiles for a "Verified"
-                                    status on iOS.</p>
+                                    status on iOS. <span id="sign-mobileconfig-private-hint" style="color: var(--warning, #eab308); display: none;"><br><i class="fas fa-info-circle"></i> In pure <strong>Private LAN Mode</strong>, Apple profiles cannot be signed with public SSL certificates. Switch to <strong>Hybrid</strong> or <strong>Public</strong> mode if using a public domain.</span></p>
                             </div>
                             <label class="switch">
                                 <input type="checkbox" id="sign-mobileconfig-check">
@@ -608,6 +609,78 @@
                             <div style="margin-top: 35px; padding-top: 15px; border-top: 1px solid var(--border);">
                                 <button type="button" id="mfa-disable-all-btn" class="btn btn-sm danger">Disable All MFA</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section" data-category="cluster" id="cluster-settings-section">
+                    <h2>Cluster & Federation 🌐</h2>
+                    <p class="help">Synchronize configuration across multiple ShieldDNS instances (e.g. primary cloud resolver + secondary local network appliance with failover).</p>
+
+                    <!-- Offline Warning Alert -->
+                    <div id="cluster-warning-banner" class="hidden" style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+                        <i class="fas fa-exclamation-triangle" style="color: var(--danger); font-size: 1.2rem;"></i>
+                        <div>
+                            <strong style="color: var(--danger);">Connection to Primary Node Lost</strong>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary);" id="cluster-warning-msg">Last known configuration and cached admin credentials remain active as fallback.</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cluster Role</label>
+                        <select id="cluster-role-select" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                            <option value="standalone">Standalone (Single Server)</option>
+                            <option value="primary">Primary (Central Configuration Master)</option>
+                            <option value="replica">Secondary / Replica (Synchronized with Primary)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Environment Profile</label>
+                        <select id="cluster-inst-type-select" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                            <option value="private">Private / Local Network (LAN appliance, higher rate headroom, local rebinding protection)</option>
+                            <option value="public">Public Internet Node (Cloud server / VPS, strict rate limits, aggressive threat blocking, full mobile profiles)</option>
+                            <option value="hybrid">Hybrid Node (External node handling public DoH/DoT queries and acting as high-availability failover for local networks)</option>
+                        </select>
+                    </div>
+
+                    <!-- Primary Node View: Replicas list & connect instructions -->
+                    <div id="cluster-primary-panel" class="hidden" style="margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px;">
+                        <h3>Connected Replicas</h3>
+                        <p class="help">To connect a secondary instance, create an API Token under "Access & Security" with admin permissions and enter it in the replica's setup or cluster settings.</p>
+                        <div id="cluster-replicas-list" style="margin-top: 12px;">
+                            <div class="help">No replicas connected yet.</div>
+                        </div>
+                    </div>
+
+                    <!-- Replica Node View: Primary URL, Sync button & Status -->
+                    <div id="cluster-replica-panel" class="hidden" style="margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px;">
+                        <h3>Primary Server Connection</h3>
+                        <div class="form-group">
+                            <label>Primary ShieldDNS URL</label>
+                            <input type="text" id="cluster-primary-url-input" placeholder="https://dns.example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Primary API Token</label>
+                            <input type="password" id="cluster-primary-token-input" placeholder="Leave empty to keep existing token">
+                        </div>
+                        <div class="form-group checkbox-group" style="margin-bottom: 12px;">
+                            <input type="checkbox" id="cluster-failover-check">
+                            <label for="cluster-failover-check">Use Primary as Upstream DNS Resolver (Failover Resolver)</label>
+                        </div>
+                        <div class="form-group">
+                            <label>Automatic Sync Interval</label>
+                            <select id="cluster-sync-interval" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                                <option value="0">Manual Only (Only when requested via button or on startup)</option>
+                                <option value="60">Every 1 Hour</option>
+                                <option value="360">Every 6 Hours</option>
+                                <option value="1440">Daily (24 Hours)</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
+                            <button type="button" class="btn primary" id="cluster-manual-sync-btn"><i class="fas fa-sync-alt"></i> Sync Now from Primary</button>
+                            <button type="button" class="btn secondary" id="cluster-leave-btn">Disconnect from Cluster</button>
+                            <span id="cluster-sync-status" class="help" style="margin-left: 10px;"></span>
                         </div>
                     </div>
                 </div>

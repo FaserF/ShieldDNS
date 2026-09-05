@@ -18,11 +18,70 @@
             </a>
         </div>
         <h1><a href="https://github.com/FaserF/ShieldDNS" target="_blank" style="text-decoration:none; color:inherit;">ShieldDNS</a></h1>
-        <p>Advanced DNS filtering for a safer, faster, and cleaner web experience.</p>
+        <p>
+            {{if .IsPrivate}}
+                Local Network DNS Resolver &amp; Security Gateway (Private LAN Mode)
+            {{else if .IsHybrid}}
+                Hybrid DNS Protection Gateway (Private LAN &amp; Public Remote DNS)
+            {{else}}
+                Advanced DNS filtering for a safer, faster, and cleaner web experience.
+            {{end}}
+        </p>
 
+        {{if or .IsPrivate .IsHybrid}}
+        <!-- Router Setup Guide for Local Network Mode -->
+        <div class="setup-section" style="border-left: 4px solid var(--accent, #3b82f6);">
+            <h2 style="display: flex; align-items: center; gap: 8px;">
+                <svg style="width:20px; height:20px; fill:currentColor;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                Router Configuration (Local Network)
+            </h2>
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px;">
+                Configure the IP address of this ShieldDNS server as your router's primary DNS resolver to protect all network devices automatically without client-side software.
+            </p>
+
+            <div style="background: rgba(0,0,0,0.2); padding: 12px 16px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 14px;">
+                <strong style="color: var(--text-primary); font-size: 0.95rem;">Recommended DNS Server for your LAN:</strong>
+                <div class="hostname-box" style="margin-top: 8px;">
+                    <span id="router-ip-text">{{.Host}}</span>
+                    <button class="copy-btn" data-copy="{{.Host}}" title="Copy">
+                        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                        <span>Copy</span>
+                    </button>
+                </div>
+            </div>
+
+            <details style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border);">
+                <summary style="cursor: pointer; font-weight: 600; color: var(--text-primary);">
+                    FRITZ!Box Instructions &rarr;
+                </summary>
+                <ol style="font-size: 0.85rem; color: var(--text-secondary); margin: 10px 0 0 16px; line-height: 1.6;">
+                    <li>Open <a href="http://fritz.box" target="_blank" style="color:var(--accent);">http://fritz.box</a> in your web browser.</li>
+                    <li>Navigate to <strong>Internet &rarr; Account Information &rarr; DNS Server</strong>.</li>
+                    <li>Select <em>"Use other DNSv4 servers"</em> and enter <code>{{.Host}}</code> under <strong>Preferred DNSv4 server</strong>.</li>
+                    <li>(Optional) For local DHCP broadcast: Under <strong>Home Network &rarr; Network &rarr; Network Settings &rarr; IPv4 Addresses</strong>, set the IP as the local DNS server as well.</li>
+                    <li>Click <strong>Apply</strong>.</li>
+                </ol>
+            </details>
+
+            <details style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border);">
+                <summary style="cursor: pointer; font-weight: 600; color: var(--text-primary);">
+                    OpenWrt Instructions &rarr;
+                </summary>
+                <ol style="font-size: 0.85rem; color: var(--text-secondary); margin: 10px 0 0 16px; line-height: 1.6;">
+                    <li>Log in to LuCI web interface (e.g. <a href="http://192.168.1.1" target="_blank" style="color:var(--accent);">http://192.168.1.1</a>).</li>
+                    <li>Navigate to <strong>Network &rarr; Interfaces &rarr; WAN</strong> and click <strong>Edit</strong>.</li>
+                    <li>Under <strong>Advanced Settings</strong>, uncheck <em>"Use DNS servers advertised by peer"</em>.</li>
+                    <li>Enter <code>{{.Host}}</code> in the <strong>Custom DNS servers</strong> input and click <strong>Save &amp; Apply</strong>.</li>
+                    <li>Or via SSH: <code>uci set network.wan.peerdns=0 &amp;&amp; uci add_list network.wan.dns='{{.Host}}' &amp;&amp; uci commit network &amp;&amp; /etc/init.d/network restart</code></li>
+                </ol>
+            </details>
+        </div>
+        {{end}}
+
+        {{if not .IsPrivate}}
         <div class="setup-section">
             <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                Mobile Setup
+                Mobile Setup (DoH / DoT / DoQ)
                 <a href="https://github.com/FaserF/ShieldDNS/blob/main/docs/mobile_setup_help.md" target="_blank" style="font-size: 0.75rem; color: var(--text-secondary); text-decoration: none; font-weight: 400; opacity: 0.7;">
                     View Detailed Help &rarr;
                 </a>
@@ -111,6 +170,7 @@
                 </div>
             </details>
         </div>
+        {{end}}
 
         <a href="https://github.com/FaserF/ShieldDNS" class="github-link" target="_blank">
             <svg viewBox="0 0 24 24">

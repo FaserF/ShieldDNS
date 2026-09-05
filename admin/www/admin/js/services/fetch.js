@@ -203,7 +203,16 @@ export async function fetchConfig() {
     try {
         state.currentConfig = await api.apiFetch(api.endpoints.config);
         render.renderConfig(state.currentConfig);
+        await fetchClusterStatus();
     } catch(e) { console.error('Config fetch failed', e); }
+}
+
+export async function fetchClusterStatus() {
+    try {
+        const cluster = await api.apiFetch(api.endpoints.clusterStatus);
+        state.clusterStatus = cluster;
+        render.renderClusterStatus(cluster);
+    } catch(e) { console.error('Cluster status fetch failed', e); }
 }
 
 export async function fetchAPIKeys() {

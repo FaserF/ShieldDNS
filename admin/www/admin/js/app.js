@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Attach Setup/Auth listeners globally
     getEl('setup-finish-btn')?.addEventListener('click', auth.finishSetup);
+    getEl('setup-join-cluster-btn')?.addEventListener('click', auth.joinClusterSetup);
     getEl('setup-preset-selector')?.addEventListener('change', (e) => {
         auth.applySetupPreset(e.target.value);
     });
@@ -582,3 +583,76 @@ async function loadAboutData() {
         console.error('Failed to load about data:', e);
     }
 }
+
+// Cluster management actions
+window.revokeClusterReplica = async (replicaId) => {
+    if (!confirm('Are you sure you want to disconnect this replica? It will no longer receive synchronized updates.')) return;
+    try {
+        await api.apiFetch(`${api.endpoints.clusterRevokeReplica}?id=${encodeURIComponent(replicaId)}`, { method: 'POST' });
+        helpers.showToast('Replica disconnected');
+        fetchService.fetchClusterStatus();
+    } catch (err) {
+        helpers.showAlert('Failed to revoke replica: ' + err.message);
+    }
+};
+
+// Hook up cluster settings events when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    getEl('cluster-manual-sync-btn')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        helpers.setBtnLoading(btn, true, 'Syncing...');
+        try {
+            const res = await api.apiFetch(api.endpoints.clusterSync, { method: 'POST' });
+            helpers.showToast(res.message || 'Configuration synced successfully');
+            await fetchService.fetchConfig();
+        } catch (err) {
+            helpers.showAlert('Sync failed: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    });
+
+    getEl('cluster-leave-btn')?.addEventListener('click', async (e) => {
+        if (!confirm('Disconnect from Cluster and revert to Standalone node?')) return;
+        const btn = e.currentTarget;
+        helpers.setBtnLoading(btn, true, 'Leaving...');
+        try {
+            await api.apiFetch(api.endpoints.clusterLeave, { method: 'POST' });
+            helpers.showToast('Node reverted to Standalone');
+            await fetchService.fetchConfig();
+        } catch (err) {
+            helpers.showAlert('Failed to leave cluster: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    });
+
+    // Update settings when changing role/environment selects
+    const saveClusterProfile = async () => {
+        const role = getEl('cluster-role-select')?.value;
+        const instType = getEl('cluster-inst-type-select')?.value;
+        const failover = getEl('cluster-failover-check')?.checked;
+        const syncInt = parseInt(getEl('cluster-sync-interval')?.value || '0', 10);
+        try {
+            await api.apiFetch(api.endpoints.clusterSettings, {
+                method: 'POST',
+                body: JSON.stringify({
+                    role,
+                    instance_type: instType,
+                    failover_mode: failover,
+                    sync_interval: syncInt
+                })
+            });
+            helpers.showToast('Cluster settings saved');
+            fetchService.fetchClusterStatus();
+        } catch (err) {
+            helpers.showAlert('Failed to save cluster settings: ' + err.message);
+        }
+    };
+
+    getEl('cluster-role-select')?.addEventListener('change', saveClusterProfile);
+    getEl('cluster-inst-type-select')?.addEventListener('change', saveClusterProfile);
+    getEl('cluster-failover-check')?.addEventListener('change', saveClusterProfile);
+    getEl('cluster-sync-interval')?.addEventListener('change', saveClusterProfile);
+});
+

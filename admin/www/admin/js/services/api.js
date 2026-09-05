@@ -141,5 +141,12 @@ export const endpoints = {
     mfaWebAuthnLoginStart: basePath + '/api/mfa/webauthn/login/start',
     mfaWebAuthnLoginFinish: basePath + '/api/mfa/webauthn/login/finish',
     checkVersion: basePath + '/api/system/check-version',
-    systemUpdate: basePath + '/api/system/update'
+    systemUpdate: basePath + '/api/system/update',
+    clusterStatus: basePath + '/api/cluster/status',
+    clusterConnectionStatus: basePath + '/api/cluster/connection-status',
+    clusterJoin: basePath + '/api/cluster/join',
+    clusterSync: basePath + '/api/cluster/sync',
+    clusterLeave: basePath + '/api/cluster/leave',
+    clusterSettings: basePath + '/api/cluster/settings',
+    clusterRevokeReplica: basePath + '/api/cluster/replicas/revoke'
 };

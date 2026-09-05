@@ -63,6 +63,54 @@ type Config struct {
 	AnonymizeClientIPs         bool                         `json:"anonymize_client_ips"`
 	DNSRebindingProtection     bool                         `json:"dns_rebinding_protection"`
 	StripECS                   bool                         `json:"strip_ecs"`
+	ClusterRole                string                       `json:"cluster_role"`          // "standalone", "primary", "replica"
+	ClusterInstanceType        string                       `json:"cluster_instance_type"` // "private", "public"
+	ClusterPrimaryURL          string                       `json:"cluster_primary_url"`
+	ClusterPrimaryToken        string                       `json:"cluster_primary_token"`
+	ClusterSyncInterval        int                          `json:"cluster_sync_interval"` // minutes (0 = manual only)
+	ClusterFailoverMode        bool                         `json:"cluster_failover_mode"`
+	ClusterLastSync            time.Time                    `json:"cluster_last_sync"`
+	ClusterReplicas            []ClusterReplica             `json:"cluster_replicas"`
+}
+
+type ClusterReplica struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	URL          string    `json:"url"`
+	TokenHash    string    `json:"token_hash"`
+	InstanceType string    `json:"instance_type"` // "private" or "public"
+	CreatedAt    time.Time `json:"created_at"`
+	LastSeen     time.Time `json:"last_seen"`
+	LastSync     time.Time `json:"last_sync"`
+}
+
+type ClusterConfigExport struct {
+	PrimaryURL                 string            `json:"primary_url"`
+	AdminPasswordHashed        string            `json:"admin_password_hashed,omitempty"`
+	FilteringEnabled           bool              `json:"filtering_enabled"`
+	Lists                      []List            `json:"lists"`
+	Allowlists                 []List            `json:"allowlists"`
+	CustomBlocked              []string          `json:"custom_blocked"`
+	CustomAllowed              []string          `json:"custom_allowed"`
+	CustomMappings             map[string]string `json:"custom_mappings"`
+	AutoblockWhitelist         []string          `json:"autoblock_whitelist"`
+	BlockedCountries           []string          `json:"blocked_countries"`
+	SmartSelectionPolicy       string            `json:"smart_selection_policy"`
+	ServeStale                 bool              `json:"serve_stale"`
+	DNSSECEnabled              bool              `json:"dnssec_enabled"`
+	AbuseDetectionEnabled      bool              `json:"abuse_detection_enabled"`
+	AbuseDGAThreshold          float64           `json:"abuse_dga_threshold"`
+	AbuseDGAMinLen             int               `json:"abuse_dga_min_len"`
+	MaliciousIPBlockingEnabled bool              `json:"malicious_ip_blocking_enabled"`
+	MaliciousIPInterval        int               `json:"malicious_ip_interval"`
+	VerifyUpstreamTLS          bool              `json:"verify_upstream_tls"`
+	PreferEncrypted            bool              `json:"prefer_encrypted"`
+	Upstreams                  []string          `json:"upstreams"`
+	UpstreamDoT                []string          `json:"upstream_dot"`
+	DoHRateLimit               int               `json:"doh_rate_limit"`
+	DNSRebindingProtection     bool              `json:"dns_rebinding_protection"`
+	StripECS                   bool              `json:"strip_ecs"`
+	Timestamp                  time.Time         `json:"timestamp"`
 }
 
 type BlockedClientInfo struct {
