@@ -2,7 +2,7 @@
   "project": "ShieldDNS",
   "purpose": "High-performance DNS appliance and security gateway with integrated web administration panel.",
   "connections_map_reference": "project_connections.json (defines component linking for UI and backend files)",
-  "timestamp": "2026-09-04T19:25:34.089985",
+  "timestamp": "2026-09-05T21:52:50.591353",
   "stack": {
     "backend": "Go (embedded FS assets), SQLite (query database), CoreDNS (DNS server)",
     "frontend": "Vanilla HTML5, CSS3 (variables & flex/grid layout), Vanilla JS (ES6 modules)",
@@ -103,6 +103,17 @@
       "/api/tokens/create -> handleCreateToken() [Auth: False]",
       "/api/tokens/update -> handleUpdateToken() [Auth: False]",
       "/api/tokens/delete -> handleDeleteToken() [Auth: False]",
+      "/api/cluster/status -> handleClusterStatus() [Auth: False]",
+      "/api/cluster/connection-status -> handleClusterConnectionStatus() [Auth: False]",
+      "/api/cluster/join -> handleClusterJoin() [Auth: False]",
+      "/api/cluster/sync -> handleClusterSync() [Auth: False]",
+      "/api/cluster/leave -> handleClusterLeave() [Auth: False]",
+      "/api/cluster/settings -> handleClusterUpdateSettings() [Auth: False]",
+      "/api/cluster/replicas/register -> handleClusterRegisterReplica() [Auth: False]",
+      "/api/cluster/replicas/sync -> handleClusterGetReplicaConfig() [Auth: False]",
+      "/api/cluster/replicas/revoke -> handleClusterRevokeReplica() [Auth: False]",
+      "/api/cluster/logs/ingest -> handleClusterIngestLogs() [Auth: False]",
+      "/api/cluster/worker-script -> handleClusterWorkerScript() [Auth: False]",
       "/api/mcp -> handleMCP() [Auth: False]",
       "/api/domain/stats -> handleDomainStats() [Auth: False]",
       "/api/domain/clients -> handleDomainClients() [Auth: False]",
@@ -117,17 +128,7 @@
       "/admin -> adminHandler() [Auth: False]",
       "/admin/ -> adminHandler() [Auth: False]"
     ],
-    "frontend_views": [
-      "about",
-      "analytics",
-      "custom-rules",
-      "dashboard",
-      "diagnostics",
-      "lists",
-      "queries",
-      "settings",
-      "system-logs"
-    ],
+    "frontend_views": [],
     "frontend_js_endpoints": [
       {
         "name": "stats",
@@ -376,6 +377,38 @@
       {
         "name": "systemUpdate",
         "route": "/api/api/system/update"
+      },
+      {
+        "name": "clusterStatus",
+        "route": "/api/api/cluster/status"
+      },
+      {
+        "name": "clusterConnectionStatus",
+        "route": "/api/api/cluster/connection-status"
+      },
+      {
+        "name": "clusterJoin",
+        "route": "/api/api/cluster/join"
+      },
+      {
+        "name": "clusterSync",
+        "route": "/api/api/cluster/sync"
+      },
+      {
+        "name": "clusterLeave",
+        "route": "/api/api/cluster/leave"
+      },
+      {
+        "name": "clusterSettings",
+        "route": "/api/api/cluster/settings"
+      },
+      {
+        "name": "clusterRevokeReplica",
+        "route": "/api/api/cluster/replicas/revoke"
+      },
+      {
+        "name": "clusterWorkerScript",
+        "route": "/api/api/cluster/worker-script"
       }
     ]
   },
@@ -390,10 +423,15 @@
       "run.sh",
       "verify_layout.js"
     ],
+    "tools": [
+      "cloudflare_worker_template.js"
+    ],
     "admin": [
       "abuse.go",
       "abuse_test.go",
       "api.go",
+      "api_cluster.go",
+      "api_cluster_test.go",
       "api_mcp.go",
       "api_mcp_test.go",
       "api_mfa.go",
@@ -435,7 +473,8 @@
       "stats_other.go",
       "stats_windows.go",
       "versions.go",
-      "watchdog.go"
+      "watchdog.go",
+      "worker_template.go"
     ],
     "admin/www": [
       "blocked.css",
@@ -453,6 +492,21 @@
       "sw.js",
       "utils.js",
       "visual_audit.spec.js"
+    ],
+    "admin/www/admin/partials": [
+      "auth.html",
+      "modals.html"
+    ],
+    "admin/www/admin/views": [
+      "about.html",
+      "analytics.html",
+      "custom-rules.html",
+      "dashboard.html",
+      "diagnostics.html",
+      "lists.html",
+      "queries.html",
+      "settings.html",
+      "system-logs.html"
     ],
     "admin/www/admin/js": [
       "app.js"
@@ -487,6 +541,7 @@
       "widgets.css"
     ],
     "admin/www/admin/assets": [
+      "cloudflare_worker_template.js",
       "contributors.json",
       "contributors_fallback.json",
       "project_stats.json"
