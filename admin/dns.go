@@ -49,11 +49,12 @@ const CorefileTemplate = `.:{{.DNSPort}} {
         fallthrough
     }
     {{end}}
-    cache 7200 {
+    cache 3600 {
         success 50000
-        denial 10000
-        prefetch 3 10m 20%
-        {{if .ServeStale}}serve_stale 1h{{end}}
+        denial 30000
+        prefetch 5 1m 10%
+        serve_stale 1h
+        min_ttl 30
     }
     forward . {{.Upstreams}} {
         health_check 5s
@@ -77,11 +78,12 @@ tls://.:{{.DOTPort}} {
         fallthrough
     }
     {{end}}
-    cache 7200 {
+    cache 3600 {
         success 50000
-        denial 10000
-        prefetch 3 10m 20%
-        {{if .ServeStale}}serve_stale 1h{{end}}
+        denial 30000
+        prefetch 5 1m 10%
+        serve_stale 1h
+        min_ttl 30
     }
     forward . {{.Upstreams}} {
         health_check 5s
@@ -104,11 +106,12 @@ https://.:{{.InternalDOHPort}} {
         fallthrough
     }
     {{end}}
-    cache 7200 {
+    cache 3600 {
         success 50000
-        denial 10000
-        prefetch 3 10m 20%
-        {{if .ServeStale}}serve_stale 1h{{end}}
+        denial 30000
+        prefetch 5 1m 10%
+        serve_stale 1h
+        min_ttl 30
     }
     forward . {{.Upstreams}} {
         health_check 5s
@@ -131,11 +134,12 @@ quic://.:{{.DOTPort}} {
         fallthrough
     }
     {{end}}
-    cache 7200 {
+    cache 3600 {
         success 50000
-        denial 10000
-        prefetch 3 10m 20%
-        {{if .ServeStale}}serve_stale 1h{{end}}
+        denial 30000
+        prefetch 5 1m 10%
+        serve_stale 1h
+        min_ttl 30
     }
     forward . {{.Upstreams}} {
         health_check 5s
