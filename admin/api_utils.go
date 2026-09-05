@@ -1416,3 +1416,33 @@ func ensureServerIPWhitelisted(ip string) {
 		}
 	}
 }
+
+// AnonymizeIP masks client IP addresses for privacy compliance (GDPR/DSGVO).
+// IPv4: masks the last octet (/24 subnet masking).
+// IPv6: masks the lower 64 bits (/64 subnet masking).
+func AnonymizeIP(ipStr string) string {
+	ipStr = strings.TrimSpace(ipStr)
+	if ipStr == "" || ipStr == "DoH Proxy" || ipStr == "localhost" {
+		return ipStr
+	}
+
+	parsed := net.ParseIP(ipStr)
+	if parsed == nil {
+		return ipStr
+	}
+
+	if ipv4 := parsed.To4(); ipv4 != nil {
+		// IPv4: Zero the last octet (e.g., 192.168.1.42 -> 192.168.1.0)
+		return fmt.Sprintf("%d.%d.%d.0", ipv4[0], ipv4[1], ipv4[2])
+	}
+
+	// IPv6: Retain first 64 bits (4 groups of 16-bit hextets), zero out the host identifier
+	ipv6 := parsed.To16()
+	if ipv6 != nil {
+		mask := net.CIDRMask(64, 128)
+		masked := ipv6.Mask(mask)
+		return masked.String()
+	}
+
+	return ipStr
+}

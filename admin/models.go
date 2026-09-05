@@ -60,6 +60,9 @@ type Config struct {
 	AutoUpdateHour             int                          `json:"auto_update_hour"`
 	UpdateChannel              string                       `json:"update_channel"`
 	MCPServerEnabled           bool                         `json:"mcp_server_enabled"`
+	AnonymizeClientIPs         bool                         `json:"anonymize_client_ips"`
+	DNSRebindingProtection     bool                         `json:"dns_rebinding_protection"`
+	StripECS                   bool                         `json:"strip_ecs"`
 }
 
 type BlockedClientInfo struct {

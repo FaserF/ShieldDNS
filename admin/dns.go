@@ -41,7 +41,7 @@ type CorefileData struct {
 const CorefileTemplate = `.:{{.DNSPort}} {
     {{if .DNSSEC}}dnssec{{end}}
     metadata
-    health :8082
+    health 127.0.0.1:8082
     reload 5s
     {{if .FilteringEnabled}}
     hosts {{.HostsPath}} {
@@ -58,6 +58,9 @@ const CorefileTemplate = `.:{{.DNSPort}} {
     }
     forward . {{.Upstreams}} {
         health_check 5s
+        max_fails 2
+        expire 10s
+        connect_timeout 2s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
@@ -87,6 +90,9 @@ tls://.:{{.DOTPort}} {
     }
     forward . {{.Upstreams}} {
         health_check 5s
+        max_fails 2
+        expire 10s
+        connect_timeout 2s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
@@ -115,6 +121,9 @@ https://.:{{.InternalDOHPort}} {
     }
     forward . {{.Upstreams}} {
         health_check 5s
+        max_fails 2
+        expire 10s
+        connect_timeout 2s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
@@ -143,6 +152,9 @@ quic://.:{{.DOTPort}} {
     }
     forward . {{.Upstreams}} {
         health_check 5s
+        max_fails 2
+        expire 10s
+        connect_timeout 2s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
