@@ -829,8 +829,10 @@ func startBackgroundUpdater(ctx context.Context) {
 }
 
 var (
-	metadataCache = make(map[string]List)
-	metadataMu    sync.RWMutex
+	metadataCache   = make(map[string]List)
+	metadataMu      sync.RWMutex
+	commitDateCache = make(map[string]time.Time)
+	commitDateMu    sync.RWMutex
 )
 
 // startMetadataUpdater periodically refreshes metadata for all lists and presets.
@@ -1018,6 +1020,14 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 	// 3. Specialized support for GitHub Raw Content
 	// raw.githubusercontent.com does not send Last-Modified, so we check the Commit API
 	if strings.Contains(rawURL, "raw.githubusercontent.com") {
+		// Return cached commit date if already known to avoid exhausting GitHub rate limits
+		commitDateMu.RLock()
+		if cachedDate, ok := commitDateCache[rawURL]; ok {
+			commitDateMu.RUnlock()
+			return cachedDate
+		}
+		commitDateMu.RUnlock()
+
 		// URL: https://raw.githubusercontent.com/user/repo/branch/folder/file.txt
 		parts := strings.Split(strings.TrimPrefix(rawURL, "https://"), "/")
 		if len(parts) >= 5 {
@@ -1046,7 +1056,11 @@ func getRemoteUpdateTime(rawURL string, headers http.Header) time.Time {
 						} `json:"commit"`
 					}
 					if err := json.NewDecoder(resp.Body).Decode(&commitInfo); err == nil && len(commitInfo) > 0 {
-						return commitInfo[0].Commit.Committer.Date
+						d := commitInfo[0].Commit.Committer.Date
+						commitDateMu.Lock()
+						commitDateCache[rawURL] = d
+						commitDateMu.Unlock()
+						return d
 					}
 				} else if resp.StatusCode == http.StatusForbidden {
 					slog.Debug("GitHub API rate limited while fetching list metadata", "url", rawURL)
@@ -1120,6 +1134,7 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 	exp := ClusterConfigExport{
 		PrimaryURL:                 primaryURL,
 		AdminPasswordHashed:        config.AdminPasswordHashed,
+		ClusterWorkerDomain:        config.ClusterWorkerDomain,
 		ClusterLogSharingMode:      config.ClusterLogSharingMode,
 		FilteringEnabled:           config.FilteringEnabled,
 		Lists:                      make([]List, len(config.Lists)),

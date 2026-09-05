@@ -30,6 +30,11 @@ var (
 	coreDNSLock    sync.RWMutex
 	alpineVersion  string
 	alpineLock     sync.RWMutex
+
+	// GitHub API ETag and response cache to avoid consuming rate limits
+	githubETags   = make(map[string]string)
+	githubCached  = make(map[string]string)
+	githubCacheMu sync.RWMutex
 )
 
 func getCoreDNSVersion() string {
@@ -206,107 +211,145 @@ func updateVersions() {
 func fetchShieldDNSVersion(channel string) string {
 	client := &http.Client{Timeout: 5 * time.Second}
 
+	var endpoint string
 	if channel == "beta" {
-		req, err := http.NewRequest("GET", "https://api.github.com/repos/FaserF/ShieldDNS/releases", nil)
-		if err != nil {
-			return ""
-		}
-		req.Header.Set("User-Agent", "ShieldDNS-Updater")
-		resp, err := client.Do(req)
-		if err != nil {
-			slog.Error("Error fetching beta version info", "error", err)
-			return ""
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return ""
-		}
-		var releases []struct {
-			TagName string `json:"tag_name"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil || len(releases) == 0 {
-			return ""
-		}
-		return releases[0].TagName
+		endpoint = "https://api.github.com/repos/FaserF/ShieldDNS/releases"
+	} else if channel == "dev" {
+		endpoint = "https://api.github.com/repos/FaserF/ShieldDNS/commits?sha=main"
+	} else {
+		endpoint = "https://api.github.com/repos/FaserF/ShieldDNS/releases/latest"
 	}
 
-	if channel == "dev" {
-		req, err := http.NewRequest("GET", "https://api.github.com/repos/FaserF/ShieldDNS/commits?sha=main", nil)
-		if err != nil {
-			return ""
-		}
-		req.Header.Set("User-Agent", "ShieldDNS-Updater")
-		resp, err := client.Do(req)
-		if err != nil {
-			slog.Error("Error fetching dev version info", "error", err)
-			return ""
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return ""
-		}
-		var commits []struct {
-			SHA string `json:"sha"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil || len(commits) == 0 {
-			return ""
-		}
-		sha := commits[0].SHA
-		if len(sha) > 7 {
-			sha = sha[:7]
-		}
-		return "dev-" + sha
-	}
-
-	// Default to stable
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/FaserF/ShieldDNS/releases/latest", nil)
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return ""
 	}
 	req.Header.Set("User-Agent", "ShieldDNS-Updater")
+
+	githubCacheMu.RLock()
+	etag := githubETags[endpoint]
+	cachedVal := githubCached[endpoint]
+	githubCacheMu.RUnlock()
+
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
-		slog.Error("Error fetching latest stable version", "error", err)
-		return ""
+		slog.Debug("Error fetching version info from GitHub", "endpoint", endpoint, "error", err)
+		return cachedVal
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotModified {
+		// 304 Not Modified: counts as 0 against rate limits
+		return cachedVal
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		return ""
+		if resp.StatusCode == http.StatusForbidden {
+			slog.Debug("GitHub API rate limit reached, using cached version", "endpoint", endpoint)
+		}
+		return cachedVal
 	}
-	var data struct {
-		TagName string `json:"tag_name"`
+
+	newEtag := resp.Header.Get("ETag")
+	var result string
+
+	if channel == "beta" {
+		var releases []struct {
+			TagName string `json:"tag_name"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&releases); err == nil && len(releases) > 0 {
+			result = releases[0].TagName
+		}
+	} else if channel == "dev" {
+		var commits []struct {
+			SHA string `json:"sha"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&commits); err == nil && len(commits) > 0 {
+			sha := commits[0].SHA
+			if len(sha) > 7 {
+				sha = sha[:7]
+			}
+			result = "dev-" + sha
+		}
+	} else {
+		var data struct {
+			TagName string `json:"tag_name"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&data); err == nil {
+			result = data.TagName
+		}
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return ""
+
+	if result != "" {
+		githubCacheMu.Lock()
+		githubCached[endpoint] = result
+		if newEtag != "" {
+			githubETags[endpoint] = newEtag
+		}
+		githubCacheMu.Unlock()
+		return result
 	}
-	return data.TagName
+
+	return cachedVal
 }
 
 func fetchGitHubLatestTag(repo string) string {
 	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/"+repo+"/releases/latest", nil)
+	endpoint := "https://api.github.com/repos/" + repo + "/releases/latest"
+
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return ""
 	}
 	req.Header.Set("User-Agent", "ShieldDNS-Updater")
+
+	githubCacheMu.RLock()
+	etag := githubETags[endpoint]
+	cachedVal := githubCached[endpoint]
+	githubCacheMu.RUnlock()
+
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
-		slog.Error("Error fetching latest version", "repo", repo, "error", err)
-		return ""
+		slog.Debug("Error fetching latest version", "repo", repo, "error", err)
+		return cachedVal
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return ""
+	if resp.StatusCode == http.StatusNotModified {
+		return cachedVal
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		return cachedVal
+	}
+
+	newEtag := resp.Header.Get("ETag")
 	var data struct {
 		TagName string `json:"tag_name"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return ""
+		return cachedVal
 	}
-	return data.TagName
+
+	if data.TagName != "" {
+		githubCacheMu.Lock()
+		githubCached[endpoint] = data.TagName
+		if newEtag != "" {
+			githubETags[endpoint] = newEtag
+		}
+		githubCacheMu.Unlock()
+		return data.TagName
+	}
+
+	return cachedVal
 }
 
 func fetchAlpineLatest() string {
@@ -334,7 +377,16 @@ func fetchAlpineLatest() string {
 }
 
 func checkVersionsNow() VersionInfo {
-	updateVersions()
+	versionLock.RLock()
+	lastCheck := latestVersions.LastCheck
+	shieldV := latestVersions.ShieldDNS
+	versionLock.RUnlock()
+
+	// If checked within the last 15 seconds, return immediately without re-querying external APIs
+	if time.Since(lastCheck) > 15*time.Second || shieldV == "" {
+		updateVersions()
+	}
+
 	versionLock.RLock()
 	defer versionLock.RUnlock()
 	return latestVersions
