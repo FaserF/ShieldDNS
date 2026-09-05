@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     getEl('setup-preset-selector')?.addEventListener('change', (e) => {
         auth.applySetupPreset(e.target.value);
     });
+    getEl('login-passkey-btn')?.addEventListener('click', auth.handlePasskeyLogin);
     getEl('login-confirm-btn')?.addEventListener('click', auth.handleLogin);
     getEl('login-password')?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') auth.handleLogin();

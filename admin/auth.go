@@ -306,6 +306,7 @@ func authMiddleware(next http.Handler) http.Handler {
 func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 	configLock.RLock()
 	hasPwd := config.AdminPasswordHashed != ""
+	hasPasskey := len(config.WebAuthnCredentials) > 0
 	configLock.RUnlock()
 
 	loggedIn := false
@@ -328,6 +329,7 @@ func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 		"need_setup":   !hasPwd,
 		"logged_in":    loggedIn,
 		"mfa_required": mfaRequired,
+		"has_passkey":  hasPasskey,
 	})
 }
 

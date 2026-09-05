@@ -14,6 +14,12 @@ export async function checkAuthStatus(onSuccess) {
             throw e;
         });
 
+        const passkeyContainer = getEl('login-passkey-container');
+        if (passkeyContainer) {
+            // Show passkey container if server has registered passkeys or if unknown
+            passkeyContainer.style.display = (data.has_passkey === false) ? 'none' : 'block';
+        }
+
         if (data.need_setup) {
             showView('setup');
         } else if (!data.logged_in) {
@@ -29,6 +35,10 @@ export async function checkAuthStatus(onSuccess) {
     } catch (e) {
         // Fallback
         const data = await api.apiFetch(api.endpoints.authStatus);
+        const passkeyContainer = getEl('login-passkey-container');
+        if (passkeyContainer && data) {
+            passkeyContainer.style.display = (data.has_passkey === false) ? 'none' : 'block';
+        }
         if (data.need_setup) {
             uiRefs.authOverlay?.classList.remove('hidden');
             uiRefs.setupView?.classList.remove('hidden');
@@ -103,9 +113,9 @@ export async function handleMFAVerify() {
     }
 }
 
-export async function handlePasskeyLogin() {
-    const btn = getEl('mfa-use-passkey-btn');
-    helpers.setBtnLoading(btn, true, 'Connecting...');
+export async function handlePasskeyLogin(evt) {
+    const btn = (evt && evt.currentTarget) || getEl('login-passkey-btn') || getEl('mfa-use-passkey-btn');
+    if (btn) helpers.setBtnLoading(btn, true, 'Connecting...');
     try {
         const options = await api.apiFetch('/api/mfa/webauthn/login/start', { method: 'POST' });
         
@@ -136,9 +146,9 @@ export async function handlePasskeyLogin() {
         });
         
         window.location.reload();
-    } catch (e) {
-        if (e.name !== 'NotAllowedError') {
-            helpers.showAlert('Passkey login failed: ' + e.message);
+    } catch (err) {
+        if (err.name !== 'NotAllowedError') {
+            helpers.showAlert('Passkey login failed: ' + err.message);
         }
     } finally {
         helpers.setBtnLoading(btn, false);

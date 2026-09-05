@@ -542,9 +542,21 @@ func handleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cookie, err := r.Cookie(CookieName)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+	var sessionKey string
+	if err != nil || cookie.Value == "" {
+		sessionKey = generateToken()
+		isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+		http.SetCookie(w, &http.Cookie{
+			Name:     CookieName,
+			Value:    sessionKey,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   isSecure,
+			MaxAge:   int(SessionDuration.Seconds()),
+			SameSite: http.SameSiteLaxMode,
+		})
+	} else {
+		sessionKey = cookie.Value
 	}
 
 	options, session, err := currentWA.BeginLogin(WebAuthnUser{})
@@ -553,7 +565,7 @@ func handleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	waSessionStore.Store(cookie.Value, *session)
+	waSessionStore.Store(sessionKey, *session)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(options)
 }
@@ -564,7 +576,7 @@ func handleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cookie, err := r.Cookie(CookieName)
-	if err != nil {
+	if err != nil || cookie.Value == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -623,11 +635,30 @@ func handleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	configLock.Unlock()
 
+	ip := getClientIP(r)
 	if val, found := sessionStore.Load(cookie.Value); found {
 		sess := val.(Session)
 		sess.MFAVerified = true
 		sessionStore.Store(cookie.Value, sess)
+	} else {
+		sess := Session{
+			Token:       cookie.Value,
+			RemoteIP:    ip,
+			UserAgent:   r.UserAgent(),
+			CreatedAt:   time.Now(),
+			ExpiresAt:   time.Now().Add(SessionDuration),
+			MFAVerified: true,
+		}
+		sessionStore.Store(cookie.Value, sess)
 	}
+
+	configLock.Lock()
+	if !config.LastLogin.IsZero() {
+		config.PreviousLogin = config.LastLogin
+	}
+	config.LastLogin = time.Now()
+	_ = saveConfigNoLock()
+	configLock.Unlock()
 
 	waSessionStore.Delete(cookie.Value)
 	w.WriteHeader(http.StatusOK)

@@ -1462,11 +1462,21 @@
                     <img src="../logo.png?v=2" alt="ShieldDNS">
                     <h1>ShieldDNS Login</h1>
                 </div>
-                <p>Enter your password to access the dashboard.</p>
+                <p>Sign in with your Passkey or Password.</p>
+                <div id="login-passkey-container" style="margin-bottom: 20px;">
+                    <button type="button" class="btn primary full-width" id="login-passkey-btn" style="height: 48px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="fas fa-key"></i> Sign in with Passkey
+                    </button>
+                    <div style="display: flex; align-items: center; gap: 10px; opacity: 0.5; margin: 15px 0 10px 0;">
+                        <hr style="flex: 1; border: 0.5px solid var(--border);">
+                        <span style="font-size: 0.75rem; text-transform: uppercase;">or use password</span>
+                        <hr style="flex: 1; border: 0.5px solid var(--border);">
+                    </div>
+                </div>
                 <div class="form-group">
                     <input type="password" id="login-password" placeholder="Password">
                 </div>
-                <button type="button" class="btn primary full-width" id="login-confirm-btn">Login</button>
+                <button type="button" class="btn secondary full-width" id="login-confirm-btn">Login with Password</button>
             </div>
 
             <div id="mfa-view" class="hidden">
