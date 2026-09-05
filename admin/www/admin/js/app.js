@@ -75,7 +75,8 @@ function initializeApp() {
         'lists': () => { fetchService.fetchPresets(); fetchService.fetchAllowlistPresets(); },
         'settings': () => { fetchService.fetchConfig(); fetchService.fetchAPIKeys(); },
         'dashboard': () => fetchService.fetchStats(),
-        'about': () => loadAboutData()
+        'about': () => loadAboutData(),
+        'privacy': () => loadPrivacyStatus()
     });
 
     // 2. Init global event listeners
@@ -581,6 +582,63 @@ async function loadAboutData() {
         }
     } catch (e) {
         console.error('Failed to load about data:', e);
+    }
+}
+
+function loadPrivacyStatus() {
+    const cfg = state.currentConfig;
+    if (!cfg) {
+        // Config not yet loaded — fetch it, then retry
+        fetchService.fetchConfig().then(() => loadPrivacyStatus());
+        return;
+    }
+
+    const setBadge = (id, text, colorClass) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = text;
+        el.className = 'badge';
+        if (colorClass) el.classList.add(colorClass);
+    };
+
+    // Anonymize Client IPs
+    if (cfg.anonymize_client_ips) {
+        setBadge('privacy-anon-badge', 'Active — /24 IPv4, /64 IPv6', 'success');
+    } else {
+        setBadge('privacy-anon-badge', 'Disabled — Full IPs stored', 'warning');
+    }
+
+    // Strip ECS
+    if (cfg.strip_ecs) {
+        setBadge('privacy-ecs-badge', 'Active — No subnet forwarded', 'success');
+    } else {
+        setBadge('privacy-ecs-badge', 'Disabled — Subnet may be forwarded', 'warning');
+    }
+
+    // Encrypted upstreams — upstream list present means DoT/DoH configured
+    const hasUpstreams = Array.isArray(cfg.upstream_dns) && cfg.upstream_dns.length > 0;
+    const hasDoT = Array.isArray(cfg.upstream_dot) && cfg.upstream_dot.length > 0;
+    if (hasDoT) {
+        setBadge('privacy-encrypt-badge', 'DNS-over-TLS (DoT)', 'success');
+    } else if (hasUpstreams) {
+        setBadge('privacy-encrypt-badge', 'Configured', 'official');
+    } else {
+        setBadge('privacy-encrypt-badge', 'System default', 'official');
+    }
+
+    // Retention
+    const days = cfg.retention_days;
+    if (days === 0 || days === undefined) {
+        setBadge('privacy-retention-badge', 'No logging (0 days)', 'success');
+    } else {
+        setBadge('privacy-retention-badge', `${days} day${days !== 1 ? 's' : ''} — auto-purged`, 'official');
+    }
+
+    // Filtering
+    if (cfg.filtering_enabled !== false) {
+        setBadge('privacy-filter-badge', 'Active — Malware & Trackers Blocked', 'success');
+    } else {
+        setBadge('privacy-filter-badge', 'Disabled', 'warning');
     }
 }
 

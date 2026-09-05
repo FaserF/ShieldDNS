@@ -1,0 +1,198 @@
+{{define "privacy"}}
+            <section id="privacy" class="view hidden">
+                <header>
+                    <h1>Privacy &amp; Transparency</h1>
+                    <p>GDPR compliance overview &mdash; how ShieldDNS processes and protects your data.</p>
+                </header>
+
+                <div class="analytics-grid">
+
+                    <!-- Active Privacy Protections -->
+                    <div class="stat-card card full-width">
+                        <h3><i class="fas fa-shield-alt" style="color: var(--accent); margin-right: 8px;"></i>Active Privacy Protections</h3>
+                        <p class="help" style="margin-bottom: 16px;">Current server-side privacy settings. Change these under <a href="#" onclick="event.preventDefault(); document.querySelector('[data-view=settings]')?.click();" style="color: var(--accent);">Settings → Privacy &amp; Anonymization</a>.</p>
+                        <div class="diag-list" id="privacy-status-list">
+                            <div class="diag-item">
+                                <span><i class="fas fa-user-shield" style="width:18px; margin-right:6px;"></i> Client IP Anonymization (GDPR)</span>
+                                <span id="privacy-anon-badge" class="badge">Loading…</span>
+                            </div>
+                            <div class="diag-item">
+                                <span><i class="fas fa-mask" style="width:18px; margin-right:6px;"></i> Strip EDNS Client Subnet (ECS)</span>
+                                <span id="privacy-ecs-badge" class="badge">Loading…</span>
+                            </div>
+                            <div class="diag-item">
+                                <span><i class="fas fa-lock" style="width:18px; margin-right:6px;"></i> Encrypted Upstream Transport (DoT / DoH)</span>
+                                <span id="privacy-encrypt-badge" class="badge">N/A</span>
+                            </div>
+                            <div class="diag-item">
+                                <span><i class="fas fa-history" style="width:18px; margin-right:6px;"></i> Query Log Retention</span>
+                                <span id="privacy-retention-badge" class="badge">Loading…</span>
+                            </div>
+                            <div class="diag-item">
+                                <span><i class="fas fa-ban" style="width:18px; margin-right:6px;"></i> DNS Filtering (Malware &amp; Tracking)</span>
+                                <span id="privacy-filter-badge" class="badge">Loading…</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Processing Overview -->
+                    <div class="stat-card card">
+                        <h3><i class="fas fa-database" style="color: var(--accent); margin-right: 8px;"></i>Data Processed</h3>
+                        <div class="diag-list">
+                            <div class="diag-item">
+                                <span>Queried Domains</span>
+                                <span class="badge official">Yes — locally only</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Timestamps</span>
+                                <span class="badge official">Yes — auto-purged</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Client IP Addresses</span>
+                                <span class="badge">Yes — anonymized or full</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Response Codes</span>
+                                <span class="badge official">Yes — locally only</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Personal Profiles / Tracking</span>
+                                <span class="badge success">Never</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Cookies / Browser Fingerprints</span>
+                                <span class="badge success">Never</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Third-Party Analytics</span>
+                                <span class="badge success">Never</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Minimization -->
+                    <div class="stat-card card">
+                        <h3><i class="fas fa-compress-arrows-alt" style="color: var(--accent); margin-right: 8px;"></i>Data Minimization &amp; Retention</h3>
+                        <div class="diag-list">
+                            <div class="diag-item">
+                                <span>Storage Location</span>
+                                <span class="badge official">This server only</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Upstream Data Sharing</span>
+                                <span class="badge success">None — zero tracking</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Automatic Log Purge</span>
+                                <span class="badge official">After retention period</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>IPv4 Anonymization Mask</span>
+                                <span class="badge">/24 (last octet zeroed)</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>IPv6 Anonymization Mask</span>
+                                <span class="badge">/64 (host bits zeroed)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Your Rights (GDPR Art. 12–22) -->
+                    <div class="stat-card card">
+                        <h3><i class="fas fa-balance-scale" style="color: var(--accent); margin-right: 8px;"></i>Data Subject Rights (GDPR Art. 12–22)</h3>
+                        <div class="diag-list">
+                            <div class="diag-item">
+                                <span>Right of Access (Art. 15)</span>
+                                <span class="badge official">Query Log view</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Right to Erasure (Art. 17)</span>
+                                <span class="badge official">Settings → Clear Query Log</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Right to Data Portability (Art. 20)</span>
+                                <span class="badge official">Query Log → CSV / JSON</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Right to Rectification (Art. 16)</span>
+                                <span class="badge official">Via Settings page</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Right to Restriction (Art. 18)</span>
+                                <span class="badge official">Disable logging (0 days)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Technical Privacy Features -->
+                    <div class="stat-card card">
+                        <h3><i class="fas fa-cogs" style="color: var(--accent); margin-right: 8px;"></i>Technical Privacy Features</h3>
+                        <div class="diag-list">
+                            <div class="diag-item">
+                                <span>DNS-over-TLS (DoT)</span>
+                                <span class="badge official">Port 853</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>DNS-over-HTTPS (DoH)</span>
+                                <span class="badge official">HTTPS / QUIC (H3)</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>Encrypted Client Hello (ECH)</span>
+                                <span class="badge official">HTTPS record support</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>EDNS Client Subnet stripping</span>
+                                <span class="badge official">Configurable</span>
+                            </div>
+                            <div class="diag-item">
+                                <span>No upstream personal data</span>
+                                <span class="badge success">Guaranteed</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Legal Basis -->
+                    <div class="stat-card card">
+                        <h3><i class="fas fa-file-contract" style="color: var(--accent); margin-right: 8px;"></i>Legal Basis &amp; Controller</h3>
+                        <div class="diag-list" style="gap: 12px;">
+                            <div class="diag-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                                <span style="font-weight: 600;">Legal Basis</span>
+                                <span class="help">Legitimate interest (Art. 6(1)(f) GDPR) — operating a private DNS resolver for abuse protection, security filtering, and network diagnostics.</span>
+                            </div>
+                            <div class="diag-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                                <span style="font-weight: 600;">Data Controller</span>
+                                <span class="help">The operator of this ShieldDNS instance. This is a self-hosted application — the controller is the person who deployed it, not ShieldDNS developers.</span>
+                            </div>
+                            <div class="diag-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                                <span style="font-weight: 600;">Third-Party Processors</span>
+                                <span class="help">None. All data remains on this server. Upstream DNS resolvers receive only the queried domain — never client IPs (when ECS stripping is enabled).</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="stat-card card full-width">
+                        <h3><i class="fas fa-tools" style="color: var(--accent); margin-right: 8px;"></i>Privacy Quick Actions</h3>
+                        <p class="help" style="margin-bottom: 16px;">Exercise your rights or review data directly from here.</p>
+                        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                            <button type="button" class="btn secondary" onclick="document.querySelector('[data-view=queries]')?.click()">
+                                <i class="fas fa-list"></i> View Query Log
+                            </button>
+                            <button type="button" class="btn secondary" onclick="exportLogs('csv', event)">
+                                <i class="fas fa-file-csv"></i> Export Logs (CSV)
+                            </button>
+                            <button type="button" class="btn secondary" onclick="exportLogs('json', event)">
+                                <i class="fas fa-file-code"></i> Export Logs (JSON)
+                            </button>
+                            <button type="button" class="btn danger" id="privacy-clear-logs-btn" onclick="document.getElementById('clear-logs-btn')?.click()">
+                                <i class="fas fa-trash-alt"></i> Clear All Query Logs
+                            </button>
+                            <button type="button" class="btn secondary" onclick="document.querySelector('[data-view=settings]')?.click()">
+                                <i class="fas fa-sliders-h"></i> Open Privacy Settings
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+{{end}}
