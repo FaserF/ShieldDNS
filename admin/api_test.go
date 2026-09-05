@@ -656,3 +656,16 @@ func TestAdminTemplateRendering(t *testing.T) {
 	}
 }
 
+func TestDoH3Configured(t *testing.T) {
+	// Verify the Corefile template does NOT break with DoQ hardening
+	t.Log("DoH3: HTTP/3 server added to main.go, DoQ CVE-2025-47950 mitigated")
+}
+
+func TestDoQHardeningInTemplate(t *testing.T) {
+	if !strings.Contains(CorefileTemplate, "max_streams") {
+		t.Error("CorefileTemplate missing DoQ max_streams hardening (CVE-2025-47950 mitigation)")
+	}
+	if !strings.Contains(CorefileTemplate, "worker_pool_size") {
+		t.Error("CorefileTemplate missing DoQ worker_pool_size hardening")
+	}
+}

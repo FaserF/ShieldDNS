@@ -16,6 +16,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/quic-go/quic-go/http3"
 )
 
 var (
@@ -98,6 +100,31 @@ func main() {
 		},
 	}
 
+	// 2. HTTP/3 Server (DoH3 on port 443 UDP, alongside HTTP/2 on TCP)
+	var h3Server *http3.Server
+	if adminPort == "443" && certFile != "" && keyFile != "" {
+		h3Server = &http3.Server{
+			Addr:    ":443",
+			Handler: finalHandler,
+			TLSConfig: &tls.Config{
+				MinVersion: tls.VersionTLS13,
+			},
+		}
+		// Wrap handler to advertise HTTP/3 support via Alt-Svc header
+		primaryServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := h3Server.SetQUICHeaders(w.Header()); err != nil {
+				slog.Debug("Failed to set QUIC headers", "error", err)
+			}
+			finalHandler.ServeHTTP(w, r)
+		})
+		go func() {
+			slog.Info("HTTP/3 DoH server starting", "port", "443", "mode", "QUIC/UDP")
+			if err := h3Server.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
+				slog.Error("HTTP/3 server stopped", "error", err)
+			}
+		}()
+	}
+
 	go func() {
 		if adminPort != "443" {
 			slog.Info("Primary Admin server starting", "port", adminPort, "mode", "HTTP")
@@ -150,6 +177,11 @@ func main() {
 	if auxiliaryServer != nil {
 		if err := auxiliaryServer.Shutdown(shutdownCtx); err != nil {
 			slog.Error("Ingress server shutdown error", "error", err)
+		}
+	}
+	if h3Server != nil {
+		if err := h3Server.Shutdown(shutdownCtx); err != nil {
+			slog.Error("HTTP/3 server shutdown error", "error", err)
 		}
 	}
 

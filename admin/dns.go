@@ -134,6 +134,10 @@ https://.:{{.InternalDOHPort}} {
 
 quic://.:{{.DOTPort}} {
     tls {{.CertFile}} {{.KeyFile}}
+    quic {
+        max_streams 50
+        worker_pool_size 256
+    }
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 5s
