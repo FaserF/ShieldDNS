@@ -326,6 +326,12 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 		req.PrimaryURL = "https://" + req.PrimaryURL
 	}
 
+	parsedURL, err := url.Parse(req.PrimaryURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" {
+		http.Error(w, "Invalid Primary URL", http.StatusBadRequest)
+		return
+	}
+
 	if req.InstanceType != "public" && req.InstanceType != "private" && req.InstanceType != "hybrid" {
 		req.InstanceType = "private"
 	}
@@ -340,7 +346,7 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 		"failover_mode": req.FailoverMode,
 	})
 
-	primaryEndpoint := req.PrimaryURL + "/api/cluster/replicas/register"
+	primaryEndpoint := strings.TrimRight(req.PrimaryURL, "/") + "/api/cluster/replicas/register"
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
@@ -354,11 +360,14 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 	httpReq.Header.Set("X-API-Key", req.APIToken)
 	httpReq.Header.Set("X-Shield-Request", "true")
 
-	// Allow insecure TLS for self-signed setups if necessary
+	configLock.RLock()
+	verifyTLS := config.VerifyUpstreamTLS
+	configLock.RUnlock()
+
 	client := &http.Client{
 		Timeout: 8 * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS},
 		},
 	}
 
@@ -536,6 +545,11 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 	clusterSyncMu.Lock()
 	defer clusterSyncMu.Unlock()
 
+	parsedURL, err := url.Parse(primaryURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" {
+		return fmt.Errorf("invalid primary URL: %s", primaryURL)
+	}
+
 	endpoint := strings.TrimRight(primaryURL, "/") + "/api/cluster/replicas/sync"
 	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 	defer cancel()
@@ -548,10 +562,14 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 	req.Header.Set("X-API-Key", apiToken)
 	req.Header.Set("X-Shield-Request", "true")
 
+	configLock.RLock()
+	verifyTLS := config.VerifyUpstreamTLS
+	configLock.RUnlock()
+
 	client := &http.Client{
 		Timeout: 7 * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS},
 		},
 	}
 
@@ -809,6 +827,11 @@ func SyncClusterLogs() error {
 		return fmt.Errorf("failed to encode queries payload: %w", err)
 	}
 
+	parsedURL, err := url.Parse(primaryURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" {
+		return fmt.Errorf("invalid primary URL: %s", primaryURL)
+	}
+
 	endpoint := strings.TrimRight(primaryURL, "/") + "/api/cluster/logs/ingest"
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -822,10 +845,14 @@ func SyncClusterLogs() error {
 	httpReq.Header.Set("X-API-Key", apiToken)
 	httpReq.Header.Set("X-Shield-Request", "true")
 
+	configLock.RLock()
+	verifyTLS := config.VerifyUpstreamTLS
+	configLock.RUnlock()
+
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS},
 		},
 	}
 

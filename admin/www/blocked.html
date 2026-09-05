@@ -81,9 +81,15 @@
     </div>
 
     <script>
-        /* ── Domain resolution ──────────────────────────────────────────── */
+        /* ── Domain resolution & validation ────────────────────────────── */
+        function isValidDomainName(d) {
+            if (!d || typeof d !== 'string' || d.length > 253) return false;
+            return /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(d);
+        }
+
         const params = new URLSearchParams(window.location.search);
-        const domain = params.get('domain') || window.location.hostname;
+        const rawDomain = params.get('domain') || window.location.hostname;
+        const domain = isValidDomainName(rawDomain) ? rawDomain : window.location.hostname;
         document.getElementById('domain-name').textContent = domain;
         document.getElementById('timestamp').textContent = new Date().toLocaleString();
 
@@ -308,7 +314,7 @@
         /* ── Simple unblock success banner ─────────────────────────────── */
         function showSuccessBanner(msg) {
             const el = document.getElementById('success-banner');
-            el.innerHTML = msg;
+            el.textContent = msg;
             el.classList.add('visible');
         }
 
@@ -320,14 +326,21 @@
          * falling back to the full 6 s if the poll never succeeds.
          */
         function startCountdownRedirect() {
-            const target  = 'https://' + domain + '/';
+            if (!isValidDomainName(domain)) {
+                showSuccessBanner(`✓ Domain has been added to the allowlist.`);
+                return;
+            }
+            const target  = 'https://' + encodeURIComponent(domain) + '/';
             let seconds   = 6;
             let redirected = false;
 
             const banner = document.getElementById('success-banner');
-            banner.innerHTML =
-                '✓ Domain allowed. Waiting for DNS reload…' +
-                '<span class="countdown-number" id="countdown-num">Redirecting in ' + seconds + 's</span>';
+            banner.textContent = '✓ Domain allowed. Waiting for DNS reload…';
+            const countdownSpan = document.createElement('span');
+            countdownSpan.className = 'countdown-number';
+            countdownSpan.id = 'countdown-num';
+            countdownSpan.textContent = 'Redirecting in ' + seconds + 's';
+            banner.appendChild(countdownSpan);
             banner.classList.add('visible');
 
             /* Countdown ticker */
@@ -346,7 +359,7 @@
                     clearInterval(poller);
                     if (!redirected) {
                         redirected = true;
-                        window.location.href = target;
+                        window.location.assign(target);
                     }
                 }
             }, 1000);
@@ -365,7 +378,7 @@
                         redirected = true;
                         const el = document.getElementById('countdown-num');
                         if (el) el.textContent = 'Redirecting…';
-                        setTimeout(() => { window.location.href = target; }, 200);
+                        setTimeout(() => { window.location.assign(target); }, 200);
                     }
                 } catch (_) {
                     /* Domain still blocked — keep waiting */
