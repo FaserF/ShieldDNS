@@ -198,6 +198,24 @@
                             <p class="help">Max requests per client per second on the DoH endpoint (Default: 50).</p>
                             <input type="number" id="doh-rate-limit-input" min="1" max="1000" value="50">
                         </div>
+
+                        <div class="form-group">
+                            <div class="label-with-info">
+                                <label>DNS Port 53 / DoT Rate Limit (req/s per client)</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Rate limit queries per client IP across UDP/TCP Port 53 and DoT using the CoreDNS ratelimit engine. Helps mitigate volumetric DNS flood attacks. Default: 100 req/s (0 = disabled)."></i>
+                            </div>
+                            <p class="help">Queries per second per client on standard DNS, DoT, and DoQ (Default: 100, 0 = disabled).</p>
+                            <input type="number" id="rate-limit-rate-input" min="0" max="10000" value="100">
+                        </div>
+
+                        <div class="form-group">
+                            <div class="label-with-info">
+                                <label>DNS Flood Burst Allowance (queries)</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Temporary burst capacity allowed before ratelimit packet drops trigger. Default: 250."></i>
+                            </div>
+                            <p class="help">Permitted burst capacity before dropping queries (Default: 250).</p>
+                            <input type="number" id="rate-limit-burst-input" min="1" max="5000" value="250">
+                        </div>
                     </div>
 
                 <div class="settings-section" data-category="access">

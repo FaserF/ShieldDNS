@@ -1477,6 +1477,8 @@ export async function saveConfig(fetchConfig) {
         diagnostics_refresh_interval: parseInt(getEl('diagnostics-interval-input')?.value) || 600,
         retention_days: parseInt(getEl('retention-input')?.value) || 30,
         doh_rate_limit: parseInt(getEl('doh-rate-limit-input')?.value) || 30,
+        rate_limit_rate: parseInt(getEl('rate-limit-rate-input')?.value) !== undefined ? parseInt(getEl('rate-limit-rate-input')?.value) : 100,
+        rate_limit_burst: parseInt(getEl('rate-limit-burst-input')?.value) !== undefined ? parseInt(getEl('rate-limit-burst-input')?.value) : 250,
         abuse_dga_threshold: parseFloat(getEl('abuse-dga-threshold-input')?.value) || 3.8,
         abuse_dga_min_len: parseInt(getEl('abuse-dga-min-len-input')?.value) || 8,
         malicious_ip_blocking_enabled: getEl('malicious-check')?.checked,

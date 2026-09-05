@@ -36,6 +36,8 @@ type CorefileData struct {
 	KeyFile          string
 	FilteringEnabled bool
 	HasCerts         bool
+	RateLimitRate    int
+	RateLimitBurst   int
 }
 
 const CorefileTemplate = `.:{{.DNSPort}} {
@@ -47,6 +49,12 @@ const CorefileTemplate = `.:{{.DNSPort}} {
     hosts {{.HostsPath}} {
         reload 5s
         fallthrough
+    }
+    {{end}}
+    {{if gt .RateLimitRate 0}}
+    ratelimit {
+        rate {{.RateLimitRate}}
+        burst {{.RateLimitBurst}}
     }
     {{end}}
     cache 3600 {
@@ -81,6 +89,12 @@ tls://.:{{.DOTPort}} {
         fallthrough
     }
     {{end}}
+    {{if gt .RateLimitRate 0}}
+    ratelimit {
+        rate {{.RateLimitRate}}
+        burst {{.RateLimitBurst}}
+    }
+    {{end}}
     cache 3600 {
         success 50000
         denial 30000
@@ -110,6 +124,12 @@ https://.:{{.InternalDOHPort}} {
     hosts {{.HostsPath}} {
         reload 5s
         fallthrough
+    }
+    {{end}}
+    {{if gt .RateLimitRate 0}}
+    ratelimit {
+        rate {{.RateLimitRate}}
+        burst {{.RateLimitBurst}}
     }
     {{end}}
     cache 3600 {
@@ -145,6 +165,12 @@ quic://.:{{.DOTPort}} {
     hosts {{.HostsPath}} {
         reload 5s
         fallthrough
+    }
+    {{end}}
+    {{if gt .RateLimitRate 0}}
+    ratelimit {
+        rate {{.RateLimitRate}}
+        burst {{.RateLimitBurst}}
     }
     {{end}}
     cache 3600 {
@@ -674,6 +700,8 @@ func updateCorefile() {
 		KeyFile:          keyFile,
 		FilteringEnabled: cfg.FilteringEnabled,
 		HasCerts:         hasCerts,
+		RateLimitRate:    cfg.RateLimitRate,
+		RateLimitBurst:   cfg.RateLimitBurst,
 	}
 
 	tmpl, err := template.New("corefile").Parse(CorefileTemplate)

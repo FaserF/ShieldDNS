@@ -70,6 +70,8 @@ func loadConfig() {
 		MaliciousIPInterval:        8,
 		DoHRateLimit:               50,
 		DoH3Enabled:                true,
+		RateLimitRate:              100, // 100 queries/sec per client IP
+		RateLimitBurst:             250, // 250 burst allowance
 		AutoblockWhitelist:         []string{"127.0.0.1", "::1"},
 		AutoUpdateEnabled:          false,
 		AutoUpdateHour:             3,
@@ -1165,6 +1167,8 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 		UpstreamDoT:                append([]string{}, config.UpstreamDoT...),
 		DoHRateLimit:               config.DoHRateLimit,
 		DoH3Enabled:                config.DoH3Enabled,
+		RateLimitRate:              config.RateLimitRate,
+		RateLimitBurst:             config.RateLimitBurst,
 		DNSRebindingProtection:     config.DNSRebindingProtection,
 		StripECS:                   config.StripECS,
 		Timestamp:                  time.Now().UTC(),

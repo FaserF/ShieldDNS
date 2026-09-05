@@ -682,3 +682,30 @@ func TestDoQHardeningInTemplate(t *testing.T) {
 		t.Error("CorefileTemplate missing DoQ worker_pool_size hardening")
 	}
 }
+
+func TestRateLimitTemplateRendering(t *testing.T) {
+	tmpl, err := template.New("corefile").Parse(CorefileTemplate)
+	if err != nil {
+		t.Fatalf("failed to parse template: %v", err)
+	}
+
+	data := CorefileData{
+		DNSPort:        "53",
+		DOTPort:        "853",
+		RateLimitRate:  100,
+		RateLimitBurst: 250,
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		t.Fatalf("failed to execute template: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "ratelimit") {
+		t.Errorf("expected rendered corefile to contain ratelimit block, got:\n%s", out)
+	}
+	if !strings.Contains(out, "rate 100") || !strings.Contains(out, "burst 250") {
+		t.Errorf("expected rate 100 and burst 250, got:\n%s", out)
+	}
+}

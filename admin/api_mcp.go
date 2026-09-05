@@ -1217,6 +1217,8 @@ var allMCPTools = []struct {
 					"doh_rate_limit":         map[string]interface{}{"type": "integer", "description": "Max DoH queries per second per client"},
 					"retention_days":         map[string]interface{}{"type": "integer", "description": "Query retention in days (1-365)"},
 					"doh3_enabled":           map[string]interface{}{"type": "boolean", "description": "Enable DNS-over-HTTP/3 (QUIC) support"},
+					"rate_limit_rate":        map[string]interface{}{"type": "integer", "description": "CoreDNS queries/sec limit per client IP (0 = disabled)"},
+					"rate_limit_burst":       map[string]interface{}{"type": "integer", "description": "CoreDNS flood burst capacity"},
 					"abuse_detection_enabled": map[string]interface{}{"type": "boolean", "description": "Enable automated abuse and DGA detection"},
 					"debug_mode":             map[string]interface{}{"type": "boolean", "description": "Enable detailed debug logs"},
 				},
@@ -1280,6 +1282,12 @@ var allMCPTools = []struct {
 			}
 			if v, ok := args["doh3_enabled"].(bool); ok {
 				config.DoH3Enabled = v
+			}
+			if v, ok := args["rate_limit_rate"].(float64); ok && v >= 0 {
+				config.RateLimitRate = int(v)
+			}
+			if v, ok := args["rate_limit_burst"].(float64); ok && v > 0 {
+				config.RateLimitBurst = int(v)
 			}
 			if v, ok := args["debug_mode"].(bool); ok {
 				config.DebugMode = v

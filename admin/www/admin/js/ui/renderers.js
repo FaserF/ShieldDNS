@@ -215,6 +215,8 @@ export function renderConfig(cfg) {
     if (getEl('diagnostics-interval-input')) getEl('diagnostics-interval-input').value = cfg.diagnostics_refresh_interval || 30;
     if (getEl('retention-input')) getEl('retention-input').value = cfg.retention_days || 30;
     if (getEl('doh-rate-limit-input')) getEl('doh-rate-limit-input').value = cfg.doh_rate_limit || 30;
+    if (getEl('rate-limit-rate-input')) getEl('rate-limit-rate-input').value = cfg.rate_limit_rate !== undefined ? cfg.rate_limit_rate : 100;
+    if (getEl('rate-limit-burst-input')) getEl('rate-limit-burst-input').value = cfg.rate_limit_burst !== undefined ? cfg.rate_limit_burst : 250;
     if (getEl('abuse-dga-threshold-input')) getEl('abuse-dga-threshold-input').value = cfg.abuse_dga_threshold || 3.8;
     if (getEl('abuse-dga-min-len-input')) getEl('abuse-dga-min-len-input').value = cfg.abuse_dga_min_len || 8;
 
