@@ -13,7 +13,8 @@ export const state = {
     diagnosticsInterval: null,
     systemLogStream: null,
     isDirty: false,
-    liveUpdatesEnabled: true
+    liveUpdatesEnabled: true,
+    filterDohProxy: false
 };
 
 export const getEl = (id) => document.getElementById(id);

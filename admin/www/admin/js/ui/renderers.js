@@ -74,10 +74,15 @@ export function renderDashStats(data) {
 }
 
 export function renderQueries(queries) {
+    // Apply DoH proxy filter if enabled (hides internal 127.0.0.1 requests)
+    const filtered = state.filterDohProxy ?
+        queries.filter(q => q.client_ip !== '127.0.0.1' && q.client_ip !== '::1' && q.client_ip !== '::ffff:127.0.0.1') :
+        queries;
+
     // Top-level Dashboard Feed (last 20)
     if (uiRefs.queryLogItems) {
         uiRefs.queryLogItems.innerHTML = '';
-        queries.slice(0, 20).forEach(q => uiRefs.queryLogItems.appendChild(createQueryRow(q)));
+        filtered.slice(0, 20).forEach(q => uiRefs.queryLogItems.appendChild(createQueryRow(q)));
     }
 
     // Full Query Log View (Virtual Scroller)
@@ -86,7 +91,7 @@ export function renderQueries(queries) {
             state.fullQueryScroller = new VirtualScroller('full-query-log-items', 48, createQueryRow);
         }
         state.cachedQueries = queries;
-        state.fullQueryScroller.setData(queries);
+        state.fullQueryScroller.setData(filtered);
     }
 }
 
