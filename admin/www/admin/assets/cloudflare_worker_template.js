@@ -75,10 +75,13 @@ async function handleDoHQuery(request) {
 
   // 1. Check health of all nodes in parallel
   const healthChecks = await Promise.all(
-    nodeList.map(async (node) => ({
-      ...node,
-      isHealthy: await checkNodeHealth(node.url)
-    }))
+    nodeList.map(async (node) => {
+      const res = await checkNodeHealth(node.url);
+      return {
+        ...node,
+        isHealthy: res.isHealthy
+      };
+    })
   );
 
   let healthyNodes = healthChecks.filter(n => n.isHealthy);
@@ -153,9 +156,10 @@ async function handleDoHQuery(request) {
 }
 
 /**
- * Perform rapid non-blocking health check
+ * Perform rapid non-blocking health check with latency measurement
  */
 async function checkNodeHealth(baseUrl) {
+  const start = Date.now();
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), CONFIG.HEALTH_TIMEOUT_MS);
@@ -166,62 +170,374 @@ async function checkNodeHealth(baseUrl) {
       cf: { cacheTtl: 5, cacheEverything: true }
     });
     clearTimeout(timeout);
-    return resp.status === 200;
+    return {
+      isHealthy: resp.status === 200,
+      latencyMs: resp.status === 200 ? Date.now() - start : null,
+    };
   } catch (e) {
-    return false;
+    return { isHealthy: false, latencyMs: null };
   }
 }
 
 /**
- * Handle Worker Landing Page & Health Status
+ * Handle Worker Landing Page & Privacy-Safe Status in ShieldDNS Design
  */
 async function handleLanding(request) {
   const url = new URL(request.url);
+  const clientCountry = (request.cf && request.cf.country) ? request.cf.country.toUpperCase() : "GLOBAL";
+  const clientColo = (request.cf && request.cf.colo) ? request.cf.colo : "EDGE";
+  const httpProtocol = request.cf && request.cf.httpProtocol ? request.cf.httpProtocol : "HTTP/2";
+
   const nodeList = Array.isArray(CONFIG.NODES) && CONFIG.NODES.length > 0 ? CONFIG.NODES : [];
   const nodeStatuses = await Promise.all(
-    nodeList.map(async (n) => ({
-      name: n.name,
-      url: n.url,
-      role: n.role,
-      isHealthy: await checkNodeHealth(n.url)
-    }))
+    nodeList.map(async (n) => {
+      const health = await checkNodeHealth(n.url);
+      return {
+        id: n.id,
+        name: n.name,
+        role: n.role,
+        isHealthy: health.isHealthy,
+        latencyMs: health.latencyMs,
+      };
+    })
   );
+
+  const healthyCount = nodeStatuses.filter(n => n.isHealthy).length;
+  const allHealthy = healthyCount === nodeStatuses.length && nodeStatuses.length > 0;
+  const anyHealthy = healthyCount > 0;
+
+  const statusBadgeColor = allHealthy ? "#10b981" : (anyHealthy ? "#f59e0b" : "#ef4444");
+  const statusBadgeBg = allHealthy ? "rgba(16, 185, 129, 0.12)" : (anyHealthy ? "rgba(245, 158, 11, 0.12)" : "rgba(239, 68, 68, 0.12)");
+  const statusBorder = allHealthy ? "rgba(16, 185, 129, 0.3)" : (anyHealthy ? "rgba(245, 158, 11, 0.3)" : "rgba(239, 68, 68, 0.3)");
+  const statusText = allHealthy ? "All Systems Operational" : (anyHealthy ? "Partial Degradation (Failover Active)" : "All Upstreams Offline");
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>ShieldDNS Cluster Dispatcher</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShieldDNS Edge Gateway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: system-ui, sans-serif; background: #0b0f19; color: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-    .card { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 32px; max-width: 520px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    h1 { font-size: 1.5rem; margin-top: 0; display: flex; align-items: center; gap: 10px; color: #60a5fa; }
-    .node { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(0,0,0,0.25); border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.06); }
-    .badge { padding: 4px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: bold; }
-    .badge.online { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
-    .badge.offline { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
-    .btn { display: inline-block; padding: 8px 14px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 6px; font-size: 0.85rem; font-weight: 500; margin-right: 8px; margin-top: 15px; }
-    .btn.subtle { background: rgba(255,255,255,0.1); color: #e5e7eb; }
-    code { background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; color: #93c5fd; }
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(22, 27, 44, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --code-bg: rgba(0, 0, 0, 0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #171d33 0%, var(--bg) 75%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .wrapper {
+      max-width: 580px;
+      width: 100%;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 36px 32px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), inset 0 1px 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .logo-badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 20px -4px rgba(99, 102, 241, 0.5);
+      flex-shrink: 0;
+    }
+    .logo-badge svg {
+      width: 26px;
+      height: 26px;
+      stroke: #fff;
+    }
+    h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .overall-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: ${statusBadgeBg};
+      border: 1px solid ${statusBorder};
+      margin-bottom: 24px;
+    }
+    .overall-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: ${statusBadgeColor};
+    }
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: ${statusBadgeColor};
+      box-shadow: 0 0 10px ${statusBadgeColor};
+      animation: pulse 2s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .nodes-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .node-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      transition: border-color 0.2s;
+    }
+    .node-row:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+    .node-name {
+      font-weight: 600;
+      font-size: 0.92rem;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .node-role {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+    }
+    .node-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .badge.healthy {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge.down {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .info-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+      font-size: 0.83rem;
+      line-height: 1.6;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--text-secondary); }
+    .info-value { color: var(--text-primary); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.82rem; }
+    .code-pill {
+      background: var(--code-bg);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #93c5fd;
+      font-size: 0.8rem;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 16px;
+      border-radius: 10px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      text-align: center;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-primary);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-1px);
+    }
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .footer a {
+      color: #818cf8;
+      text-decoration: none;
+    }
+    .footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>🛡️ ShieldDNS Dispatcher</h1>
-    <p style="color:#9ca3af; font-size:0.9rem;">Cloudflare Worker High-Availability Gateway</p>
-    <div style="margin: 20px 0;">
+  <div class="wrapper">
+    <div class="header">
+      <div class="logo-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div>
+        <h1>ShieldDNS Dispatcher</h1>
+        <div class="subtitle">Cloudflare Edge &bull; Anycast Failover Gateway</div>
+      </div>
+    </div>
+
+    <div class="overall-status">
+      <div class="overall-label">
+        <span class="pulse-dot"></span>
+        <span>${statusText}</span>
+      </div>
+      <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;">
+        ${healthyCount} / ${nodeStatuses.length} Upstream Nodes Active
+      </span>
+    </div>
+
+    <div class="section-title">Upstream Cluster Nodes</div>
+    <div class="nodes-grid">
       ${nodeStatuses.map(n => `
-      <div class="node">
-        <div><strong>${n.name}</strong> (${n.role})<br><small style="color:#9ca3af;">${n.url}</small></div>
-        <span class="badge ${n.isHealthy ? 'online' : 'offline'}">${n.isHealthy ? 'ONLINE' : 'DOWN'}</span>
+      <div class="node-row">
+        <div>
+          <div class="node-name">
+            <span>${n.name}</span>
+            <span class="node-role">${n.role}</span>
+          </div>
+          <div class="node-meta">
+            ${n.isHealthy && n.latencyMs !== null ? `Health check latency: ${n.latencyMs}ms` : (n.isHealthy ? `Operational` : `Unreachable / Offline`)}
+          </div>
+        </div>
+        <span class="badge ${n.isHealthy ? 'healthy' : 'down'}">
+          ${n.isHealthy ? '● OPERATIONAL' : '✕ OFFLINE'}
+        </span>
       </div>`).join("")}
     </div>
-    <div style="font-size:0.85rem; color:#9ca3af; line-height: 1.6;">
-      DoH Endpoint: <code>https://${url.hostname}/dns-query</code>
+
+    <div class="section-title">Gateway Details</div>
+    <div class="info-box">
+      <div class="info-row">
+        <span class="info-label">DoH Endpoint</span>
+        <span class="info-value"><span class="code-pill">https://${url.hostname}/dns-query</span></span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Protocols</span>
+        <span class="info-value">DoH (HTTP/2) &bull; DoH3 (HTTP/3 QUIC)</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Edge Ingress</span>
+        <span class="info-value">${clientCountry} (${clientColo}) &bull; ${httpProtocol}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Privacy &amp; Security</span>
+        <span class="info-value" style="color: var(--success);">Zero-Log Edge &bull; DNSSEC Verified</span>
+      </div>
     </div>
-    <div style="margin-top: 20px;">
-      <a href="/master" class="btn">Primary Dashboard &rarr;</a>
-      <a href="/slave" class="btn subtle">Replica Dashboard &rarr;</a>
+
+    <div class="actions">
+      <a href="/master" class="btn btn-primary">Primary Node &rarr;</a>
+      <a href="/slave" class="btn btn-secondary">Replica Node &rarr;</a>
+    </div>
+
+    <div class="footer">
+      Powered by <a href="https://github.com/FaserF/ShieldDNS" target="_blank" rel="noopener noreferrer">ShieldDNS</a> &bull; Privacy-Focused High Availability
     </div>
   </div>
 </body>
@@ -231,3 +547,4 @@ async function handleLanding(request) {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
+

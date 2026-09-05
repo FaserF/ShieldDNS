@@ -708,6 +708,15 @@
                         <label>Cloudflare Worker Dispatcher Domain</label>
                         <input type="text" id="cluster-worker-domain-input" placeholder="e.g. worker.domain.com" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
                         <p class="help">Optional DNS hostname for a Cloudflare Worker edge distributor. When set, this hostname is presented in setup profiles and trusted for cluster dispatching.</p>
+                        
+                        <div class="alert info" style="margin-top: 10px; padding: 10px 12px; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 0.82rem; line-height: 1.4;">
+                            <strong style="color: var(--text-primary); display: block; margin-bottom: 4px;">
+                                <i class="fas fa-info-circle" style="color: #3b82f6;"></i> Protocol Capabilities & Redundancy Scope:
+                            </strong>
+                            <span style="color: #10b981; font-weight: 600;">✅ DoH / DoH3 (Port 443):</span> Full Worker routing, active failover, and Geo-steering.<br>
+                            <span style="color: #f59e0b; font-weight: 600;">ℹ️ DoT / DoQ / Plain DNS (Port 853 / 53):</span> Cloudflare Workers only proxy HTTP/HTTPS. For DoT/DoQ/UDP failover, configure dual A/AAAA DNS records for your domain so client resolvers automatically fallback between nodes.
+                        </div>
+
                         <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
                             <button type="button" class="btn secondary" id="cluster-worker-generate-btn" style="font-size: 0.85rem; padding: 6px 12px;">
                                 <i class="fab fa-cloudflare" style="color: #f38020; margin-right: 6px;"></i>Generate Prefilled Worker Script

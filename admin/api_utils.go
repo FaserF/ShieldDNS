@@ -1116,6 +1116,7 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	adminDomain := config.AdminDomain
 	blockPageIP := config.BlockPageIP
 	signEnabled := config.SignMobileConfig
+	workerDomain := config.ClusterWorkerDomain
 	configLock.RUnlock()
 
 	host := adminDomain
@@ -1124,6 +1125,16 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(host, ":") {
 			host = strings.Split(host, ":")[0]
 		}
+	}
+
+	// Cluster worker support: If a Cloudflare Worker dispatcher is configured,
+	// clients can route DoH through the worker. However, Apple mobileconfig signing
+	// requires that the signing certificate matches the profile or isn't invalid.
+	// Allow explicit ?host= override or fallback gracefully.
+	if reqHost := r.URL.Query().Get("host"); reqHost != "" {
+		host = reqHost
+	} else if workerDomain != "" && r.URL.Query().Get("prefer_worker") == "1" {
+		host = workerDomain
 	}
 
 	// Build ServerAddresses XML block (Bootstrap IPs)
@@ -1318,12 +1329,31 @@ By proceeding, you consent to all DNS traffic being routed through this server. 
 		}
 
 		if _, err := os.Stat(certFile); err == nil {
-			signed, signErr := signProfile(finalContent, certFile, keyFile)
-			if signErr == nil {
-				finalContent = signed
-			} else {
-				slog.Error("Failed to sign mobileconfig profile", "error", signErr)
-				// Fallback to unsigned content (which we already have in finalContent)
+			// If host differs from local certificate domain (e.g. using Cloudflare Worker domain),
+			// verify if cert matches. If local cert doesn't cover worker domain, serve unsigned
+			// rather than broken/mismatched signature.
+			canSign := true
+			if certData != nil {
+				block, _ := pem.Decode(certData)
+				if block != nil {
+					if c, err := x509.ParseCertificate(block.Bytes); err == nil {
+						if err := c.VerifyHostname(host); err != nil {
+							// Local cert doesn't cover this host (e.g. worker domain vs node cert)
+							canSign = false
+							slog.Info("Serving unsigned mobileconfig because local SSL certificate does not cover profile hostname", "profile_host", host, "cert_subject", c.Subject.CommonName)
+						}
+					}
+				}
+			}
+
+			if canSign {
+				signed, signErr := signProfile(finalContent, certFile, keyFile)
+				if signErr == nil {
+					finalContent = signed
+				} else {
+					slog.Error("Failed to sign mobileconfig profile", "error", signErr)
+					// Fallback to unsigned content (which we already have in finalContent)
+				}
 			}
 		}
 	}

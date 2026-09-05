@@ -720,6 +720,10 @@
                 <button type="button" class="btn secondary sm" id="worker-script-close-x" style="padding: 4px 8px;">✕</button>
             </div>
             <div style="position: relative;">
+                <div style="margin-bottom: 8px; padding: 8px 10px; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 0.8rem; color: var(--text-secondary);">
+                    <i class="fas fa-info-circle" style="color: #3b82f6; margin-right: 4px;"></i>
+                    <strong>Protocol Scope:</strong> Cloudflare Workers operate on L7 HTTP/HTTPS (DoH / DoH3 on Port 443). DoT (Port 853) and raw UDP DNS (Port 53) are handled separately via Dual A/AAAA DNS records.
+                </div>
                 <textarea id="worker-script-code" readonly style="width: 100%; height: 380px; font-family: monospace; font-size: 0.82rem; background: var(--bg-input, #0d1117); color: #c9d1d9; border: 1px solid var(--border); border-radius: 6px; padding: 12px; resize: vertical; white-space: pre;"></textarea>
             </div>
             <div class="modal-actions mt-3" style="display: flex; justify-content: space-between; align-items: center;">

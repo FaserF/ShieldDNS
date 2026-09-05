@@ -37,6 +37,26 @@ This guide demonstrates how to configure high availability (HA), automatic healt
 
 ---
 
+## 📋 Protocol Support & Technical Limitations
+
+Not all DNS protocols can be proxied through Cloudflare Workers. Cloudflare Workers run strictly at the HTTP/HTTPS application layer (L7) and terminate requests via the Fetch API.
+
+| Protocol | Port / Transport | Worker Proxy & Failover | Technical Details & Recommended Setup |
+| :--- | :--- | :---: | :--- |
+| **DoH** (DNS-over-HTTPS) | Port 443 TCP (HTTP/2) | ✅ **Full Support** | Native L7 HTTP proxying via Worker with latency-based failover, health checks, and Geo-steering. |
+| **DoH3** (DNS-over-HTTP/3) | Port 443 UDP (QUIC) | ✅ **Full Support** | Cloudflare Edge automatically handles HTTP/3 (QUIC) on port 443, proxying queries upstream to ShieldDNS. |
+| **DoT** (DNS-over-TLS) | Port 853 TCP (Raw TLS) | ❌ *Not via Worker* | Workers cannot proxy raw TCP port 853. Failover is handled via **Dual A/AAAA DNS records** (client OS failover) or Anycast BGP. |
+| **DoQ** (DNS-over-QUIC) | Port 853 UDP (Raw QUIC) | ❌ *Not via Worker* | Workers cannot route raw UDP port 853. Redundancy handled via **Dual A/AAAA DNS records**. |
+| **Plain DNS** | Port 53 UDP / TCP | ❌ *Not via Worker* | Workers cannot handle raw port 53. Redundancy handled via **Dual NS/A/AAAA records** at registrar or Anycast BGP. |
+
+> [!NOTE]
+> **Recommended Dual-Stack Redundancy Setup:**
+> - **For Browsers & DoH/DoH3 Mobile Clients:** Point client configuration to `https://worker.yourdomain.com/dns-query`.
+> - **For Android Private DNS (DoT) & Raw DNS Clients:** Configure your apex or subdomain (e.g. `dns.yourdomain.com`) with **two A/AAAA records** pointing directly to both server IPs (`dns1` and `dns2`). Android and modern OS resolver stacks automatically race and failover between multiple IP addresses.
+> - **Internal Cluster Sync:** ShieldDNS Primary-Replica synchronization operates independently over HTTPS `/api/cluster/...` and is always fully functional regardless of the client DNS transport.
+
+---
+
 ## 📋 Prerequisites
 
 1. Two publicly reachable ShieldDNS instances:
