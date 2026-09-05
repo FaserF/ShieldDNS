@@ -631,8 +631,12 @@ func hasPermission(key *APIKey, perm string) bool {
 		if p == "admin:all" || p == "read:all" || p == perm {
 			return true
 		}
+		// Cluster sync can read config
+		if perm == "read:config" && (p == "cluster:sync" || p == "write:config") {
+			return true
+		}
 		// Hierarchical shortcuts
-		if (perm == "read:health") && (p == "read:stats" || p == "read:system" || p == "read:diagnostics" || p == "read:config") {
+		if (perm == "read:health") && (p == "read:stats" || p == "read:system" || p == "read:diagnostics" || p == "read:config" || p == "cluster:sync") {
 			return true
 		}
 	}
@@ -644,6 +648,8 @@ func getRequiredPermission(r *http.Request) string {
 	method := r.Method
 
 	switch {
+	case strings.HasPrefix(path, "/api/cluster/replicas/"):
+		return "cluster:sync"
 	case strings.HasPrefix(path, "/api/health"):
 		return "read:health"
 	case strings.HasPrefix(path, "/api/stats"), strings.HasPrefix(path, "/api/history"), strings.HasPrefix(path, "/api/metrics"), strings.HasPrefix(path, "/api/clients"):

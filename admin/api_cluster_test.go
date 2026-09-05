@@ -129,3 +129,41 @@ func TestClusterOfflineFallback(t *testing.T) {
 		t.Errorf("Expected last_error to be 'connection refused', got %v", conn["last_error"])
 	}
 }
+
+func TestClusterPermissionCheck(t *testing.T) {
+	clusterKey := &APIKey{
+		ID:          "key-1",
+		Permissions: []string{"cluster:sync"},
+	}
+	if !hasPermission(clusterKey, "cluster:sync") {
+		t.Errorf("Expected clusterKey to have 'cluster:sync' permission")
+	}
+	if !hasPermission(clusterKey, "read:config") {
+		t.Errorf("Expected clusterKey to have implicit 'read:config' permission")
+	}
+	if !hasPermission(clusterKey, "read:health") {
+		t.Errorf("Expected clusterKey to have implicit 'read:health' permission")
+	}
+	if hasPermission(clusterKey, "write:config") {
+		t.Errorf("Expected clusterKey NOT to have 'write:config' permission")
+	}
+	if hasPermission(clusterKey, "read:logs") {
+		t.Errorf("Expected clusterKey NOT to have 'read:logs' permission")
+	}
+
+	readOnlyKey := &APIKey{
+		ID:          "key-2",
+		Permissions: []string{"read:stats"},
+	}
+	if hasPermission(readOnlyKey, "cluster:sync") {
+		t.Errorf("Expected readOnlyKey NOT to have 'cluster:sync' permission")
+	}
+
+	adminKey := &APIKey{
+		ID:          "key-3",
+		Permissions: []string{"admin:all"},
+	}
+	if !hasPermission(adminKey, "cluster:sync") {
+		t.Errorf("Expected adminKey to have 'cluster:sync' permission")
+	}
+}

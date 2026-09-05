@@ -347,6 +347,7 @@ export function initEvents(fetchConfig) {
         if (getEl('perm-maint').checked) perms.push('write:maintenance');
         if (getEl('perm-system').checked) perms.push('read:system');
         if (getEl('perm-mcp')?.checked) perms.push('exec:mcp');
+        if (getEl('perm-cluster-sync')?.checked) perms.push('cluster:sync');
 
         const currentEditId = getEl('save-api-key-btn').dataset.editId;
         const endpoint = currentEditId ? `${api.endpoints.createToken}?id=${currentEditId}` : api.endpoints.createToken;
@@ -393,7 +394,7 @@ export function initEvents(fetchConfig) {
     // API Key Presets
     const setPerms = (perms) => {
         const ids = [
-            'perm-admin', 'perm-stats', 'perm-logs', 'perm-health',
+            'perm-admin', 'perm-cluster-sync', 'perm-stats', 'perm-logs', 'perm-health',
             'perm-config-read', 'perm-config-write', 'perm-diag',
             'perm-rules-read', 'perm-rules-write', 'perm-maint', 'perm-system', 'perm-mcp'
         ];
@@ -408,6 +409,7 @@ export function initEvents(fetchConfig) {
 
     const updatePermissionStates = () => {
         const admin = getEl('perm-admin');
+        const clusterSync = getEl('perm-cluster-sync');
         const stats = getEl('perm-stats');
         const logs = getEl('perm-logs');
         const health = getEl('perm-health');
@@ -423,22 +425,88 @@ export function initEvents(fetchConfig) {
         if (!admin) return;
 
         const allInputs = [
-            stats, logs, health, configRead, configWrite,
+            clusterSync, stats, logs, health, configRead, configWrite,
             diag, rulesRead, rulesWrite, maint, system, mcp
         ];
 
+        // Reset state & clear custom visual highlighting classes
         allInputs.forEach(el => {
-            if (el) el.disabled = false;
+            if (el) {
+                el.disabled = false;
+                const parentItem = el.closest('.perm-item') || el.closest('.checkbox-group') || el.parentElement;
+                if (parentItem) {
+                    parentItem.style.opacity = '1';
+                    parentItem.style.pointerEvents = 'auto';
+                    parentItem.classList.remove('perm-included-locked', 'perm-disabled-locked');
+                }
+            }
         });
 
+        // 1. Master admin:all overrides everything
         if (admin.checked) {
             allInputs.forEach(el => {
                 if (el) {
                     el.checked = true;
                     el.disabled = true;
+                    const parentItem = el.closest('.perm-item') || el.parentElement;
+                    if (parentItem) {
+                        parentItem.style.opacity = '0.7';
+                        parentItem.classList.add('perm-included-locked');
+                    }
                 }
             });
             return;
+        }
+
+        // 2. Cluster Sync Dedicated Scope:
+        // Automatically locks out other rights. Required minimal permissions (read:config, read:health)
+        // are pre-selected and highlighted as implicitly included & locked, while unrelated rights are greyed out.
+        if (clusterSync && clusterSync.checked) {
+            // Permissions that are included because needed for replication
+            const includedForCluster = [configRead, health];
+            includedForCluster.forEach(el => {
+                if (el) {
+                    el.checked = true;
+                    el.disabled = true;
+                    const item = el.closest('.perm-item') || el.parentElement;
+                    if (item) {
+                        item.style.opacity = '0.9';
+                        item.style.background = 'rgba(59, 130, 246, 0.12)';
+                        item.style.border = '1px solid rgba(59, 130, 246, 0.4)';
+                        item.style.borderRadius = '4px';
+                        item.style.padding = '4px 8px';
+                    }
+                }
+            });
+
+            // Permissions that are excluded & greyed out to enforce minimal privilege
+            const excludedForCluster = [stats, logs, configWrite, diag, rulesRead, rulesWrite, maint, system, mcp];
+            excludedForCluster.forEach(el => {
+                if (el) {
+                    el.checked = false;
+                    el.disabled = true;
+                    const item = el.closest('.perm-item') || el.parentElement;
+                    if (item) {
+                        item.style.opacity = '0.35';
+                        item.style.background = 'transparent';
+                        item.style.border = 'none';
+                        item.style.padding = '0';
+                    }
+                }
+            });
+            return;
+        } else {
+            // Clean up any inline highlight styling when cluster:sync is unchecked
+            [configRead, health, stats, logs, configWrite, diag, rulesRead, rulesWrite, maint, system, mcp].forEach(el => {
+                if (el) {
+                    const item = el.closest('.perm-item') || el.parentElement;
+                    if (item) {
+                        item.style.background = 'transparent';
+                        item.style.border = 'none';
+                        item.style.padding = '0';
+                    }
+                }
+            });
         }
 
         if (configWrite && configWrite.checked) {
@@ -471,11 +539,19 @@ export function initEvents(fetchConfig) {
     };
 
     [
-        'perm-admin', 'perm-stats', 'perm-logs', 'perm-health',
+        'perm-admin', 'perm-cluster-sync', 'perm-stats', 'perm-logs', 'perm-health',
         'perm-config-read', 'perm-config-write', 'perm-diag',
         'perm-rules-read', 'perm-rules-write', 'perm-maint', 'perm-system', 'perm-mcp'
     ].forEach(id => {
         getEl(id)?.addEventListener('change', updatePermissionStates);
+    });
+
+    getEl('preset-cluster-btn')?.addEventListener('click', () => {
+        setPerms(['perm-cluster-sync']);
+        const keyName = getEl('api-key-name');
+        if (keyName && !keyName.value.trim()) {
+            keyName.value = 'Cluster Replica Token';
+        }
     });
 
     getEl('preset-ha-btn')?.addEventListener('click', () => {
@@ -701,6 +777,7 @@ export function initEvents(fetchConfig) {
         getEl('perm-maint').checked = key.permissions.includes('write:maintenance');
         getEl('perm-system').checked = key.permissions.includes('read:system');
         if (getEl('perm-mcp')) getEl('perm-mcp').checked = key.permissions.includes('exec:mcp');
+        if (getEl('perm-cluster-sync')) getEl('perm-cluster-sync').checked = key.permissions.includes('cluster:sync');
         
         updatePermissionStates();
         

@@ -134,8 +134,22 @@ func handleClusterRegisterReplica(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tokenHashed := hashToken(rawToken)
+	var matchedKey *APIKey
 
 	configLock.Lock()
+	for _, k := range config.APIKeys {
+		if k.TokenHash == tokenHashed {
+			matchedKey = &k
+			break
+		}
+	}
+
+	if matchedKey == nil || !hasPermission(matchedKey, "cluster:sync") {
+		configLock.Unlock()
+		http.Error(w, "Forbidden: Invalid token or missing 'cluster:sync' / 'admin:all' permission", http.StatusForbidden)
+		return
+	}
+
 	if config.ClusterRole != "primary" {
 		config.ClusterRole = "primary" // Auto-promote to primary if accepting replicas
 	}

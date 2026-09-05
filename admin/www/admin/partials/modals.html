@@ -1,4 +1,4 @@
-﻿{{define "modals"}}
+{{define "modals"}}
     <div id="modal" class="modal hidden">
         <div class="modal-content">
             <h2 id="modal-title">Add Blocklist</h2>
@@ -53,10 +53,11 @@
                 </div>
                 <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
                     <label>Permission Presets</label>
-                    <div style="display:flex; gap:8px; margin-top:4px;">
-                        <button type="button" class="btn secondary" id="preset-ha-btn" style="flex:1; padding:6px 12px; font-size:0.8rem;">HomeAssistant</button>
-                        <button type="button" class="btn secondary" id="preset-monitoring-btn" style="flex:1; padding:6px 12px; font-size:0.8rem;">Monitoring</button>
-                        <button type="button" class="btn secondary" id="preset-clear-btn" style="flex:1; padding:6px 12px; font-size:0.8rem;">Clear</button>
+                    <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap;">
+                        <button type="button" class="btn secondary" id="preset-cluster-btn" style="flex:1; min-width:120px; padding:6px 12px; font-size:0.8rem; border-color:var(--accent); font-weight:600;"><i class="fas fa-network-wired" style="margin-right:4px;"></i>Cluster Replica</button>
+                        <button type="button" class="btn secondary" id="preset-ha-btn" style="flex:1; min-width:100px; padding:6px 12px; font-size:0.8rem;">HomeAssistant</button>
+                        <button type="button" class="btn secondary" id="preset-monitoring-btn" style="flex:1; min-width:90px; padding:6px 12px; font-size:0.8rem;">Monitoring</button>
+                        <button type="button" class="btn secondary" id="preset-clear-btn" style="flex:1; min-width:60px; padding:6px 12px; font-size:0.8rem;">Clear</button>
                     </div>
                 </div>
                 <div class="form-group">
@@ -74,8 +75,21 @@
                             </div>
                         </div>
 
+                        <!-- Cluster Federation Group (Dedicated Scope) -->
+                        <div class="perm-group" id="perm-group-cluster" style="grid-column: 1 / -1; background: rgba(59, 130, 246, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span class="help" style="font-weight:700; text-transform:uppercase; font-size:0.7rem; color:var(--accent);"><i class="fas fa-network-wired" style="margin-right:6px;"></i>Cluster Federation & Replica Sync</span>
+                                <span class="badge secondary" style="font-size:0.65rem;">Dedicated Scope</span>
+                            </div>
+                            <div class="perm-item" style="margin-top:8px;">
+                                <label class="switch"><input type="checkbox" id="perm-cluster-sync"><span class="slider"></span></label>
+                                <span style="font-weight:600;"><strong>cluster:sync</strong> (Authorize secondary replicas to join, register & pull synchronized configuration)</span>
+                            </div>
+                            <p class="help" style="margin:6px 0 0 0; font-size:0.75rem;">When selected, all other unrelated permissions are locked/disabled to enforce minimal privileges.</p>
+                        </div>
+
                         <!-- Monitoring Group -->
-                        <div class="perm-group">
+                        <div class="perm-group" id="perm-group-stats">
                             <span class="help" style="display:block; margin-bottom:8px; font-weight:600; text-transform:uppercase; font-size:0.65rem; color:var(--accent);">Monitoring & Analytics</span>
                             <div class="perm-item">
                                 <label class="switch"><input type="checkbox" id="perm-stats" checked><span class="slider"></span></label>
@@ -92,7 +106,7 @@
                         </div>
 
                         <!-- System & Config Group -->
-                        <div class="perm-group">
+                        <div class="perm-group" id="perm-group-config">
                             <span class="help" style="display:block; margin-bottom:8px; font-weight:600; text-transform:uppercase; font-size:0.65rem; color:var(--accent);">System & Config</span>
                             <div class="perm-item">
                                 <label class="switch"><input type="checkbox" id="perm-config-read"><span class="slider"></span></label>
@@ -109,7 +123,7 @@
                         </div>
 
                         <!-- Rules & Filtering Group -->
-                        <div class="perm-group">
+                        <div class="perm-group" id="perm-group-rules">
                             <span class="help" style="display:block; margin-bottom:8px; font-weight:600; text-transform:uppercase; font-size:0.65rem; color:var(--accent);">Rules & Filtering</span>
                             <div class="perm-item">
                                 <label class="switch"><input type="checkbox" id="perm-rules-read"><span class="slider"></span></label>
@@ -122,7 +136,7 @@
                         </div>
 
                         <!-- Maintenance Group -->
-                        <div class="perm-group">
+                        <div class="perm-group" id="perm-group-maint">
                             <span class="help" style="display:block; margin-bottom:8px; font-weight:600; text-transform:uppercase; font-size:0.65rem; color:var(--accent);">Maintenance</span>
                             <div class="perm-item">
                                 <label class="switch"><input type="checkbox" id="perm-maint"><span class="slider"></span></label>
@@ -135,7 +149,7 @@
                         </div>
 
                         <!-- AI & Agent Group -->
-                        <div class="perm-group" style="grid-column: 1 / -1; background: rgba(var(--accent-rgb), 0.05); padding: 10px; border-radius: 6px; border: 1px dashed var(--accent);">
+                        <div class="perm-group" id="perm-group-mcp" style="grid-column: 1 / -1; background: rgba(var(--accent-rgb), 0.05); padding: 10px; border-radius: 6px; border: 1px dashed var(--accent);">
                             <span class="help" style="display:block; margin-bottom:8px; font-weight:600; text-transform:uppercase; font-size:0.65rem; color:var(--accent);">AI & Agent Access</span>
                             <div class="perm-item">
                                 <label class="switch"><input type="checkbox" id="perm-mcp"><span class="slider"></span></label>
