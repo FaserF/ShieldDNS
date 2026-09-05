@@ -135,14 +135,31 @@ export function renderConfig(cfg) {
     const dotUrl = getEl('guide-dot-url');
     const dohUrl = getEl('guide-doh-url');
     const doqUrl = getEl('guide-doq-url');
+    const clusterNote = getEl('guide-cluster-note');
+    const clusterWorkerHost = getEl('guide-cluster-worker-host');
+
+    // Android Private DNS (DoT) & DoQ ALWAYS require the direct node hostname
+    // because Cloudflare Workers cannot proxy raw TLS/QUIC on port 853.
     if (dotHost) dotHost.value = domain;
     if (dotUrl) dotUrl.value = `tls://${domain}`;
-    if (dohUrl) dohUrl.value = `https://${domain}/dns-query`;
     if (doqUrl) doqUrl.value = `quic://${domain}`;
+
+    // DoH (HTTPS) can be dispatched globally via Cloudflare Worker if configured
+    const workerDomain = cfg.cluster_worker_domain;
+    if (workerDomain) {
+        if (dohUrl) dohUrl.value = `https://${workerDomain}/dns-query`;
+        if (clusterNote) clusterNote.classList.remove('hidden');
+        if (clusterWorkerHost) clusterWorkerHost.textContent = workerDomain;
+    } else {
+        if (dohUrl) dohUrl.value = `https://${domain}/dns-query`;
+        if (clusterNote) clusterNote.classList.add('hidden');
+    }
 
     // Mobile Config QR and Link
     const g = uiRefs.guide;
     if (g && g.mobileBtn && g.mobileQR) {
+        // Serve mobileconfig using the direct node domain so that Apple profile signatures
+        // match the SSL certificate, avoiding untrusted profile warnings.
         const fullUrl = `https://${domain}/api/mobileconfig`;
         g.mobileBtn.href = fullUrl;
         g.mobileQR.src = `../api/qr?data=${encodeURIComponent(fullUrl)}`;

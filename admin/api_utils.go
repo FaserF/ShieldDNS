@@ -1117,6 +1117,8 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	blockPageIP := config.BlockPageIP
 	signEnabled := config.SignMobileConfig
 	workerDomain := config.ClusterWorkerDomain
+	replicas := append([]ClusterReplica{}, config.ClusterReplicas...)
+	primaryURL := config.ClusterPrimaryURL
 	configLock.RUnlock()
 
 	host := adminDomain
@@ -1138,28 +1140,55 @@ func handleMobileConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build ServerAddresses XML block (Bootstrap IPs)
-	// We should use the actual server IP that the client can reach.
-	bootstrapIP := blockPageIP
-	if bootstrapIP == "" || bootstrapIP == "127.0.0.1" || bootstrapIP == "0.0.0.0" {
-		// Fallback: Try to get the IP from the host header if it's an IP
+	// Supports multi-node failover bootstrap: iOS tests and resolves against these IPs
+	var bootstrapIPs []string
+	if blockPageIP != "" && blockPageIP != "127.0.0.1" && blockPageIP != "0.0.0.0" {
+		bootstrapIPs = append(bootstrapIPs, blockPageIP)
+	}
+
+	// Also extract IPs from replica or primary hostnames if directly resolvable or IP-based
+	for _, rep := range replicas {
+		if rep.URL != "" {
+			if u, err := url.Parse(rep.URL); err == nil {
+				h := u.Hostname()
+				if net.ParseIP(h) != nil && h != "127.0.0.1" {
+					bootstrapIPs = append(bootstrapIPs, h)
+				}
+			}
+		}
+	}
+	if primaryURL != "" {
+		if u, err := url.Parse(primaryURL); err == nil {
+			h := u.Hostname()
+			if net.ParseIP(h) != nil && h != "127.0.0.1" {
+				bootstrapIPs = append(bootstrapIPs, h)
+			}
+		}
+	}
+
+	if len(bootstrapIPs) == 0 {
 		h := r.Host
 		if strings.Contains(h, ":") {
 			h, _, _ = net.SplitHostPort(h)
 		}
-		if net.ParseIP(h) != nil {
-			bootstrapIP = h
-		} else {
-			bootstrapIP = "" // No bootstrap IP available
+		if net.ParseIP(h) != nil && h != "127.0.0.1" && h != "0.0.0.0" {
+			bootstrapIPs = append(bootstrapIPs, h)
 		}
 	}
 
 	serverAddrsXML := ""
-	if bootstrapIP != "" && bootstrapIP != "127.0.0.1" {
-		serverAddrsXML = fmt.Sprintf(`
-			<key>ServerAddresses</key>
-			<array>
-				<string>%s</string>
-			</array>`, bootstrapIP)
+	if len(bootstrapIPs) > 0 {
+		var addrStrings []string
+		seen := make(map[string]bool)
+		for _, ip := range bootstrapIPs {
+			if !seen[ip] {
+				seen[ip] = true
+				addrStrings = append(addrStrings, fmt.Sprintf("\t\t\t\t<string>%s</string>", ip))
+			}
+		}
+		if len(addrStrings) > 0 {
+			serverAddrsXML = fmt.Sprintf("\n\t\t\t<key>ServerAddresses</key>\n\t\t\t<array>\n%s\n\t\t\t</array>", strings.Join(addrStrings, "\n"))
+		}
 	}
 
 	// Certificate handling - check if self-signed

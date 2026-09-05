@@ -347,6 +347,23 @@ func TestHandleMobileConfig(t *testing.T) {
 	if strings.Contains(body, "<string>127.0.0.1</string>") {
 		t.Error("Mobileconfig still contains 127.0.0.1 in ServerAddresses")
 	}
+
+	// Test with cluster worker domain prefer_worker=1
+	configLock.Lock()
+	config.ClusterWorkerDomain = "worker.example.com"
+	configLock.Unlock()
+
+	reqWorker := httptest.NewRequest("GET", "/api/mobileconfig?prefer_worker=1", nil)
+	rrWorker := httptest.NewRecorder()
+	handleMobileConfig(rrWorker, reqWorker)
+
+	if rrWorker.Code != http.StatusOK {
+		t.Errorf("expected 200 for worker mobileconfig, got %v", rrWorker.Code)
+	}
+	bodyWorker := rrWorker.Body.String()
+	if !strings.Contains(bodyWorker, "<string>https://worker.example.com/dns-query</string>") {
+		t.Errorf("expected worker domain in ServerURL when prefer_worker=1, got: %s", bodyWorker)
+	}
 }
 
 func TestIsValidDomain(t *testing.T) {
