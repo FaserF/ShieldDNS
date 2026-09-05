@@ -1464,6 +1464,7 @@ export async function saveConfig(fetchConfig) {
         upstream_dot: dotUpstreams,
         prefer_encrypted: getEl('prefer-encrypted-check')?.checked,
         doh3_enabled: getEl('doh3-enabled-check')?.checked,
+        ech_optimization_enabled: getEl('ech-optimization-check')?.checked,
         admin_domain: getEl('admin-domain-input')?.value.trim() || state.currentConfig.admin_domain,
         block_page_ip: getEl('block-ip-input')?.value.trim() || state.currentConfig.block_page_ip,
         debug_mode: getEl('debug-mode-check')?.checked,

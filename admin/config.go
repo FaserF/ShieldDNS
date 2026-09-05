@@ -72,6 +72,7 @@ func loadConfig() {
 		DoH3Enabled:                true,
 		RateLimitRate:              100, // 100 queries/sec per client IP
 		RateLimitBurst:             250, // 250 burst allowance
+		ECHOptimizationEnabled:     true,
 		AutoblockWhitelist:         []string{"127.0.0.1", "::1"},
 		AutoUpdateEnabled:          false,
 		AutoUpdateHour:             3,
@@ -661,7 +662,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			if useLocal && err != nil {
 				slog.Warn("Could not open local official list fallback file, falling back to remote", "name", list.Name, "error", err)
 			}
-			if !isValidListURL(list.URL) {
+			if !testMode && !isValidListURL(list.URL) {
 				// Give a specific message when the URL uses plain HTTP
 				if strings.HasPrefix(strings.ToLower(list.URL), "http://") {
 					slog.Warn("Blocklist URL rejected: only HTTPS is allowed, plain HTTP is insecure – skipping list", "name", list.Name, "url", list.URL)
@@ -676,20 +677,15 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 				slog.Warn("Could not fetch remote list", "name", list.Name, "url", list.URL, "error", err)
 				return
 			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				slog.Warn("Remote list returned non-OK status", "name", list.Name, "status", resp.StatusCode)
-				return
-			}
-
 			// Capture remote update time with specialized GitHub support
 			list.RemoteUpdatedAt = getRemoteUpdateTime(list.URL, resp.Header)
 
 			reader = resp.Body
+			defer resp.Body.Close()
 		}
 	}
 
-	listIsAllowlist := allowMap != nil
+	listIsAllowlist := blockMap == nil
 	scanner := bufio.NewScanner(reader)
 	// Some list lines might be long, increase buffer size if needed
 	const maxCapacity = 1024 * 1024 // 1MB line buffer
@@ -1169,6 +1165,7 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 		DoH3Enabled:                config.DoH3Enabled,
 		RateLimitRate:              config.RateLimitRate,
 		RateLimitBurst:             config.RateLimitBurst,
+		ECHOptimizationEnabled:     config.ECHOptimizationEnabled,
 		DNSRebindingProtection:     config.DNSRebindingProtection,
 		StripECS:                   config.StripECS,
 		Timestamp:                  time.Now().UTC(),

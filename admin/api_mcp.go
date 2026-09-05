@@ -1219,6 +1219,7 @@ var allMCPTools = []struct {
 					"doh3_enabled":           map[string]interface{}{"type": "boolean", "description": "Enable DNS-over-HTTP/3 (QUIC) support"},
 					"rate_limit_rate":        map[string]interface{}{"type": "integer", "description": "CoreDNS queries/sec limit per client IP (0 = disabled)"},
 					"rate_limit_burst":       map[string]interface{}{"type": "integer", "description": "CoreDNS flood burst capacity"},
+					"ech_optimization_enabled": map[string]interface{}{"type": "boolean", "description": "Enable HTTPS/SVCB DNS record processing for ECH"},
 					"abuse_detection_enabled": map[string]interface{}{"type": "boolean", "description": "Enable automated abuse and DGA detection"},
 					"debug_mode":             map[string]interface{}{"type": "boolean", "description": "Enable detailed debug logs"},
 				},
@@ -1288,6 +1289,9 @@ var allMCPTools = []struct {
 			}
 			if v, ok := args["rate_limit_burst"].(float64); ok && v > 0 {
 				config.RateLimitBurst = int(v)
+			}
+			if v, ok := args["ech_optimization_enabled"].(bool); ok {
+				config.ECHOptimizationEnabled = v
 			}
 			if v, ok := args["debug_mode"].(bool); ok {
 				config.DebugMode = v

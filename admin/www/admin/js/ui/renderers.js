@@ -191,6 +191,7 @@ export function renderConfig(cfg) {
 
     if (getEl('prefer-encrypted-check')) getEl('prefer-encrypted-check').checked = !!cfg.prefer_encrypted;
     if (getEl('doh3-enabled-check')) getEl('doh3-enabled-check').checked = cfg.doh3_enabled !== false;
+    if (getEl('ech-optimization-check')) getEl('ech-optimization-check').checked = cfg.ech_optimization_enabled !== false;
     if (getEl('debug-mode-check')) getEl('debug-mode-check').checked = !!cfg.debug_mode;
     if (getEl('sign-mobileconfig-check')) {
         const signEl = getEl('sign-mobileconfig-check');
@@ -1107,9 +1108,9 @@ export function renderClusterStatus(cluster) {
             warningBanner.classList.remove('hidden');
             const msgEl = getEl('cluster-warning-msg');
             if (msgEl) {
-                msgEl.textContent = cluster.last_sync_error 
-                    ? `Error: ${cluster.last_sync_error}. Using cached settings and offline credentials.`
-                    : 'Primary node unreachable. Using cached settings and offline credentials.';
+                msgEl.textContent = cluster.last_sync_error ?
+                    `Error: ${cluster.last_sync_error}. Using cached settings and offline credentials.` :
+                    'Primary node unreachable. Using cached settings and offline credentials.';
             }
         } else {
             warningBanner.classList.add('hidden');

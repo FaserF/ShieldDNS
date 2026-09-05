@@ -97,12 +97,38 @@ Replace `src/index.js` (or `src/index.ts`) with the following production-ready W
  * - Worker proxy authentication header injection
  */
 
+/**
+ * Configuration for Multi-Region Nodes & Dynamic Steering
+ * NODES: Define any number of primary/replica/edge instances.
+ * Each node specifies:
+ *   - url: Base URL of the ShieldDNS instance
+ *   - role: 'primary' | 'secondary' | 'edge'
+ *   - preferredCountries: Array of ISO country codes (e.g. ['TR', 'DE', 'US'])
+ *   - preferredContinents: Array of continent codes (e.g. ['EU', 'NA', 'AS', 'AF', 'OC', 'SA'])
+ */
 const CONFIG = {
-  PRIMARY_URL: "https://dns1.yourdomain.com",
-  SECONDARY_URL: "https://dns2.yourdomain.com",
   HEALTH_CHECK_PATH: "/api/health/live",
   HEALTH_TIMEOUT_MS: 1500,
-  WORKER_SHARED_SECRET: "shielddns-worker-secure-token", // Optional header verification
+  WORKER_SHARED_SECRET: "shielddns-worker-secure-token",
+
+  NODES: [
+    {
+      id: "primary",
+      name: "Primary Controller",
+      url: "https://dns1.yourdomain.com",
+      role: "primary",
+      preferredCountries: ["DE", "AT", "CH", "NL", "FR"],
+      preferredContinents: ["EU"],
+    },
+    {
+      id: "secondary",
+      name: "Secondary / Edge Replica",
+      url: "https://dns2.yourdomain.com",
+      role: "secondary",
+      preferredCountries: ["TR", "GR", "CY", "BG", "IQ", "GE"],
+      preferredContinents: ["AS", "ME"],
+    }
+  ]
 };
 
 export default {
@@ -111,15 +137,18 @@ export default {
     const path = url.pathname.toLowerCase().replace(/\/+$/, "");
 
     // 1. Admin Shortcuts
+    const primaryNode = CONFIG.NODES.find(n => n.role === "primary") || CONFIG.NODES[0];
+    const secondaryNode = CONFIG.NODES.find(n => n.role === "secondary" || n.role === "edge") || CONFIG.NODES[1] || primaryNode;
+
     if (path === "/master" || path === "/primary") {
-      return Response.redirect(`${CONFIG.PRIMARY_URL}/admin/`, 302);
+      return Response.redirect(`${primaryNode.url}/admin/`, 302);
     }
     if (path === "/slave" || path === "/replica") {
-      return Response.redirect(`${CONFIG.SECONDARY_URL}/admin/`, 302);
+      return Response.redirect(`${secondaryNode.url}/admin/`, 302);
     }
     if (path === "/admin" || path.startsWith("/admin/")) {
       // Forward Admin UI traffic to Primary by default
-      const target = new URL(url.pathname + url.search, CONFIG.PRIMARY_URL);
+      const target = new URL(url.pathname + url.search, primaryNode.url);
       return fetch(new Request(target.toString(), request));
     }
 
@@ -134,18 +163,57 @@ export default {
 };
 
 /**
- * Handle DNS-over-HTTPS request with active failover
+ * Handle DNS-over-HTTPS query with universal Geo-proximity steering & health failover
  */
 async function handleDoHQuery(request) {
-  // Determine preferred target by trying Primary first
-  const primaryUp = await checkNodeHealth(CONFIG.PRIMARY_URL);
-  const targetBase = primaryUp ? CONFIG.PRIMARY_URL : CONFIG.SECONDARY_URL;
+  const clientCountry = (request.cf && request.cf.country) ? request.cf.country.toUpperCase() : "";
+  const clientContinent = (request.cf && request.cf.continent) ? request.cf.continent.toUpperCase() : "";
 
-  const targetUrl = new URL(new URL(request.url).pathname + new URL(request.url).search, targetBase);
+  // 1. Check health of all nodes in parallel
+  const healthChecks = await Promise.all(
+    CONFIG.NODES.map(async (node) => ({
+      ...node,
+      isHealthy: await checkNodeHealth(node.url)
+    }))
+  );
+
+  const healthyNodes = healthChecks.filter(n => n.isHealthy);
+  if (healthyNodes.length === 0) {
+    // Emergency fallback to primary if all health checks report negative
+    healthyNodes.push(CONFIG.NODES[0]);
+  }
+
+  // 2. Universal Geo-Proximity Scorer:
+  // - Matches country: +100 points
+  // - Matches continent: +50 points
+  // - Primary node bonus: +10 points (to break ties)
+  let bestNode = healthyNodes[0];
+  let bestScore = -1;
+
+  for (const node of healthyNodes) {
+    let score = 0;
+    if (clientCountry && node.preferredCountries && node.preferredCountries.includes(clientCountry)) {
+      score += 100;
+    } else if (clientContinent && node.preferredContinents && node.preferredContinents.includes(clientContinent)) {
+      score += 50;
+    }
+    if (node.role === "primary") {
+      score += 10;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestNode = node;
+    }
+  }
+
+  const targetUrl = new URL(new URL(request.url).pathname + new URL(request.url).search, bestNode.url);
 
   // Clone headers and add proxy indicator
   const headers = new Headers(request.headers);
   headers.set("X-Forwarded-Host", new URL(request.url).hostname);
+  headers.set("X-Client-Country", clientCountry);
+  headers.set("X-Client-Continent", clientContinent);
+  headers.set("X-Selected-Node", bestNode.id);
   headers.set("X-ShieldDNS-Worker", CONFIG.WORKER_SHARED_SECRET);
 
   try {
@@ -156,9 +224,10 @@ async function handleDoHQuery(request) {
       redirect: "follow",
     }));
 
-    // If Primary returned 502/503/504, attempt emergency fallback to Secondary
-    if (!response.ok && response.status >= 502 && targetBase === CONFIG.PRIMARY_URL) {
-      const fallbackUrl = new URL(new URL(request.url).pathname + new URL(request.url).search, CONFIG.SECONDARY_URL);
+    // If selected node returns 502/503/504, immediately failover to any other healthy node
+    if (!response.ok && response.status >= 502 && healthyNodes.length > 1) {
+      const fallbackNode = healthyNodes.find(n => n.id !== bestNode.id) || healthyNodes[0];
+      const fallbackUrl = new URL(new URL(request.url).pathname + new URL(request.url).search, fallbackNode.url);
       return fetch(new Request(fallbackUrl.toString(), {
         method: request.method,
         headers: headers,
@@ -168,8 +237,9 @@ async function handleDoHQuery(request) {
 
     return response;
   } catch (err) {
-    // Immediate fallback to secondary node
-    const fallbackUrl = new URL(new URL(request.url).pathname + new URL(request.url).search, CONFIG.SECONDARY_URL);
+    // Network error failover
+    const fallbackNode = healthyNodes.find(n => n.id !== bestNode.id) || healthyNodes[0];
+    const fallbackUrl = new URL(new URL(request.url).pathname + new URL(request.url).search, fallbackNode.url);
     return fetch(new Request(fallbackUrl.toString(), {
       method: request.method,
       headers: headers,
@@ -203,8 +273,14 @@ async function checkNodeHealth(baseUrl) {
  */
 async function handleLanding(request) {
   const url = new URL(request.url);
-  const primaryOk = await checkNodeHealth(CONFIG.PRIMARY_URL);
-  const secondaryOk = await checkNodeHealth(CONFIG.SECONDARY_URL);
+  const nodeStatuses = await Promise.all(
+    CONFIG.NODES.map(async (n) => ({
+      name: n.name,
+      url: n.url,
+      role: n.role,
+      isHealthy: await checkNodeHealth(n.url)
+    }))
+  );
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -229,14 +305,11 @@ async function handleLanding(request) {
     <h1>🛡️ ShieldDNS Dispatcher</h1>
     <p style="color:#9ca3af; font-size:0.9rem;">Cloudflare Worker High-Availability Gateway</p>
     <div style="margin: 20px 0;">
+      ${nodeStatuses.map(n => `
       <div class="node">
-        <div><strong>Primary (Master)</strong><br><small style="color:#9ca3af;">${CONFIG.PRIMARY_URL}</small></div>
-        <span class="badge ${primaryOk ? 'online' : 'offline'}">${primaryOk ? 'ONLINE' : 'DOWN'}</span>
-      </div>
-      <div class="node">
-        <div><strong>Secondary (Replica)</strong><br><small style="color:#9ca3af;">${CONFIG.SECONDARY_URL}</small></div>
-        <span class="badge ${secondaryOk ? 'online' : 'offline'}">${secondaryOk ? 'ONLINE' : 'DOWN'}</span>
-      </div>
+        <div><strong>${n.name}</strong> (${n.role})<br><small style="color:#9ca3af;">${n.url}</small></div>
+        <span class="badge ${n.isHealthy ? 'online' : 'offline'}">${n.isHealthy ? 'ONLINE' : 'DOWN'}</span>
+      </div>`).join("")}
     </div>
     <div style="font-size:0.85rem; color:#9ca3af; line-height: 1.6;">
       DoH Endpoint: <code>https://${url.hostname}/dns-query</code>

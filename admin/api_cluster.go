@@ -627,6 +627,7 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	config.DoH3Enabled = exp.DoH3Enabled
 	config.RateLimitRate = exp.RateLimitRate
 	config.RateLimitBurst = exp.RateLimitBurst
+	config.ECHOptimizationEnabled = exp.ECHOptimizationEnabled
 	config.DNSRebindingProtection = exp.DNSRebindingProtection
 	config.StripECS = exp.StripECS
 

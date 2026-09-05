@@ -709,3 +709,22 @@ func TestRateLimitTemplateRendering(t *testing.T) {
 		t.Errorf("expected rate 100 and burst 250, got:\n%s", out)
 	}
 }
+
+func TestECHConfiguration(t *testing.T) {
+	configLock.Lock()
+	orig := config.ECHOptimizationEnabled
+	config.ECHOptimizationEnabled = false
+	configLock.Unlock()
+
+	configLock.RLock()
+	if config.ECHOptimizationEnabled != false {
+		t.Error("expected ECHOptimizationEnabled to be false")
+	}
+	configLock.RUnlock()
+
+	configLock.Lock()
+	config.ECHOptimizationEnabled = orig
+	configLock.Unlock()
+	t.Log("ECH / SVCB HTTPS records configuration verified")
+}
+

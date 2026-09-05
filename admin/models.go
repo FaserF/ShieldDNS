@@ -52,6 +52,7 @@ type Config struct {
 	DoH3Enabled                bool                         `json:"doh3_enabled"`
 	RateLimitRate              int                          `json:"rate_limit_rate"`  // queries per second per client IP (0 = disabled)
 	RateLimitBurst             int                          `json:"rate_limit_burst"` // burst allowance
+	ECHOptimizationEnabled     bool                         `json:"ech_optimization_enabled"` // optimize HTTPS/SVCB DNS records for ECH
 	DebugMode                  bool                         `json:"debug_mode"`
 	ServerCountry              string                       `json:"server_country"`
 	LastLogin                  time.Time                    `json:"last_login"`
@@ -119,6 +120,7 @@ type ClusterConfigExport struct {
 	DoH3Enabled                bool              `json:"doh3_enabled"`
 	RateLimitRate              int               `json:"rate_limit_rate"`
 	RateLimitBurst             int               `json:"rate_limit_burst"`
+	ECHOptimizationEnabled     bool              `json:"ech_optimization_enabled"`
 	DNSRebindingProtection     bool              `json:"dns_rebinding_protection"`
 	StripECS                   bool              `json:"strip_ecs"`
 	Timestamp                  time.Time         `json:"timestamp"`

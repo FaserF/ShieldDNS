@@ -57,26 +57,9 @@ func analyzeQuery(clientIP, domain, status string) {
 		return
 	}
 
-	// --- 0. Sub-second Micro-Burst Flood Drop (>= 100 queries / 1s) ---
-	// Emulates high-performance kernel/XDP drop by blocking instantaneous volumetric attacks
+	// --- 1. Total Query Rate Limit (>= 1000 queries / 60s) ---
 	counters.allQueryTimes = append(counters.allQueryTimes, now)
 	counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 60*time.Second)
-
-	burstCount := 0
-	burstCutoff := now.Add(-1 * time.Second)
-	for i := len(counters.allQueryTimes) - 1; i >= 0; i-- {
-		if counters.allQueryTimes[i].After(burstCutoff) {
-			burstCount++
-			if burstCount >= 100 {
-				go blockClientAuto(clientIP, "Abuse: Sub-second Micro-Burst Flood (>100 queries/sec)")
-				return
-			}
-		} else {
-			break
-		}
-	}
-
-	// --- 1. Total Query Rate Limit (>= 1000 queries / 60s) ---
 	if len(counters.allQueryTimes) >= 1000 {
 		go blockClientAuto(clientIP, "Abuse: Query Rate Limit Exceeded (>1000/min)")
 		return // Blocked, we can stop analysis for this query

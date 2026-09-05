@@ -84,12 +84,25 @@
                             <div class="checkbox-text">
                                 <div class="label-with-info">
                                     <label>DNS-over-HTTP/3 (DoH3 / QUIC)</label>
-                                    <i class="fas fa-info-circle info-icon" data-tooltip="Enables HTTP/3 (QUIC over UDP:443) alongside HTTP/2 for DNS-over-HTTPS. Supported natively by modern browsers and mobile devices (including Pixel 10 Pro). Zero head-of-line blocking and faster mobile handshakes. Default: ON."></i>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Enables HTTP/3 (QUIC over UDP:443) alongside HTTP/2 for DNS-over-HTTPS. Supported natively by modern browsers and mobile devices. Zero head-of-line blocking and faster mobile handshakes. Default: ON."></i>
                                 </div>
                                 <p class="help">Accelerate encrypted DNS queries via UDP/QUIC (HTTP/3). Prevents packet drops on mobile and unstable connections.</p>
                             </div>
                             <label class="switch">
                                 <input type="checkbox" id="doh3-enabled-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Encrypted Client Hello (ECH &amp; HTTPS Records)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Enables transparent forwarding and caching of type 65 (HTTPS) and SVCB DNS records. Essential for Encrypted Client Hello (ECH) on Android 15+, Chrome, and iOS to completely hide the SNI domain from ISPs and eavesdroppers. Default: ON."></i>
+                                </div>
+                                <p class="help">Enables full HTTPS/SVCB DNS record processing for end-to-end Encrypted Client Hello (ECH) TLS privacy.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="ech-optimization-check">
                                 <span class="slider"></span>
                             </label>
                         </div>
@@ -250,7 +263,7 @@
                 <div class="settings-section" data-category="access">
                     <h2>Model Context Protocol (MCP) 🤖</h2>
                     <p class="help">Enable native Model Context Protocol server for AI coding assistants and autonomous agents (e.g. Antigravity, Claude Desktop, Cursor).</p>
-                    
+
                     <div class="form-group checkbox-group" style="margin-bottom: 15px;">
                         <div class="checkbox-text">
                             <div class="label-with-info">
@@ -268,7 +281,7 @@
                     <div id="mcp-info-box" class="settings-subsection" style="background: rgba(var(--accent-rgb), 0.05); border: 1px dashed var(--accent); border-radius: 8px; padding: 15px;">
                         <h3 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--accent);"><i class="fas fa-plug"></i> MCP Endpoint & Configuration</h3>
                         <p class="help" style="margin-bottom: 10px;">Connect your AI assistant by generating an API Key with <code style="color:var(--accent);">exec:mcp</code> permission and configuring the endpoint:</p>
-                        
+
                         <div style="display:flex; flex-direction:column; gap: 8px;">
                             <div style="display:flex; gap: 8px; align-items:center;">
                                 <span style="font-size:0.8rem; font-weight:600; min-width: 90px;">Endpoint:</span>
@@ -586,7 +599,7 @@
                 <div class="settings-section" data-category="access">
                     <h2>Multi-Factor Authentication (MFA) 🛡️</h2>
                     <p class="help">Add an extra layer of security to your account using TOTP (Authenticator App) or Passkeys (biometrics, security key, or device PIN).</p>
-                    
+
                     <div id="mfa-status-container" style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
@@ -624,14 +637,14 @@
                                 <button type="button" class="btn primary" id="mfa-complete-setup">Verify & Add</button>
                             </div>
                         </div>
-                        
+
                         <div id="mfa-manage-area" class="hidden">
                             <h3>Authenticator Apps (TOTP)</h3>
                             <div id="mfa-totp-list" class="help" style="margin-bottom: 20px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">No apps registered.</div>
-                            
+
                             <h3>Security Keys & Passkeys</h3>
                             <div id="mfa-passkey-list" class="help" style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">No passkeys registered.</div>
-                            
+
                             <div style="display: flex; gap: 10px; margin-top: 20px;">
                                 <button type="button" id="mfa-add-totp-btn" class="btn btn-sm secondary"><i class="fas fa-plus"></i> Add App</button>
                                 <button type="button" id="mfa-add-passkey-btn" class="btn btn-sm secondary"><i class="fas fa-plus"></i> Add Passkey</button>
