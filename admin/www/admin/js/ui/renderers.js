@@ -111,9 +111,14 @@ export function createQueryRow(q) {
     const escapedAlias = q.client_alias ? helpers.escapeHTML(q.client_alias) : '';
     const displayIp = q.client_alias ? `${escapedAlias} (${helpers.escapeHTML(q.client_ip)})` : helpers.escapeHTML(q.client_ip);
 
+    let nodeBadge = '';
+    if (q.node_name) {
+        nodeBadge = `<span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.35); font-size: 0.72rem; padding: 2px 6px; margin-left: 6px; border-radius: 4px; vertical-align: middle;" title="Origin Node: ${helpers.escapeHTML(q.node_name)}"><i class="fas fa-server" style="font-size: 0.65rem; margin-right: 3px;"></i>${helpers.escapeHTML(q.node_name)}</span>`;
+    }
+
     row.innerHTML = `
         <td>${time}</td>
-        <td><span class="domain-link" onclick="showDomainDetails('${helpers.escapeHTML(q.domain)}')">${helpers.escapeHTML(q.domain)}</span></td>
+        <td><span class="domain-link" onclick="showDomainDetails('${helpers.escapeHTML(q.domain)}')">${helpers.escapeHTML(q.domain)}</span>${nodeBadge}</td>
         <td><span class="ip-link" onclick="showIPDetails('${helpers.escapeHTML(q.client_ip)}')">${displayIp}</span></td>
         <td class="hide-mobile">${helpers.escapeHTML(q.type) || 'A'}</td>
         <td><span class="badge ${statusClass}">${helpers.escapeHTML(q.status)}</span></td>
@@ -1029,12 +1034,18 @@ export function renderAboutData(stats, contributors) {
 export function renderClusterStatus(cluster) {
     if (!cluster) return;
 
-    // Role & profile selects
+    // Role, node name, log sharing & profile selects
     const roleSelect = getEl('cluster-role-select');
     if (roleSelect && cluster.role) roleSelect.value = cluster.role;
 
     const instSelect = getEl('cluster-inst-type-select');
     if (instSelect && cluster.instance_type) instSelect.value = cluster.instance_type;
+
+    const nodeNameInput = getEl('cluster-node-name-input');
+    if (nodeNameInput && cluster.node_name !== undefined) nodeNameInput.value = cluster.node_name;
+
+    const logSharingSelect = getEl('cluster-log-sharing-select');
+    if (logSharingSelect && cluster.log_sharing_mode) logSharingSelect.value = cluster.log_sharing_mode;
 
     // Panels visibility
     const primaryPanel = getEl('cluster-primary-panel');

@@ -64,7 +64,9 @@ type Config struct {
 	DNSRebindingProtection     bool                         `json:"dns_rebinding_protection"`
 	StripECS                   bool                         `json:"strip_ecs"`
 	ClusterRole                string                       `json:"cluster_role"`          // "standalone", "primary", "replica"
-	ClusterInstanceType        string                       `json:"cluster_instance_type"` // "private", "public"
+	ClusterInstanceType        string                       `json:"cluster_instance_type"` // "private", "public", "hybrid"
+	ClusterNodeName            string                       `json:"cluster_node_name"`     // human-readable node name
+	ClusterLogSharingMode      string                       `json:"cluster_log_sharing_mode"` // "local_only", "push_to_primary", "full_sync"
 	ClusterPrimaryURL          string                       `json:"cluster_primary_url"`
 	ClusterPrimaryToken        string                       `json:"cluster_primary_token"`
 	ClusterSyncInterval        int                          `json:"cluster_sync_interval"` // minutes (0 = manual only)
@@ -87,6 +89,7 @@ type ClusterReplica struct {
 type ClusterConfigExport struct {
 	PrimaryURL                 string            `json:"primary_url"`
 	AdminPasswordHashed        string            `json:"admin_password_hashed,omitempty"`
+	ClusterLogSharingMode      string            `json:"cluster_log_sharing_mode,omitempty"`
 	FilteringEnabled           bool              `json:"filtering_enabled"`
 	Lists                      []List            `json:"lists"`
 	Allowlists                 []List            `json:"allowlists"`
@@ -208,6 +211,7 @@ type Query struct {
 	IsCacheHit  bool      `json:"is_cache_hit"`
 	DurationMs  float64   `json:"duration_ms"`
 	CountryCode string    `json:"country_code"`
+	NodeName    string    `json:"node_name,omitempty"`
 }
 
 type HourStats struct {
@@ -400,6 +404,10 @@ func (c *Config) Clone() *Config {
 				copy(newCfg.WebAuthnCredentials[i].Transport, cred.Transport)
 			}
 		}
+	}
+	if c.ClusterReplicas != nil {
+		newCfg.ClusterReplicas = make([]ClusterReplica, len(c.ClusterReplicas))
+		copy(newCfg.ClusterReplicas, c.ClusterReplicas)
 	}
 
 	return &newCfg

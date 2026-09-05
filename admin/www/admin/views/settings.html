@@ -636,12 +636,28 @@
                     </div>
 
                     <div class="form-group">
+                        <label>Cluster Node Name</label>
+                        <input type="text" id="cluster-node-name-input" placeholder="e.g. Primary Cloud DNS, Home Assistant LAN, Secondary Backup" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                        <p class="help">Human-readable label for this server in query logs and cluster overviews.</p>
+                    </div>
+
+                    <div class="form-group">
                         <label>Environment Profile</label>
                         <select id="cluster-inst-type-select" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
                             <option value="private">Private / Local Network (LAN appliance, higher rate headroom, local rebinding protection)</option>
                             <option value="public">Public Internet Node (Cloud server / VPS, strict rate limits, aggressive threat blocking, full mobile profiles)</option>
                             <option value="hybrid">Hybrid Node (External node handling public DoH/DoT queries and acting as high-availability failover for local networks)</option>
                         </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cluster Query Log Replication</label>
+                        <select id="cluster-log-sharing-select" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                            <option value="local_only">Local Only (Each node stores and displays only its own queries)</option>
+                            <option value="push_to_primary">Forward to Primary (Replicas send queries to Primary; Primary has unified cluster overview)</option>
+                            <option value="full_sync">Full Sync (Both Primary and Replicas synchronize and share all query traffic)</option>
+                        </select>
+                        <p class="help">Control how DNS query logs are aggregated across cluster members.</p>
                     </div>
 
                     <!-- Primary Node View: Replicas list & connect instructions -->

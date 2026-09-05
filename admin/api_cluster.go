@@ -28,6 +28,11 @@ func handleClusterStatus(w http.ResponseWriter, r *http.Request) {
 	configLock.RLock()
 	role := config.ClusterRole
 	instanceType := config.ClusterInstanceType
+	nodeName := config.ClusterNodeName
+	logSharingMode := config.ClusterLogSharingMode
+	if logSharingMode == "" {
+		logSharingMode = "local_only"
+	}
 	primaryURL := config.ClusterPrimaryURL
 	syncInterval := config.ClusterSyncInterval
 	failoverMode := config.ClusterFailoverMode
@@ -61,16 +66,18 @@ func handleClusterStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := map[string]interface{}{
-		"role":            role,
-		"instance_type":   instanceType,
-		"primary_url":     primaryURL,
-		"sync_interval":   syncInterval,
-		"failover_mode":   failoverMode,
-		"last_sync":       lastSync,
-		"connection_lost": connLost,
-		"last_sync_error": clusterLastSyncError,
-		"replicas":        sanitizedReplicas,
-		"replica_count":   len(replicas),
+		"role":             role,
+		"instance_type":    instanceType,
+		"node_name":        nodeName,
+		"log_sharing_mode": logSharingMode,
+		"primary_url":      primaryURL,
+		"sync_interval":    syncInterval,
+		"failover_mode":    failoverMode,
+		"last_sync":        lastSync,
+		"connection_lost":  connLost,
+		"last_sync_error":  clusterLastSyncError,
+		"replicas":         sanitizedReplicas,
+		"replica_count":    len(replicas),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -475,10 +482,12 @@ func handleClusterUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Role         string `json:"role"`
-		InstanceType string `json:"instance_type"`
-		FailoverMode *bool  `json:"failover_mode"`
-		SyncInterval *int   `json:"sync_interval"`
+		Role           string `json:"role"`
+		InstanceType   string `json:"instance_type"`
+		NodeName       string `json:"node_name"`
+		LogSharingMode string `json:"log_sharing_mode"`
+		FailoverMode   *bool  `json:"failover_mode"`
+		SyncInterval   *int   `json:"sync_interval"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
@@ -491,6 +500,12 @@ func handleClusterUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.InstanceType == "public" || req.InstanceType == "private" || req.InstanceType == "hybrid" {
 		config.ClusterInstanceType = req.InstanceType
+	}
+	if req.NodeName != "" {
+		config.ClusterNodeName = strings.TrimSpace(req.NodeName)
+	}
+	if req.LogSharingMode == "local_only" || req.LogSharingMode == "push_to_primary" || req.LogSharingMode == "full_sync" {
+		config.ClusterLogSharingMode = req.LogSharingMode
 	}
 	if req.FailoverMode != nil {
 		config.ClusterFailoverMode = *req.FailoverMode
@@ -551,7 +566,16 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 		return fmt.Errorf("failed to decode primary config: %w", err)
 	}
 
-	return applyClusterExport(exp, primaryURL, apiToken, instType, failover)
+	if err := applyClusterExport(exp, primaryURL, apiToken, instType, failover); err != nil {
+		return err
+	}
+
+	// Trigger log synchronization exclusively during regular cluster sync
+	go func() {
+		_ = SyncClusterLogs()
+	}()
+
+	return nil
 }
 
 // applyClusterExport updates local configuration with exported values
@@ -565,6 +589,9 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	config.ClusterInstanceType = instType
 	config.ClusterFailoverMode = failover
 	config.ClusterLastSync = time.Now().UTC()
+	if exp.ClusterLogSharingMode != "" {
+		config.ClusterLogSharingMode = exp.ClusterLogSharingMode
+	}
 
 	// Password fallback: sync hash if provided
 	if exp.AdminPasswordHashed != "" {
@@ -619,6 +646,195 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 
 	go updateCorefile()
 	go updateBlocklist(nil, true)
+
+	return nil
+}
+
+// handleClusterIngestLogs receives a batch of query logs from another cluster node
+func handleClusterIngestLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	rawToken := r.Header.Get("X-API-Key")
+	if rawToken == "" {
+		authHdr := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHdr, "Bearer ") {
+			rawToken = strings.TrimPrefix(authHdr, "Bearer ")
+		}
+	}
+	if rawToken == "" {
+		http.Error(w, "Missing authentication token", http.StatusUnauthorized)
+		return
+	}
+	tokenHashed := hashToken(rawToken)
+
+	configLock.RLock()
+	var authorized = false
+	for _, rep := range config.ClusterReplicas {
+		if rep.TokenHash == tokenHashed {
+			authorized = true
+			break
+		}
+	}
+	if !authorized {
+		for _, k := range config.APIKeys {
+			if k.TokenHash == tokenHashed && hasPermission(&k, "cluster:sync") {
+				authorized = true
+				break
+			}
+		}
+	}
+	configLock.RUnlock()
+
+	if !authorized {
+		http.Error(w, "Forbidden: Invalid token or missing 'cluster:sync' permission", http.StatusForbidden)
+		return
+	}
+
+	var payload struct {
+		NodeName string  `json:"node_name"`
+		Queries  []Query `json:"queries"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if len(payload.Queries) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "count": 0})
+		return
+	}
+
+	for i := range payload.Queries {
+		if payload.Queries[i].NodeName == "" {
+			payload.Queries[i].NodeName = payload.NodeName
+		}
+	}
+
+	flushLogs(payload.Queries)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"count":   len(payload.Queries),
+	})
+}
+
+var lastSyncQueryID int64
+var lastSyncQueryMu sync.Mutex
+
+// SyncClusterLogs forwards recent query logs to the primary (or replica) if configured
+func SyncClusterLogs() error {
+	configLock.RLock()
+	role := config.ClusterRole
+	logMode := config.ClusterLogSharingMode
+	primaryURL := config.ClusterPrimaryURL
+	apiToken := config.ClusterPrimaryToken
+	nodeName := config.ClusterNodeName
+	configLock.RUnlock()
+
+	if logMode == "" || logMode == "local_only" {
+		return nil
+	}
+
+	if role != "replica" || primaryURL == "" || apiToken == "" {
+		return nil
+	}
+
+	if nodeName == "" {
+		nodeName = "ShieldDNS Replica"
+	}
+
+	lastSyncQueryMu.Lock()
+	minID := lastSyncQueryID
+	lastSyncQueryMu.Unlock()
+
+	// Select queries created since last sync that originated from this node (prevent echo loops)
+	rows, err := db.Query(`
+		SELECT id, timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name
+		FROM queries
+		WHERE id > ? AND (node_name = '' OR node_name = ?)
+		ORDER BY id ASC LIMIT 500
+	`, minID, nodeName)
+	if err != nil {
+		return fmt.Errorf("failed to read local queries for cluster sync: %w", err)
+	}
+	defer rows.Close()
+
+	var queriesToPush []Query
+	var maxSeenID int64 = minID
+
+	for rows.Next() {
+		var q Query
+		var ts string
+		var rawNode *string
+		if err := rows.Scan(&q.ID, &ts, &q.Domain, &q.Type, &q.Status, &q.ClientIP, &q.IsCacheHit, &q.DurationMs, &q.CountryCode, &rawNode); err != nil {
+			continue
+		}
+		q.Time, _ = ParseFlexibleTime(ts)
+		if rawNode != nil && *rawNode != "" {
+			q.NodeName = *rawNode
+		} else {
+			q.NodeName = nodeName
+		}
+		if q.ID > maxSeenID {
+			maxSeenID = q.ID
+		}
+		queriesToPush = append(queriesToPush, q)
+	}
+
+	if len(queriesToPush) == 0 {
+		return nil
+	}
+
+	payloadData, err := json.Marshal(map[string]interface{}{
+		"node_name": nodeName,
+		"queries":   queriesToPush,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to encode queries payload: %w", err)
+	}
+
+	endpoint := strings.TrimRight(primaryURL, "/") + "/api/cluster/logs/ingest"
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payloadData))
+	if err != nil {
+		return err
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("X-API-Key", apiToken)
+	httpReq.Header.Set("X-Shield-Request", "true")
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("error pushing query logs to primary: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("primary returned HTTP %d on log ingest: %s", resp.StatusCode, string(b))
+	}
+
+	lastSyncQueryMu.Lock()
+	if maxSeenID > lastSyncQueryID {
+		lastSyncQueryID = maxSeenID
+	}
+	lastSyncQueryMu.Unlock()
 
 	return nil
 }

@@ -1120,6 +1120,7 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 	exp := ClusterConfigExport{
 		PrimaryURL:                 primaryURL,
 		AdminPasswordHashed:        config.AdminPasswordHashed,
+		ClusterLogSharingMode:      config.ClusterLogSharingMode,
 		FilteringEnabled:           config.FilteringEnabled,
 		Lists:                      make([]List, len(config.Lists)),
 		Allowlists:                 make([]List, len(config.Allowlists)),

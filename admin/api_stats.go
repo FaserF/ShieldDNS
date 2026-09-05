@@ -203,7 +203,7 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	// Optimization: If searching or filtering by client, we search the full table.
 	// Only for general overview (no filters) we limit to the latest 2000 for performance.
 	var baseQuery string
-	fields := "timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms"
+	fields := "timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, node_name"
 	if search != "" || clientIP != "" || fromTime != "" || toTime != "" {
 		baseQuery = "SELECT " + fields + " FROM queries WHERE 1=1"
 	} else {
@@ -214,8 +214,8 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	var args []interface{}
 
 	if search != "" {
-		query += " AND (domain LIKE ? OR client_ip LIKE ?)"
-		args = append(args, "%"+search+"%", "%"+search+"%")
+		query += " AND (domain LIKE ? OR client_ip LIKE ? OR node_name LIKE ?)"
+		args = append(args, "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 	if statusFilter != "" {
 		if statusFilter == "Blocked" {
@@ -258,8 +258,12 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var q Query
 		var ts string
-		if err := rows.Scan(&ts, &q.Domain, &q.Type, &q.Status, &q.ClientIP, &q.IsCacheHit, &q.DurationMs); err != nil {
+		var rawNode *string
+		if err := rows.Scan(&ts, &q.Domain, &q.Type, &q.Status, &q.ClientIP, &q.IsCacheHit, &q.DurationMs, &rawNode); err != nil {
 			continue
+		}
+		if rawNode != nil {
+			q.NodeName = *rawNode
 		}
 		q.Time, _ = ParseFlexibleTime(ts)
 		if aliases != nil {
@@ -749,12 +753,12 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 	fromTime := r.URL.Query().Get("from_time")
 	toTime := r.URL.Query().Get("to_time")
 
-	query := "SELECT timestamp, domain, type, status, client_ip FROM queries WHERE 1=1"
+	query := "SELECT timestamp, domain, type, status, client_ip, node_name FROM queries WHERE 1=1"
 	var args []interface{}
 
 	if search != "" {
-		query += " AND (domain LIKE ? OR client_ip LIKE ?)"
-		args = append(args, "%"+search+"%", "%"+search+"%")
+		query += " AND (domain LIKE ? OR client_ip LIKE ? OR node_name LIKE ?)"
+		args = append(args, "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 	if statusFilter != "" {
 		if statusFilter == "Blocked" {
@@ -792,12 +796,17 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 		defer writer.Flush()
 
 		// Header
-		writer.Write([]string{"Timestamp", "Domain", "Type", "Status", "ClientIP"})
+		writer.Write([]string{"Timestamp", "Domain", "Type", "Status", "ClientIP", "NodeName"})
 
 		for rows.Next() {
 			var ts, domain, qtype, status, ip string
-			if err := rows.Scan(&ts, &domain, &qtype, &status, &ip); err == nil {
-				writer.Write([]string{ts, domain, qtype, status, ip})
+			var node *string
+			if err := rows.Scan(&ts, &domain, &qtype, &status, &ip, &node); err == nil {
+				nodeStr := ""
+				if node != nil {
+					nodeStr = *node
+				}
+				writer.Write([]string{ts, domain, qtype, status, ip, nodeStr})
 			}
 		}
 	} else {
@@ -811,17 +820,23 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 		first := true
 		for rows.Next() {
 			var ts, domain, qtype, status, ip string
-			if err := rows.Scan(&ts, &domain, &qtype, &status, &ip); err == nil {
+			var node *string
+			if err := rows.Scan(&ts, &domain, &qtype, &status, &ip, &node); err == nil {
 				if !first {
 					w.Write([]byte(","))
 				}
 				first = false
+				nodeStr := ""
+				if node != nil {
+					nodeStr = *node
+				}
 				enc.Encode(map[string]string{
 					"timestamp": ts,
 					"domain":    domain,
 					"type":      qtype,
 					"status":    status,
 					"client_ip": ip,
+					"node_name": nodeStr,
 				})
 			}
 		}

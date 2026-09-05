@@ -167,3 +167,31 @@ func TestClusterPermissionCheck(t *testing.T) {
 		t.Errorf("Expected adminKey to have 'cluster:sync' permission")
 	}
 }
+
+func TestClusterLogSharingModes(t *testing.T) {
+	configLock.Lock()
+	config.ClusterRole = "primary"
+	config.ClusterNodeName = "Master Node"
+	config.ClusterLogSharingMode = "full_sync"
+	configLock.Unlock()
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/cluster/status", nil)
+	w := httptest.NewRecorder()
+	handleClusterStatus(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected HTTP 200, got %d", w.Code)
+	}
+
+	var status map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&status); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if status["node_name"] != "Master Node" {
+		t.Errorf("Expected node_name to be 'Master Node', got %v", status["node_name"])
+	}
+	if status["log_sharing_mode"] != "full_sync" {
+		t.Errorf("Expected log_sharing_mode to be 'full_sync', got %v", status["log_sharing_mode"])
+	}
+}

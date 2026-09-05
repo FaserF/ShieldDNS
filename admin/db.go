@@ -55,7 +55,8 @@ func initDB() {
 			client_ip TEXT,
 			is_cache_hit BOOLEAN DEFAULT 0,
 			duration_ms REAL DEFAULT 0,
-			country_code TEXT
+			country_code TEXT,
+			node_name TEXT DEFAULT ''
 		);
 		CREATE INDEX IF NOT EXISTS idx_timestamp ON queries(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_status ON queries(status);
@@ -88,6 +89,7 @@ func initDB() {
 	addColumnIfNotExists("queries", "is_cache_hit", "BOOLEAN DEFAULT 0")
 	addColumnIfNotExists("queries", "duration_ms", "REAL DEFAULT 0")
 	addColumnIfNotExists("queries", "country_code", "TEXT")
+	addColumnIfNotExists("queries", "node_name", "TEXT DEFAULT ''")
 }
 
 // isValidSQLName checks if a string is a valid SQL table or column name.
@@ -274,7 +276,7 @@ func flushLogs(queries []Query) {
 		return
 	}
 
-	stmt, err := tx.Prepare("INSERT INTO queries (timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO queries (timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		slog.Error("Error preparing log statement", "error", err)
 		tx.Rollback()
@@ -282,8 +284,16 @@ func flushLogs(queries []Query) {
 	}
 	defer stmt.Close()
 
+	configLock.RLock()
+	localNodeName := config.ClusterNodeName
+	configLock.RUnlock()
+
 	for _, q := range queries {
-		_, err = stmt.Exec(q.Time.UTC().Format("2006-01-02 15:04:05"), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs, q.CountryCode)
+		nodeName := q.NodeName
+		if nodeName == "" {
+			nodeName = localNodeName
+		}
+		_, err = stmt.Exec(q.Time.UTC().Format("2006-01-02 15:04:05"), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs, q.CountryCode, nodeName)
 		if err != nil {
 			slog.Error("Error executing log statement", "domain", q.Domain, "error", err)
 		}
