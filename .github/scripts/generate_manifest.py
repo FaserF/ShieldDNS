@@ -35,6 +35,10 @@ def generate_file_tree(startpath):
     for root, dirs, files in os.walk(startpath):
         dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not d.startswith(".")]
         rel_path = os.path.relpath(root, startpath)
+        if rel_path != ".":
+            parts = rel_path.split(os.sep)
+            if any(p in IGNORE_DIRS or (p.startswith(".") and p != ".") for p in parts):
+                continue
         rel_path_key = rel_path.replace(os.sep, "/")
 
         valid_files = []
@@ -47,7 +51,28 @@ def generate_file_tree(startpath):
 
         if valid_files:
             tree[rel_path_key] = sorted(valid_files)
-    return tree
+    # Sort dict by keys
+    return dict(sorted(tree.items()))
+
+
+def _write_json(path: str, data: dict, key_exclude: str = "timestamp") -> None:
+    if os.path.isfile(path):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                existing = json.load(fh)
+            existing_cmp = {k: v for k, v in existing.items() if k != key_exclude}
+            new_cmp = {k: v for k, v in data.items() if k != key_exclude}
+            if existing_cmp == new_cmp:
+                print(f"No changes in {path} (excluding {key_exclude}). Skipping write.")
+                return
+        except Exception:
+            pass
+
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(data, fh, indent=2, ensure_ascii=False)
+        fh.write("\n")
+    print(f"File written to {path}")
+
 
 
 def parse_go_endpoints():
@@ -149,9 +174,7 @@ def generate_connections():
         "connections": features
     }
 
-    with open(CONNECTIONS_PATH, "w", encoding="utf-8") as f:
-        json.dump(connections_data, f, indent=2)
-    print(f"Connections map written to {CONNECTIONS_PATH}")
+    _write_json(CONNECTIONS_PATH, connections_data, key_exclude="timestamp")
 
 
 def generate_manifest():
@@ -199,9 +222,8 @@ def generate_manifest():
         "file_tree": generate_file_tree(PROJECT_ROOT)
     }
 
-    with open(MANIFEST_PATH, "w", encoding="utf-8") as f:
-        json.dump(manifest, f, indent=2)
-    print(f"Manifest written to {MANIFEST_PATH}")
+    _write_json(MANIFEST_PATH, manifest, key_exclude="timestamp")
+
 
 
 if __name__ == "__main__":
