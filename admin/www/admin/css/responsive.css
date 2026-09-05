@@ -268,3 +268,79 @@
         align-items: stretch;
     }
 }
+
+/* ── About page: full-width cards collapse to single column on mobile ── */
+.about-span-2 {
+    grid-column: span 2;
+}
+
+@media (max-width: 992px) {
+    .about-span-2 {
+        grid-column: 1 / -1;
+    }
+
+    #about .analytics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #about .project-stats-container {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ── DoH Proxy filter toggle ── */
+.doh-filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-muted, #94a3b8);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.doh-filter-toggle input[type="checkbox"] {
+    accent-color: var(--accent, #5c6bc0);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
+.doh-filter-toggle:hover {
+    color: var(--text-primary, #fff);
+}
+
+/* ── Mobile tooltip tap-reveal ── */
+[data-tooltip].tooltip-active::after,
+[data-tooltip].tooltip-active::before {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateX(-50%) translateY(0) !important;
+}
+
+@media (max-width: 992px) {
+    [data-tooltip]::after {
+        width: min(220px, 70vw);
+        font-size: 0.75rem;
+        padding: 10px 14px;
+        /* prefer showing below on mobile to avoid going off-screen */
+        bottom: auto;
+        top: 140%;
+        transform: translateX(-50%) translateY(-10px);
+    }
+
+    [data-tooltip]::before {
+        bottom: auto;
+        top: 115%;
+        border-color: transparent transparent #0f172a transparent;
+        transform: translateX(-50%) translateY(-10px);
+    }
+
+    [data-tooltip]:hover::after,
+    [data-tooltip]:hover::before,
+    [data-tooltip].tooltip-active::after,
+    [data-tooltip].tooltip-active::before {
+        transform: translateX(-50%) translateY(0);
+    }
+}

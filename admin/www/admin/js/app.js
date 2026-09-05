@@ -88,6 +88,10 @@ function initializeApp() {
     // 5. Auto-refresh loops
     setInterval(fetchService.fetchStats, 30000);
     setInterval(fetchService.fetchHistory, 60000);
+
+    // 6. Feature init
+    initDohFilterToggle();
+    initMobileTooltips();
 }
 
 async function refreshAll() {
@@ -103,11 +107,70 @@ async function refreshAll() {
 }
 
 function updateDashboardFeed(query) {
-    if (uiRefs.queryLogItems) {
-        const row = render.createQueryRow(query);
-        uiRefs.queryLogItems.prepend(row);
-        if (uiRefs.queryLogItems.children.length > 20) uiRefs.queryLogItems.lastElementChild.remove();
+    if (!uiRefs.queryLogItems) return;
+    // Skip DoH proxy entries when filter is active
+    if (state.filterDohProxy &&
+        (query.client_ip === '127.0.0.1' || query.client_ip === '::1' || query.client_ip === '::ffff:127.0.0.1')) {
+        return;
     }
+    const row = render.createQueryRow(query);
+    uiRefs.queryLogItems.prepend(row);
+    if (uiRefs.queryLogItems.children.length > 20) uiRefs.queryLogItems.lastElementChild.remove();
+}
+
+/**
+ * Reveal the DoH-filter toggle once we've seen at least one 127.0.0.1 query,
+ * meaning the DoH proxy is actually active on this installation.
+ */
+function initDohFilterToggle() {
+    const toggle = getEl('doh-filter-toggle');
+    const label = getEl('doh-filter-label');
+    if (!toggle || !label) return;
+
+    toggle.addEventListener('change', () => {
+        state.filterDohProxy = toggle.checked;
+        // Re-render current cached queries with new filter
+        render.renderQueries(state.cachedQueries || []);
+    });
+
+    // Show the toggle once a DoH proxy request is detected in cached queries
+    function checkForDohQueries() {
+        const cached = state.cachedQueries || [];
+        const hasDoh = cached.some(q =>
+            q.client_ip === '127.0.0.1' || q.client_ip === '::1' || q.client_ip === '::ffff:127.0.0.1'
+        );
+        if (hasDoh) label.style.display = '';
+    }
+
+    // Poll once initially after data loads, then on each update
+    setTimeout(checkForDohQueries, 2000);
+    setInterval(checkForDohQueries, 30000);
+}
+
+/**
+ * Mobile tooltip: tap .info-icon or [data-tooltip] to toggle tooltip visibility.
+ * Tapping outside dismisses all open tooltips.
+ */
+function initMobileTooltips() {
+    const isTouchDevice = () => window.matchMedia('(hover: none)').matches;
+
+    document.addEventListener('click', (e) => {
+        if (!isTouchDevice()) return;
+
+        const target = e.target.closest('[data-tooltip]');
+        if (target) {
+            e.preventDefault();
+            const wasActive = target.classList.contains('tooltip-active');
+            // Close all open tooltips first
+            document.querySelectorAll('[data-tooltip].tooltip-active')
+                .forEach(el => el.classList.remove('tooltip-active'));
+            if (!wasActive) target.classList.add('tooltip-active');
+        } else {
+            // Tap outside → close all
+            document.querySelectorAll('[data-tooltip].tooltip-active')
+                .forEach(el => el.classList.remove('tooltip-active'));
+        }
+    }, true);
 }
 
 /**
