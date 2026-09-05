@@ -120,6 +120,73 @@
             Explore on GitHub
         </a>
 
+        <div class="setup-section" style="background: rgba(92, 107, 192, 0.08); border-color: rgba(92, 107, 192, 0.3);">
+            <h2 style="color: var(--accent); display: flex; align-items: center; justify-content: space-between;">
+                <span>Datenschutz &amp; Transparenz (DSGVO / GDPR)</span>
+                <span style="font-size: 0.75rem; background: rgba(92, 107, 192, 0.25); color: #c7d2fe; padding: 3px 8px; border-radius: 9999px; font-weight: 500;">Transparenzbericht</span>
+            </h2>
+            <p style="font-size: 0.85rem; margin-bottom: 16px; color: #cbd5e1; line-height: 1.5;">
+                ShieldDNS schützt deine digitale Privatsphäre und hält strenge Vorgaben der Datenschutz-Grundverordnung (DSGVO) ein. Nachfolgend findest du eine transparente Aufstellung aller Verarbeitungen bei Nutzung dieses Servers:
+            </p>
+
+            <div style="display: grid; gap: 12px; margin-bottom: 16px; font-size: 0.82rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--border);">
+                    <span style="color: var(--text-secondary);"><i class="fas fa-user-shield"></i> Client-IP Speicherung</span>
+                    <span style="font-weight: 600; color: {{if .AnonymizeIPs}}#34d399{{else}}#fbbf24{{end}};">
+                        {{if .AnonymizeIPs}}Anonymisiert (/24 IPv4, /64 IPv6){{else}}Vollständig (für Abuse-Schutz){{end}}
+                    </span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--border);">
+                    <span style="color: var(--text-secondary);"><i class="fas fa-history"></i> Protokoll-Aufbewahrung (Retention)</span>
+                    <span style="font-weight: 600; color: #93c5fd;">
+                        {{if eq .RetentionDays 0}}Keine Speicherung (0 Tage){{else}}{{.RetentionDays}} Tage (Automatische Löschung){{end}}
+                    </span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--border);">
+                    <span style="color: var(--text-secondary);"><i class="fas fa-lock"></i> Verschlüsselung zu Upstreams</span>
+                    <span style="font-weight: 600; color: {{if .PreferEncrypted}}#34d399{{else}}#94a3b8{{end}};">
+                        {{if .PreferEncrypted}}DNS-over-TLS (DoT) Aktiviert{{else}}Standard DNS (Port 53){{end}}
+                    </span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--border);">
+                    <span style="color: var(--text-secondary);"><i class="fas fa-mask"></i> EDNS Client Subnet (ECS)</span>
+                    <span style="font-weight: 600; color: {{if .StripECS}}#34d399{{else}}#94a3b8{{end}};">
+                        {{if .StripECS}}Gestrippt (Keine Subnetz-Weitergabe){{else}}Standard{{end}}
+                    </span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--border);">
+                    <span style="color: var(--text-secondary);"><i class="fas fa-shield-virus"></i> DNS-Filterung &amp; Schutz</span>
+                    <span style="font-weight: 600; color: {{if .FilteringEnabled}}#34d399{{else}}#ef4444{{end}};">
+                        {{if .FilteringEnabled}}Aktiv (Malware &amp; Tracking Blockiert){{else}}Inaktiv{{end}}
+                    </span>
+                </div>
+            </div>
+
+            <details style="font-size: 0.8rem; color: var(--text-secondary); border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                <summary style="cursor: pointer; color: var(--text-primary); font-weight: 600; outline: none; margin-bottom: 8px;">
+                    Detaillierte Datenschutzerklärung ausklappen &rarr;
+                </summary>
+                <div style="margin-top: 10px; line-height: 1.6; display: flex; flex-direction: column; gap: 10px;">
+                    <p>
+                        <strong>1. Webseitenbesuch (HTTP/HTTPS):</strong> Beim Aufruf dieser Informationsseite verarbeitet der Server technisch bedingt Ihre IP-Adresse und Browser-Metadaten zur Auslieferung der Seite. Es werden keine Third-Party-Tracking-Skripte oder Werbe-Cookies eingesetzt.
+                    </p>
+                    <p>
+                        <strong>2. DNS-Auflösung &amp; Profile (DoH / DoT / DoQ):</strong> Wenn Sie diesen Server in Ihrem Betriebssystem oder Router konfigurieren, werden angefragte Domains verarbeitet, um sie auf bösartige Inhalte (Malware, Phishing, Tracker) zu prüfen und die IP-Adresse des Zielservers zurückzuliefern.
+                    </p>
+                    <p>
+                        <strong>3. Speicherdauer:</strong> DNS-Abfragen werden nach Ablauf der konfigurierten Aufbewahrungsfrist (aktuell <strong>{{if eq .RetentionDays 0}}0 Tage (kein Logging){{else}}{{.RetentionDays}} Tage{{end}}</strong>) unwiderruflich aus der Datenbank gelöscht.
+                    </p>
+                    <p>
+                        <strong>4. Keine Weitergabe:</strong> DNS-Abfragen werden unter keinen Umständen an Werbenetzwerke oder Datenhändler weitergegeben oder für Profilbildung genutzt.
+                    </p>
+                </div>
+            </details>
+        </div>
+
         <div class="setup-section" style="background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2);">
             <h2 style="color: #ef4444;">Private Use Notice</h2>
             <p style="font-size: 0.9rem; margin-bottom: 0; color: #cbd5e1;">

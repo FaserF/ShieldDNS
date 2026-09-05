@@ -545,18 +545,37 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			}
 			configLock.RLock()
 			signEnabled := config.SignMobileConfig
+			retentionDays := config.RetentionDays
+			anonymizeIPs := config.AnonymizeClientIPs
+			preferEncrypted := config.PreferEncrypted
+			stripECS := config.StripECS
+			dnsRebinding := config.DNSRebindingProtection
+			filteringEnabled := config.FilteringEnabled
 			configLock.RUnlock()
+
 			w.Header().Set("Content-Type", "text/html")
 			tmpl.Execute(w, struct {
-				Host         string
-				SignEnabled  bool
-				FullVersion  string
-				CacheVersion string
+				Host              string
+				SignEnabled       bool
+				FullVersion       string
+				CacheVersion      string
+				RetentionDays     int
+				AnonymizeIPs      bool
+				PreferEncrypted   bool
+				StripECS          bool
+				DNSRebinding      bool
+				FilteringEnabled  bool
 			}{
-				Host:         host,
-				SignEnabled:  signEnabled,
-				FullVersion:  FullVersion,
-				CacheVersion: CacheVersion,
+				Host:              host,
+				SignEnabled:       signEnabled,
+				FullVersion:       FullVersion,
+				CacheVersion:      CacheVersion,
+				RetentionDays:     retentionDays,
+				AnonymizeIPs:      anonymizeIPs,
+				PreferEncrypted:   preferEncrypted,
+				StripECS:          stripECS,
+				DNSRebinding:      dnsRebinding,
+				FilteringEnabled:  filteringEnabled,
 			})
 			return
 		}
