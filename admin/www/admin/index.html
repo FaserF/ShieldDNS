@@ -219,8 +219,12 @@
                     </div>
 
                     <div class="query-log-container">
-                        <div class="chart-header">
+                        <div class="chart-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                             <h2>Live Query Log</h2>
+                            <label id="doh-filter-label" class="doh-filter-toggle" title="Hide internal DoH proxy requests from 127.0.0.1" style="display:none;">
+                                <input type="checkbox" id="doh-filter-toggle" autocomplete="off">
+                                <span>Hide DoH Proxy</span>
+                            </label>
                         </div>
                         <div class="overflow-x">
                             <table class="query-table">
@@ -1278,7 +1282,7 @@
                     </div>
 
                     <!-- Project Statistics -->
-                    <div class="stat-card card" style="grid-column: span 2;">
+                    <div class="stat-card card about-span-2">
                         <h3>Project Statistics</h3>
                         <p class="help" style="margin-bottom: 15px;">Codebase metrics generated during the build process.</p>
                         <div class="project-stats-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
@@ -1320,7 +1324,7 @@
                     </div>
 
                     <!-- Project Contributors -->
-                    <div class="stat-card card" style="grid-column: span 2;">
+                    <div class="stat-card card about-span-2">
                         <h3>Project Contributors</h3>
                         <p class="help" style="margin-bottom: 15px;">List of project contributors sorted by commit count.</p>
                         <div style="max-height: 250px; overflow-y: auto;">
