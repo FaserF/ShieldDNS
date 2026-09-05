@@ -14,7 +14,7 @@
         </div>
         <h1>Website Blocked</h1>
         <p>ShieldDNS has prevented access to this website because it was flagged by your security filters.</p>
-        
+
         <div class="details">
             <div class="detail-item">
                 <span>Domain</span>
@@ -36,8 +36,15 @@
 
         <button onclick="returnToSafety()" class="btn">Return to Safety</button>
 
+        <div class="unblock-btn-group">
+            <button class="btn-outline" onclick="openUnblockModal(false)">Unblock</button>
+            <button class="btn-success-solid" onclick="openUnblockModal(true)">Unblock &amp; Reload</button>
+        </div>
+
+        <div id="success-banner" class="success-banner" role="status" aria-live="polite"></div>
+
         <div class="footer">
-            <div>Protected by ShieldDNS • Secure Gateway</div>
+            <div>Protected by ShieldDNS &bull; Secure Gateway</div>
             <div class="footer-links" style="margin-top: 8px; display: flex; justify-content: center; gap: 12px;">
                 <a href="https://github.com/FaserF/ShieldDNS" target="_blank" rel="noopener noreferrer" style="color: var(--accent); text-decoration: none; font-weight: 500; display: flex; align-items: center; gap: 4px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.041-1.416-4.041-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
@@ -47,27 +54,37 @@
         </div>
     </div>
 
-    <script>
-        function returnToSafety() {
-            if (window.history.length > 1) {
-                window.history.back();
-                // Fallback if still on page after 200ms (e.g. no history or browser blocked back)
-                setTimeout(() => {
-                    if (window.location.href.includes('blocked.html')) {
-                        window.location.href = window.location.origin;
-                    }
-                }, 200);
-            } else {
-                window.location.href = window.location.origin;
-            }
-        }
+    <!-- Login modal -->
+    <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-card">
+            <div class="modal-title" id="modal-title">Admin Login</div>
+            <div class="modal-body">
+                <div>
+                    <label class="form-label" for="input-password">Password</label>
+                    <input id="input-password" class="form-input" type="password" placeholder="Enter admin password" autocomplete="current-password">
+                </div>
+                <div id="mfa-field" style="display:none;">
+                    <label class="form-label" for="input-totp">MFA Code (TOTP)</label>
+                    <input id="input-totp" class="form-input" type="text" inputmode="numeric" placeholder="6-digit code" autocomplete="one-time-code" maxlength="6">
+                </div>
+                <span id="modal-error" class="error-msg"></span>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-outline" onclick="closeModal()">Cancel</button>
+                <button id="modal-submit" class="btn" onclick="submitLogin()">Confirm</button>
+            </div>
+        </div>
+    </div>
 
+    <script>
+        /* ── Domain resolution ──────────────────────────────────────────── */
         const params = new URLSearchParams(window.location.search);
         const domain = params.get('domain') || window.location.hostname;
         document.getElementById('domain-name').textContent = domain;
         document.getElementById('timestamp').textContent = new Date().toLocaleString();
 
-        fetch(`/api/block-info?domain=${domain}`)
+        /* ── Block-info fetch ───────────────────────────────────────────── */
+        fetch(`/api/block-info?domain=${encodeURIComponent(domain)}`)
             .then(r => r.json())
             .then(data => {
                 if (data.lists && data.lists.length > 0) {
@@ -85,6 +102,243 @@
             .catch(() => {
                 document.getElementById('filter-list').textContent = 'Global Policy';
             });
+
+        /* ── Navigation helper ──────────────────────────────────────────── */
+        function returnToSafety() {
+            if (window.history.length > 1) {
+                window.history.back();
+                setTimeout(() => {
+                    if (window.location.href.includes('blocked.html')) {
+                        window.location.href = window.location.origin;
+                    }
+                }, 200);
+            } else {
+                window.location.href = window.location.origin;
+            }
+        }
+
+        /* ── Modal state ────────────────────────────────────────────────── */
+        let _pendingReload = false;
+        let _mfaRequired  = false;
+        let _sessionToken = null;
+
+        function openUnblockModal(withReload) {
+            _pendingReload = withReload;
+            _mfaRequired  = false;
+            _sessionToken = null;
+
+            document.getElementById('input-password').value = '';
+            document.getElementById('input-totp').value = '';
+            document.getElementById('mfa-field').style.display = 'none';
+            document.getElementById('modal-error').textContent = '';
+            document.getElementById('modal-submit').disabled = false;
+            document.getElementById('modal-submit').textContent = 'Confirm';
+            document.getElementById('modal-title').textContent = withReload
+                ? 'Admin Login — Unblock & Reload'
+                : 'Admin Login — Unblock';
+
+            document.getElementById('modal-overlay').classList.add('open');
+            setTimeout(() => document.getElementById('input-password').focus(), 80);
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.remove('open');
+        }
+
+        /* Close on backdrop click */
+        document.getElementById('modal-overlay').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        /* Submit on Enter key */
+        document.getElementById('modal-overlay').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') submitLogin();
+            if (e.key === 'Escape') closeModal();
+        });
+
+        /* ── Login + unblock flow ───────────────────────────────────────── */
+        async function submitLogin() {
+            const submitBtn = document.getElementById('modal-submit');
+            const errEl     = document.getElementById('modal-error');
+            const password  = document.getElementById('input-password').value.trim();
+            const totp      = document.getElementById('input-totp').value.trim();
+
+            if (!password) {
+                errEl.textContent = 'Password is required.';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Authenticating…';
+            errEl.textContent = '';
+
+            try {
+                /* Step 1: Login */
+                const loginBody = { password };
+                if (_mfaRequired && totp) loginBody.totp = totp;
+
+                const loginRes = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(loginBody),
+                    credentials: 'include',
+                });
+
+                if (loginRes.status === 429) {
+                    errEl.textContent = 'Too many attempts. Please wait before trying again.';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Confirm';
+                    return;
+                }
+
+                if (loginRes.status === 403) {
+                    let body = {};
+                    try { body = await loginRes.json(); } catch (_) {}
+                    if (body.mfa_required) {
+                        _mfaRequired = true;
+                        document.getElementById('mfa-field').style.display = '';
+                        document.getElementById('input-totp').focus();
+                        errEl.textContent = 'MFA required — enter your 6-digit TOTP code.';
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Confirm';
+                        return;
+                    }
+                    errEl.textContent = 'Access denied.';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Confirm';
+                    return;
+                }
+
+                if (loginRes.status === 401) {
+                    errEl.textContent = 'Wrong password. Please try again.';
+                    document.getElementById('input-password').select();
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Confirm';
+                    return;
+                }
+
+                if (!loginRes.ok) {
+                    errEl.textContent = `Login failed (HTTP ${loginRes.status}).`;
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Confirm';
+                    return;
+                }
+
+                /* If MFA challenge via separate endpoint is needed, handle here */
+                if (_mfaRequired && totp) {
+                    const mfaRes = await fetch('/api/mfa/challenge', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ totp }),
+                        credentials: 'include',
+                    });
+                    if (!mfaRes.ok) {
+                        errEl.textContent = 'MFA verification failed. Check your code.';
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Confirm';
+                        return;
+                    }
+                }
+
+                /* Step 2: Add allowlist rule */
+                submitBtn.textContent = 'Adding rule…';
+                const ruleRes = await fetch('/api/rules/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain, type: 'allow' }),
+                    credentials: 'include',
+                });
+
+                if (!ruleRes.ok) {
+                    errEl.textContent = `Failed to add rule (HTTP ${ruleRes.status}).`;
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Confirm';
+                    return;
+                }
+
+                /* Step 3: Success */
+                closeModal();
+
+                if (_pendingReload) {
+                    startCountdownRedirect();
+                } else {
+                    showSuccessBanner(`✓ ${domain} has been added to the allowlist.`);
+                }
+
+            } catch (err) {
+                errEl.textContent = 'Network error. Check your connection.';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Confirm';
+            }
+        }
+
+        /* ── Simple unblock success banner ─────────────────────────────── */
+        function showSuccessBanner(msg) {
+            const el = document.getElementById('success-banner');
+            el.innerHTML = msg;
+            el.classList.add('visible');
+        }
+
+        /* ── Countdown + redirect (Unblock & Reload) ────────────────────── */
+        /*
+         * CoreDNS reloads the hosts file every 5 s (`reload 5s`).
+         * We start a 6-second countdown and additionally poll via a
+         * no-cors fetch so we redirect as soon as the rule is live,
+         * falling back to the full 6 s if the poll never succeeds.
+         */
+        function startCountdownRedirect() {
+            const target  = 'https://' + domain + '/';
+            let seconds   = 6;
+            let redirected = false;
+
+            const banner = document.getElementById('success-banner');
+            banner.innerHTML =
+                '✓ Domain allowed. Waiting for DNS reload…' +
+                '<span class="countdown-number" id="countdown-num">Redirecting in ' + seconds + 's</span>';
+            banner.classList.add('visible');
+
+            /* Countdown ticker */
+            const ticker = setInterval(() => {
+                seconds--;
+                const el = document.getElementById('countdown-num');
+                if (el) {
+                    if (seconds > 0) {
+                        el.textContent = 'Redirecting in ' + seconds + 's';
+                    } else {
+                        el.textContent = 'Redirecting…';
+                    }
+                }
+                if (seconds <= 0) {
+                    clearInterval(ticker);
+                    clearInterval(poller);
+                    if (!redirected) {
+                        redirected = true;
+                        window.location.href = target;
+                    }
+                }
+            }, 1000);
+
+            /* Optimistic poll: redirect early if domain resolves cleanly */
+            const poller = setInterval(async () => {
+                try {
+                    await fetch(target, {
+                        mode: 'no-cors',
+                        signal: AbortSignal.timeout(1000),
+                    });
+                    /* If fetch didn't throw, DNS has propagated */
+                    clearInterval(ticker);
+                    clearInterval(poller);
+                    if (!redirected) {
+                        redirected = true;
+                        const el = document.getElementById('countdown-num');
+                        if (el) el.textContent = 'Redirecting…';
+                        setTimeout(() => { window.location.href = target; }, 200);
+                    }
+                } catch (_) {
+                    /* Domain still blocked — keep waiting */
+                }
+            }, 500);
+        }
     </script>
 </body>
 </html>

@@ -210,3 +210,185 @@ p {
         text-align: left;
     }
 }
+
+/* ── Unblock feature ─────────────────────────────────────────────────────── */
+
+.unblock-btn-group {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-outline {
+    display: inline-block;
+    background: transparent;
+    color: var(--accent);
+    padding: 12px 32px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background 0.2s, opacity 0.2s;
+    cursor: pointer;
+    border: 2px solid var(--accent);
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+.btn-outline:hover {
+    background: rgba(92, 107, 192, 0.12);
+}
+
+.btn-success-solid {
+    display: inline-block;
+    background: #22c55e;
+    color: white;
+    padding: 12px 32px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: opacity 0.2s;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+.btn-success-solid:hover {
+    opacity: 0.88;
+}
+
+/* Modal overlay */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* Modal card */
+.modal-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    max-width: 380px;
+    width: 100%;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    transform: translateY(12px);
+    transition: transform 0.2s;
+}
+
+.modal-overlay.open .modal-card {
+    transform: translateY(0);
+}
+
+.modal-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+/* Form input */
+.form-input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.form-input:focus {
+    border-color: var(--accent);
+}
+
+.form-input::placeholder {
+    color: var(--text-muted);
+}
+
+.form-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    display: block;
+}
+
+/* Success / countdown banner */
+.success-banner {
+    display: none;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #4ade80;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-top: 16px;
+    text-align: center;
+}
+
+.success-banner.visible {
+    display: block;
+}
+
+.countdown-number {
+    font-size: 1.4rem;
+    font-weight: 700;
+    display: block;
+    margin-top: 6px;
+    letter-spacing: 0.02em;
+}
+
+/* Error message */
+.error-msg {
+    color: var(--danger);
+    font-size: 0.82rem;
+    min-height: 18px;
+    display: block;
+}
+
+/* Responsive tweaks for unblock buttons */
+@media (max-width: 480px) {
+    .btn-outline,
+    .btn-success-solid {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+    }
+
+    .modal-card {
+        padding: 24px;
+    }
+}
