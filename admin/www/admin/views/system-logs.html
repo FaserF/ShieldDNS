@@ -1,0 +1,13 @@
+﻿{{define "system-logs"}}
+            <section id="system-logs" class="view hidden">
+                <header>
+                    <h1>System Logs</h1>
+                    <div class="header-actions">
+                        <button class="btn secondary" onclick="clearSystemLogs(event)">Clear Terminal</button>
+                    </div>
+                </header>
+                <div class="card">
+                    <pre id="system-log-terminal" class="log-terminal">Initializing system log stream...</pre>
+                </div>
+            </section>
+{{end}}

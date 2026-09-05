@@ -422,16 +422,9 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			return
 		}
 		if r.URL.Path == "/admin/" || r.URL.Path == "/admin/index.html" {
-			// Read from adminFS (which is rooted at www/admin)
-			tmplBytes, err := fs.ReadFile(adminFS, "index.html")
+			tmpl, err := template.ParseFS(adminFS, "index.html", "views/*.html", "partials/*.html")
 			if err != nil {
-				slog.Error("Failed to read admin index from embedded FS", "error", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-			tmpl, err := template.New("index.html").Parse(string(tmplBytes))
-			if err != nil {
-				slog.Error("Failed to parse admin index template", "error", err)
+				slog.Error("Failed to parse admin index templates", "error", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}

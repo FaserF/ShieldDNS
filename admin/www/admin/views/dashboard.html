@@ -1,0 +1,179 @@
+﻿{{define "dashboard"}}
+            <section id="dashboard" class="view">
+                <header>
+                    <h1>Dashboard</h1>
+                    <div class="header-actions">
+                        <button id="refresh-btn" class="btn secondary">Manual Update</button>
+                    </div>
+                </header>
+
+                <div class="protection-status-card">
+                    <div class="status-header">
+                        <div class="status-icon-wrapper protected" id="status-icon">
+                            <img src="../logo.png?v=2" alt="ShieldDNS Logo">
+                        </div>
+                        <div class="status-text">
+                            <h2 id="status-title">ShieldDNS is Active</h2>
+                            <p id="status-desc">Your requests are being filtered and secured.</p>
+                            <p id="dashboard-last-login" class="help"
+                                style="margin-top: 4px; font-size: 0.8rem; opacity: 0.8;"></p>
+                            <div class="status-toggle-wrapper">
+                                <button id="toggle-protection-btn" class="btn btn-primary">Disable Protection</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="connection-guide-section card">
+                        <div class="chart-header">
+                            <h2>Connection Guide <span class="help"
+                                    style="font-size: 0.8rem; font-weight: 400; margin-left: 8px; opacity: 0.7;">(Updates
+                                    based on your domain)</span></h2>
+                        </div>
+                        <div class="connection-guide-grid">
+                            <div class="copy-box">
+                                <label><i class="fab fa-android"></i> Private DNS (Android DoT Hostname)</label>
+                                <div class="copy-input">
+                                    <input type="text" id="guide-dot-host" readonly value="loading...">
+                                    <button class="copy-btn" onclick="copyText('guide-dot-host')">Copy</button>
+                                </div>
+                            </div>
+                            <div class="copy-box">
+                                <label><i class="fas fa-shield-alt"></i> DoT URL</label>
+                                <div class="copy-input">
+                                    <input type="text" id="guide-dot-url" readonly value="loading...">
+                                    <button class="copy-btn" onclick="copyText('guide-dot-url')">Copy</button>
+                                </div>
+                            </div>
+                            <div class="copy-box">
+                                <label><i class="fas fa-globe"></i> DNS-over-HTTPS (DoH) URL</label>
+                                <div class="copy-input">
+                                    <input type="text" id="guide-doh-url" readonly value="loading...">
+                                    <button class="copy-btn" onclick="copyText('guide-doh-url')">Copy</button>
+                                </div>
+                            </div>
+                            <div class="copy-box">
+                                <label><i class="fas fa-bolt"></i> DNS-over-QUIC (DoQ) URL</label>
+                                <div class="copy-input">
+                                    <input type="text" id="guide-doq-url" readonly value="loading...">
+                                    <button class="copy-btn" onclick="copyText('guide-doq-url')">Copy</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+
+                        <div id="android-settings-shortcut" class="hidden" style="margin-top: 16px;">
+                            <button id="android-all-in-one-btn" class="btn primary full-width"
+                                style="background: #10b981; text-align: center; text-decoration: none; display: block; border-radius: 8px; padding: 12px; font-weight: 600; color: white; width: 100%; border: none; cursor: pointer; font-family: inherit;">Set
+                                Up ShieldDNS (Copy & Open Settings)</button>
+                            <p id="android-fallback-hint"
+                                style="font-size: 0.7rem; color: var(--text-secondary); text-align: center; margin-top: 8px; display: none;">
+                                <i class="fas fa-info-circle"></i> Hostname copied! If Settings didn't open: Go to
+                                <strong>Settings > Connection > More > Private DNS</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div> <!-- Closing protection-status-card -->
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <label>
+                            Total Queries (24h)
+                            <i class="fas fa-info-circle info-icon"
+                                data-tooltip="Total number of DNS requests processed in the last 24 hours. Includes both blocked and allowed queries."></i>
+                        </label>
+                            <div class="value" id="stat-total">-</div>
+                        </div>
+                        <div class="stat-card blocked">
+                            <label>
+                                Blocked Queries (24h)
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Queries matched against your active block-lists (ads, trackers, malware, etc.) and denied."></i>
+                            </label>
+                            <div class="value" id="stat-blocked">-</div>
+                        </div>
+                        <div class="stat-card percentage">
+                            <label>
+                                Blocking Ratio
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="The percentage of total queries that were blocked. Shows the effectiveness of your filtering rules."></i>
+                            </label>
+                            <div class="value" id="stat-ratio">- %</div>
+                        </div>
+                        <div class="stat-card latency">
+                            <label>
+                                Avg. Response Time
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Average time until the server provides an answer. Measures the duration from receiving the client query to handing back the result (including upstream latency)."></i>
+                            </label>
+                            <div class="value" id="stat-latency">- ms</div>
+                        </div>
+                        <div class="stat-card clients">
+                            <label>
+                                Unique Clients (24h)
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Distinct client IP addresses that have queried this DNS server in the last 24 hours. Useful for monitoring active devices."></i>
+                            </label>
+                            <div class="value" id="stat-clients">-</div>
+                        </div>
+                        <div class="stat-card cache">
+                            <label>
+                                Cache Hit Ratio
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Percentage of requests satisfied instantly from local memory cache without needing to query upstream providers."></i>
+                            </label>
+                            <div class="value" id="stat-cache">- %</div>
+                        </div>
+                        <div class="stat-card qps">
+                            <label>
+                                Active QPS
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Real-time Queries Per Second. Measures the current load on the DNS server (10s rolling average)."></i>
+                            </label>
+                            <div class="value" id="stat-qps">0.0</div>
+                        </div>
+                        <div class="stat-card blocked-domains">
+                            <label>
+                                Blocked Domains
+                                <i class="fas fa-info-circle info-icon"
+                                    data-tooltip="Total number of unique domains currently blocked by your filter lists and custom rules."></i>
+                            </label>
+                            <div class="value" id="stat-blocked-domains">-</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-section card">
+                        <div class="chart-header">
+                            <h2>Traffic Overview (Last 24h)</h2>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="traffic-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="query-log-container">
+                        <div class="chart-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                            <h2>Live Query Log</h2>
+                            <label id="doh-filter-label" class="doh-filter-toggle" title="Hide internal DoH proxy requests from 127.0.0.1" style="display:none;">
+                                <input type="checkbox" id="doh-filter-toggle" autocomplete="off">
+                                <span>Hide DoH Proxy</span>
+                            </label>
+                        </div>
+                        <div class="overflow-x">
+                            <table class="query-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Domain</th>
+                                        <th>Client IP</th>
+                                        <th class="hide-mobile">Type</th>
+                                        <th>Status</th>
+                                        <th class="hide-mobile">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="query-log-items">
+                                    <!-- Queries will be injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+            </section>
+{{end}}

@@ -1,0 +1,576 @@
+﻿{{define "settings"}}
+            <section id="settings" class="view hidden">
+                <header>
+                    <h1>Settings</h1>
+                </header>
+                <div class="search-bar-integrated mb-4">
+                    <input type="text" id="settings-search-input" placeholder="Search for settings (e.g. DNS, Security, DGA)..." autocomplete="off">
+                </div>
+                <form id="settings-form">
+                    <div class="settings-section">
+                        <h2>Configuration Presets ⚙️</h2>
+                        <div class="form-group">
+                            <p class="help">Apply a configuration preset to populate settings values. You must click "Save Configuration" at the bottom to save the changes.</p>
+                            <select id="settings-preset-selector" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                                <option value="">-- Select Preset to Load --</option>
+                                <option value="shielddns">ShieldDNS Defaults</option>
+                                <option value="minimal">Minimal Defaults</option>
+                                <option value="maxperf">Max Performance</option>
+                                <option value="faserf">FaserF Defaults</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h2>Global DNS Settings ⚙️</h2>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <label>Debug Mode</label>
+                                <p class="help">Write detailed diagnostic information to the system logs.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="debug-mode-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Upstream DNS Servers (Standard)</label>
+                            <p class="help">Comma separated IP addresses (Max 5)</p>
+                            <input type="text" id="upstreams-input" placeholder="1.1.1.1, 8.8.8.8">
+                        </div>
+                        <div class="form-group">
+                            <label>Upstream DoT Servers (DNS over TLS)</label>
+                            <p class="help">Comma separated hostnames (Max 5). Example: unfiltered.joindns4.eu</p>
+                            <input type="text" id="dot-upstreams-input"
+                                placeholder="unfiltered.joindns4.eu, one.one.one.one">
+                        </div>
+                        <div class="form-group">
+                            <label>Admin Domain (for Block Page)</label>
+                            <p class="help">The domain used for the Admin UI (e.g., dns.mydomain.de). Used for professional
+                                redirects.</p>
+                            <input type="text" id="admin-domain-input" placeholder="dns.mydomain.de">
+                        </div>
+                        <div class="form-group">
+                            <div class="label-with-info">
+                                <label>Default IPv4 Block Page IP</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="The IP address clients are sent to when a domain is blocked. Use 0.0.0.0 for null routing (recommended) or your server IP for a custom block page."></i>
+                            </div>
+                            <input type="text" id="block-ip-input" placeholder="1.2.3.4 or 127.0.0.1">
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Prefer Encrypted Upstreams (DoT)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Always use DNS-over-TLS (DoT) for upstream queries to ensure privacy and prevent ISP snooping."></i>
+                                </div>
+                                <p class="help">Always try to use DNS-over-TLS if available.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="prefer-encrypted-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h2>Security & Abuse Detection 🛡️</h2>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Sign Apple Profiles (.mobileconfig)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Uses your server SSL certificate to cryptographically sign generated profiles. This prevents the 'Not Verified' warning on iOS devices."></i>
+                                </div>
+                                <p class="help">Use the server's SSL certificate to sign generated profiles for a "Verified"
+                                    status on iOS.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="sign-mobileconfig-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Abuse Detection Engine (Auto-Blocking)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="A security layer that monitors query patterns to detect and block DNS amplification, flooding, or DGA-based botnet behavior."></i>
+                                </div>
+                                <p class="help">Automatically block clients abusing the server with floods or DGA bots.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="abuse-detection-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div id="abuse-dga-settings" class="mt-3">
+                            <div class="form-group">
+                                <div class="label-with-info">
+                                    <label>DGA Sensitivity Threshold</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Lower values are more restrictive. Detects algorithms used by malware to generate pseudo-random domains. Default: 3.8."></i>
+                                </div>
+                                <p class="help">Lower is more sensitive (Default: 3.8). Blocks domains with high entropy.
+                                </p>
+                                <input type="number" id="abuse-dga-threshold-input" step="0.1" min="1.0" max="10.0"
+                                    value="3.8">
+                            </div>
+                            <div class="form-group">
+                                <div class="label-with-info">
+                                    <label>DGA Minimum Length</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Ignores very short subdomains to reduce false positives in DGA detection."></i>
+                                </div>
+                                <p class="help">Ignores subdomains shorter than this (Default: 8).</p>
+                                <input type="number" id="abuse-dga-min-len-input" min="3" max="50" value="8">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="label-with-info">
+                                <label>DoH Query Rate Limit (req/s)</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="The maximum number of DNS-over-HTTPS queries allowed per client per second. Prevents flood-based DoS attacks. Default: 50."></i>
+                            </div>
+                            <p class="help">Max requests per client per second on the DoH endpoint (Default: 50).</p>
+                            <input type="number" id="doh-rate-limit-input" min="1" max="1000" value="50">
+                        </div>
+                    </div>
+
+                <div class="settings-section">
+                    <h2>API Keys</h2>
+                    <p class="help">Manage API keys for third-party monitoring and automation. Tokens are shown only
+                        once.</p>
+                    <div class="table-header-actions">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="api-keys-search" placeholder="Search API keys...">
+                        </div>
+                        <button type="button" id="create-api-key-btn" class="btn btn-primary">Generate New Key</button>
+                    </div>
+                    <div class="card overflow-x">
+                        <table class="query-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Permissions</th>
+                                    <th>Created</th>
+                                    <th>Last Used</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="api-keys-list">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h2>Model Context Protocol (MCP) 🤖</h2>
+                    <p class="help">Enable native Model Context Protocol server for AI coding assistants and autonomous agents (e.g. Antigravity, Claude Desktop, Cursor).</p>
+                    
+                    <div class="form-group checkbox-group" style="margin-bottom: 15px;">
+                        <div class="checkbox-text">
+                            <div class="label-with-info">
+                                <label>Enable MCP Server</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Starts the embedded MCP JSON-RPC 2.0 / SSE server on /api/mcp. Disabled by default for maximum security."></i>
+                            </div>
+                            <p class="help">Allow authorized AI tools to inspect logs, manage rules, and monitor DNS state.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="mcp-server-enabled-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div id="mcp-info-box" class="settings-subsection" style="background: rgba(var(--accent-rgb), 0.05); border: 1px dashed var(--accent); border-radius: 8px; padding: 15px;">
+                        <h3 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--accent);"><i class="fas fa-plug"></i> MCP Endpoint & Configuration</h3>
+                        <p class="help" style="margin-bottom: 10px;">Connect your AI assistant by generating an API Key with <code style="color:var(--accent);">exec:mcp</code> permission and configuring the endpoint:</p>
+                        
+                        <div style="display:flex; flex-direction:column; gap: 8px;">
+                            <div style="display:flex; gap: 8px; align-items:center;">
+                                <span style="font-size:0.8rem; font-weight:600; min-width: 90px;">Endpoint:</span>
+                                <code id="mcp-endpoint-url" style="background:var(--bg-body); padding:6px 10px; border-radius:6px; font-family:monospace; font-size:0.8rem; flex:1; overflow-x:auto;">/api/mcp?token=&lt;YOUR_API_TOKEN&gt;</code>
+                                <button type="button" class="btn btn-sm secondary" onclick="copyText('mcp-endpoint-url')" title="Copy URL"><i class="fas fa-copy"></i></button>
+                            </div>
+                            <div style="display:flex; gap: 8px; align-items:center;">
+                                <span style="font-size:0.8rem; font-weight:600; min-width: 90px;">Antigravity:</span>
+                                <code id="mcp-antigravity-config-code" style="background:var(--bg-body); padding:6px 10px; border-radius:6px; font-family:monospace; font-size:0.75rem; flex:1; overflow-x:auto;">{"mcpServers":{"shielddns":{"url":"https://&lt;your-domain&gt;/api/mcp?token=&lt;TOKEN&gt;"}}}</code>
+                                <button type="button" class="btn btn-sm secondary" id="mcp-copy-antigravity-config-btn" title="Copy Config"><i class="fas fa-copy"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h2>Smart Networking & Maintenance</h2>
+                    <div class="form-group checkbox-group">
+                        <div class="checkbox-text">
+                            <div class="label-with-info">
+                                <label>Smart Upstream Selection</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Continuously monitors performance of all upstream providers and selects the fastest ones based on your policy."></i>
+                            </div>
+                            <p class="help">Dynamic latency sorting for fastest response times.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="smart-upstream-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <div class="label-with-info">
+                            <label>Data Retention (Days)</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="The number of days to keep query logs and statistics in the local database before they are permanently purged."></i>
+                        </div>
+                        <input type="number" id="retention-input" min="1" max="365" value="30">
+                    </div>
+                    <div class="form-group">
+                        <label>Latency Test Interval (Minutes)</label>
+                        <p class="help">Frequency of response time checks. Distributed across the interval.</p>
+                        <input type="number" id="latency-interval-input" min="1" max="1440" value="10">
+                    </div>
+                    <div class="form-group">
+                        <div class="label-with-info">
+                            <label>Diagnostics Refresh Interval (Seconds)</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="How often the UI polls for hardware resource usage. Lower values give real-time data but increase background resource load."></i>
+                        </div>
+                        <p class="help">Frequency of hardware resource updates (CPU, RAM, etc.) in Diagnostics view.</p>
+                        <input type="number" id="diagnostics-interval-input" min="5" max="3600" value="600">
+                    </div>
+                    <div class="form-group">
+                        <div class="label-with-info">
+                            <label>Smart Selection Mode</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Fastest: sequential; Random: load balanced; Broadcast: queries all in parallel and picks first answer (fastest but uses more bandwidth)."></i>
+                        </div>
+                        <p class="help">Strategy used for upstream selection when Smart Selection is active.</p>
+                        <select id="smart-selection-policy-input">
+                            <option value="fastest">Fastest (Lowest Latency)</option>
+                            <option value="random">Random (Load Balancing)</option>
+                            <option value="broadcast">Broadcast (Ultra Fast - Parallel Queries)</option>
+                        </select>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <div class="checkbox-text">
+                            <div class="label-with-info">
+                                <label>Enable Serve Stale</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Serves expired records from cache if the upstream is unreachable or slow, providing a seamless browsing experience."></i>
+                            </div>
+                            <p class="help">Serve expired cache entries while refreshing in background (faster perceived
+                                speed).</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="serve-stale-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <div class="checkbox-text">
+                            <div class="label-with-info">
+                                <label>DNSSEC Validation</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Authenticates DNS data with cryptographic signatures to prevent man-in-the-middle attacks."></i>
+                            </div>
+                            <p class="help">Perform full local DNSSEC validation. Disable to offload to upstream
+                                (recommended for speed).</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="dnssec-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <div class="checkbox-text">
+                            <div class="label-with-info">
+                                <label>Verify Upstream TLS</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Enforces strict TLS certificate verification for DoT upstream servers. Disable this if you use self-signed local upstreams."></i>
+                            </div>
+                            <p class="help">Ensure upstream servers provide valid, trusted certificates.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="verify-upstream-tls-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>System Backup & Restore</label>
+                        <p class="help">Download a full system backup (.zip) or restore your configuration (.json).</p>
+                        <div class="btn-group mt-3">
+                            <button type="button" class="btn secondary" id="backup-btn">Download Full Backup</button>
+                            <input type="file" id="restore-file-input" accept=".json,.zip" style="display:none">
+                            <button type="button" class="btn secondary" id="restore-btn"
+                                onclick="document.getElementById('restore-file-input').click()">Restore Backup (.zip, .json)</button>
+                            <button type="button" class="btn danger" id="clear-logs-btn">Clear Query Log</button>
+                            <button type="button" class="btn danger" id="reset-system-btn">Factory Reset</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h2>Threat Intelligence 🛡️</h2>
+                    <p class="help">Automatically block high-risk IP addresses from public threat feeds (blocklist.de).</p>
+                    <div class="form-group checkbox-group" style="margin-bottom: 15px;">
+                        <div class="checkbox-text">
+                            <div class="label-with-info">
+                                <label>Malicious IP Blocking</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Automatically block IPs reported as malicious by blocklist.de (https://www.blocklist.de), such as scanners, botnets, and attackers."></i>
+                            </div>
+                            <p class="help">Enforce real-time protection using curated threat lists.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="malicious-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <div class="label-with-info">
+                            <label>Update Interval (Hours)</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Frequency of updates for the malicious IP list. Default: 8 hours."></i>
+                        </div>
+                        <p class="help">How often to refresh the threat feed (Range: 1-168 hours).</p>
+                        <input type="number" id="malicious-interval-input" min="1" max="168">
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h2>Geo-Blocking 🌍</h2>
+                    <p class="help">Block entire countries from accessing or resolving through this DNS server.</p>
+                    <div class="form-group" style="position: relative;">
+                        <div class="label-with-info">
+                            <label>Select Countries to Block</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Resolutions from these countries will be instantly dropped. High-risk regions are automatically suggested based on current threat intelligence."></i>
+                        </div>
+                        <div class="country-picker-wrapper">
+                            <input type="text" id="country-search" placeholder="Search country (e.g. Russia, China)..."
+                                autocomplete="off">
+                            <div id="country-dropdown" class="custom-dropdown hidden"></div>
+                        </div>
+                        <div id="blocked-countries-tags" class="tag-container"></div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                        <button type="button" id="block-high-risk-countries-btn" class="btn btn-sm danger-outline" style="width: fit-content;">
+                            <i class="fas fa-shield-virus"></i> Block High-Risk Countries (Threat Intelligence)
+                        </button>
+                        <div id="server-location-card" class="info-card mt-3 hidden">
+                            <div class="info-card-content">
+                                <i class="fas fa-server info-card-icon"></i>
+                                <div class="info-card-text">
+                                    <p id="server-location-msg">
+                                        Server country: <span id="server-country-name" class="font-bold">...</span>
+                                    </p>
+                                    <p class="help text-xs opacity-70">This country is protected and cannot be blocked.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="manual-server-country-box" class="settings-subsection hidden mt-3">
+                            <div class="subsection-header">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <h3>Manual Server Location (Fallback)</h3>
+                            </div>
+                            <p class="help mb-3">If automatic detection fails, select the country where this server is hosted to protect it from being blocked.</p>
+                            <div class="form-group mb-0">
+                                <select id="manual-server-country-select" class="select-premium full-width">
+                                    <option value="">-- No manual override --</option>
+                                    <!-- Options will be populated via JS -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h2>Client IP Blocking 🚫</h2>
+                    <p class="help">Manually block specific client IP addresses or view automatically blocked clients.
+                    </p>
+                    <div class="form-group" style="position: relative;">
+                        <div class="label-with-info">
+                            <label>Block New Client IP</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Enter a single IP address to permanently ban it from using this DNS server. Local and public IPs are supported."></i>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="manual-client-block-input" placeholder="e.g. 192.168.1.50"
+                                style="flex:1;">
+                            <button type="button" class="btn primary" id="manual-client-block-btn">Block IP</button>
+                        </div>
+                    </div>
+                    <div class="form-group mt-3">
+                        <div class="label-with-info">
+                            <label>Currently Blocked Clients</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="List of manually or automatically blocked clients."></i>
+                        </div>
+                        <div class="blocked-clients-summary mt-2">
+                            <div id="blocked-clients-count-badge" class="badge danger" style="padding: 8px 15px; font-weight: 600;">0 Clients Blocked</div>
+                            <button type="button" class="btn btn-sm secondary" id="view-blocked-clients-btn" style="margin-left: 10px;">
+                                <i class="fas fa-list"></i> View & Manage List
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="settings-subsection mt-4">
+                        <div class="label-with-info">
+                            <label>Autoblock Whitelist 🛡️</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="IP addresses in this list will NEVER be automatically blocked by the Abuse Detection engine. The server's public IP is automatically added."></i>
+                        </div>
+                        <p class="help">Prevent specific IPs from being banned by the automated security system.</p>
+                        <div style="display:flex; gap:10px; margin-top: 10px;">
+                            <input type="text" id="autoblock-whitelist-input" placeholder="e.g. 1.2.3.4" style="flex:1;">
+                            <button type="button" class="btn secondary" id="add-whitelist-ip-btn">Add to Whitelist</button>
+                        </div>
+                        <div id="autoblock-whitelist-tags" class="tag-container mt-3">
+                            <!-- Whitelist tags will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Blocked Clients Detailed Modal -->
+                <div id="blocked-clients-modal" class="modal hidden">
+                    <div class="modal-content modal-lg">
+                        <div class="modal-header">
+                            <div class="modal-header-title">
+                                <h2>Currently Blocked Clients</h2>
+                                <p class="help">Detailed list of all client-side bans.</p>
+                            </div>
+                            <button type="button" class="modal-close-btn" id="blocked-clients-close-btn">&times;</button>
+                        </div>
+
+                        <div class="table-header-actions" style="margin-top: 20px;">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="blocked-clients-search" placeholder="Search IP or Reason...">
+                            </div>
+                            <div class="filter-box">
+                                <input type="date" id="blocked-clients-date-filter" class="form-control sm" style="max-width: 150px;">
+                            </div>
+                            <div class="filter-box">
+                                <select id="blocked-clients-country-filter" class="select-premium sm">
+                                    <option value="ALL">All Countries</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="card overflow-x mt-3" style="max-height: 50vh; overflow-y: auto;">
+                            <table class="query-table">
+                                <thead>
+                                    <tr>
+                                        <th>IP Address</th>
+                                        <th>Blocked At</th>
+                                        <th>Country</th>
+                                        <th>Reason</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="blocked-clients-table-body">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="modal-footer-actions mt-4">
+                            <button type="button" class="btn primary" id="blocked-clients-done-btn" style="min-width: 120px;">Close</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h2>Full System Refresh 🔄</h2>
+                    <p class="help">Perform a total refresh of all system components. This will re-download all enabled
+                        filter lists, reload all custom rules (IP/Geo), and restart the CoreDNS server to apply changes
+                        and flush its cache.</p>
+                    <div class="alert warning"
+                        style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 0.85rem;">
+                        <strong>Note:</strong> This process usually takes a few seconds. DNS resolution will be briefly
+                        interrupted during the restart.
+                    </div>
+                    <button type="button" class="btn secondary" id="full-system-refresh-btn"><i class="fas fa-sync"></i>
+                        Trigger Full System Refresh</button>
+                </div>
+
+                </form>
+
+                <div class="settings-section">
+                    <h2>Security 🔐</h2>
+                    <form id="password-form">
+                        <div class="form-group">
+                            <label>Current Password</label>
+                            <input type="password" id="current-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label>New Password (min 12 chars)</label>
+                            <input type="password" id="new-password" required minlength="12">
+                        </div>
+                        <button type="submit" class="btn secondary">Update Password</button>
+                    </form>
+                </div>
+
+                <div class="settings-section">
+                    <h2>Multi-Factor Authentication (MFA) 🛡️</h2>
+                    <p class="help">Add an extra layer of security to your account using TOTP (Authenticator App) or Passkeys (biometrics, security key, or device PIN).</p>
+                    
+                    <div id="mfa-status-container" style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-weight: 600;">Status: </span>
+                                <span id="mfa-status-badge" class="badge">Checking...</span>
+                            </div>
+                            <button type="button" id="mfa-toggle-btn" class="btn btn-sm secondary">Set Up MFA</button>
+                        </div>
+                    </div>
+
+                    <div id="mfa-setup-area" class="hidden" style="margin-top: 20px; padding: 20px; border: 1px dashed var(--accent); border-radius: 8px;">
+                        <div id="mfa-totp-setup" class="hidden">
+                            <h3>Set Up Authenticator App</h3>
+                            <p class="help">Scan this QR code with your authenticator app (like Authy, Google Authenticator, or Bitwarden).</p>
+                            <div style="display: flex; justify-content: center; margin: 20px 0;">
+                                <img id="mfa-qr-code" alt="QR code for setting up multi-factor authentication" style="background: white; padding: 10px; border-radius: 8px; max-width: 200px;">
+                            </div>
+                            <div id="mfa-secret-container" class="hidden" style="text-align: center; margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.1); border-radius: 8px; border: 1px solid var(--border);">
+                                <p class="help" style="margin-bottom: 8px;">Cannot scan? Enter this code manually:</p>
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                    <code id="mfa-secret-value" style="font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; font-family: monospace;"></code>
+                                    <button type="button" class="btn btn-sm secondary" onclick="copyText('mfa-secret-value')" title="Copy Secret"><i class="fas fa-copy"></i></button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Device Name (e.g. My iPhone)</label>
+                                <input type="text" id="mfa-setup-totp-name" placeholder="Friendly Name">
+                            </div>
+                            <div class="form-group">
+                                <label>Verification Code</label>
+                                <input type="text" id="mfa-setup-verify-code" placeholder="6-digit code">
+                            </div>
+                            <div class="modal-actions">
+                                <button type="button" class="btn secondary" id="mfa-cancel-setup">Cancel</button>
+                                <button type="button" class="btn primary" id="mfa-complete-setup">Verify & Add</button>
+                            </div>
+                        </div>
+                        
+                        <div id="mfa-manage-area" class="hidden">
+                            <h3>Authenticator Apps (TOTP)</h3>
+                            <div id="mfa-totp-list" class="help" style="margin-bottom: 20px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">No apps registered.</div>
+                            
+                            <h3>Security Keys & Passkeys</h3>
+                            <div id="mfa-passkey-list" class="help" style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">No passkeys registered.</div>
+                            
+                            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                                <button type="button" id="mfa-add-totp-btn" class="btn btn-sm secondary"><i class="fas fa-plus"></i> Add App</button>
+                                <button type="button" id="mfa-add-passkey-btn" class="btn btn-sm secondary"><i class="fas fa-plus"></i> Add Passkey</button>
+                            </div>
+
+                            <div style="margin-top: 35px; padding-top: 15px; border-top: 1px solid var(--border);">
+                                <button type="button" id="mfa-disable-all-btn" class="btn btn-sm danger">Disable All MFA</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <button id="logout-btn" class="btn danger">Logout</button>
+                </div>
+
+                <div class="settings-save-footer">
+                    <div class="save-status help" id="settings-save-status"
+                        style="margin-right: auto; font-size: 0.85rem; opacity: 0.7;">
+                        All changes must be saved. Reboot (via Full System Refresh) might be required for some CoreDNS
+                        modifications.
+                    </div>
+                    <button type="button" class="btn primary"
+                        onclick="document.getElementById('settings-form').requestSubmit()">Save Configuration</button>
+                </div>
+            </section>
+{{end}}

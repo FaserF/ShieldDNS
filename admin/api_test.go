@@ -6,6 +6,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"html/template"
+	"io/fs"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -603,3 +605,54 @@ func TestHandleSystemUpdate(t *testing.T) {
 		t.Errorf("expected 405, got %d", rrGet.Code)
 	}
 }
+
+func TestAdminTemplateRendering(t *testing.T) {
+	adminFS, err := fs.Sub(WebAssets, "www/admin")
+	if err != nil {
+		t.Fatalf("failed to sub adminFS: %v", err)
+	}
+	tmpl, err := template.ParseFS(adminFS, "index.html", "views/*.html", "partials/*.html")
+	if err != nil {
+		t.Fatalf("failed to parse modular admin templates: %v", err)
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, struct {
+		FullVersion    string
+		CacheVersion   string
+		CoreDNSVersion string
+		OSVersion      string
+	}{
+		FullVersion:    "v1.0.0",
+		CacheVersion:   "12345",
+		CoreDNSVersion: "v1.11.1",
+		OSVersion:      "linux/amd64",
+	})
+	if err != nil {
+		t.Fatalf("failed to execute template: %v", err)
+	}
+
+	html := buf.String()
+	requiredSnippets := []string{
+		`id="dashboard"`,
+		`id="analytics"`,
+		`id="queries"`,
+		`id="system-logs"`,
+		`id="diagnostics"`,
+		`id="custom-rules"`,
+		`id="lists"`,
+		`id="settings"`,
+		`id="about"`,
+		`id="auth-overlay"`,
+		`id="login-passkey-btn"`,
+		`id="modal"`,
+		`id="api-key-modal"`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(html, snippet) {
+			t.Errorf("rendered template missing expected snippet: %q", snippet)
+		}
+	}
+}
+

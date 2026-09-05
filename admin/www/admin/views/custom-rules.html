@@ -1,0 +1,37 @@
+﻿{{define "custom-rules"}}
+            <section id="custom-rules" class="view hidden">
+                <header>
+                    <h1>Custom Rules</h1>
+                    <p>Immediately allow or block individual domains.</p>
+                </header>
+                <div class="analytics-grid">
+                    <div class="stat-card card">
+                        <h3>Custom Blocklist</h3>
+                        <div class="form-group row">
+                            <input type="text" id="custom-block-input" placeholder="e.g. tiktok.com">
+                            <button class="btn secondary" onclick="addCustomRule('blocked', null, event)">Block</button>
+                        </div>
+                        <div id="custom-blocked-list" class="minimal-list"></div>
+                    </div>
+                    <div class="stat-card card">
+                        <h3>Custom Allowlist</h3>
+                        <div class="form-group row">
+                            <input type="text" id="custom-allow-input" placeholder="e.g. myvpn.com">
+                            <button class="btn secondary" onclick="addCustomRule('allowed', null, event)">Allow</button>
+                        </div>
+                        <div id="custom-allowed-list" class="minimal-list"></div>
+                    </div>
+                    <div class="stat-card card full-width">
+                        <h3>Local DNS Mappings</h3>
+                        <p class="help">Map domains to local IP addresses (A Records). Useful for local devices like
+                            routers.</p>
+                        <div class="mapping-input-group">
+                            <input type="text" id="custom-map-domain" placeholder="Domain (e.g. fritz.box)" class="mapping-input-domain">
+                            <input type="text" id="custom-map-ip" placeholder="IP (e.g. 192.168.178.1)" class="mapping-input-ip">
+                            <button class="btn primary mapping-btn" onclick="addCustomMapping(event)">Add Mapping</button>
+                        </div>
+                        <div id="custom-mappings-list" class="minimal-list"></div>
+                    </div>
+                </div>
+            </section>
+{{end}}

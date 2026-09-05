@@ -1,0 +1,70 @@
+﻿{{define "lists"}}
+            <section id="lists" class="view hidden">
+                <header>
+                    <h1>Filtering Lists <span class="badge secondary" id="stat-blocked-domains-list-badge" style="margin-left: 12px; font-size: 0.85rem; vertical-align: middle; opacity: 0.8;">- domains</span></h1>
+                    <div class="header-actions">
+                        <button id="add-allowlist-btn" class="btn secondary">Add Allowlist</button>
+                        <button id="apply-recommended-btn" class="btn secondary">Apply All Recommended</button>
+                        <button id="reset-lists-btn" class="btn secondary"
+                            title="Reset all lists to factory defaults">Restore Defaults</button>
+                        <button id="check-updates-btn" class="btn secondary">Check for Updates</button>
+                        <button id="add-list-btn" class="btn primary">Add Blocklist</button>
+                    </div>
+                </header>
+
+                <div class="search-bar-integrated mb-4">
+                    <input type="text" id="domain-search" placeholder="Search for a domain (e.g. google.com)">
+                    <button class="btn primary" id="search-btn" onclick="checkProtection()">Check Protection</button>
+                </div>
+                <div id="search-loading" class="hidden search-loading-container">
+                    <div class="spinner"></div>
+                    <p class="search-loading-text">Analyzing domain reputation...</p>
+                </div>
+                <div id="search-result" class="hidden">
+                    <!-- Result will be shown here -->
+                </div>
+
+                <div class="list-section">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h2 style="margin-bottom: 0;">Your Active Blocklists</h2>
+                        <button id="deselect-all-blocklists" class="btn btn-sm secondary"
+                            style="font-size: 0.7rem; padding: 4px 10px;">Deselect All</button>
+                    </div>
+                    <div class="list-container" id="active-blocklists-list">
+                        <!-- Lists will be injected here -->
+                    </div>
+                </div>
+
+                <div class="list-section">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h2 style="margin-bottom: 0;">Your Active Allowlists</h2>
+                        <button id="deselect-all-allowlists" class="btn btn-sm secondary"
+                            style="font-size: 0.7rem; padding: 4px 10px;">Deselect All</button>
+                    </div>
+                    <p class="help">Domains in these lists will always be allowed, even if they appear in a blocklist.
+                    </p>
+                    <div class="list-container" id="active-allowlists-list">
+                        <!-- Allowlists will be injected here -->
+                    </div>
+                </div>
+
+                <div class="list-section">
+                    <h2>Suggested Blocklist Presets</h2>
+                    <p class="help">One-click activation for popular blocklists</p>
+                    <div class="presets-grid" id="preset-items">
+                        <!-- Presets will be injected here -->
+                    </div>
+                </div>
+
+                <div class="list-section">
+                    <h2>Suggested Allowlist Presets</h2>
+                    <p class="help">One-click activation for popular allowlists (domains that should never be blocked)
+                    </p>
+                    <div class="presets-grid" id="preset-allow-items">
+                        <!-- Allowlist presets will be injected here -->
+                    </div>
+                </div>
+            </section>
+{{end}}

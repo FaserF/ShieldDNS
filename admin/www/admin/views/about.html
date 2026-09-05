@@ -1,0 +1,189 @@
+﻿{{define "about"}}
+            <section id="about" class="view hidden">
+                <header>
+                    <h1>About ShieldDNS</h1>
+                    <p>High-performance DNS appliance for the modern web.</p>
+                </header>
+
+                <div class="analytics-grid">
+                    <div class="stat-card card">
+                        <h3>Environment</h3>
+                        <div class="diag-list">
+                            <div class="diag-item diag-item-interactive" onclick="window.open('https://github.com/FaserF/ShieldDNS', '_blank')" title="View ShieldDNS Repository">
+                                <span>ShieldDNS Version <i class="fab fa-github" style="opacity: 0.4; font-size: 0.8rem; margin-left: 4px;"></i></span>
+                                <span id="about-shielddns-ver" class="badge official">{{.FullVersion}}</span>
+                            </div>
+                            <div class="diag-item diag-item-interactive" onclick="window.open('https://github.com/coredns/coredns', '_blank')" title="View CoreDNS Repository">
+                                <span>CoreDNS Version <i class="fab fa-github" style="opacity: 0.4; font-size: 0.8rem; margin-left: 4px;"></i></span>
+                                <span id="about-coredns-ver" class="badge">{{.CoreDNSVersion}}</span>
+                            </div>
+                            <div class="diag-item diag-item-interactive" onclick="window.open('https://alpinelinux.org/', '_blank')" title="View Alpine Linux Website">
+                                <span>OS Base <i class="fas fa-external-link-alt" style="opacity: 0.4; font-size: 0.7rem; margin-left: 4px;"></i></span>
+                                <span id="about-os-ver" class="badge">Alpine {{.OSVersion}}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card card">
+                        <h3>ShieldDNS Updates</h3>
+                        <div class="update-section" style="margin-top: 15px;">
+                            <div class="diag-list">
+                                <div class="diag-item">
+                                    <span>Latest Available Version:</span>
+                                    <span id="update-latest-ver" class="badge">Checking...</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                                <button id="btn-check-updates" class="btn secondary" style="flex: 1;"><i class="fas fa-sync-alt"></i> Check Now</button>
+                                <button id="btn-update-now" class="btn btn-danger" style="flex: 1; display: none;"><i class="fas fa-download"></i> Update Now</button>
+                            </div>
+                            
+                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+                            
+                            <div class="settings-form">
+                                <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <div>
+                                        <label for="update-channel" style="font-weight: 500;">Update Channel</label>
+                                        <p class="help">Choose which channel of updates to follow.</p>
+                                    </div>
+                                    <select id="update-channel" class="input-select" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary);">
+                                        <option value="stable">Stable</option>
+                                        <option value="beta">Beta (Pre-release)</option>
+                                        <option value="dev">Dev (main branch)</option>
+                                    </select>
+                                </div>
+                                <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <div>
+                                        <label for="auto-update-enabled" style="font-weight: 500;">Auto-Update</label>
+                                        <p class="help">Install updates automatically during the night.</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="auto-update-enabled">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div id="auto-update-time-container" class="setting-item" style="display: none; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <label for="auto-update-hour" style="font-weight: 500;">Update Time</label>
+                                        <p class="help">Select preferred hour to apply updates.</p>
+                                    </div>
+                                    <select id="auto-update-hour" class="input-select" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary);">
+                                        <option value="0">00:00</option>
+                                        <option value="1">01:00</option>
+                                        <option value="2">02:00</option>
+                                        <option value="3">03:00</option>
+                                        <option value="4">04:00</option>
+                                        <option value="5">05:00</option>
+                                        <option value="6">06:00</option>
+                                        <option value="7">07:00</option>
+                                        <option value="8">08:00</option>
+                                        <option value="9">09:00</option>
+                                        <option value="10">10:00</option>
+                                        <option value="11">11:00</option>
+                                        <option value="12">12:00</option>
+                                        <option value="13">13:00</option>
+                                        <option value="14">14:00</option>
+                                        <option value="15">15:00</option>
+                                        <option value="16">16:00</option>
+                                        <option value="17">17:00</option>
+                                        <option value="18">18:00</option>
+                                        <option value="19">19:00</option>
+                                        <option value="20">20:00</option>
+                                        <option value="21">21:00</option>
+                                        <option value="22">22:00</option>
+                                        <option value="23">23:00</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card card">
+                        <h3>Project Links</h3>
+                        <div class="project-links-grid" style="margin-top:20px">
+                            <a href="https://github.com/FaserF/ShieldDNS" target="_blank" class="project-link-item">
+                                <i class="fab fa-github"></i>
+                                <span>Repository</span>
+                            </a>
+                            <a href="https://github.com/FaserF/ShieldDNS/releases" target="_blank"
+                                class="project-link-item">
+                                <i class="fas fa-tag"></i>
+                                <span>Releases</span>
+                            </a>
+                            <a href="https://github.com/FaserF/ShieldDNS/issues" target="_blank"
+                                class="project-link-item">
+                                <i class="fas fa-bug"></i>
+                                <span>Report Issue</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Project Statistics -->
+                    <div class="stat-card card about-span-2">
+                        <h3>Project Statistics</h3>
+                        <p class="help" style="margin-bottom: 15px;">Codebase metrics generated during the build process.</p>
+                        <div class="project-stats-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+                            <div>
+                                <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-primary);"><i class="fas fa-code" style="color: var(--color-primary); margin-right: 6px;"></i> Code Breakdown</h4>
+                                <table class="query-table" style="width:100%; font-size:0.8rem;">
+                                    <thead>
+                                        <tr>
+                                            <th>Layer</th>
+                                            <th style="text-align: right;">Files</th>
+                                            <th style="text-align: right;">Lines</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="about-stats-code-body">
+                                        <!-- Will be populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div>
+                                <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-primary);"><i class="fas fa-flask" style="color: var(--color-primary); margin-right: 6px;"></i> Test Coverage</h4>
+                                <table class="query-table" style="width:100%; font-size:0.8rem;">
+                                    <thead>
+                                        <tr>
+                                            <th>Suite</th>
+                                            <th style="text-align: right;">Files</th>
+                                            <th style="text-align: right;">Tests</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="about-stats-tests-body">
+                                        <!-- Will be populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                            <span id="about-stats-generated"></span>
+                            <span id="about-stats-commit"></span>
+                        </div>
+                    </div>
+
+                    <!-- Project Contributors -->
+                    <div class="stat-card card about-span-2">
+                        <h3>Project Contributors</h3>
+                        <p class="help" style="margin-bottom: 15px;">List of project contributors sorted by commit count.</p>
+                        <div style="max-height: 250px; overflow-y: auto;">
+                            <table class="query-table" style="width:100%; font-size:0.8rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Last Commit</th>
+                                        <th style="text-align: right;">Commits</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="about-contributors-body">
+                                    <!-- Will be populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="query-log-container card about-footer">
+                    <p>Developed with &hearts; for Privacy and Performance.</p>
+                    <p class="help">&copy; 2026 ShieldDNS Project</p>
+                </div>
+            </section>
+{{end}}

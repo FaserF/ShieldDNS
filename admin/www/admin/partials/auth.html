@@ -1,0 +1,166 @@
+﻿{{define "auth-overlay"}}
+    <div id="auth-overlay" class="modal hidden">
+        <div class="modal-content auth-box">
+            <div id="setup-view" class="hidden">
+                <div class="setup-header">
+                    <img src="../logo.png?v=2" alt="ShieldDNS">
+                    <h1>ShieldDNS Setup</h1>
+                </div>
+
+                <div class="wizard-steps">
+                    <div class="w-step active" id="w-step-1">1</div>
+                    <div class="w-step" id="w-step-2">2</div>
+                    <div class="w-step" id="w-step-3">3</div>
+                </div>
+
+                <div id="setup-pane-1" class="setup-pane">
+                    <h2>Step 1: Admin Password</h2>
+                    <p>Set a strong password to protect your dashboard. (Min 12 characters)</p>
+                    <div class="form-group">
+                        <input type="password" id="setup-password" placeholder="New Password" minlength="12">
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="setup-confirm" placeholder="Confirm Password">
+                    </div>
+                    <button type="button" class="btn primary full-width" onclick="nextSetupStep(2)">Next Step</button>
+                </div>
+
+                <div id="setup-pane-2" class="setup-pane hidden">
+                    <h2>Step 2: Upstream Configuration</h2>
+                    <p>Configure how ShieldDNS should resolve requests.</p>
+                    <div class="form-group">
+                        <label>Load Configuration Preset</label>
+                        <select id="setup-preset-selector" class="form-control" style="width: 100%; margin-bottom: 15px; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                            <option value="">-- Select Preset to Load --</option>
+                            <option value="shielddns">ShieldDNS Defaults</option>
+                            <option value="minimal">Minimal Defaults</option>
+                            <option value="maxperf">Max Performance</option>
+                            <option value="faserf">FaserF Defaults</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>DNS Servers (Standard)</label>
+                        <input type="text" id="setup-upstreams"
+                            value="86.54.11.100, 1.1.1.1, 9.9.9.9, 8.8.8.8, 1.0.0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>DoT Servers (Encrypted)</label>
+                        <input type="text" id="setup-dot-upstreams"
+                            value="unfiltered.joindns4.eu, dns.quad9.net, one.one.one.one, dns.google">
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Domain (for Block Page)</label>
+                        <p class="help">e.g. dns.mydomain.de. Blocked requests will redirect here.</p>
+                        <input type="text" id="setup-admin-domain" placeholder="shielddns.local">
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="setup-prefer-encrypted" checked>
+                        <label for="setup-prefer-encrypted">Prefer Encrypted Upstreams</label>
+                    </div>
+                    
+                    <div style="margin-top: 15px; grid-template-columns: 1fr 1fr; display: grid; gap: 8px;">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="setup-abuse-detection" checked>
+                            <label for="setup-abuse-detection">Abuse Detection</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="setup-malicious-blocking" checked>
+                            <label for="setup-malicious-blocking">Malicious IP Blocking</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Block high-risk IPs from public threat feeds (Source: blocklist.de - https://www.blocklist.de)."></i>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="setup-serve-stale" checked>
+                            <label for="setup-serve-stale">Enable Serve Stale</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="setup-verify-tls" checked>
+                            <label for="setup-verify-tls">Verify Upstream TLS</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="setup-sign-profiles" checked>
+                            <label for="setup-sign-profiles">Sign Apple Profiles</label>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn secondary" onclick="nextSetupStep(1)">Back</button>
+                        <button type="button" class="btn primary" onclick="nextSetupStep(3)">Next Step</button>
+                    </div>
+                </div>
+
+                <div id="setup-pane-3" class="setup-pane hidden">
+                    <h2>Step 3: Blocklists</h2>
+                    <p>Select some default blocklists to get started.</p>
+                    <div id="setup-presets" class="presets-list-minimal">
+                        <!-- Presets will be injected here with checkboxes -->
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn secondary" onclick="nextSetupStep(2)">Back</button>
+                        <button type="button" class="btn primary" id="setup-finish-btn">Finish Setup</button>
+                    </div>
+                    <p class="help" style="margin-top: 20px; text-align: center; color: var(--accent);">
+                        <i class="fas fa-shield-alt"></i> <strong>Pro Tip:</strong> After setup, enable Multi-Factor Authentication in Settings for maximum security!
+                    </p>
+                </div>
+            </div>
+
+            <div id="login-view" class="hidden">
+                <div class="setup-header">
+                    <img src="../logo.png?v=2" alt="ShieldDNS">
+                    <h1>ShieldDNS Login</h1>
+                </div>
+                <p>Sign in with your Passkey or Password.</p>
+                <div id="login-passkey-container" style="margin-bottom: 20px;">
+                    <button type="button" class="btn primary full-width" id="login-passkey-btn" style="height: 48px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="fas fa-key"></i> Sign in with Passkey
+                    </button>
+                    <div style="display: flex; align-items: center; gap: 10px; opacity: 0.5; margin: 15px 0 10px 0;">
+                        <hr style="flex: 1; border: 0.5px solid var(--border);">
+                        <span style="font-size: 0.75rem; text-transform: uppercase;">or use password</span>
+                        <hr style="flex: 1; border: 0.5px solid var(--border);">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="login-password" placeholder="Password">
+                </div>
+                <button type="button" class="btn secondary full-width" id="login-confirm-btn">Login with Password</button>
+            </div>
+
+            <div id="mfa-view" class="hidden">
+                <div class="setup-header">
+                    <img src="../logo.png?v=2" alt="ShieldDNS">
+                    <h1>MFA Challenge 🛡️</h1>
+                </div>
+                
+                <div id="mfa-method-selector" style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+                    <p id="mfa-msg">Select your preferred authentication method.</p>
+                    <button class="btn primary full-width" id="mfa-use-passkey-btn" style="height: 50px; font-weight: 600;">
+                        <i class="fas fa-key" style="margin-right: 8px;"></i> Use Passkey
+                    </button>
+                    <div style="display: flex; align-items: center; gap: 10px; opacity: 0.5; margin: 5px 0;">
+                        <hr style="flex: 1; border: 0.5px solid var(--border);">
+                        <span style="font-size: 0.75rem; text-transform: uppercase;">or</span>
+                        <hr style="flex: 1; border: 0.5px solid var(--border);">
+                    </div>
+                    <button class="btn secondary full-width" id="mfa-use-totp-btn" style="height: 50px; font-weight: 600;">
+                        <i class="fas fa-mobile-alt" style="margin-right: 8px;"></i> Authenticator App
+                    </button>
+                </div>
+
+                <div id="mfa-totp-input-area" class="hidden" style="margin-top: 20px;">
+                    <p>Enter the 6-digit code from your app.</p>
+                    <div class="form-group" style="margin: 20px 0;">
+                        <input type="text" id="mfa-code" placeholder="000000" maxlength="6" inputmode="numeric" style="text-align: center; font-size: 1.5rem; letter-spacing: 0.5rem; font-weight: bold;">
+                    </div>
+                    <button class="btn primary full-width" style="height: 50px; font-weight: 600;" id="mfa-confirm-btn">Verify & Login</button>
+                    <button class="btn btn-sm secondary full-width" style="margin-top: 15px;" id="mfa-back-to-selector">
+                        <i class="fas fa-arrow-left" style="margin-right: 5px;"></i> Different Method
+                    </button>
+                </div>
+
+                <div class="modal-actions" style="margin-top: 25px; border-top: 1px solid var(--border); padding-top: 15px;">
+                    <button type="button" class="btn btn-sm secondary" onclick="state.auth.showView('login')">Back to Password</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{{end}}
