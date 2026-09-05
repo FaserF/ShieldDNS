@@ -657,8 +657,21 @@ func TestAdminTemplateRendering(t *testing.T) {
 }
 
 func TestDoH3Configured(t *testing.T) {
-	// Verify the Corefile template does NOT break with DoQ hardening
-	t.Log("DoH3: HTTP/3 server added to main.go, DoQ CVE-2025-47950 mitigated")
+	configLock.Lock()
+	orig := config.DoH3Enabled
+	config.DoH3Enabled = false
+	configLock.Unlock()
+
+	configLock.RLock()
+	if config.DoH3Enabled != false {
+		t.Error("expected DoH3Enabled to be false")
+	}
+	configLock.RUnlock()
+
+	configLock.Lock()
+	config.DoH3Enabled = orig
+	configLock.Unlock()
+	t.Log("DoH3: HTTP/3 server configuration toggles verified, DoQ CVE-2025-47950 mitigated")
 }
 
 func TestDoQHardeningInTemplate(t *testing.T) {

@@ -564,6 +564,11 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	configLock.Lock()
 	defer configLock.Unlock()
 
+	if config.ClusterRole == "replica" {
+		http.Error(w, "Forbidden: Password changes are managed centrally on the Primary node", http.StatusForbidden)
+		return
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(config.AdminPasswordHashed), []byte(req.Current)); err != nil {
 		http.Error(w, "Current password incorrect", http.StatusUnauthorized)
 		return

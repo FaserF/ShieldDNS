@@ -190,6 +190,7 @@ export function renderConfig(cfg) {
     if (blockIpInput) blockIpInput.value = cfg.block_page_ip || '';
 
     if (getEl('prefer-encrypted-check')) getEl('prefer-encrypted-check').checked = !!cfg.prefer_encrypted;
+    if (getEl('doh3-enabled-check')) getEl('doh3-enabled-check').checked = cfg.doh3_enabled !== false;
     if (getEl('debug-mode-check')) getEl('debug-mode-check').checked = !!cfg.debug_mode;
     if (getEl('sign-mobileconfig-check')) {
         const signEl = getEl('sign-mobileconfig-check');
@@ -1046,6 +1047,49 @@ export function renderClusterStatus(cluster) {
 
     const logSharingSelect = getEl('cluster-log-sharing-select');
     if (logSharingSelect && cluster.log_sharing_mode) logSharingSelect.value = cluster.log_sharing_mode;
+
+    const workerInput = getEl('cluster-worker-domain-input');
+    if (workerInput && cluster.worker_domain !== undefined) workerInput.value = cluster.worker_domain;
+
+    // Grey out Password and MFA on Replica nodes
+    const isReplica = cluster.role === 'replica';
+    const pwdForm = getEl('password-form');
+    let pwdBanner = getEl('replica-pwd-banner');
+    if (pwdForm) {
+        const inputs = pwdForm.querySelectorAll('input, button');
+        inputs.forEach(el => el.disabled = isReplica);
+        if (isReplica) {
+            if (!pwdBanner) {
+                pwdBanner = document.createElement('div');
+                pwdBanner.id = 'replica-pwd-banner';
+                pwdBanner.style.cssText = 'background: rgba(59, 130, 246, 0.1); border-left: 4px solid var(--accent); padding: 10px 14px; margin-bottom: 15px; border-radius: 4px; font-size: 0.85rem; color: var(--text-primary);';
+                pwdBanner.innerHTML = '<strong>Managed by Primary:</strong> Administrator password is centrally managed on the Primary node and synchronized automatically.';
+                pwdForm.parentNode.insertBefore(pwdBanner, pwdForm);
+            }
+        } else if (pwdBanner) {
+            pwdBanner.remove();
+        }
+    }
+
+    const mfaStatusContainer = getEl('mfa-status-container');
+    const mfaSetupArea = getEl('mfa-setup-area');
+    let mfaBanner = getEl('replica-mfa-banner');
+    if (mfaStatusContainer) {
+        const mfaBtns = mfaStatusContainer.querySelectorAll('button');
+        mfaBtns.forEach(el => el.disabled = isReplica);
+        if (isReplica) {
+            if (mfaSetupArea) mfaSetupArea.classList.add('hidden');
+            if (!mfaBanner) {
+                mfaBanner = document.createElement('div');
+                mfaBanner.id = 'replica-mfa-banner';
+                mfaBanner.style.cssText = 'background: rgba(59, 130, 246, 0.1); border-left: 4px solid var(--accent); padding: 10px 14px; margin-top: 15px; border-radius: 4px; font-size: 0.85rem; color: var(--text-primary);';
+                mfaBanner.innerHTML = '<strong>Managed by Primary:</strong> Multi-Factor Authentication credentials are synchronized from the Primary node. Setup and modifications are disabled on replicas.';
+                mfaStatusContainer.parentNode.insertBefore(mfaBanner, mfaStatusContainer.nextSibling);
+            }
+        } else if (mfaBanner) {
+            mfaBanner.remove();
+        }
+    }
 
     // Panels visibility
     const primaryPanel = getEl('cluster-primary-panel');

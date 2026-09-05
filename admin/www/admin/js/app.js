@@ -633,6 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const instType = getEl('cluster-inst-type-select')?.value;
         const nodeName = getEl('cluster-node-name-input')?.value;
         const logSharing = getEl('cluster-log-sharing-select')?.value;
+        const workerDomain = getEl('cluster-worker-domain-input')?.value;
         const failover = getEl('cluster-failover-check')?.checked;
         const syncInt = parseInt(getEl('cluster-sync-interval')?.value || '0', 10);
         try {
@@ -643,6 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     instance_type: instType,
                     node_name: nodeName,
                     log_sharing_mode: logSharing,
+                    worker_domain: workerDomain,
                     failover_mode: failover,
                     sync_interval: syncInt
                 })
@@ -657,6 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
     getEl('cluster-role-select')?.addEventListener('change', saveClusterProfile);
     getEl('cluster-inst-type-select')?.addEventListener('change', saveClusterProfile);
     getEl('cluster-node-name-input')?.addEventListener('blur', saveClusterProfile);
+    getEl('cluster-worker-domain-input')?.addEventListener('blur', saveClusterProfile);
     getEl('cluster-log-sharing-select')?.addEventListener('change', saveClusterProfile);
     getEl('cluster-failover-check')?.addEventListener('change', saveClusterProfile);
     getEl('cluster-sync-interval')?.addEventListener('change', saveClusterProfile);

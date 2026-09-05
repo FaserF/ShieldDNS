@@ -155,7 +155,11 @@ func main() {
 
 	// 2. HTTP/3 Server (DoH3 on port 443 UDP, alongside HTTP/2 on TCP)
 	var h3Server *http3.Server
-	if adminPort == "443" && certFile != "" && keyFile != "" {
+	configLock.RLock()
+	doh3Active := config.DoH3Enabled
+	configLock.RUnlock()
+
+	if doh3Active && adminPort == "443" && certFile != "" && keyFile != "" {
 		h3Server = &http3.Server{
 			Addr:    ":443",
 			Handler: finalHandler,
@@ -624,6 +628,34 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			return
 		}
 
+		// Shortcut redirections: /master, /primary, /slave, /replica
+		pathLower := strings.TrimRight(strings.ToLower(r.URL.Path), "/")
+		if pathLower == "/master" || pathLower == "/primary" {
+			configLock.RLock()
+			target := "/admin/"
+			if config.ClusterRole == "replica" && config.ClusterPrimaryURL != "" {
+				target = strings.TrimRight(config.ClusterPrimaryURL, "/") + "/admin/"
+			}
+			configLock.RUnlock()
+			http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+			return
+		}
+		if pathLower == "/slave" || pathLower == "/replica" {
+			configLock.RLock()
+			target := "/admin/"
+			if config.ClusterRole == "primary" && len(config.ClusterReplicas) > 0 {
+				for _, rep := range config.ClusterReplicas {
+					if rep.URL != "" {
+						target = strings.TrimRight(rep.URL, "/") + "/admin/"
+						break
+					}
+				}
+			}
+			configLock.RUnlock()
+			http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+			return
+		}
+
 		// Case 3: Root landing page (Server-Side Rendered)
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			tmplBytes, err := fs.ReadFile(wwwFS, "index.html")
@@ -650,10 +682,20 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			filteringEnabled := config.FilteringEnabled
 			clusterRole := config.ClusterRole
 			clusterInstType := config.ClusterInstanceType
+			clusterPrimaryURL := config.ClusterPrimaryURL
+			workerDomain := config.ClusterWorkerDomain
 			configLock.RUnlock()
+
+			// Trust worker: If ClusterWorkerDomain is set and Host matches or request passed through worker
+			effectiveHost := host
+			if workerDomain != "" {
+				// Display the worker domain for DoH/DoT endpoints
+				effectiveHost = workerDomain
+			}
 
 			isPrivate := clusterInstType == "private"
 			isHybrid := clusterInstType == "hybrid"
+			isReplica := clusterRole == "replica"
 
 			w.Header().Set("Content-Type", "text/html")
 			tmpl.Execute(w, struct {
@@ -671,8 +713,11 @@ func setupStaticHandlers(mux *http.ServeMux) {
 				InstanceType      string
 				IsPrivate         bool
 				IsHybrid          bool
+				IsReplica         bool
+				PrimaryURL        string
+				WorkerDomain      string
 			}{
-				Host:              host,
+				Host:              effectiveHost,
 				SignEnabled:       signEnabled && !isPrivate,
 				FullVersion:       FullVersion,
 				CacheVersion:      CacheVersion,
@@ -686,6 +731,9 @@ func setupStaticHandlers(mux *http.ServeMux) {
 				InstanceType:      clusterInstType,
 				IsPrivate:         isPrivate,
 				IsHybrid:          isHybrid,
+				IsReplica:         isReplica,
+				PrimaryURL:        clusterPrimaryURL,
+				WorkerDomain:      workerDomain,
 			})
 			return
 		}

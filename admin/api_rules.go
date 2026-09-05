@@ -72,7 +72,18 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	domain := NormalizeDomain(req.Domain)
+	var domain string
+	inputDomain := strings.TrimSpace(req.Domain)
+	if parsedRule := ParseAdblockRule(inputDomain); parsedRule != nil && parsedRule.Domain != "" {
+		domain = parsedRule.Domain
+		// Automatically infer allow type if rule starts with @@
+		if parsedRule.IsAllowlist && req.Type == "block" {
+			req.Type = "allow"
+		}
+	} else {
+		domain = NormalizeDomain(inputDomain)
+	}
+
 	if domain == "" {
 		sendJSONError(w, "Domain required", http.StatusUnprocessableEntity)
 		return
@@ -189,7 +200,14 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	domain := NormalizeDomain(req.Domain)
+	var domain string
+	inputDomain := strings.TrimSpace(req.Domain)
+	if parsedRule := ParseAdblockRule(inputDomain); parsedRule != nil && parsedRule.Domain != "" {
+		domain = parsedRule.Domain
+	} else {
+		domain = NormalizeDomain(inputDomain)
+	}
+
 	if domain == "" {
 		sendJSONError(w, "Domain required", http.StatusUnprocessableEntity)
 		return

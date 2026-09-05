@@ -22,17 +22,7 @@ var (
 	statsCacheMu        sync.Mutex
 )
 
-func handleStats(w http.ResponseWriter, r *http.Request) {
-	statsCacheMu.Lock()
-	if time.Since(statsCacheTime) < 10*time.Second {
-		s := statsCache
-		statsCacheMu.Unlock()
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(s)
-		return
-	}
-	statsCacheMu.Unlock()
-
+func getStatsData() Stats {
 	statsLock.RLock()
 	s := stats
 	statsLock.RUnlock()
@@ -144,6 +134,22 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	configLock.RLock()
 	s.NumAutoBlocked = len(config.BlockedClientsInfo)
 	configLock.RUnlock()
+
+	return s
+}
+
+func handleStats(w http.ResponseWriter, r *http.Request) {
+	statsCacheMu.Lock()
+	if time.Since(statsCacheTime) < 10*time.Second {
+		s := statsCache
+		statsCacheMu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(s)
+		return
+	}
+	statsCacheMu.Unlock()
+
+	s := getStatsData()
 
 	// Update Cache
 	statsCacheMu.Lock()

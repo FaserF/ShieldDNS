@@ -80,6 +80,48 @@ func TestProcessList_AllowlistSupport(t *testing.T) {
 	}
 }
 
+func TestProcessList_AdGuardSyntax(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "||adservice.org^$important,dnstype=A")
+		fmt.Fprintln(w, "@@||friendly-domain.com^$important")
+		fmt.Fprintln(w, "||ignored-badfilter.com^$badfilter")
+		fmt.Fprintln(w, "|https://secure-tracker.com/")
+		fmt.Fprintln(w, "malware-domain.net^")
+	}))
+	defer ts.Close()
+
+	list := List{
+		Name:    "AdGuardTestList",
+		URL:     ts.URL,
+		Enabled: true,
+	}
+
+	blockMap := make(map[string][]string)
+	allowMap := make(map[string]struct{})
+
+	processList(&list, blockMap, allowMap, nil)
+
+	if _, ok := blockMap["adservice.org"]; !ok {
+		t.Errorf("expected adservice.org in blockMap")
+	}
+	if _, ok := blockMap["*.adservice.org"]; !ok {
+		t.Errorf("expected *.adservice.org in blockMap")
+	}
+	if _, ok := allowMap["friendly-domain.com"]; !ok {
+		t.Errorf("expected friendly-domain.com in allowMap")
+	}
+	if _, ok := blockMap["ignored-badfilter.com"]; ok {
+		t.Errorf("expected ignored-badfilter.com to be excluded due to $badfilter")
+	}
+	if _, ok := blockMap["secure-tracker.com"]; !ok {
+		t.Errorf("expected secure-tracker.com in blockMap")
+	}
+	if _, ok := blockMap["malware-domain.net"]; !ok {
+		t.Errorf("expected malware-domain.net in blockMap")
+	}
+}
+
 func TestLoadConfig_BlockPageIPEnv(t *testing.T) {
 	// Simulate initial startup by removing any existing config
 	os.Remove(ConfigPath)

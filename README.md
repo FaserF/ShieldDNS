@@ -27,7 +27,9 @@ It features a **State-of-the-art Premium Admin Dashboard** with a modern Glassmo
 - 🔍 **Settings Search**: Instant search functionality within the Admin Settings to find specific options across multiple categories.
 - 🧹 **Optimized Default Lists**: Ships with a single, curated default (HaGeZi Multi Normal) for maximum protection with minimal RAM usage on any hardware.
 - 📜 **Performant Query Logs**: Virtual scrolling implementation allows silky-smooth browsing through thousands of query entries without DOM lag.
-- 🪵 **Structured Logging**: Native `log/slog` integration provides machine-readable JSON logs for Docker/Loki while maintaining human-friendly Admin UI logs via a custom handler bridge.
+- 🌐 **Multi-Node Clustering & Federation**: Connect Primary and Edge Replica nodes with automated configuration sync, offline fallback, role-specific environment tuning (Private/Public/Hybrid), and centralized MFA/password lockout.
+- ☁️ **Cloudflare Dispatcher & HA Failover**: Support for Cloudflare Worker edge dispatchers with active health checks, automatic DoH failover between nodes, and quick administrative shortcuts (`/master`, `/slave`).
+- 🤖 **Embedded MCP Server**: Built-in Model Context Protocol endpoint (`/api/mcp`) for AI-assisted diagnostics, rule management, and cluster status inspection.
 - 🛠️ **Config Integrity Guard**: Proactive JSON validation and automatic corruption backups (`config.json.corrupted`) prevent configuration loss during system crashes.
 - 🚀 **Decoupled Analytics**: Independent background workers for logging and stats aggregation ensure continuous data ingestion without blocking service-level maintenance tasks.
 

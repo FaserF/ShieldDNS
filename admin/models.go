@@ -49,6 +49,7 @@ type Config struct {
 	SignMobileConfig           bool                         `json:"sign_mobileconfig"`
 	VerifyUpstreamTLS          bool                         `json:"verify_upstream_tls"`
 	DoHRateLimit               int                          `json:"doh_rate_limit"`
+	DoH3Enabled                bool                         `json:"doh3_enabled"`
 	DebugMode                  bool                         `json:"debug_mode"`
 	ServerCountry              string                       `json:"server_country"`
 	LastLogin                  time.Time                    `json:"last_login"`
@@ -66,6 +67,7 @@ type Config struct {
 	ClusterRole                string                       `json:"cluster_role"`          // "standalone", "primary", "replica"
 	ClusterInstanceType        string                       `json:"cluster_instance_type"` // "private", "public", "hybrid"
 	ClusterNodeName            string                       `json:"cluster_node_name"`     // human-readable node name
+	ClusterWorkerDomain        string                       `json:"cluster_worker_domain"` // e.g. "worker.domain.de" (Cloudflare worker frontend/dispatcher)
 	ClusterLogSharingMode      string                       `json:"cluster_log_sharing_mode"` // "local_only", "push_to_primary", "full_sync"
 	ClusterPrimaryURL          string                       `json:"cluster_primary_url"`
 	ClusterPrimaryToken        string                       `json:"cluster_primary_token"`
@@ -89,6 +91,7 @@ type ClusterReplica struct {
 type ClusterConfigExport struct {
 	PrimaryURL                 string            `json:"primary_url"`
 	AdminPasswordHashed        string            `json:"admin_password_hashed,omitempty"`
+	ClusterWorkerDomain        string            `json:"cluster_worker_domain,omitempty"`
 	ClusterLogSharingMode      string            `json:"cluster_log_sharing_mode,omitempty"`
 	FilteringEnabled           bool              `json:"filtering_enabled"`
 	Lists                      []List            `json:"lists"`
@@ -111,6 +114,7 @@ type ClusterConfigExport struct {
 	Upstreams                  []string          `json:"upstreams"`
 	UpstreamDoT                []string          `json:"upstream_dot"`
 	DoHRateLimit               int               `json:"doh_rate_limit"`
+	DoH3Enabled                bool              `json:"doh3_enabled"`
 	DNSRebindingProtection     bool              `json:"dns_rebinding_protection"`
 	StripECS                   bool              `json:"strip_ecs"`
 	Timestamp                  time.Time         `json:"timestamp"`

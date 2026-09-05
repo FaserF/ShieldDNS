@@ -74,6 +74,7 @@ func handleClusterStatus(w http.ResponseWriter, r *http.Request) {
 		"sync_interval":    syncInterval,
 		"failover_mode":    failoverMode,
 		"last_sync":        lastSync,
+		"worker_domain":    config.ClusterWorkerDomain,
 		"connection_lost":  connLost,
 		"last_sync_error":  clusterLastSyncError,
 		"replicas":         sanitizedReplicas,
@@ -485,9 +486,10 @@ func handleClusterUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		Role           string `json:"role"`
 		InstanceType   string `json:"instance_type"`
 		NodeName       string `json:"node_name"`
-		LogSharingMode string `json:"log_sharing_mode"`
-		FailoverMode   *bool  `json:"failover_mode"`
-		SyncInterval   *int   `json:"sync_interval"`
+		LogSharingMode string  `json:"log_sharing_mode"`
+		WorkerDomain   *string `json:"worker_domain"`
+		FailoverMode   *bool   `json:"failover_mode"`
+		SyncInterval   *int    `json:"sync_interval"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
@@ -503,6 +505,9 @@ func handleClusterUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.NodeName != "" {
 		config.ClusterNodeName = strings.TrimSpace(req.NodeName)
+	}
+	if req.WorkerDomain != nil {
+		config.ClusterWorkerDomain = strings.TrimSpace(strings.ToLower(*req.WorkerDomain))
 	}
 	if req.LogSharingMode == "local_only" || req.LogSharingMode == "push_to_primary" || req.LogSharingMode == "full_sync" {
 		config.ClusterLogSharingMode = req.LogSharingMode
@@ -592,6 +597,7 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	if exp.ClusterLogSharingMode != "" {
 		config.ClusterLogSharingMode = exp.ClusterLogSharingMode
 	}
+	config.ClusterWorkerDomain = exp.ClusterWorkerDomain
 
 	// Password fallback: sync hash if provided
 	if exp.AdminPasswordHashed != "" {
@@ -618,6 +624,7 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	config.MaliciousIPInterval = exp.MaliciousIPInterval
 	config.VerifyUpstreamTLS = exp.VerifyUpstreamTLS
 	config.PreferEncrypted = exp.PreferEncrypted
+	config.DoH3Enabled = exp.DoH3Enabled
 	config.DNSRebindingProtection = exp.DNSRebindingProtection
 	config.StripECS = exp.StripECS
 

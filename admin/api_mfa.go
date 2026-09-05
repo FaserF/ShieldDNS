@@ -158,6 +158,14 @@ func handleTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	configLock.RLock()
+	if config.ClusterRole == "replica" {
+		configLock.RUnlock()
+		http.Error(w, "Forbidden: Multi-Factor Authentication is managed centrally on the Primary node", http.StatusForbidden)
+		return
+	}
+	configLock.RUnlock()
+
 	// 1. Authenticate (Session must be valid)
 	cookie, err := r.Cookie(CookieName)
 	if err != nil {
@@ -284,6 +292,11 @@ func handleMFADelete(w http.ResponseWriter, r *http.Request) {
 	configLock.Lock()
 	defer configLock.Unlock()
 
+	if config.ClusterRole == "replica" {
+		http.Error(w, "Forbidden: Multi-Factor Authentication is managed centrally on the Primary node", http.StatusForbidden)
+		return
+	}
+
 	if req.Type == "totp" {
 		var newTOTP []TOTPConfig
 		for _, c := range config.TOTPConfigs {
@@ -330,16 +343,20 @@ func handleMFADisable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	configLock.Lock()
+	defer configLock.Unlock()
+
+	if config.ClusterRole == "replica" {
+		http.Error(w, "Forbidden: Multi-Factor Authentication is managed centrally on the Primary node", http.StatusForbidden)
+		return
+	}
 	config.MFAEnabled = false
 	config.TOTPConfigs = nil
 	config.WebAuthnCredentials = nil
 	if err := saveConfigNoLock(); err != nil {
 		slog.Error("Failed to save config in handleMFADisable", "error", err)
 		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
-		configLock.Unlock()
 		return
 	}
-	configLock.Unlock()
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, `{"status":"disabled"}`)
@@ -408,6 +425,14 @@ func handleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	configLock.RLock()
+	if config.ClusterRole == "replica" {
+		configLock.RUnlock()
+		http.Error(w, "Forbidden: Multi-Factor Authentication is managed centrally on the Primary node", http.StatusForbidden)
+		return
+	}
+	configLock.RUnlock()
 	if err := initWebAuthn(); err != nil {
 		http.Error(w, "WebAuthn initialization failed", http.StatusInternalServerError)
 		return
@@ -444,6 +469,14 @@ func handleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	configLock.RLock()
+	if config.ClusterRole == "replica" {
+		configLock.RUnlock()
+		http.Error(w, "Forbidden: Multi-Factor Authentication is managed centrally on the Primary node", http.StatusForbidden)
+		return
+	}
+	configLock.RUnlock()
 	cookie, err := r.Cookie(CookieName)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)

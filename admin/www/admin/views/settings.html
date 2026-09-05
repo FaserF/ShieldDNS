@@ -80,6 +80,19 @@
                                 <span class="slider"></span>
                             </label>
                         </div>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>DNS-over-HTTP/3 (DoH3 / QUIC)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Enables HTTP/3 (QUIC over UDP:443) alongside HTTP/2 for DNS-over-HTTPS. Supported natively by modern browsers and mobile devices (including Pixel 10 Pro). Zero head-of-line blocking and faster mobile handshakes. Default: ON."></i>
+                                </div>
+                                <p class="help">Accelerate encrypted DNS queries via UDP/QUIC (HTTP/3). Prevents packet drops on mobile and unstable connections.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="doh3-enabled-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
 
                         <div class="form-group checkbox-group">
                             <div class="checkbox-text">
@@ -658,6 +671,12 @@
                             <option value="full_sync">Full Sync (Both Primary and Replicas synchronize and share all query traffic)</option>
                         </select>
                         <p class="help">Control how DNS query logs are aggregated across cluster members.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cloudflare Worker Dispatcher Domain</label>
+                        <input type="text" id="cluster-worker-domain-input" placeholder="e.g. worker.domain.com" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                        <p class="help">Optional DNS hostname for a Cloudflare Worker edge distributor. When set, this hostname is presented in setup profiles and trusted for cluster dispatching.</p>
                     </div>
 
                     <!-- Primary Node View: Replicas list & connect instructions -->

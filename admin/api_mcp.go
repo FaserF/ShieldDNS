@@ -86,23 +86,7 @@ var allMCPTools = []struct {
 		},
 		requiredPerm: "read:stats",
 		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
-			statsLock.RLock()
-			s := stats
-			statsLock.RUnlock()
-
-			total, blocked, cacheHits, err := Get24hStats()
-			if err == nil {
-				s.TotalQueries = total
-				s.BlockedQueries = blocked
-				s.CacheHits = cacheHits
-			} else {
-				s.TotalQueries = atomic.LoadInt64(&stats.TotalQueries)
-				s.BlockedQueries = atomic.LoadInt64(&stats.BlockedQueries)
-				s.CacheHits = atomic.LoadInt64(&stats.CacheHits)
-			}
-			if avg, err := GetAverageLatency(); err == nil {
-				s.AverageLatency = avg
-			}
+			s := getStatsData()
 			return s, nil
 		},
 	},
@@ -1232,6 +1216,7 @@ var allMCPTools = []struct {
 					"block_page_ip":          map[string]interface{}{"type": "string", "description": "Default IPv4 block page IP"},
 					"doh_rate_limit":         map[string]interface{}{"type": "integer", "description": "Max DoH queries per second per client"},
 					"retention_days":         map[string]interface{}{"type": "integer", "description": "Query retention in days (1-365)"},
+					"doh3_enabled":           map[string]interface{}{"type": "boolean", "description": "Enable DNS-over-HTTP/3 (QUIC) support"},
 					"abuse_detection_enabled": map[string]interface{}{"type": "boolean", "description": "Enable automated abuse and DGA detection"},
 					"debug_mode":             map[string]interface{}{"type": "boolean", "description": "Enable detailed debug logs"},
 				},
@@ -1292,6 +1277,9 @@ var allMCPTools = []struct {
 			}
 			if v, ok := args["abuse_detection_enabled"].(bool); ok {
 				config.AbuseDetectionEnabled = v
+			}
+			if v, ok := args["doh3_enabled"].(bool); ok {
+				config.DoH3Enabled = v
 			}
 			if v, ok := args["debug_mode"].(bool); ok {
 				config.DebugMode = v

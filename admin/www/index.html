@@ -28,6 +28,21 @@
             {{end}}
         </p>
 
+        {{if .IsReplica}}
+        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid var(--accent, #3b82f6); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.9rem;">
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--accent, #3b82f6); margin-bottom: 4px;">
+                <svg style="width: 18px; height: 18px; fill: currentColor;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                Cluster Replica Node
+            </div>
+            <div style="color: var(--text-secondary); font-size: 0.85rem;">
+                This node is an edge replica synchronized with the Primary cluster controller.
+                {{if .PrimaryURL}}
+                Configuration and access security are managed centrally at <a href="{{.PrimaryURL}}" target="_blank" style="color: var(--accent, #3b82f6); text-decoration: underline;">{{.PrimaryURL}}</a>.
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+
         {{if or .IsPrivate .IsHybrid}}
         <!-- Router Setup Guide for Local Network Mode -->
         <div class="setup-section" style="border-left: 4px solid var(--accent, #3b82f6);">

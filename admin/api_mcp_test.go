@@ -248,3 +248,76 @@ func TestMCPToolExecutionPermissions(t *testing.T) {
 		t.Errorf("expected optimize_security_profile to succeed, got: %v", optResp.Result.Content)
 	}
 }
+
+func TestMCPClusterTools(t *testing.T) {
+	setupMCPTestEnvironment()
+
+	// 1. Test get_cluster_status via MCP
+	statusReq := bytes.NewBufferString(`{"jsonrpc":"2.0","id":101,"method":"tools/call","params":{"name":"get_cluster_status","arguments":{}}}`)
+	req1 := httptest.NewRequest("POST", "/api/mcp?token=mcp-secret-token", statusReq)
+	rr1 := httptest.NewRecorder()
+	handleMCP(rr1, req1)
+
+	var statusResp struct {
+		Result mcpToolResult `json:"result"`
+	}
+	json.NewDecoder(rr1.Body).Decode(&statusResp)
+	if statusResp.Result.IsError {
+		t.Fatalf("expected get_cluster_status to succeed, got error: %v", statusResp.Result.Content)
+	}
+
+	// 2. Test diagnose_cluster via MCP
+	diagReq := bytes.NewBufferString(`{"jsonrpc":"2.0","id":102,"method":"tools/call","params":{"name":"diagnose_cluster","arguments":{}}}`)
+	req2 := httptest.NewRequest("POST", "/api/mcp?token=mcp-secret-token", diagReq)
+	rr2 := httptest.NewRecorder()
+	handleMCP(rr2, req2)
+
+	var diagResp struct {
+		Result mcpToolResult `json:"result"`
+	}
+	json.NewDecoder(rr2.Body).Decode(&diagResp)
+	if diagResp.Result.IsError {
+		t.Fatalf("expected diagnose_cluster to succeed, got error: %v", diagResp.Result.Content)
+	}
+
+	// 3. Test update_cluster_settings via MCP
+	updateReq := bytes.NewBufferString(`{"jsonrpc":"2.0","id":103,"method":"tools/call","params":{"name":"update_cluster_settings","arguments":{"role":"primary","instance_type":"hybrid","node_name":"MCP Test Master","log_sharing_mode":"full_sync"}}}`)
+	req3 := httptest.NewRequest("POST", "/api/mcp?token=mcp-secret-token", updateReq)
+	rr3 := httptest.NewRecorder()
+	handleMCP(rr3, req3)
+
+	var updateResp struct {
+		Result mcpToolResult `json:"result"`
+	}
+	json.NewDecoder(rr3.Body).Decode(&updateResp)
+	if updateResp.Result.IsError {
+		t.Fatalf("expected update_cluster_settings to succeed, got error: %v", updateResp.Result.Content)
+	}
+
+	configLock.RLock()
+	role := config.ClusterRole
+	instType := config.ClusterInstanceType
+	nodeName := config.ClusterNodeName
+	logMode := config.ClusterLogSharingMode
+	configLock.RUnlock()
+
+	if role != "primary" || instType != "hybrid" || nodeName != "MCP Test Master" || logMode != "full_sync" {
+		t.Errorf("unexpected config after update_cluster_settings: role=%s, type=%s, name=%s, mode=%s", role, instType, nodeName, logMode)
+	}
+
+	// 4. Test MCP prompt audit-cluster-federation
+	promptReq := bytes.NewBufferString(`{"jsonrpc":"2.0","id":104,"method":"prompts/get","params":{"name":"audit-cluster-federation"}}`)
+	req4 := httptest.NewRequest("POST", "/api/mcp?token=mcp-secret-token", promptReq)
+	rr4 := httptest.NewRecorder()
+	handleMCP(rr4, req4)
+
+	var promptResp struct {
+		Result struct {
+			Description string `json:"description"`
+		} `json:"result"`
+	}
+	json.NewDecoder(rr4.Body).Decode(&promptResp)
+	if promptResp.Result.Description != "audit-cluster-federation" {
+		t.Errorf("expected prompt audit-cluster-federation, got %v", promptResp.Result.Description)
+	}
+}

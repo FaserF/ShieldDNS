@@ -69,6 +69,7 @@ func loadConfig() {
 		MaliciousIPBlockingEnabled: true,
 		MaliciousIPInterval:        8,
 		DoHRateLimit:               50,
+		DoH3Enabled:                true,
 		AutoblockWhitelist:         []string{"127.0.0.1", "::1"},
 		AutoUpdateEnabled:          false,
 		AutoUpdateHour:             3,
@@ -686,6 +687,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		}
 	}
 
+	listIsAllowlist := allowMap != nil
 	scanner := bufio.NewScanner(reader)
 	// Some list lines might be long, increase buffer size if needed
 	const maxCapacity = 1024 * 1024 // 1MB line buffer
@@ -704,26 +706,31 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			continue
 		}
 
-		isAllowlist := false
+		isAllowlist := listIsAllowlist
 		if strings.HasPrefix(line, "@@") {
 			isAllowlist = true
 			line = line[2:]
 		}
 
-		// 3. Handle AdGuard / AdBlock: ||domain^
-		if strings.HasPrefix(line, "||") {
-			content := strings.TrimPrefix(line, "||")
-			domainPart := content
-			if idx := strings.IndexAny(content, "^$"); idx != -1 {
-				domainPart = content[:idx]
+		// 3. Handle AdGuard / AdBlock Plus syntax (||domain^, @@||domain^, $modifiers)
+		if parsedRule := ParseAdblockRule(line); parsedRule != nil && parsedRule.Domain != "" {
+			if isAllowlist {
+				parsedRule.IsAllowlist = true
 			}
-			d := NormalizeDomain(domainPart)
-			if d != "" {
-				if added := addDomain(d, isAllowlist, list.Name, true, blockMap, allowMap, allowAttr); added {
-					count++
+			// Skip badfilter if requested
+			hasBadFilter := false
+			for _, m := range parsedRule.Modifiers {
+				if m == "badfilter" {
+					hasBadFilter = true
+					break
 				}
 			}
-			continue
+			if !hasBadFilter {
+				if added := addDomain(parsedRule.Domain, parsedRule.IsAllowlist, list.Name, true, blockMap, allowMap, allowAttr); added {
+					count++
+				}
+				continue
+			}
 		}
 
 		// 4. Handle Hosts: 0.0.0.0 domain1 domain2 ...
@@ -1157,6 +1164,7 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 		Upstreams:                  append([]string{}, config.Upstreams...),
 		UpstreamDoT:                append([]string{}, config.UpstreamDoT...),
 		DoHRateLimit:               config.DoHRateLimit,
+		DoH3Enabled:                config.DoH3Enabled,
 		DNSRebindingProtection:     config.DNSRebindingProtection,
 		StripECS:                   config.StripECS,
 		Timestamp:                  time.Now().UTC(),

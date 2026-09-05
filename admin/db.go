@@ -481,7 +481,7 @@ func getClientStats(ip string) (ClientStats, error) {
 	row := db.QueryRow(`
 		SELECT 
 			COUNT(*), 
-			COALESCE(SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END), 0)
+			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0)
 		FROM queries 
 		WHERE client_ip = ? AND timestamp > datetime('now', '-24 hours')
 	`, ip)
@@ -509,24 +509,42 @@ func getClientStats(ip string) (ClientStats, error) {
 	}
 
 	// 3. Timeline (24h)
+	now := time.Now().UTC()
+	for i := 0; i < 24; i++ {
+		cs.Timeline[i] = HourStats{
+			Time: now.Add(time.Duration(i-23) * time.Hour).Truncate(time.Hour),
+		}
+	}
+
 	tRows, err := db.Query(`
 		SELECT 
-			(23 - (strftime('%H', 'now') - strftime('%H', timestamp) + 24) % 24) as hour_index,
+			strftime('%Y-%m-%d %H:00:00', timestamp) as hr,
 			COUNT(*),
-			COALESCE(SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END), 0)
+			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0)
 		FROM queries
 		WHERE client_ip = ? AND timestamp > datetime('now', '-24 hours')
-		GROUP BY hour_index
+		GROUP BY hr
 	`, ip)
 	if err == nil {
 		defer tRows.Close()
+		aggMap := make(map[string]struct{ total, blocked int64 })
 		for tRows.Next() {
-			var idx int
+			var hr string
 			var hTotal, hBlocked int64
-			if err := tRows.Scan(&idx, &hTotal, &hBlocked); err == nil {
-				if idx >= 0 && idx < 24 {
-					cs.Timeline[idx] = HourStats{Total: hTotal, Blocked: hBlocked}
+			if err := tRows.Scan(&hr, &hTotal, &hBlocked); err == nil {
+				aggMap[hr] = struct{ total, blocked int64 }{total: hTotal, blocked: hBlocked}
+			}
+		}
+
+		for i := 0; i < 24; i++ {
+			hrKey := cs.Timeline[i].Time.Format("2006-01-02 15:04:05")
+			if a, ok := aggMap[hrKey]; ok {
+				cs.Timeline[i].Total = a.total
+				cs.Timeline[i].Blocked = a.blocked
+				if cs.Timeline[i].Total < cs.Timeline[i].Blocked {
+					cs.Timeline[i].Total = cs.Timeline[i].Blocked
 				}
+				cs.Timeline[i].Allowed = cs.Timeline[i].Total - cs.Timeline[i].Blocked
 			}
 		}
 	}
@@ -543,7 +561,7 @@ func getClientTopBlocked(ip string, limit int) ([]DomainCount, error) {
 	rows, err := db.Query(`
 		SELECT domain, COUNT(*) as c
 		FROM queries
-		WHERE client_ip = ? AND status = 'Blocked' AND timestamp > datetime('now', '-24 hours')
+		WHERE client_ip = ? AND status LIKE 'Blocked%' AND timestamp > datetime('now', '-24 hours')
 		GROUP BY domain
 		ORDER BY c DESC
 		LIMIT ?
@@ -606,7 +624,7 @@ func getDomainStats(domain string) (DomainStats, error) {
 	row := db.QueryRow(`
 		SELECT 
 			COUNT(*), 
-			COALESCE(SUM(CASE WHEN status = 'Blocked' THEN 1 ELSE 0 END), 0)
+			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0)
 		FROM queries 
 		WHERE domain = ? AND timestamp > datetime('now', '-24 hours')
 	`, domain)

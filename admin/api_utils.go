@@ -135,6 +135,111 @@ func NormalizeDomain(s string) string {
 	return s
 }
 
+// AdblockRule contains parsed components of an Adblock/AdGuard syntax rule
+type AdblockRule struct {
+	Domain      string   // Normalized domain or regex pattern
+	IsAllowlist bool     // True if @@ rule
+	IsImportant bool     // True if $important modifier present
+	IsDNSRule   bool     // True if $dnsrewrite or standard domain rule
+	IsRegex     bool     // True if /regex/
+	Modifiers   []string // List of modifiers like important, all, cname, etc.
+}
+
+// ParseAdblockRule parses AdGuard / AdBlock Plus DNS filter rules:
+// - @@||example.com^ (exception/allowlist)
+// - ||example.com^ (block domain and all subdomains)
+// - ||example.com^$important,badfilter,dnstype=...
+// - |http://example.com| or |https://example.com/
+// - standard domains, hosts lines, dnsmasq lines
+func ParseAdblockRule(raw string) *AdblockRule {
+	line := strings.TrimSpace(raw)
+	if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "!") {
+		return nil
+	}
+
+	// Skip HTML/CSS cosmetic rules from browser adblockers (##, #?#, #$#)
+	if strings.Contains(line, "##") || strings.Contains(line, "#?#") || strings.Contains(line, "#$#") {
+		return nil
+	}
+
+	rule := &AdblockRule{}
+
+	// 1. Exception rule check (@@)
+	if strings.HasPrefix(line, "@@") {
+		rule.IsAllowlist = true
+		line = strings.TrimPrefix(line, "@@")
+	}
+
+	// 2. Extract modifiers after '$'
+	if idx := strings.Index(line, "$"); idx != -1 {
+		modifiersStr := line[idx+1:]
+		line = line[:idx]
+		for _, mod := range strings.Split(modifiersStr, ",") {
+			mod = strings.TrimSpace(strings.ToLower(mod))
+			if mod == "" {
+				continue
+			}
+			rule.Modifiers = append(rule.Modifiers, mod)
+			if mod == "important" {
+				rule.IsImportant = true
+			}
+		}
+	}
+
+	// 3. Handle regexp /pattern/
+	if strings.HasPrefix(line, "/") && strings.HasSuffix(line, "/") && len(line) > 2 {
+		rule.IsRegex = true
+		rule.Domain = line[1 : len(line)-1]
+		return rule
+	}
+
+	// 4. Handle ||domain^ or ||domain
+	if strings.HasPrefix(line, "||") {
+		content := strings.TrimPrefix(line, "||")
+		if idx := strings.Index(content, "^"); idx != -1 {
+			content = content[:idx]
+		}
+		rule.Domain = NormalizeDomain(content)
+		if rule.Domain != "" {
+			rule.IsDNSRule = true
+			return rule
+		}
+		return nil
+	}
+
+	// 5. Handle |http:// or |https:// prefixes
+	if strings.HasPrefix(line, "|") {
+		content := strings.Trim(line, "|")
+		rule.Domain = NormalizeDomain(content)
+		if rule.Domain != "" {
+			rule.IsDNSRule = true
+			return rule
+		}
+		return nil
+	}
+
+	// 6. Handle ^ separator at end
+	if strings.HasSuffix(line, "^") {
+		content := strings.TrimSuffix(line, "^")
+		rule.Domain = NormalizeDomain(content)
+		if rule.Domain != "" {
+			rule.IsDNSRule = true
+			return rule
+		}
+		return nil
+	}
+
+	// 7. Standard normalize fallback
+	d := NormalizeDomain(line)
+	if d != "" {
+		rule.Domain = d
+		rule.IsDNSRule = true
+		return rule
+	}
+
+	return nil
+}
+
 // isValidListURL checks if a URL is safe to fetch blocklists from.
 // Only HTTPS and file:// are permitted. Plain HTTP is rejected to prevent
 // man-in-the-middle attacks on blocklist downloads.
