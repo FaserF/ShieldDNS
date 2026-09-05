@@ -708,6 +708,14 @@
                         <label>Cloudflare Worker Dispatcher Domain</label>
                         <input type="text" id="cluster-worker-domain-input" placeholder="e.g. worker.domain.com" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
                         <p class="help">Optional DNS hostname for a Cloudflare Worker edge distributor. When set, this hostname is presented in setup profiles and trusted for cluster dispatching.</p>
+                        <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button type="button" class="btn secondary" id="cluster-worker-generate-btn" style="font-size: 0.85rem; padding: 6px 12px;">
+                                <i class="fab fa-cloudflare" style="color: #f38020; margin-right: 6px;"></i>Generate Prefilled Worker Script
+                            </button>
+                            <a href="https://github.com/FaserF/ShieldDNS/blob/main/tools/cloudflare_worker_template.js" target="_blank" rel="noopener noreferrer" class="btn secondary" style="font-size: 0.85rem; padding: 6px 12px; text-decoration: none; display: inline-flex; align-items: center;">
+                                <i class="fab fa-github" style="margin-right: 6px;"></i>View Template on GitHub
+                            </a>
+                        </div>
                     </div>
 
                     <!-- Primary Node View: Replicas list & connect instructions -->

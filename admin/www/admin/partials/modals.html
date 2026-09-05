@@ -51,42 +51,56 @@
                     <label>Key Name</label>
                     <input type="text" id="api-key-name" placeholder="e.g., Home Assistant, Monitoring">
                 </div>
-                <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
-                    <label>Permission Presets</label>
-                    <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap;">
-                        <button type="button" class="btn secondary" id="preset-cluster-btn" style="flex:1; min-width:120px; padding:6px 12px; font-size:0.8rem; border-color:var(--accent); font-weight:600;"><i class="fas fa-network-wired" style="margin-right:4px;"></i>Cluster Replica</button>
-                        <button type="button" class="btn secondary" id="preset-ha-btn" style="flex:1; min-width:100px; padding:6px 12px; font-size:0.8rem;">HomeAssistant</button>
-                        <button type="button" class="btn secondary" id="preset-monitoring-btn" style="flex:1; min-width:90px; padding:6px 12px; font-size:0.8rem;">Monitoring</button>
-                        <button type="button" class="btn secondary" id="preset-clear-btn" style="flex:1; min-width:60px; padding:6px 12px; font-size:0.8rem;">Clear</button>
+                    <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
+                        <label>Permission Presets</label>
+                        <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap;">
+                            <button type="button" class="btn secondary" id="preset-cluster-btn" style="flex:1; min-width:120px; padding:6px 12px; font-size:0.8rem; border-color:var(--accent); font-weight:600;"><i class="fas fa-network-wired" style="margin-right:4px;"></i>Cluster Replica</button>
+                            <button type="button" class="btn secondary" id="preset-worker-btn" style="flex:1; min-width:130px; padding:6px 12px; font-size:0.8rem; border-color:#f38020; color:#f38020; font-weight:600;"><i class="fab fa-cloudflare" style="margin-right:4px;"></i>Cloudflare Worker</button>
+                            <button type="button" class="btn secondary" id="preset-ha-btn" style="flex:1; min-width:100px; padding:6px 12px; font-size:0.8rem;">HomeAssistant</button>
+                            <button type="button" class="btn secondary" id="preset-monitoring-btn" style="flex:1; min-width:90px; padding:6px 12px; font-size:0.8rem;">Monitoring</button>
+                            <button type="button" class="btn secondary" id="preset-clear-btn" style="flex:1; min-width:60px; padding:6px 12px; font-size:0.8rem;">Clear</button>
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Permissions Scopes</label>
-                    <div class="checkbox-group-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:10px;">
-                        <!-- Master Permission -->
-                        <div style="grid-column: 1 / -1; background: rgba(var(--accent-rgb), 0.1); padding: 12px; border-radius: 8px; border: 1px solid var(--accent); display:flex; align-items:center; gap:12px; margin-bottom: 8px;">
-                            <label class="switch" style="flex-shrink:0;">
-                                <input type="checkbox" id="perm-admin">
-                                <span class="slider"></span>
-                            </label>
-                            <div>
-                                <strong style="display:block; font-size:0.9rem; color:var(--accent);">admin:all</strong>
-                                <span style="font-size:0.75rem; color:var(--text-secondary);">Full access to everything (including tokens and reset).</span>
+                    <div class="form-group">
+                        <label>Permissions Scopes</label>
+                        <div class="checkbox-group-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:10px;">
+                            <!-- Master Permission -->
+                            <div style="grid-column: 1 / -1; background: rgba(var(--accent-rgb), 0.1); padding: 12px; border-radius: 8px; border: 1px solid var(--accent); display:flex; align-items:center; gap:12px; margin-bottom: 8px;">
+                                <label class="switch" style="flex-shrink:0;">
+                                    <input type="checkbox" id="perm-admin">
+                                    <span class="slider"></span>
+                                </label>
+                                <div>
+                                    <strong style="display:block; font-size:0.9rem; color:var(--accent);">admin:all</strong>
+                                    <span style="font-size:0.75rem; color:var(--text-secondary);">Full access to everything (including tokens and reset).</span>
+                                </div>
                             </div>
-                        </div>
 
-                        <!-- Cluster Federation Group (Dedicated Scope) -->
-                        <div class="perm-group" id="perm-group-cluster" style="grid-column: 1 / -1; background: rgba(59, 130, 246, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span class="help" style="font-weight:700; text-transform:uppercase; font-size:0.7rem; color:var(--accent);"><i class="fas fa-network-wired" style="margin-right:6px;"></i>Cluster Federation & Replica Sync</span>
-                                <span class="badge secondary" style="font-size:0.65rem;">Dedicated Scope</span>
+                            <!-- Cloudflare Worker Proxy Group (Dedicated Scope) -->
+                            <div class="perm-group" id="perm-group-worker" style="grid-column: 1 / -1; background: rgba(243, 128, 32, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(243, 128, 32, 0.3); margin-bottom: 8px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span class="help" style="font-weight:700; text-transform:uppercase; font-size:0.7rem; color:#f38020;"><i class="fab fa-cloudflare" style="margin-right:6px;"></i>Cloudflare Worker Dispatcher</span>
+                                    <span class="badge secondary" style="font-size:0.65rem;">Least Privilege Scope</span>
+                                </div>
+                                <div class="perm-item" style="margin-top:8px;">
+                                    <label class="switch"><input type="checkbox" id="perm-proxy-worker"><span class="slider"></span></label>
+                                    <span style="font-weight:600;"><strong>proxy:worker</strong> (Authorize edge worker to proxy DoH traffic, forward client Geo headers, and run health probes)</span>
+                                </div>
+                                <p class="help" style="margin:6px 0 0 0; font-size:0.75rem;">Strict minimal privilege: worker cannot read configuration, tokens, or modify admin settings.</p>
                             </div>
-                            <div class="perm-item" style="margin-top:8px;">
-                                <label class="switch"><input type="checkbox" id="perm-cluster-sync"><span class="slider"></span></label>
-                                <span style="font-weight:600;"><strong>cluster:sync</strong> (Authorize secondary replicas to join, register & pull synchronized configuration)</span>
+
+                            <!-- Cluster Federation Group (Dedicated Scope) -->
+                            <div class="perm-group" id="perm-group-cluster" style="grid-column: 1 / -1; background: rgba(59, 130, 246, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span class="help" style="font-weight:700; text-transform:uppercase; font-size:0.7rem; color:var(--accent);"><i class="fas fa-network-wired" style="margin-right:6px;"></i>Cluster Federation & Replica Sync</span>
+                                    <span class="badge secondary" style="font-size:0.65rem;">Dedicated Scope</span>
+                                </div>
+                                <div class="perm-item" style="margin-top:8px;">
+                                    <label class="switch"><input type="checkbox" id="perm-cluster-sync"><span class="slider"></span></label>
+                                    <span style="font-weight:600;"><strong>cluster:sync</strong> (Authorize secondary replicas to join, register & pull synchronized configuration)</span>
+                                </div>
+                                <p class="help" style="margin:6px 0 0 0; font-size:0.75rem;">When selected, all other unrelated permissions are locked/disabled to enforce minimal privileges.</p>
                             </div>
-                            <p class="help" style="margin:6px 0 0 0; font-size:0.75rem;">When selected, all other unrelated permissions are locked/disabled to enforce minimal privileges.</p>
-                        </div>
 
                         <!-- Monitoring Group -->
                         <div class="perm-group" id="perm-group-stats">
@@ -690,6 +704,34 @@
             <div id="activity-log-stream" class="log-container"></div>
             <div class="modal-footer">
                 <button type="button" id="activity-close-btn" class="btn secondary">Done</button>
+            </div>
+        </div>
+    </div>
+    <!-- Cloudflare Worker Script Modal -->
+    <div id="worker-script-modal" class="modal hidden">
+        <div class="modal-content large" style="max-width: 800px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div>
+                    <h2 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <i class="fab fa-cloudflare" style="color: #f38020;"></i> Cloudflare Worker Dispatcher Script
+                    </h2>
+                    <p class="help" style="margin: 4px 0 0 0;">Pre-populated with your current cluster topology and geo-steering rules.</p>
+                </div>
+                <button type="button" class="btn secondary sm" id="worker-script-close-x" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div style="position: relative;">
+                <textarea id="worker-script-code" readonly style="width: 100%; height: 380px; font-family: monospace; font-size: 0.82rem; background: var(--bg-input, #0d1117); color: #c9d1d9; border: 1px solid var(--border); border-radius: 6px; padding: 12px; resize: vertical; white-space: pre;"></textarea>
+            </div>
+            <div class="modal-actions mt-3" style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="help" id="worker-script-status">Ready to copy to Cloudflare Dashboard</span>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn secondary" id="worker-script-download-btn">
+                        <i class="fas fa-download"></i> Download worker.js
+                    </button>
+                    <button type="button" class="btn primary" id="worker-script-copy-btn">
+                        <i class="fas fa-copy"></i> Copy to Clipboard
+                    </button>
+                </div>
             </div>
         </div>
     </div>

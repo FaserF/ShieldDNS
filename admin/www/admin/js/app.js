@@ -660,8 +660,58 @@ document.addEventListener('DOMContentLoaded', () => {
     getEl('cluster-inst-type-select')?.addEventListener('change', saveClusterProfile);
     getEl('cluster-node-name-input')?.addEventListener('blur', saveClusterProfile);
     getEl('cluster-worker-domain-input')?.addEventListener('blur', saveClusterProfile);
-    getEl('cluster-log-sharing-select')?.addEventListener('change', saveClusterProfile);
-    getEl('cluster-failover-check')?.addEventListener('change', saveClusterProfile);
     getEl('cluster-sync-interval')?.addEventListener('change', saveClusterProfile);
+
+    // Generate and view prefilled Cloudflare Worker Script
+    getEl('cluster-worker-generate-btn')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        helpers.setBtnLoading(btn, true, 'Generating...');
+        try {
+            const resp = await fetch(api.endpoints.clusterWorkerScript, {
+                headers: {
+                    'X-Shield-Request': 'true'
+                }
+            });
+            if (!resp.ok) {
+                const txt = await resp.text();
+                throw new Error(txt || `Server error: ${resp.status}`);
+            }
+            const script = await resp.text();
+            const textarea = getEl('worker-script-code');
+            if (textarea) textarea.value = script;
+            getEl('worker-script-modal')?.classList.remove('hidden');
+        } catch (err) {
+            helpers.showAlert('Failed to generate Cloudflare Worker script: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    });
+
+    getEl('worker-script-close-x')?.addEventListener('click', () => {
+        getEl('worker-script-modal')?.classList.add('hidden');
+    });
+
+    getEl('worker-script-copy-btn')?.addEventListener('click', () => {
+        const script = getEl('worker-script-code')?.value;
+        if (!script) return;
+        navigator.clipboard.writeText(script);
+        helpers.showToast('Cloudflare Worker script copied to clipboard!');
+    });
+
+    getEl('worker-script-download-btn')?.addEventListener('click', () => {
+        const script = getEl('worker-script-code')?.value;
+        if (!script) return;
+        const blob = new Blob([script], { type: 'application/javascript;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'worker.js';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        helpers.showToast('Downloaded worker.js');
+    });
 });
+
 

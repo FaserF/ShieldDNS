@@ -84,7 +84,19 @@ npm create cloudflare@latest shielddns-dispatcher -- --type hello-world
 cd shielddns-dispatcher
 ```
 
-Replace `src/index.js` (or `src/index.ts`) with the following production-ready Worker code:
+The canonical, up-to-date worker script is maintained directly in the GitHub repository at:
+➡️ **[`tools/cloudflare_worker_template.js`](https://raw.githubusercontent.com/FaserF/ShieldDNS/main/tools/cloudflare_worker_template.js)**
+
+> [!TIP]
+> **Automatic Configuration**: In your ShieldDNS Admin Dashboard (**Settings &rarr; Cluster & High Availability**), click **"Generate Prefilled Worker Script"** to instantly generate this script customized with your actual Primary and Replica nodes!
+
+Replace `src/index.js` (or `src/index.ts`) with the script below or fetch it directly:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/FaserF/ShieldDNS/main/tools/cloudflare_worker_template.js -o src/index.js
+```
+
+Full script reference:
 
 ```javascript
 /**

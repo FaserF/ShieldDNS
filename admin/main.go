@@ -402,6 +402,7 @@ func setupRouter() *http.ServeMux {
 	mux.HandleFunc("/api/cluster/replicas/sync", handleClusterGetReplicaConfig)
 	mux.Handle("/api/cluster/replicas/revoke", authMiddleware(http.HandlerFunc(handleClusterRevokeReplica)))
 	mux.HandleFunc("/api/cluster/logs/ingest", handleClusterIngestLogs)
+	mux.Handle("/api/cluster/worker-script", authMiddleware(http.HandlerFunc(handleClusterWorkerScript)))
 
 	// MCP (Model Context Protocol) API
 	mux.HandleFunc("/api/mcp", handleMCP)

@@ -348,6 +348,7 @@ export function initEvents(fetchConfig) {
         if (getEl('perm-system').checked) perms.push('read:system');
         if (getEl('perm-mcp')?.checked) perms.push('exec:mcp');
         if (getEl('perm-cluster-sync')?.checked) perms.push('cluster:sync');
+        if (getEl('perm-proxy-worker')?.checked) perms.push('proxy:worker');
 
         const currentEditId = getEl('save-api-key-btn').dataset.editId;
         const endpoint = currentEditId ? `${api.endpoints.createToken}?id=${currentEditId}` : api.endpoints.createToken;
@@ -394,7 +395,7 @@ export function initEvents(fetchConfig) {
     // API Key Presets
     const setPerms = (perms) => {
         const ids = [
-            'perm-admin', 'perm-cluster-sync', 'perm-stats', 'perm-logs', 'perm-health',
+            'perm-admin', 'perm-cluster-sync', 'perm-proxy-worker', 'perm-stats', 'perm-logs', 'perm-health',
             'perm-config-read', 'perm-config-write', 'perm-diag',
             'perm-rules-read', 'perm-rules-write', 'perm-maint', 'perm-system', 'perm-mcp'
         ];
@@ -410,6 +411,7 @@ export function initEvents(fetchConfig) {
     const updatePermissionStates = () => {
         const admin = getEl('perm-admin');
         const clusterSync = getEl('perm-cluster-sync');
+        const proxyWorker = getEl('perm-proxy-worker');
         const stats = getEl('perm-stats');
         const logs = getEl('perm-logs');
         const health = getEl('perm-health');
@@ -425,7 +427,7 @@ export function initEvents(fetchConfig) {
         if (!admin) return;
 
         const allInputs = [
-            clusterSync, stats, logs, health, configRead, configWrite,
+            clusterSync, proxyWorker, stats, logs, health, configRead, configWrite,
             diag, rulesRead, rulesWrite, maint, system, mcp
         ];
 
@@ -458,7 +460,38 @@ export function initEvents(fetchConfig) {
             return;
         }
 
-        // 2. Cluster Sync Dedicated Scope:
+        // 2. Cloudflare Worker Dedicated Scope (Least Privilege: proxy:worker only)
+        if (proxyWorker && proxyWorker.checked) {
+            const excludedForWorker = [clusterSync, stats, logs, configRead, configWrite, diag, rulesRead, rulesWrite, maint, system, mcp];
+            excludedForWorker.forEach(el => {
+                if (el) {
+                    el.checked = false;
+                    el.disabled = true;
+                    const item = el.closest('.perm-item') || el.parentElement;
+                    if (item) {
+                        item.style.opacity = '0.35';
+                        item.style.background = 'transparent';
+                        item.style.border = 'none';
+                        item.style.padding = '0';
+                    }
+                }
+            });
+            if (health) {
+                health.checked = true;
+                health.disabled = true;
+                const item = health.closest('.perm-item') || health.parentElement;
+                if (item) {
+                    item.style.opacity = '0.9';
+                    item.style.background = 'rgba(243, 128, 32, 0.12)';
+                    item.style.border = '1px solid rgba(243, 128, 32, 0.4)';
+                    item.style.borderRadius = '4px';
+                    item.style.padding = '4px 8px';
+                }
+            }
+            return;
+        }
+
+        // 3. Cluster Sync Dedicated Scope:
         // Automatically locks out other rights. Required minimal permissions (read:config, read:health)
         // are pre-selected and highlighted as implicitly included & locked, while unrelated rights are greyed out.
         if (clusterSync && clusterSync.checked) {
@@ -480,7 +513,7 @@ export function initEvents(fetchConfig) {
             });
 
             // Permissions that are excluded & greyed out to enforce minimal privilege
-            const excludedForCluster = [stats, logs, configWrite, diag, rulesRead, rulesWrite, maint, system, mcp];
+            const excludedForCluster = [proxyWorker, stats, logs, configWrite, diag, rulesRead, rulesWrite, maint, system, mcp];
             excludedForCluster.forEach(el => {
                 if (el) {
                     el.checked = false;
@@ -496,7 +529,7 @@ export function initEvents(fetchConfig) {
             });
             return;
         } else {
-            // Clean up any inline highlight styling when cluster:sync is unchecked
+            // Clean up any inline highlight styling when cluster:sync / proxy:worker is unchecked
             [configRead, health, stats, logs, configWrite, diag, rulesRead, rulesWrite, maint, system, mcp].forEach(el => {
                 if (el) {
                     const item = el.closest('.perm-item') || el.parentElement;
@@ -539,7 +572,7 @@ export function initEvents(fetchConfig) {
     };
 
     [
-        'perm-admin', 'perm-cluster-sync', 'perm-stats', 'perm-logs', 'perm-health',
+        'perm-admin', 'perm-cluster-sync', 'perm-proxy-worker', 'perm-stats', 'perm-logs', 'perm-health',
         'perm-config-read', 'perm-config-write', 'perm-diag',
         'perm-rules-read', 'perm-rules-write', 'perm-maint', 'perm-system', 'perm-mcp'
     ].forEach(id => {
@@ -551,6 +584,14 @@ export function initEvents(fetchConfig) {
         const keyName = getEl('api-key-name');
         if (keyName && !keyName.value.trim()) {
             keyName.value = 'Cluster Replica Token';
+        }
+    });
+
+    getEl('preset-worker-btn')?.addEventListener('click', () => {
+        setPerms(['perm-proxy-worker']);
+        const keyName = getEl('api-key-name');
+        if (keyName && !keyName.value.trim()) {
+            keyName.value = 'Cloudflare Worker Dispatcher';
         }
     });
 

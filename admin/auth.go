@@ -640,6 +640,10 @@ func hasPermission(key *APIKey, perm string) bool {
 		if perm == "read:config" && (p == "cluster:sync" || p == "write:config") {
 			return true
 		}
+		// Cloudflare Worker proxy permission can check health
+		if perm == "read:health" && p == "proxy:worker" {
+			return true
+		}
 		// Hierarchical shortcuts
 		if (perm == "read:health") && (p == "read:stats" || p == "read:system" || p == "read:diagnostics" || p == "read:config" || p == "cluster:sync") {
 			return true

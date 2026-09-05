@@ -71,6 +71,7 @@ type Config struct {
 	ClusterInstanceType        string                       `json:"cluster_instance_type"` // "private", "public", "hybrid"
 	ClusterNodeName            string                       `json:"cluster_node_name"`     // human-readable node name
 	ClusterWorkerDomain        string                       `json:"cluster_worker_domain"` // e.g. "worker.domain.de" (Cloudflare worker frontend/dispatcher)
+	ClusterWorkerToken         string                       `json:"cluster_worker_token"`  // Dedicated least-privilege token for Cloudflare worker proxy
 	ClusterLogSharingMode      string                       `json:"cluster_log_sharing_mode"` // "local_only", "push_to_primary", "full_sync"
 	ClusterPrimaryURL          string                       `json:"cluster_primary_url"`
 	ClusterPrimaryToken        string                       `json:"cluster_primary_token"`

@@ -728,3 +728,89 @@ func TestECHConfiguration(t *testing.T) {
 	t.Log("ECH / SVCB HTTPS records configuration verified")
 }
 
+func TestClusterWorkerScriptHandler(t *testing.T) {
+	configLock.Lock()
+	config.ClusterRole = "primary"
+	config.ClusterNodeName = "Oracle Cloud DE"
+	config.AdminDomain = "oracle.dns.fabiseitz.de"
+	config.ClusterReplicas = []ClusterReplica{
+		{
+			ID:   "rep-home",
+			Name: "Munich Home Node",
+			URL:  "https://home.dns.fabiseitz.de",
+		},
+	}
+	configLock.Unlock()
+
+	req := httptest.NewRequest("GET", "/api/cluster/worker-script", nil)
+	w := httptest.NewRecorder()
+
+	handleClusterWorkerScript(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+
+	body := w.Body.String()
+	if strings.Contains(body, "__NODES_CONFIG_JSON__") {
+		t.Error("placeholder __NODES_CONFIG_JSON__ was not replaced")
+	}
+	if !strings.Contains(body, "oracle.dns.fabiseitz.de") {
+		t.Error("expected script to contain primary node URL oracle.dns.fabiseitz.de")
+	}
+	if !strings.Contains(body, "Munich Home Node") {
+		t.Error("expected script to contain replica node Munich Home Node")
+	}
+	if !strings.Contains(body, "home.dns.fabiseitz.de") {
+		t.Error("expected script to contain replica URL home.dns.fabiseitz.de")
+	}
+
+	// Verify that a dedicated API key with proxy:worker permission was created
+	configLock.RLock()
+	var foundWorkerKey bool
+	for _, k := range config.APIKeys {
+		if k.Name == "Cloudflare Worker Dispatcher" && len(k.Permissions) == 1 && k.Permissions[0] == "proxy:worker" {
+			foundWorkerKey = true
+			if !hasPermission(&k, "read:health") {
+				t.Error("expected proxy:worker to be permitted to read:health")
+			}
+			if hasPermission(&k, "write:config") {
+				t.Error("proxy:worker should NOT have write:config permission")
+			}
+			if hasPermission(&k, "read:config") {
+				t.Error("proxy:worker should NOT have read:config permission")
+			}
+			break
+		}
+	}
+	configLock.RUnlock()
+
+	if !foundWorkerKey {
+		t.Error("expected Cloudflare Worker Dispatcher APIKey with proxy:worker permission to be generated")
+	}
+
+	// 2. Subsequent call should reuse the existing token without creating duplicates
+	w2 := httptest.NewRecorder()
+	handleClusterWorkerScript(w2, req)
+	body2 := w2.Body.String()
+
+	configLock.RLock()
+	workerKeyCount := 0
+	for _, k := range config.APIKeys {
+		if k.Name == "Cloudflare Worker Dispatcher" {
+			workerKeyCount++
+		}
+	}
+	configLock.RUnlock()
+
+	if workerKeyCount != 1 {
+		t.Errorf("expected exactly 1 worker key in config, got %d", workerKeyCount)
+	}
+	if body != body2 {
+		t.Error("expected second script generation to reuse the same token and yield identical script")
+	}
+}
+
+
+

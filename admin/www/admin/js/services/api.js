@@ -148,5 +148,6 @@ export const endpoints = {
     clusterSync: basePath + '/api/cluster/sync',
     clusterLeave: basePath + '/api/cluster/leave',
     clusterSettings: basePath + '/api/cluster/settings',
-    clusterRevokeReplica: basePath + '/api/cluster/replicas/revoke'
+    clusterRevokeReplica: basePath + '/api/cluster/replicas/revoke',
+    clusterWorkerScript: basePath + '/api/cluster/worker-script'
 };
