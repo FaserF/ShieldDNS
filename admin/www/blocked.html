@@ -325,12 +325,23 @@
          * no-cors fetch so we redirect as soon as the rule is live,
          * falling back to the full 6 s if the poll never succeeds.
          */
+        function getSafeTargetUrl(d) {
+            if (!isValidDomainName(d)) return null;
+            try {
+                const u = new URL('https://' + d + '/');
+                if (u.protocol === 'https:' && u.hostname === d) {
+                    return u.href;
+                }
+            } catch (_) {}
+            return null;
+        }
+
         function startCountdownRedirect() {
-            if (!isValidDomainName(domain)) {
+            const target = getSafeTargetUrl(domain);
+            if (!target) {
                 showSuccessBanner(`✓ Domain has been added to the allowlist.`);
                 return;
             }
-            const target  = 'https://' + encodeURIComponent(domain) + '/';
             let seconds   = 6;
             let redirected = false;
 
@@ -359,7 +370,7 @@
                     clearInterval(poller);
                     if (!redirected) {
                         redirected = true;
-                        window.location.assign(target);
+                        window.location.replace(target);
                     }
                 }
             }, 1000);
@@ -378,7 +389,7 @@
                         redirected = true;
                         const el = document.getElementById('countdown-num');
                         if (el) el.textContent = 'Redirecting…';
-                        setTimeout(() => { window.location.assign(target); }, 200);
+                        setTimeout(() => { window.location.replace(target); }, 200);
                     }
                 } catch (_) {
                     /* Domain still blocked — keep waiting */

@@ -346,7 +346,18 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 		"failover_mode": req.FailoverMode,
 	})
 
-	primaryEndpoint := strings.TrimRight(req.PrimaryURL, "/") + "/api/cluster/replicas/register"
+	// Ensure host is valid domain or IP and construct target URL from parsed components
+	host := parsedURL.Hostname()
+	if !isValidDomain(host) {
+		http.Error(w, "Invalid Primary URL host", http.StatusBadRequest)
+		return
+	}
+
+	primaryEndpoint := (&url.URL{
+		Scheme: parsedURL.Scheme,
+		Host:   parsedURL.Host,
+		Path:   "/api/cluster/replicas/register",
+	}).String()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
@@ -546,11 +557,16 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 	defer clusterSyncMu.Unlock()
 
 	parsedURL, err := url.Parse(primaryURL)
-	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" {
-		return fmt.Errorf("invalid primary URL: %s", primaryURL)
+	host := parsedURL.Hostname()
+	if !isValidDomain(host) {
+		return fmt.Errorf("invalid host in primary URL: %s", host)
 	}
 
-	endpoint := strings.TrimRight(primaryURL, "/") + "/api/cluster/replicas/sync"
+	endpoint := (&url.URL{
+		Scheme: parsedURL.Scheme,
+		Host:   parsedURL.Host,
+		Path:   "/api/cluster/replicas/sync",
+	}).String()
 	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 	defer cancel()
 
@@ -832,7 +848,16 @@ func SyncClusterLogs() error {
 		return fmt.Errorf("invalid primary URL: %s", primaryURL)
 	}
 
-	endpoint := strings.TrimRight(primaryURL, "/") + "/api/cluster/logs/ingest"
+	host := parsedURL.Hostname()
+	if !isValidDomain(host) {
+		return fmt.Errorf("invalid host in primary URL: %s", host)
+	}
+
+	endpoint := (&url.URL{
+		Scheme: parsedURL.Scheme,
+		Host:   parsedURL.Host,
+		Path:   "/api/cluster/logs/ingest",
+	}).String()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

@@ -56,13 +56,11 @@ const CorefileTemplate = `.:{{.DNSPort}} {
         denial 30000
         prefetch 5 1m 10%
         serve_stale 1h
-        min_ttl 30
     }
     forward . {{.Upstreams}} {
         health_check 5s
         max_fails 2
         expire 10s
-        connect_timeout 2s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
@@ -88,13 +86,11 @@ tls://.:{{.DOTPort}} {
         denial 30000
         prefetch 5 1m 10%
         serve_stale 1h
-        min_ttl 30
     }
     forward . {{.Upstreams}} {
         health_check 5s
         max_fails 2
         expire 10s
-        connect_timeout 2s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
@@ -119,13 +115,11 @@ https://.:{{.InternalDOHPort}} {
         denial 30000
         prefetch 5 1m 10%
         serve_stale 1h
-        min_ttl 30
     }
     forward . {{.Upstreams}} {
         health_check 5s
         max_fails 2
         expire 10s
-        connect_timeout 2s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
@@ -154,13 +148,11 @@ quic://.:{{.DOTPort}} {
         denial 30000
         prefetch 5 1m 10%
         serve_stale 1h
-        min_ttl 30
     }
     forward . {{.Upstreams}} {
         health_check 5s
         max_fails 2
         expire 10s
-        connect_timeout 2s
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }

@@ -187,7 +187,7 @@ func ParseAdblockRule(raw string) *AdblockRule {
 	}
 
 	// 3. Handle regexp /pattern/
-	if len(line) > 2 && line[0] == '/' && line[len(line)-1] == '/' {
+	if len(line) > 2 && strings.HasPrefix(line, "/") && strings.HasSuffix(line, "/") && line[1] != '/' && line[1] != '\\' {
 		rule.IsRegex = true
 		rule.Domain = line[1 : len(line)-1]
 		return rule
