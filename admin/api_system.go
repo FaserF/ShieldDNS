@@ -1081,6 +1081,12 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.WireGuardGateway == "" && config.WireGuardGateway != "" {
 			newConfig.WireGuardGateway = config.WireGuardGateway
 		}
+		if newConfig.LocalPTRUpstreams == nil && config.LocalPTRUpstreams != nil {
+			newConfig.LocalPTRUpstreams = config.LocalPTRUpstreams
+		}
+		if newConfig.ClientRules == nil && config.ClientRules != nil {
+			newConfig.ClientRules = config.ClientRules
+		}
 
 		// Security: Prevent blocking the server's host country
 		if detectedServerCountry != "" || newConfig.ServerCountry != "" {

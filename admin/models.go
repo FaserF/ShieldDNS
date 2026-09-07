@@ -81,6 +81,14 @@ type Config struct {
 	ClusterReplicas            []ClusterReplica             `json:"cluster_replicas"`
 	RoutingRules               []RoutingRule                `json:"routing_rules"`
 	WireGuardGateway           string                       `json:"wireguard_gateway"`
+	LocalPTRUpstreams          []string                     `json:"local_ptr_upstreams"`
+	ClientRules                []ClientRule                 `json:"client_rules"`
+}
+
+type ClientRule struct {
+	Domain      string `json:"domain"`
+	ClientIP    string `json:"client_ip"`
+	IsAllowlist bool   `json:"is_allowlist"`
 }
 
 type RoutingRule struct {
@@ -439,6 +447,14 @@ func (c *Config) Clone() *Config {
 	if c.RoutingRules != nil {
 		newCfg.RoutingRules = make([]RoutingRule, len(c.RoutingRules))
 		copy(newCfg.RoutingRules, c.RoutingRules)
+	}
+	if c.LocalPTRUpstreams != nil {
+		newCfg.LocalPTRUpstreams = make([]string, len(c.LocalPTRUpstreams))
+		copy(newCfg.LocalPTRUpstreams, c.LocalPTRUpstreams)
+	}
+	if c.ClientRules != nil {
+		newCfg.ClientRules = make([]ClientRule, len(c.ClientRules))
+		copy(newCfg.ClientRules, c.ClientRules)
 	}
 
 	return &newCfg

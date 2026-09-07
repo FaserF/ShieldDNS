@@ -691,11 +691,47 @@ func updateCorefile() {
 }
 
 func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCerts bool, certFile, keyFile string) string {
-	if cfg == nil || len(cfg.RoutingRules) == 0 {
+	if cfg == nil {
 		return ""
 	}
 
 	var sb strings.Builder
+
+	// Local PTR / Reverse DNS Upstreams (e.g. 192.168.178.1, 192.168.1.1)
+	if len(cfg.LocalPTRUpstreams) > 0 {
+		var ptrUpstreams []string
+		for _, u := range cfg.LocalPTRUpstreams {
+			host, port := splitAddr(u, "53")
+			ip := resolveHost(host)
+			ptrUpstreams = append(ptrUpstreams, net.JoinHostPort(ip, port))
+		}
+		if len(ptrUpstreams) > 0 {
+			upstreamStr := strings.Join(ptrUpstreams, " ")
+			for _, zone := range []string{"in-addr.arpa", "ip6.arpa"} {
+				sb.WriteString(fmt.Sprintf("%s:%s {\n", zone, dnsPort))
+				sb.WriteString("    cache 300\n")
+				sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
+				sb.WriteString("    errors\n}\n\n")
+
+				if hasCerts {
+					sb.WriteString(fmt.Sprintf("tls://%s:%s {\n    tls %s %s\n", zone, dotPort, certFile, keyFile))
+					sb.WriteString("    cache 300\n")
+					sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
+					sb.WriteString("    errors\n}\n\n")
+
+					sb.WriteString(fmt.Sprintf("https://%s:%s {\n    tls %s %s\n", zone, dohPort, certFile, keyFile))
+					sb.WriteString("    cache 300\n")
+					sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
+					sb.WriteString("    errors\n}\n\n")
+				}
+			}
+		}
+	}
+
+	if len(cfg.RoutingRules) == 0 {
+		return strings.TrimSpace(sb.String())
+	}
+
 	for _, rule := range cfg.RoutingRules {
 		if !rule.Enabled {
 			continue
@@ -1100,6 +1136,18 @@ func parseLogLine(line string) {
 	blockAttributionLock.RUnlock()
 
 	isBlocked := found
+
+	// Client-specific filter rules override ($client modifier)
+	configLock.RLock()
+	clientRules := append([]ClientRule{}, config.ClientRules...)
+	configLock.RUnlock()
+
+	for _, cr := range clientRules {
+		if cr.ClientIP == clientIP && (strings.EqualFold(cr.Domain, qDomain) || strings.HasSuffix(qDomain, "."+cr.Domain)) {
+			isBlocked = !cr.IsAllowlist
+			break
+		}
+	}
 
 	status := StatusAllowed
 	if isBlocked {

@@ -63,9 +63,10 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Domain string `json:"domain"`
-		Type   string `json:"type"` // "block", "allow", "mapping"
-		IP     string `json:"ip"`   // only for "mapping"
+		Domain   string `json:"domain"`
+		Type     string `json:"type"` // "block", "allow", "mapping"
+		IP       string `json:"ip"`   // only for "mapping"
+		ClientIP string `json:"client_ip"` // optional client-specific IP
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -73,12 +74,16 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var domain string
+	var clientIP string = strings.TrimSpace(req.ClientIP)
 	inputDomain := strings.TrimSpace(req.Domain)
 	if parsedRule := ParseAdblockRule(inputDomain); parsedRule != nil && parsedRule.Domain != "" {
 		domain = parsedRule.Domain
 		// Automatically infer allow type if rule starts with @@
 		if parsedRule.IsAllowlist && req.Type == "block" {
 			req.Type = "allow"
+		}
+		if parsedRule.ClientIP != "" && clientIP == "" {
+			clientIP = parsedRule.ClientIP
 		}
 	} else {
 		domain = NormalizeDomain(inputDomain)
@@ -95,6 +100,32 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 
 	configLock.Lock()
 	defer configLock.Unlock()
+
+	// If client-specific rule
+	if clientIP != "" {
+		// Clean existing matching rule for this domain + client
+		var cleanClientRules []ClientRule
+		for _, cr := range config.ClientRules {
+			if !(strings.EqualFold(cr.Domain, domain) && cr.ClientIP == clientIP) {
+				cleanClientRules = append(cleanClientRules, cr)
+			}
+		}
+		cleanClientRules = append(cleanClientRules, ClientRule{
+			Domain:      domain,
+			ClientIP:    clientIP,
+			IsAllowlist: (req.Type == "allow"),
+		})
+		config.ClientRules = cleanClientRules
+
+		if err := saveConfigNoLock(); err != nil {
+			slog.Error("Failed to save config in handleRuleAdd (client rule)", "error", err)
+			sendJSONError(w, "Failed to save configuration", http.StatusInternalServerError)
+			return
+		}
+		reloadRulesFastNoLock(config.Clone())
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	if req.Type == "block" {
 		// Remove from allowed if present
@@ -193,7 +224,8 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Domain string `json:"domain"`
+		Domain   string `json:"domain"`
+		ClientIP string `json:"client_ip"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -201,9 +233,13 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var domain string
+	var clientIP string = strings.TrimSpace(req.ClientIP)
 	inputDomain := strings.TrimSpace(req.Domain)
 	if parsedRule := ParseAdblockRule(inputDomain); parsedRule != nil && parsedRule.Domain != "" {
 		domain = parsedRule.Domain
+		if parsedRule.ClientIP != "" && clientIP == "" {
+			clientIP = parsedRule.ClientIP
+		}
 	} else {
 		domain = NormalizeDomain(inputDomain)
 	}
@@ -215,6 +251,26 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 
 	configLock.Lock()
 	defer configLock.Unlock()
+
+	// If removing a client rule or client specified
+	if clientIP != "" {
+		var cleanClientRules []ClientRule
+		for _, cr := range config.ClientRules {
+			if !(strings.EqualFold(cr.Domain, domain) && cr.ClientIP == clientIP) {
+				cleanClientRules = append(cleanClientRules, cr)
+			}
+		}
+		config.ClientRules = cleanClientRules
+	} else {
+		// Also clean any client rules targeting this domain if no clientIP was specified
+		var cleanClientRules []ClientRule
+		for _, cr := range config.ClientRules {
+			if !strings.EqualFold(cr.Domain, domain) {
+				cleanClientRules = append(cleanClientRules, cr)
+			}
+		}
+		config.ClientRules = cleanClientRules
+	}
 
 	var cleanBlocked []string
 	for _, d := range config.CustomBlocked {
@@ -403,6 +459,7 @@ func handleResetLists(w http.ResponseWriter, r *http.Request) {
 
 func handleSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
+	clientIP := strings.TrimSpace(r.URL.Query().Get("client_ip"))
 	if query == "" {
 		http.Error(w, "Query required", http.StatusBadRequest)
 		return
@@ -413,6 +470,36 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	if query == "" {
 		http.Error(w, "Valid domain query required", http.StatusBadRequest)
 		return
+	}
+
+	configLock.RLock()
+	clientRules := append([]ClientRule{}, config.ClientRules...)
+	hasLists := len(config.Lists) > 0 || len(config.CustomBlocked) > 0 || len(config.ClientRules) > 0
+	configLock.RUnlock()
+
+	// 1. Client specific rule override check
+	if clientIP != "" {
+		for _, cr := range clientRules {
+			if cr.ClientIP == clientIP && (strings.EqualFold(cr.Domain, query) || strings.HasSuffix(query, "."+cr.Domain)) {
+				w.Header().Set("Content-Type", "application/json")
+				if cr.IsAllowlist {
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"blocked":     false,
+						"client_rule": "allowed",
+						"client_ip":   clientIP,
+						"lists":       []string{"Client Rule (Allowlist)"},
+					})
+				} else {
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"blocked":     true,
+						"client_rule": "blocked",
+						"client_ip":   clientIP,
+						"lists":       []string{"Client Rule (Blocklist)"},
+					})
+				}
+				return
+			}
+		}
 	}
 
 	blockAttributionLock.RLock()
@@ -430,12 +517,6 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	blockAttributionLock.RUnlock()
-
-	// If not found directly, check if the blocklist has even been loaded
-	// We can check if the map is empty but the config has lists
-	configLock.RLock()
-	hasLists := len(config.Lists) > 0 || len(config.CustomBlocked) > 0
-	configLock.RUnlock()
 
 	if !found && hasLists && len(blockAttribution) == 0 {
 		http.Error(w, "Blocklist still loading", http.StatusServiceUnavailable)

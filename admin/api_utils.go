@@ -142,6 +142,7 @@ type AdblockRule struct {
 	IsImportant bool     // True if $important modifier present
 	IsDNSRule   bool     // True if $dnsrewrite or standard domain rule
 	IsRegex     bool     // True if /regex/
+	ClientIP    string   // Client IP or subnet from $client modifier
 	Modifiers   []string // List of modifiers like important, all, cname, etc.
 }
 
@@ -149,6 +150,7 @@ type AdblockRule struct {
 // - @@||example.com^ (exception/allowlist)
 // - ||example.com^ (block domain and all subdomains)
 // - ||example.com^$important,badfilter,dnstype=...
+// - ||example.com^$client='192.168.1.108'
 // - |http://example.com| or |https://example.com/
 // - standard domains, hosts lines, dnsmasq lines
 func ParseAdblockRule(raw string) *AdblockRule {
@@ -175,13 +177,23 @@ func ParseAdblockRule(raw string) *AdblockRule {
 		modifiersStr := line[idx+1:]
 		line = line[:idx]
 		for _, mod := range strings.Split(modifiersStr, ",") {
-			mod = strings.TrimSpace(strings.ToLower(mod))
+			mod = strings.TrimSpace(mod)
 			if mod == "" {
 				continue
 			}
-			rule.Modifiers = append(rule.Modifiers, mod)
-			if mod == "important" {
+			rule.Modifiers = append(rule.Modifiers, strings.ToLower(mod))
+			if strings.EqualFold(mod, "important") {
 				rule.IsImportant = true
+			}
+			// Parse $client='192.168.1.108' or $client=192.168.1.108
+			lowMod := strings.ToLower(mod)
+			if strings.HasPrefix(lowMod, "client=") {
+				clientVal := strings.TrimPrefix(mod, "client=")
+				if strings.HasPrefix(lowMod, "client=") {
+					clientVal = mod[len("client="):]
+				}
+				clientVal = strings.Trim(clientVal, "'\" ")
+				rule.ClientIP = clientVal
 			}
 		}
 	}
@@ -746,8 +758,39 @@ func handleIPInfo(w http.ResponseWriter, r *http.Request) {
 
 	// Reverse DNS with Resolver to support timeouts
 	if info.Hostname == "" {
-		resolver := &net.Resolver{}
-		names, err := resolver.LookupAddr(LookupCtx, ip)
+		configLock.RLock()
+		localPTRs := append([]string{}, config.LocalPTRUpstreams...)
+		configLock.RUnlock()
+
+		var names []string
+		var err error
+
+		if isPrivate && len(localPTRs) > 0 {
+			// Query configured local PTR upstream (e.g. router 192.168.178.1)
+			for _, ptrServer := range localPTRs {
+				target := ptrServer
+				if !strings.Contains(target, ":") {
+					target = net.JoinHostPort(target, "53")
+				}
+				customResolver := &net.Resolver{
+					PreferGo: true,
+					Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+						d := net.Dialer{Timeout: 1500 * time.Millisecond}
+						return d.DialContext(ctx, "udp", target)
+					},
+				}
+				names, err = customResolver.LookupAddr(LookupCtx, ip)
+				if err == nil && len(names) > 0 {
+					break
+				}
+			}
+		}
+
+		if len(names) == 0 {
+			resolver := &net.Resolver{}
+			names, err = resolver.LookupAddr(LookupCtx, ip)
+		}
+
 		if err == nil && len(names) > 0 {
 			info.Hostname = strings.TrimSuffix(names[0], ".")
 		}
