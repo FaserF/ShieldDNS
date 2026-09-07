@@ -664,6 +664,12 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	config.ECHOptimizationEnabled = exp.ECHOptimizationEnabled
 	config.DNSRebindingProtection = exp.DNSRebindingProtection
 	config.StripECS = exp.StripECS
+	if exp.RoutingRules != nil {
+		config.RoutingRules = exp.RoutingRules
+	}
+	if exp.WireGuardGateway != "" {
+		config.WireGuardGateway = exp.WireGuardGateway
+	}
 
 	// Configure DNS Upstream: if failover mode is set, use Primary as first upstream!
 	if failover && primaryURL != "" {

@@ -922,6 +922,61 @@ export function initEvents(fetchConfig) {
         }
     };
 
+    window.addRoutingRule = async (event) => {
+        const match = getEl('routing-match-input')?.value.trim();
+        const target = getEl('routing-target-select')?.value;
+        const targetParam = getEl('routing-target-param')?.value.trim();
+
+        if (!match) return helpers.showAlert('Match criteria (Domain or IP) is required.');
+
+        const btn = event?.currentTarget;
+        helpers.setBtnLoading(btn, true, 'Adding Route...');
+
+        const payload = {
+            match,
+            target: target || 'default',
+            host_target: target === 'host' ? targetParam : '',
+            wireguard_config: target === 'wireguard' ? targetParam : '',
+            enabled: true
+        };
+
+        try {
+            await api.apiFetch(api.endpoints.routingRules, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            if (getEl('routing-match-input')) getEl('routing-match-input').value = '';
+            if (getEl('routing-target-param')) getEl('routing-target-param').value = '';
+            helpers.showToast(`Routing rule for ${match} saved.`);
+            fetchConfig();
+            fetchService.fetchStats();
+        } catch (err) {
+            helpers.showAlert('Failed to add routing rule: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    };
+
+    window.removeRoutingRule = async (ruleIdOrMatch, event) => {
+        if (!await helpers.showConfirm(`Remove routing rule for ${ruleIdOrMatch}?`)) return;
+
+        const btn = event?.currentTarget;
+        helpers.setBtnLoading(btn, true, 'Removing...');
+
+        try {
+            await api.apiFetch(`${api.endpoints.routingRules}?id=${encodeURIComponent(ruleIdOrMatch)}`, {
+                method: 'DELETE'
+            });
+            helpers.showToast('Routing rule removed');
+            fetchConfig();
+            fetchService.fetchStats();
+        } catch (err) {
+            helpers.showAlert('Failed to remove routing rule: ' + err.message);
+        } finally {
+            helpers.setBtnLoading(btn, false);
+        }
+    };
+
     // Blocked Clients Modal Handlers
     getEl('view-blocked-clients-btn')?.addEventListener('click', async () => {
         const modal = getEl('blocked-clients-modal');

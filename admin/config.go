@@ -88,6 +88,8 @@ func loadConfig() {
 		ClusterSyncInterval:        0,
 		ClusterFailoverMode:        false,
 		ClusterReplicas:            []ClusterReplica{},
+		RoutingRules:               []RoutingRule{},
+		WireGuardGateway:           "",
 	}
 
 	isNew := false
@@ -1168,6 +1170,8 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 		ECHOptimizationEnabled:     config.ECHOptimizationEnabled,
 		DNSRebindingProtection:     config.DNSRebindingProtection,
 		StripECS:                   config.StripECS,
+		RoutingRules:               append([]RoutingRule{}, config.RoutingRules...),
+		WireGuardGateway:           config.WireGuardGateway,
 		Timestamp:                  time.Now().UTC(),
 	}
 

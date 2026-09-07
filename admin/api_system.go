@@ -1075,6 +1075,12 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.CustomMappings == nil && config.CustomMappings != nil {
 			newConfig.CustomMappings = config.CustomMappings
 		}
+		if newConfig.RoutingRules == nil && config.RoutingRules != nil {
+			newConfig.RoutingRules = config.RoutingRules
+		}
+		if newConfig.WireGuardGateway == "" && config.WireGuardGateway != "" {
+			newConfig.WireGuardGateway = config.WireGuardGateway
+		}
 
 		// Security: Prevent blocking the server's host country
 		if detectedServerCountry != "" || newConfig.ServerCountry != "" {

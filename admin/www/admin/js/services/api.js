@@ -149,5 +149,6 @@ export const endpoints = {
     clusterLeave: basePath + '/api/cluster/leave',
     clusterSettings: basePath + '/api/cluster/settings',
     clusterRevokeReplica: basePath + '/api/cluster/replicas/revoke',
-    clusterWorkerScript: basePath + '/api/cluster/worker-script'
+    clusterWorkerScript: basePath + '/api/cluster/worker-script',
+    routingRules: basePath + '/api/routing/rules'
 };

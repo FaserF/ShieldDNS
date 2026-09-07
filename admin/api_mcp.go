@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -629,6 +630,159 @@ var allMCPTools = []struct {
 				"success": true,
 				"domain":  domain,
 				"message": fmt.Sprintf("Mapping removed for %s", domain),
+			}, nil
+		},
+	},
+	{
+		tool: mcpTool{
+			Name:        "list_routing_rules",
+			Description: "List all policy-based DNS routing rules (Standard, Specific Host/Master-Slave, WireGuard VPN exit).",
+			InputSchema: map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			},
+		},
+		requiredPerm: "read:rules",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			configLock.RLock()
+			defer configLock.RUnlock()
+			return map[string]interface{}{
+				"rules":             config.RoutingRules,
+				"wireguard_gateway": config.WireGuardGateway,
+			}, nil
+		},
+	},
+	{
+		tool: mcpTool{
+			Name:        "set_routing_rule",
+			Description: "Create or update a policy-based DNS routing rule (targets: 'default', 'host', 'wireguard').",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"name":             map[string]interface{}{"type": "string", "description": "Optional rule label/name"},
+					"match":            map[string]interface{}{"type": "string", "description": "Domain name (e.g. 'internal.lan') or client IP/CIDR (e.g. '192.168.1.50')"},
+					"match_type":       map[string]interface{}{"type": "string", "enum": []string{"domain", "client_ip"}, "description": "Type of match criteria (default: auto-detected)"},
+					"target":           map[string]interface{}{"type": "string", "enum": []string{"default", "host", "wireguard"}, "description": "Routing target: 'default', 'host', or 'wireguard'"},
+					"host_target":      map[string]interface{}{"type": "string", "description": "Upstream host/IP (e.g. '10.0.0.1:53') when target is 'host'"},
+					"wireguard_config": map[string]interface{}{"type": "string", "description": "WireGuard DNS resolver / tunnel endpoint when target is 'wireguard'"},
+					"enabled":          map[string]interface{}{"type": "boolean", "description": "Whether rule is enabled (default: true)"},
+				},
+				"required": []string{"match", "target"},
+			},
+		},
+		requiredPerm: "write:rules",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			match, _ := args["match"].(string)
+			target, _ := args["target"].(string)
+			name, _ := args["name"].(string)
+			matchType, _ := args["match_type"].(string)
+			hostTarget, _ := args["host_target"].(string)
+			wgConfig, _ := args["wireguard_config"].(string)
+			enabled := true
+			if en, ok := args["enabled"].(bool); ok {
+				enabled = en
+			}
+
+			match = strings.TrimSpace(match)
+			if match == "" {
+				return nil, fmt.Errorf("match criteria is required")
+			}
+			if matchType == "" {
+				if net.ParseIP(match) != nil || strings.Contains(match, "/") {
+					matchType = "client_ip"
+				} else {
+					matchType = "domain"
+				}
+			}
+
+			configLock.Lock()
+			rule := RoutingRule{
+				ID:              match,
+				Name:            name,
+				Match:           match,
+				MatchType:       matchType,
+				Target:          target,
+				HostTarget:      hostTarget,
+				WireGuardConfig: wgConfig,
+				Enabled:         enabled,
+				CreatedAt:       time.Now().UTC(),
+			}
+
+			updated := false
+			for i, r := range config.RoutingRules {
+				if strings.EqualFold(r.Match, match) {
+					config.RoutingRules[i] = rule
+					updated = true
+					break
+				}
+			}
+			if !updated {
+				config.RoutingRules = append(config.RoutingRules, rule)
+			}
+
+			if err := saveConfigNoLock(); err != nil {
+				configLock.Unlock()
+				return nil, fmt.Errorf("failed to save config: %w", err)
+			}
+			configLock.Unlock()
+
+			updateCorefile()
+			restartCoreDNS()
+
+			return map[string]interface{}{
+				"success": true,
+				"rule":    rule,
+				"message": fmt.Sprintf("Routing rule saved for %s (target: %s)", match, target),
+			}, nil
+		},
+	},
+	{
+		tool: mcpTool{
+			Name:        "delete_routing_rule",
+			Description: "Delete a policy-based DNS routing rule by match or ID.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"match": map[string]interface{}{"type": "string", "description": "Match criteria (domain or IP) of rule to delete"},
+				},
+				"required": []string{"match"},
+			},
+		},
+		requiredPerm: "write:rules",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			match, _ := args["match"].(string)
+			match = strings.TrimSpace(match)
+			if match == "" {
+				return nil, fmt.Errorf("match is required")
+			}
+
+			configLock.Lock()
+			var filtered []RoutingRule
+			found := false
+			for _, r := range config.RoutingRules {
+				if strings.EqualFold(r.Match, match) || r.ID == match {
+					found = true
+					continue
+				}
+				filtered = append(filtered, r)
+			}
+			if !found {
+				configLock.Unlock()
+				return nil, fmt.Errorf("routing rule not found for %s", match)
+			}
+			config.RoutingRules = filtered
+			if err := saveConfigNoLock(); err != nil {
+				configLock.Unlock()
+				return nil, fmt.Errorf("failed to save config: %w", err)
+			}
+			configLock.Unlock()
+
+			updateCorefile()
+			restartCoreDNS()
+
+			return map[string]interface{}{
+				"success": true,
+				"message": fmt.Sprintf("Routing rule deleted for %s", match),
 			}, nil
 		},
 	},

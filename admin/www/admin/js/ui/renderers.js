@@ -306,6 +306,39 @@ export function renderConfig(cfg) {
         `).join('');
     }
 
+    const routingList = getEl('routing-rules-list');
+    if (routingList) {
+        const rules = cfg.routing_rules || [];
+        if (rules.length === 0) {
+            routingList.innerHTML = '<p class="help" style="margin: 8px 0;">No routing rules configured. Queries use standard default routing.</p>';
+        } else {
+            routingList.innerHTML = rules.map(rule => {
+                let badgeClass = 'secondary';
+                let targetText = 'Normal Routing';
+                if (rule.target === 'host') {
+                    badgeClass = 'official';
+                    targetText = `Host: ${rule.host_target || 'Master/Slave'}`;
+                } else if (rule.target === 'wireguard') {
+                    badgeClass = 'success';
+                    targetText = `WireGuard: ${rule.wireguard_config || cfg.wireguard_gateway || 'VPN'}`;
+                }
+                const matchIcon = rule.match_type === 'client_ip' ? 'fa-laptop' : 'fa-globe';
+                return `
+                <div class="preset-selection-item" style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                        <i class="fas ${matchIcon}" style="color: var(--accent); font-size: 0.9rem;"></i>
+                        <strong style="font-family: monospace;">${helpers.escapeHTML(rule.match)}</strong>
+                        ${rule.name ? `<span class="help">(${helpers.escapeHTML(rule.name)})</span>` : ''}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span class="badge ${badgeClass}">${helpers.escapeHTML(targetText)}</span>
+                        <button class="btn btn-sm secondary" onclick="removeRoutingRule('${helpers.escapeHTML(rule.id || rule.match)}', event)" title="Remove Routing Rule"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    }
+
     // Lists
     const activeBlocks = getEl('active-blocklists-list');
     if (activeBlocks) {

@@ -79,6 +79,20 @@ type Config struct {
 	ClusterFailoverMode        bool                         `json:"cluster_failover_mode"`
 	ClusterLastSync            time.Time                    `json:"cluster_last_sync"`
 	ClusterReplicas            []ClusterReplica             `json:"cluster_replicas"`
+	RoutingRules               []RoutingRule                `json:"routing_rules"`
+	WireGuardGateway           string                       `json:"wireguard_gateway"`
+}
+
+type RoutingRule struct {
+	ID              string    `json:"id"`
+	Name            string    `json:"name,omitempty"`
+	Match           string    `json:"match"`                 // domain name or client IP/CIDR
+	MatchType       string    `json:"match_type"`            // "domain" or "client_ip"
+	Target          string    `json:"target"`                // "default", "host", "wireguard"
+	HostTarget      string    `json:"host_target,omitempty"` // host or host:port for mode B
+	WireGuardConfig string    `json:"wireguard_config,omitempty"` // endpoint/interface for mode C
+	Enabled         bool      `json:"enabled"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 type ClusterReplica struct {
@@ -124,6 +138,8 @@ type ClusterConfigExport struct {
 	ECHOptimizationEnabled     bool              `json:"ech_optimization_enabled"`
 	DNSRebindingProtection     bool              `json:"dns_rebinding_protection"`
 	StripECS                   bool              `json:"strip_ecs"`
+	RoutingRules               []RoutingRule     `json:"routing_rules,omitempty"`
+	WireGuardGateway           string            `json:"wireguard_gateway,omitempty"`
 	Timestamp                  time.Time         `json:"timestamp"`
 }
 
@@ -419,6 +435,10 @@ func (c *Config) Clone() *Config {
 	if c.ClusterReplicas != nil {
 		newCfg.ClusterReplicas = make([]ClusterReplica, len(c.ClusterReplicas))
 		copy(newCfg.ClusterReplicas, c.ClusterReplicas)
+	}
+	if c.RoutingRules != nil {
+		newCfg.RoutingRules = make([]RoutingRule, len(c.RoutingRules))
+		copy(newCfg.RoutingRules, c.RoutingRules)
 	}
 
 	return &newCfg

@@ -1,4 +1,4 @@
-﻿{{define "custom-rules"}}
+{{define "custom-rules"}}
             <section id="custom-rules" class="view hidden">
                 <header>
                     <h1>Custom Rules</h1>
@@ -31,6 +31,21 @@
                             <button class="btn primary mapping-btn" onclick="addCustomMapping(event)">Add Mapping</button>
                         </div>
                         <div id="custom-mappings-list" class="minimal-list"></div>
+                    </div>
+                    <div class="stat-card card full-width">
+                        <h3>DNS Routing Rules 🔀</h3>
+                        <p class="help">Configure selective routing rules for specific domains or client IPs across upstream targets: <strong>A) Normal upstream</strong>, <strong>B) Specific host (Master/Slave)</strong>, or <strong>C) WireGuard VPN exit</strong>.</p>
+                        <div class="mapping-input-group" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                            <input type="text" id="routing-match-input" placeholder="Domain or IP (e.g. internal.corp or 192.168.1.50)" style="flex: 2; min-width: 200px;">
+                            <select id="routing-target-select" style="flex: 1; min-width: 150px; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px;">
+                                <option value="default">A) Normal Default Routing</option>
+                                <option value="host">B) Specific Host (Master/Slave)</option>
+                                <option value="wireguard">C) WireGuard VPN Exit</option>
+                            </select>
+                            <input type="text" id="routing-target-param" placeholder="Host (e.g. 10.0.0.1:53) or WG DNS" style="flex: 2; min-width: 180px;">
+                            <button class="btn primary mapping-btn" onclick="addRoutingRule(event)">Add Route</button>
+                        </div>
+                        <div id="routing-rules-list" class="minimal-list"></div>
                     </div>
                 </div>
             </section>

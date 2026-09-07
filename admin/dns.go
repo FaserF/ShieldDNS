@@ -38,9 +38,11 @@ type CorefileData struct {
 	HasCerts         bool
 	RateLimitRate    int
 	RateLimitBurst   int
+	RoutingBlocks    string
 }
 
-const CorefileTemplate = `.:{{.DNSPort}} {
+const CorefileTemplate = `{{.RoutingBlocks}}
+.:{{.DNSPort}} {
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     health 127.0.0.1:8082
@@ -670,6 +672,7 @@ func updateCorefile() {
 		HasCerts:         hasCerts,
 		RateLimitRate:    cfg.RateLimitRate,
 		RateLimitBurst:   cfg.RateLimitBurst,
+		RoutingBlocks:    getRoutingZoneBlocks(cfg, dnsPort, dotPort, internalDOHPort, hasCerts, certFile, keyFile),
 	}
 
 	tmpl, err := template.New("corefile").Parse(CorefileTemplate)
@@ -685,6 +688,97 @@ func updateCorefile() {
 	}
 
 	atomicWriteFile(CorefilePath, buf.Bytes())
+}
+
+func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCerts bool, certFile, keyFile string) string {
+	if cfg == nil || len(cfg.RoutingRules) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	for _, rule := range cfg.RoutingRules {
+		if !rule.Enabled {
+			continue
+		}
+
+		matchDomain := strings.TrimSpace(rule.Match)
+		if rule.MatchType == "client_ip" || matchDomain == "" || !isValidDomain(matchDomain) {
+			continue
+		}
+		// CoreDNS expects normalized root without wildcards in zone names
+		matchDomain = strings.TrimPrefix(matchDomain, "*.")
+		matchDomain = strings.Trim(matchDomain, ".")
+
+		var upstreams []string
+		switch rule.Target {
+		case "host":
+			h := strings.TrimSpace(rule.HostTarget)
+			if h != "" {
+				host, port := splitAddr(h, "53")
+				ip := resolveHost(host)
+				upstreams = append(upstreams, net.JoinHostPort(ip, port))
+			}
+		case "wireguard":
+			wgTarget := strings.TrimSpace(rule.WireGuardConfig)
+			if wgTarget == "" {
+				wgTarget = strings.TrimSpace(cfg.WireGuardGateway)
+			}
+			if wgTarget != "" {
+				host, port := splitAddr(wgTarget, "53")
+				ip := resolveHost(host)
+				upstreams = append(upstreams, net.JoinHostPort(ip, port))
+			}
+		default: // "default" or unrecognized
+			continue
+		}
+
+		if len(upstreams) == 0 {
+			continue
+		}
+
+		upstreamStr := strings.Join(upstreams, " ")
+		filteringBlock := ""
+		if cfg.FilteringEnabled {
+			filteringBlock = fmt.Sprintf("    hosts %s {\n        reload 5s\n        fallthrough\n    }\n", CombinedHostsPath)
+		}
+
+		sb.WriteString(fmt.Sprintf("%s:%s {\n", matchDomain, dnsPort))
+		if cfg.DNSSECEnabled {
+			sb.WriteString("    dnssec\n")
+		}
+		sb.WriteString("    metadata\n    reload 5s\n")
+		sb.WriteString(filteringBlock)
+		sb.WriteString("    cache 3600\n")
+		sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
+		sb.WriteString(fmt.Sprintf("%s\n", getGeoACLRules(cfg)))
+		sb.WriteString("    errors\n}\n\n")
+
+		if hasCerts {
+			sb.WriteString(fmt.Sprintf("tls://%s:%s {\n    tls %s %s\n", matchDomain, dotPort, certFile, keyFile))
+			if cfg.DNSSECEnabled {
+				sb.WriteString("    dnssec\n")
+			}
+			sb.WriteString("    metadata\n    reload 5s\n")
+			sb.WriteString(filteringBlock)
+			sb.WriteString("    cache 3600\n")
+			sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
+			sb.WriteString(fmt.Sprintf("%s\n", getGeoACLRules(cfg)))
+			sb.WriteString("    errors\n}\n\n")
+
+			sb.WriteString(fmt.Sprintf("https://%s:%s {\n    tls %s %s\n", matchDomain, dohPort, certFile, keyFile))
+			if cfg.DNSSECEnabled {
+				sb.WriteString("    dnssec\n")
+			}
+			sb.WriteString("    metadata\n    reload 5s\n")
+			sb.WriteString(filteringBlock)
+			sb.WriteString("    cache 3600\n")
+			sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
+			sb.WriteString(fmt.Sprintf("%s\n", getGeoACLRules(cfg)))
+			sb.WriteString("    errors\n}\n\n")
+		}
+	}
+
+	return strings.TrimSpace(sb.String())
 }
 
 func startCoreDNS(ctx context.Context) {
