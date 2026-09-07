@@ -1,6 +1,6 @@
 /**
  * ShieldDNS Main Application Entry Point
- * Refactored into a modular structure for improved maintainability.
+ * Modular architecture for improved maintainability.
  */
 import { state, uiRefs, getEl, updateUIRefs } from './core/state.js';
 import * as auth from './core/auth.js';
@@ -10,8 +10,9 @@ import * as events from './ui/events.js';
 import * as render from './ui/renderers.js';
 import * as api from './services/api.js';
 import * as helpers from './ui/helpers.js';
-import * as uiModules from './ui/ui.js';
 import { showActivityOverlay, hideActivityOverlay } from './ui/activity.js';
+import { initClusterUI } from './ui/cluster.js';
+import { initModalsUI } from './ui/modals.js';
 
 /**
  * Global Initialization
@@ -64,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeApp() {
     // 0. Ensure UI references are captured
     updateUIRefs();
-    initModals();
+    initModalsUI();
+    initClusterUI();
     
     // 1. Init Navigation with view-specific handlers
     nav.initNavigation({
@@ -289,173 +291,6 @@ window.addAllowPreset = async (name, url, event) => {
     }
 };
 
-/**
- * Modal Management
- */
-function initModals() {
-    // Shared closing logic for all modals
-    const closeModals = () => {
-        document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
-    };
-
-    // Close buttons by ID
-    const closeSelectors = [
-        'modal-cancel', 'ip-info-close-btn', 'ip-info-close-btn-bottom', 'ip-info-done-btn',
-        'domain-info-close-btn', 'domain-info-close-btn-bottom', 'domain-info-done-btn',
-        'close-list-details-btn', 'close-list-details-btn-2', 'blocked-clients-close-btn',
-        'close-api-key-modal-btn', 'cancel-api-key-btn', 'reset-cancel-1', 'reset-cancel-2',
-        'alert-ok', 'confirm-cancel'
-    ];
-    
-    closeSelectors.forEach(id => getEl(id)?.addEventListener('click', closeModals));
-
-    // Global closure: backdrop click
-    window.addEventListener('click', (e) => {
-        if (e.target.classList.contains('modal')) {
-            closeModals();
-        }
-    });
-
-    // Global closure: Escape key
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            closeModals();
-        }
-    });
-
-
-    // IP Info UI logic
-    getEl('edit-alias-btn')?.addEventListener('click', () => {
-        getEl('alias-edit-box').classList.toggle('hidden');
-        getEl('client-alias-input').value = getEl('ip-info-title').textContent === getEl('ip-info-subtitle').textContent ? '' : getEl('ip-info-title').textContent;
-    });
-
-    getEl('save-alias-btn')?.addEventListener('click', async () => {
-        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
-        const alias = getEl('client-alias-input').value.trim();
-        const btn = getEl('save-alias-btn');
-        
-        helpers.setBtnLoading(btn, true, '');
-        try {
-            await api.apiFetch(api.endpoints.clientAlias, {
-                method: 'POST',
-                body: JSON.stringify({ ip, alias })
-            });
-            helpers.showToast('Alias updated');
-            getEl('ip-info-title').textContent = alias || ip;
-            getEl('alias-edit-box').classList.add('hidden');
-            fetchService.fetchConfig();
-        } catch (e) {
-            helpers.showAlert('Failed to update alias: ' + e.message);
-        } finally {
-            helpers.setBtnLoading(btn, false);
-        }
-    });
-
-    getEl('ip-block-btn')?.addEventListener('click', async () => {
-        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
-        if (!await helpers.showConfirm(`Block client ${ip}?`, 'Block Client', true)) return;
-        try {
-            await api.apiFetch(api.endpoints.clientBlock, { method: 'POST', body: JSON.stringify({ ip, action: 'block' }) });
-            helpers.showToast('Client blocked');
-            closeModals();
-            fetchService.fetchConfig();
-        } catch (e) { helpers.showAlert('Block failed: ' + e.message); }
-    });
-
-    getEl('ip-unblock-btn')?.addEventListener('click', async () => {
-        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
-        try {
-            await api.apiFetch(api.endpoints.clientBlock, { method: 'POST', body: JSON.stringify({ ip, action: 'unblock' }) });
-            helpers.showToast('Client unblocked');
-            closeModals();
-            fetchService.fetchConfig();
-        } catch (e) { helpers.showAlert('Unblock failed: ' + e.message); }
-    });
-
-    getEl('domain-block-btn')?.addEventListener('click', async () => {
-        const domain = getEl('domain-info-title').textContent;
-        if (!domain || !await helpers.showConfirm(`Block domain ${domain}?`, 'Block Domain', true)) return;
-        try {
-            await api.apiFetch(api.endpoints.addRule, { method: 'POST', body: JSON.stringify({ domain, type: 'block' }) });
-            helpers.showToast(`${domain} blocked`);
-            closeModals();
-            fetchService.fetchConfig();
-        } catch (e) { helpers.showAlert('Block failed: ' + e.message); }
-    });
-
-    getEl('domain-allow-btn')?.addEventListener('click', async () => {
-        const domain = getEl('domain-info-title').textContent;
-        try {
-            await api.apiFetch(api.endpoints.addRule, { method: 'POST', body: JSON.stringify({ domain, type: 'allow' }) });
-            helpers.showToast(`${domain} allowed`);
-            closeModals();
-            fetchService.fetchConfig();
-        } catch (e) { helpers.showAlert('Allow failed: ' + e.message); }
-    });
-
-    getEl('ip-info-view-all-btn')?.addEventListener('click', () => {
-        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
-        closeModals();
-        nav.navigateTo('queries', { search: ip });
-    });
-}
-
-window.showListDetails = (list) => {
-    if (!list) return;
-    getEl('modal-list-name').textContent = list.name || 'List Details';
-    const urlEl = getEl('modal-list-url');
-    urlEl.textContent = list.url;
-    urlEl.href = list.url;
-    getEl('modal-list-entries').textContent = list.entries?.toLocaleString() || '0';
-    const ramMB = Math.round((list.entries || 0) * 1.1 / 1024);
-    getEl('modal-list-ram').textContent = `~${ramMB} MB`;
-    
-    // Standard Update (ShieldDNS last sync)
-    const localDate = (list.updated_at && list.updated_at !== '0001-01-01T00:00:00Z') ? 
-        new Date(list.updated_at).toLocaleString() : 'Never';
-    getEl('modal-list-updated').textContent = localDate;
-
-    // Remote Update (Source file last modified)
-    const remoteDate = (list.remote_updated_at && list.remote_updated_at !== '0001-01-01T00:00:00Z') ?
-        new Date(list.remote_updated_at).toLocaleString() : 'n.a.';
-    getEl('modal-list-remote-updated').textContent = remoteDate;
-
-    getEl('list-details-modal').classList.remove('hidden');
-};
-
-window.openListDetailsModal = (idx, type) => {
-    const list = type === 'block' ? state.currentConfig.lists[idx] : state.currentConfig.allowlists[idx];
-    window.showListDetails(list);
-};
-
-window.showPresetDetails = (idx, type) => {
-    const list = type === 'block' ? (state.blockPresets || [])[idx] : (state.allowPresets || [])[idx];
-    window.showListDetails(list);
-};
-
-window.removeList = async (idx, type, event) => {
-    if (!await helpers.showConfirm(`Remove this ${type}list?`)) return;
-    
-    const btn = event?.currentTarget;
-    helpers.setBtnLoading(btn, true, 'Removing...');
-
-    if (type === 'block') state.currentConfig.lists.splice(idx, 1);
-    else state.currentConfig.allowlists.splice(idx, 1);
-    
-    try {
-        await api.apiFetch(api.endpoints.config, { method: 'POST', body: JSON.stringify(state.currentConfig) });
-        helpers.showToast('List removed');
-        fetchService.fetchConfig();
-    } catch(e) { 
-        helpers.setBtnLoading(btn, false);
-        helpers.showAlert('Failed to remove list: ' + e.message); 
-    }
-};
-
-
-
-
 window.removeCustomRule = async (domain, event) => {
     if (!await helpers.showConfirm(`Are you sure you want to remove the rule for ${domain}?`, 'Remove Rule', true)) return;
     
@@ -512,7 +347,7 @@ window.toggleList = async (idx, enabled, type, event) => {
 };
 
 window.removeList = async (idx, type, event) => {
-    if (!await helpers.showConfirm('Are you sure you want to remove this list?', 'Remove List', true)) return;
+    if (!await helpers.showConfirm(`Remove this ${type}list?`, 'Remove List', true)) return;
     
     const btn = event?.currentTarget;
     helpers.setBtnLoading(btn, true, 'Removing...');
@@ -532,7 +367,6 @@ window.removeList = async (idx, type, event) => {
 
 window.removeCountry = async (code, event) => {
     const btn = event?.currentTarget;
-    // For small removal icons, we might not want a text spinner, but we can still disable
     if (btn) btn.style.pointerEvents = 'none';
 
     state.currentConfig.blocked_countries = (state.currentConfig.blocked_countries || []).filter(c => c !== code);
@@ -544,7 +378,6 @@ window.removeCountry = async (code, event) => {
         helpers.showAlert('Failed to remove country geo-block');
     }
 };
-
 
 window.clearSystemLogs = (event) => {
     const btn = event?.currentTarget;
@@ -561,8 +394,6 @@ window.recheckUpstreams = async (btn) => {
     try {
         await api.apiFetch(api.endpoints.recheckDiagnostics, { method: 'POST' });
         helpers.showToast('Latency re-check triggered. Updating badges...', 'info');
-        // Diagnostics are auto-refreshed via the diagnostics view timer, 
-        // but we can trigger an immediate one if we are currently looking at it.
         setTimeout(fetchService.fetchDiagnostics, 1500);
     } catch (e) {
         helpers.showAlert('Failed to trigger re-check: ' + e.message);
@@ -588,7 +419,6 @@ async function loadAboutData() {
 function loadPrivacyStatus() {
     const cfg = state.currentConfig;
     if (!cfg) {
-        // Config not yet loaded — fetch it, then retry
         fetchService.fetchConfig().then(() => loadPrivacyStatus());
         return;
     }
@@ -601,21 +431,18 @@ function loadPrivacyStatus() {
         if (colorClass) el.classList.add(colorClass);
     };
 
-    // Anonymize Client IPs
     if (cfg.anonymize_client_ips) {
         setBadge('privacy-anon-badge', 'Active — /24 IPv4, /64 IPv6', 'success');
     } else {
         setBadge('privacy-anon-badge', 'Disabled — Full IPs stored', 'warning');
     }
 
-    // Strip ECS
     if (cfg.strip_ecs) {
         setBadge('privacy-ecs-badge', 'Active — No subnet forwarded', 'success');
     } else {
         setBadge('privacy-ecs-badge', 'Disabled — Subnet may be forwarded', 'warning');
     }
 
-    // Encrypted upstreams — upstream list present means DoT/DoH configured
     const hasUpstreams = Array.isArray(cfg.upstream_dns) && cfg.upstream_dns.length > 0;
     const hasDoT = Array.isArray(cfg.upstream_dot) && cfg.upstream_dot.length > 0;
     if (hasDoT) {
@@ -626,7 +453,6 @@ function loadPrivacyStatus() {
         setBadge('privacy-encrypt-badge', 'System default', 'official');
     }
 
-    // Retention
     const days = cfg.retention_days;
     if (days === 0 || days === undefined) {
         setBadge('privacy-retention-badge', 'No logging (0 days)', 'success');
@@ -634,142 +460,9 @@ function loadPrivacyStatus() {
         setBadge('privacy-retention-badge', `${days} day${days !== 1 ? 's' : ''} — auto-purged`, 'official');
     }
 
-    // Filtering
     if (cfg.filtering_enabled !== false) {
         setBadge('privacy-filter-badge', 'Active — Malware & Trackers Blocked', 'success');
     } else {
         setBadge('privacy-filter-badge', 'Disabled', 'warning');
     }
 }
-
-// Cluster management actions
-window.revokeClusterReplica = async (replicaId) => {
-    if (!confirm('Are you sure you want to disconnect this replica? It will no longer receive synchronized updates.')) return;
-    try {
-        await api.apiFetch(`${api.endpoints.clusterRevokeReplica}?id=${encodeURIComponent(replicaId)}`, { method: 'POST' });
-        helpers.showToast('Replica disconnected');
-        fetchService.fetchClusterStatus();
-    } catch (err) {
-        helpers.showAlert('Failed to revoke replica: ' + err.message);
-    }
-};
-
-// Hook up cluster settings events when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    getEl('cluster-manual-sync-btn')?.addEventListener('click', async (e) => {
-        const btn = e.currentTarget;
-        helpers.setBtnLoading(btn, true, 'Syncing...');
-        try {
-            const res = await api.apiFetch(api.endpoints.clusterSync, { method: 'POST' });
-            helpers.showToast(res.message || 'Configuration synced successfully');
-            await fetchService.fetchConfig();
-        } catch (err) {
-            helpers.showAlert('Sync failed: ' + err.message);
-        } finally {
-            helpers.setBtnLoading(btn, false);
-        }
-    });
-
-    getEl('cluster-leave-btn')?.addEventListener('click', async (e) => {
-        if (!confirm('Disconnect from Cluster and revert to Standalone node?')) return;
-        const btn = e.currentTarget;
-        helpers.setBtnLoading(btn, true, 'Leaving...');
-        try {
-            await api.apiFetch(api.endpoints.clusterLeave, { method: 'POST' });
-            helpers.showToast('Node reverted to Standalone');
-            await fetchService.fetchConfig();
-        } catch (err) {
-            helpers.showAlert('Failed to leave cluster: ' + err.message);
-        } finally {
-            helpers.setBtnLoading(btn, false);
-        }
-    });
-
-    // Update settings when changing role/environment selects
-    const saveClusterProfile = async () => {
-        const role = getEl('cluster-role-select')?.value;
-        const instType = getEl('cluster-inst-type-select')?.value;
-        const nodeName = getEl('cluster-node-name-input')?.value;
-        const logSharing = getEl('cluster-log-sharing-select')?.value;
-        const workerDomain = getEl('cluster-worker-domain-input')?.value;
-        const failover = getEl('cluster-failover-check')?.checked;
-        const syncInt = parseInt(getEl('cluster-sync-interval')?.value || '0', 10);
-        try {
-            await api.apiFetch(api.endpoints.clusterSettings, {
-                method: 'POST',
-                body: JSON.stringify({
-                    role,
-                    instance_type: instType,
-                    node_name: nodeName,
-                    log_sharing_mode: logSharing,
-                    worker_domain: workerDomain,
-                    failover_mode: failover,
-                    sync_interval: syncInt
-                })
-            });
-            helpers.showToast('Cluster settings saved');
-            fetchService.fetchClusterStatus();
-        } catch (err) {
-            helpers.showAlert('Failed to save cluster settings: ' + err.message);
-        }
-    };
-
-    getEl('cluster-role-select')?.addEventListener('change', saveClusterProfile);
-    getEl('cluster-inst-type-select')?.addEventListener('change', saveClusterProfile);
-    getEl('cluster-node-name-input')?.addEventListener('blur', saveClusterProfile);
-    getEl('cluster-worker-domain-input')?.addEventListener('blur', saveClusterProfile);
-    getEl('cluster-sync-interval')?.addEventListener('change', saveClusterProfile);
-
-    // Generate and view prefilled Cloudflare Worker Script
-    getEl('cluster-worker-generate-btn')?.addEventListener('click', async (e) => {
-        const btn = e.currentTarget;
-        helpers.setBtnLoading(btn, true, 'Generating...');
-        try {
-            const resp = await fetch(api.endpoints.clusterWorkerScript, {
-                headers: {
-                    'X-Shield-Request': 'true'
-                }
-            });
-            if (!resp.ok) {
-                const txt = await resp.text();
-                throw new Error(txt || `Server error: ${resp.status}`);
-            }
-            const script = await resp.text();
-            const textarea = getEl('worker-script-code');
-            if (textarea) textarea.value = script;
-            getEl('worker-script-modal')?.classList.remove('hidden');
-        } catch (err) {
-            helpers.showAlert('Failed to generate Cloudflare Worker script: ' + err.message);
-        } finally {
-            helpers.setBtnLoading(btn, false);
-        }
-    });
-
-    getEl('worker-script-close-x')?.addEventListener('click', () => {
-        getEl('worker-script-modal')?.classList.add('hidden');
-    });
-
-    getEl('worker-script-copy-btn')?.addEventListener('click', () => {
-        const script = getEl('worker-script-code')?.value;
-        if (!script) return;
-        navigator.clipboard.writeText(script);
-        helpers.showToast('Cloudflare Worker script copied to clipboard!');
-    });
-
-    getEl('worker-script-download-btn')?.addEventListener('click', () => {
-        const script = getEl('worker-script-code')?.value;
-        if (!script) return;
-        const blob = new Blob([script], { type: 'application/javascript;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'worker.js';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        helpers.showToast('Downloaded worker.js');
-    });
-});
-
-

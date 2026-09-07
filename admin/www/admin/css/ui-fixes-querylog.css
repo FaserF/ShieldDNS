@@ -1,0 +1,264 @@
+    }
+
+    .blocked-clients-summary #view-blocked-clients-btn {
+        margin-left: 0 !important;
+        width: 100%;
+    }
+
+    .auth-box {
+        padding: 24px !important;
+    }
+
+    .modal-header {
+        flex-direction: column;
+    }
+
+}
+
+/* ── Query Log Scrollability & Virtual Scroller Fix ──────────────── */
+
+#queries .query-log-container {
+    max-height: 75vh;
+    overflow-y: auto;
+    overflow-x: auto;
+    position: relative;
+    padding-top: 0 !important; /* Move padding to inner table if needed */
+}
+
+#queries .query-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--card-bg);
+}
+
+#queries .query-table thead th {
+    border-bottom: 2px solid var(--border);
+}
+
+/* ── IP Details Modal Polish ───────────────────────────────────── */
+
+.info-empty {
+    opacity: 0.4;
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+.device-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+#ip-info-device-card .device-info-main {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.diag-item-interactive {
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: 10px;
+    padding: 12px 10px !important;
+    margin: 0 -10px;
+}
+
+.diag-item-interactive:hover {
+    background: rgba(var(--accent-rgb), 0.08);
+    transform: translateX(6px);
+    border-bottom-color: transparent;
+}
+
+.diag-item-interactive:hover span:first-child {
+    color: var(--accent) !important;
+}
+
+/* ── Blocked Clients UI Enhancements ──────────────────────── */
+
+.blocked-clients-summary {
+    display: flex;
+    align-items: center;
+    background: rgba(var(--danger-rgb), 0.05);
+    border: 1px solid rgba(var(--danger-rgb), 0.2);
+    padding: 12px 16px;
+    border-radius: 14px;
+    transition: all 0.3s ease;
+}
+
+.blocked-clients-summary:hover {
+    background: rgba(var(--danger-rgb), 0.08);
+    border-color: rgba(var(--danger-rgb), 0.4);
+}
+
+.select-premium {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px !important;
+}
+
+.select-premium.sm {
+    padding: 6px 36px 6px 12px !important;
+    font-size: 0.8rem !important;
+    border-radius: 8px !important;
+    height: 34px;
+}
+
+.ip-link {
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(var(--accent-rgb), 0.3);
+    transition: all 0.2s ease;
+}
+
+.ip-link:hover {
+    border-bottom-style: solid;
+    border-bottom-color: var(--accent);
+    filter: brightness(1.2);
+}
+
+.query-table td i {
+    opacity: 0.7;
+    margin-right: 4px;
+}
+
+/* ── Query Log Filter UX Improvements ─────────────────────── */
+.log-filters-container {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    background: hsla(var(--hue), 24%, 5%, 0.3);
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin-top: 10px;
+}
+
+.query-log-search {
+    flex: 2 !important;
+    min-width: 250px !important;
+    max-width: 400px !important;
+}
+
+.query-log-search input {
+    width: 100% !important;
+}
+
+.filter-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex: 3 !important;
+    min-width: 350px !important;
+}
+
+.filter-group .select-filter {
+    flex: 0 0 150px !important;
+    width: auto !important;
+}
+
+.date-range-picker {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex: 1 !important;
+    min-width: 300px;
+}
+
+.date-range-picker input {
+    flex: 1 !important;
+    min-width: 140px !important;
+}
+
+.date-range-picker span {
+    color: var(--text-secondary);
+    opacity: 0.5;
+    font-weight: bold;
+}
+
+.action-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-shrink: 0 !important;
+    margin-left: auto;
+}
+
+.export-buttons {
+    display: flex !important;
+    gap: 8px !important;
+}
+
+.export-buttons .btn-sm {
+    padding: 8px 14px !important;
+    height: 38px;
+}
+
+@media (max-width: 1400px) {
+    .action-group {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-end;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+    }
+}
+
+@media (max-width: 992px) {
+    .filter-group {
+        flex: 1 0 100% !important;
+        background: hsla(var(--hue), 24%, 100%, 0.02);
+        padding: 8px;
+        border-radius: 12px;
+    }
+    
+    .query-log-search {
+        max-width: none !important;
+        flex: 1 0 100% !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .date-range-picker {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100%;
+    }
+    
+    .date-range-picker span {
+        display: none;
+    }
+    
+    .filter-group {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .filter-group .select-filter {
+        flex: none !important;
+        width: 100% !important;
+    }
+    
+    .action-group {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .export-buttons {
+        justify-content: space-between;
+    }
+    
+    .export-buttons button {
+        flex: 1;
+    }
+}

@@ -47,54 +47,104 @@ _NOISE_RE = [re.compile(p, re.IGNORECASE) for p in NOISE_PATTERNS]
 # Category order & display labels
 # ---------------------------------------------------------------------------
 CATEGORY_ORDER = [
-    "breaking", "feat", "fix", "security", "perf",
-    "refactor", "api", "db", "ui", "docs", "test", "ci", "chore", "other",
+    "breaking",
+    "feat",
+    "fix",
+    "security",
+    "perf",
+    "refactor",
+    "api",
+    "db",
+    "ui",
+    "docs",
+    "test",
+    "ci",
+    "chore",
+    "other",
 ]
 CATEGORY_EMOJI = {
-    "breaking":  "💥 Breaking Changes",
-    "feat":      "✨ New Features",
-    "fix":       "🐛 Bug Fixes",
-    "security":  "🔒 Security",
-    "perf":      "⚡ Performance",
-    "refactor":  "♻️ Code Improvements",
-    "api":       "🔌 API Changes",
-    "db":        "🗄️ Database",
-    "ui":        "🎨 UI / UX",
-    "docs":      "📚 Documentation",
-    "test":      "🧪 Tests",
-    "ci":        "🔄 CI / CD",
-    "chore":     "🔧 Maintenance",
-    "other":     "📦 Other Changes",
+    "breaking": "💥 Breaking Changes",
+    "feat": "✨ New Features",
+    "fix": "🐛 Bug Fixes",
+    "security": "🔒 Security",
+    "perf": "⚡ Performance",
+    "refactor": "♻️ Code Improvements",
+    "api": "🔌 API Changes",
+    "db": "🗄️ Database",
+    "ui": "🎨 UI / UX",
+    "docs": "📚 Documentation",
+    "test": "🧪 Tests",
+    "ci": "🔄 CI / CD",
+    "chore": "🔧 Maintenance",
+    "other": "📦 Other Changes",
 }
 
 # Conventional commit type → bucket
 TYPE_MAP = {
-    "feat": "feat", "feature": "feat",
-    "fix": "fix", "bugfix": "fix", "hotfix": "fix",
-    "security": "security", "sec": "security",
-    "perf": "perf", "optim": "perf",
-    "refactor": "refactor", "refact": "refactor",
+    "feat": "feat",
+    "feature": "feat",
+    "fix": "fix",
+    "bugfix": "fix",
+    "hotfix": "fix",
+    "security": "security",
+    "sec": "security",
+    "perf": "perf",
+    "optim": "perf",
+    "refactor": "refactor",
+    "refact": "refactor",
     "api": "api",
-    "db": "db", "migration": "db", "migrate": "db", "schema": "db",
-    "ui": "ui", "style": "ui", "ux": "ui",
-    "docs": "docs", "doc": "docs",
-    "test": "test", "tests": "test",
-    "ci": "ci", "cd": "ci", "build": "ci",
-    "chore": "chore", "maint": "chore", "infra": "chore",
-    "deps": "chore", "dep": "chore", "bump": "chore",
+    "db": "db",
+    "migration": "db",
+    "migrate": "db",
+    "schema": "db",
+    "ui": "ui",
+    "style": "ui",
+    "ux": "ui",
+    "docs": "docs",
+    "doc": "docs",
+    "test": "test",
+    "tests": "test",
+    "ci": "ci",
+    "cd": "ci",
+    "build": "ci",
+    "chore": "chore",
+    "maint": "chore",
+    "infra": "chore",
+    "deps": "chore",
+    "dep": "chore",
+    "bump": "chore",
     "revert": "fix",
 }
 
 # Scope overrides — beat the type map
 SCOPE_MAP = {
-    "api": "api", "endpoint": "api", "router": "api", "route": "api",
-    "db": "db", "database": "db", "migration": "db", "schema": "db", "model": "db",
-    "ui": "ui", "frontend": "ui", "fe": "ui", "component": "ui",
-    "modal": "ui", "dashboard": "ui",
-    "security": "security", "auth": "security", "authz": "security",
-    "authn": "security", "jwt": "security", "rbac": "security",
-    "ci": "ci", "cd": "ci", "workflow": "ci",
-    "docker": "ci", "dockerfile": "ci", "actions": "ci",
+    "api": "api",
+    "endpoint": "api",
+    "router": "api",
+    "route": "api",
+    "db": "db",
+    "database": "db",
+    "migration": "db",
+    "schema": "db",
+    "model": "db",
+    "ui": "ui",
+    "frontend": "ui",
+    "fe": "ui",
+    "component": "ui",
+    "modal": "ui",
+    "dashboard": "ui",
+    "security": "security",
+    "auth": "security",
+    "authz": "security",
+    "authn": "security",
+    "jwt": "security",
+    "rbac": "security",
+    "ci": "ci",
+    "cd": "ci",
+    "workflow": "ci",
+    "docker": "ci",
+    "dockerfile": "ci",
+    "actions": "ci",
 }
 
 MAX_PER_SECTION = 15
@@ -125,13 +175,24 @@ def is_noise(msg: str) -> bool:
 
 def keyword_bucket(msg: str) -> str:
     m = msg.lower()
-    if re.search(r"\b(general[\s_]fix|small[\s_]fix|bug[\s_]fix|fix(es|ed)?\b|fix\s+\w)", m):
+    if re.search(
+        r"\b(general[\s_]fix|small[\s_]fix|bug[\s_]fix|fix(es|ed)?\b|fix\s+\w)", m
+    ):
         return "fix"
-    if re.search(r"\b(ci\b|linter?|pipeline|workflow|github[\s_]action|changelog|dockerfile?|container)\b", m):
+    if re.search(
+        r"\b(ci\b|linter?|pipeline|workflow|github[\s_]action|changelog|dockerfile?|container)\b",
+        m,
+    ):
         return "ci"
-    if re.search(r"\b(update[\s_]depend|bump[\s_]depend|renovate|dependency[\s_]update|upgrade[\s_]dep)\b", m):
+    if re.search(
+        r"\b(update[\s_]depend|bump[\s_]depend|renovate|dependency[\s_]update|upgrade[\s_]dep)\b",
+        m,
+    ):
         return "chore"
-    if re.search(r"\b(add(ed|s)?[\s_]+(missing[\s_]+)?(feature|support|ability)|new[\s_]feature)\b", m):
+    if re.search(
+        r"\b(add(ed|s)?[\s_]+(missing[\s_]+)?(feature|support|ability)|new[\s_]feature)\b",
+        m,
+    ):
         return "feat"
     if re.search(r"\b(security|vulnerability|cve|auth(en|oriz))\b", m):
         return "security"
@@ -143,7 +204,9 @@ def keyword_bucket(msg: str) -> str:
         return "docs"
     if re.search(r"\b(test(s|ing)?|spec|unit[\s_]test|e2e)\b", m):
         return "test"
-    if re.search(r"\b(ui\b|ux\b|frontend|layout|theme|design|modal|component|dashboard)\b", m):
+    if re.search(
+        r"\b(ui\b|ux\b|frontend|layout|theme|design|modal|component|dashboard)\b", m
+    ):
         return "ui"
     if re.search(r"\b(api\b|endpoint|route|router|swagger|openapi)\b", m):
         return "api"
@@ -201,10 +264,10 @@ def build_changelog(from_tag: str, total_commits: int, repo: str) -> str:
 
         m = _CONV_RE.match(msg)
         if m:
-            raw_type  = m.group(1).lower()
+            raw_type = m.group(1).lower()
             raw_scope = (m.group(2) or "").strip("()").lower().strip()
-            is_break  = m.group(3) == "!"
-            desc      = m.group(4).strip()
+            is_break = m.group(3) == "!"
+            desc = m.group(4).strip()
 
             if raw_scope and raw_scope in SCOPE_MAP:
                 bucket = SCOPE_MAP[raw_scope]
@@ -215,7 +278,7 @@ def build_changelog(from_tag: str, total_commits: int, repo: str) -> str:
             display = f"**{raw_scope}:** {desc_cap}" if raw_scope else desc_cap
         else:
             display = msg[0].upper() + msg[1:] if msg else msg
-            bucket  = keyword_bucket(msg)
+            bucket = keyword_bucket(msg)
 
         nk = norm_key(display)
 
@@ -253,7 +316,9 @@ def build_changelog(from_tag: str, total_commits: int, repo: str) -> str:
     if buckets["breaking"]:
         has_any = True
         out.append("> [!CAUTION]")
-        out.append("> **This release contains breaking changes. Please review before updating.**")
+        out.append(
+            "> **This release contains breaking changes. Please review before updating.**"
+        )
         out.append(">")
         for item in buckets["breaking"]:
             line = format_item(item["display"], item["hashes"], repo)
@@ -264,41 +329,45 @@ def build_changelog(from_tag: str, total_commits: int, repo: str) -> str:
     for key in CATEGORY_ORDER:
         if key == "breaking":
             continue
-        bucket = buckets[key]
-        if not bucket:
+        cat_items = buckets[key]
+        if not cat_items:
             continue
         has_any = True
         out.append(f"### {CATEGORY_EMOJI[key]}")
         out.append("")
 
-        collapse = len(bucket) > MAX_PER_SECTION and key not in NEVER_COLLAPSE
+        collapse = len(cat_items) > MAX_PER_SECTION and key not in NEVER_COLLAPSE
         if collapse:
-            for item in bucket[:MAX_PER_SECTION]:
+            for item in cat_items[:MAX_PER_SECTION]:
                 out.append(f"- {format_item(item['display'], item['hashes'], repo)}")
-            remaining = len(bucket) - MAX_PER_SECTION
+            remaining = len(cat_items) - MAX_PER_SECTION
             out.append("")
             out.append("<details>")
             out.append(f"<summary>Show {remaining} more changes…</summary>")
             out.append("")
-            for item in bucket[MAX_PER_SECTION:]:
+            for item in cat_items[MAX_PER_SECTION:]:
                 out.append(f"- {format_item(item['display'], item['hashes'], repo)}")
             out.append("")
             out.append("</details>")
         else:
-            for item in bucket:
+            for item in cat_items:
                 out.append(f"- {format_item(item['display'], item['hashes'], repo)}")
         out.append("")
 
     if not has_any:
         out.append("> *No categorised changes found in this release.*")
-        out.append("> Most commits were maintenance, dependency updates, or automated changes.")
+        out.append(
+            "> Most commits were maintenance, dependency updates, or automated changes."
+        )
         out.append("")
 
     # Footer
     range_str = f"{from_tag}..HEAD" if from_tag else "all history"
     out.append("---")
     if total_raw > 0:
-        out.append(f"*{filtered_count} significant changes from {total_raw} total commits since `{from_tag}`.*")
+        out.append(
+            f"*{filtered_count} significant changes from {total_raw} total commits since `{from_tag}`.*"
+        )
     else:
         out.append(f"*Changelog generated from `{range_str}`.*")
 
@@ -306,10 +375,19 @@ def build_changelog(from_tag: str, total_commits: int, repo: str) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate ShieldDNS changelog from git history.")
+    parser = argparse.ArgumentParser(
+        description="Generate ShieldDNS changelog from git history."
+    )
     parser.add_argument("--from-tag", default="", help="Git ref to start log from")
-    parser.add_argument("--total-commits", type=int, default=0, help="Raw commit count (passed by caller)")
-    parser.add_argument("--repo", default="", help="GitHub repo (owner/name) for commit links")
+    parser.add_argument(
+        "--total-commits",
+        type=int,
+        default=0,
+        help="Raw commit count (passed by caller)",
+    )
+    parser.add_argument(
+        "--repo", default="", help="GitHub repo (owner/name) for commit links"
+    )
     args = parser.parse_args()
 
     print(build_changelog(args.from_tag, args.total_commits, args.repo))

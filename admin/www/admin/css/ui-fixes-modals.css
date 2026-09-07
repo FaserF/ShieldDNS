@@ -1,0 +1,400 @@
+/* ── Domain Details Modal ────────────────────────────────── */
+
+.modal-lg {
+    max-width: 900px;
+}
+
+.modal-sm {
+    max-width: 400px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.modal-header-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.modal-header-title h2 {
+    word-break: break-all;
+    font-size: 1.25rem;
+    line-height: 1.3;
+    margin-bottom: 4px;
+}
+
+.modal-header-subtitle {
+    color: var(--accent);
+    font-family: monospace;
+    font-size: 0.8rem;
+    word-break: break-all;
+    opacity: 0.85;
+}
+
+.modal-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    justify-content: flex-end;
+}
+
+.modal-actions.centered {
+    justify-content: center;
+}
+
+.modal-body-text {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 4px;
+}
+
+
+/* ── Query Log header actions bar ────────────────────────── */
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.select-filter {
+    padding: 10px 14px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 10px;
+    font-size: 0.875rem;
+    min-width: 130px;
+    cursor: pointer;
+}
+
+
+/* ── Settings Full Refresh Section ──────────────────────── */
+
+.alert-warning {
+    background: rgba(245, 158, 11, 0.08);
+    border-left: 4px solid #f59e0b;
+    padding: 14px 16px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+
+/* ── Logout Button placement ─────────────────────────────── */
+
+.settings-section.danger-zone {
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+
+
+/* ── Client Details Modal (IP Info) ───────────────────────── */
+
+.analytics-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card.blocked .value {
+    color: var(--danger);
+}
+
+.progress-bar-small {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+
+.progress-bar-small > div {
+    height: 100%;
+    transition: width 0.5s ease;
+}
+
+.badge-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.client-info-value {
+    font-size: 0.85rem;
+    word-break: break-all;
+    font-weight: 500;
+}
+
+.client-info-sub {
+    font-size: 0.725rem;
+    color: var(--text-secondary);
+    line-height: 1.2;
+}
+
+.client-info-extra {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.2;
+    margin-top: 2px;
+}
+
+.info-empty {
+    color: var(--text-secondary);
+    opacity: 0.5;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+.device-info-main {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.device-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.location-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.activity-timeline-card {
+    padding: 12px;
+    grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+    .activity-timeline-card {
+        grid-column: span 1;
+    }
+}
+
+
+/* ── Modal Section Headers & Lists ───────────────────────── */
+
+.analytics-row-compact {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+    .analytics-row-compact {
+        grid-template-columns: 1fr;
+    }
+}
+
+.card-title-accent {
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: var(--accent);
+}
+
+.card-title-danger {
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: var(--danger);
+}
+
+.card-title-secondary {
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+
+/* ── Custom Rules & Mappings ────────────────────────────── */
+
+.mapping-input-group {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    flex-wrap: wrap;
+}
+
+.mapping-input-domain {
+    flex: 2;
+    min-width: 180px;
+}
+
+.mapping-input-ip {
+    flex: 1;
+    min-width: 140px;
+}
+
+.mapping-btn {
+    flex-shrink: 0;
+    min-width: 120px;
+}
+
+@media (max-width: 600px) {
+    .mapping-input-group > * {
+        flex: 1 1 100% !important;
+    }
+}
+
+
+/* ── About & Environment View ────────────────────────────── */
+
+.diag-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.diag-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.diag-item:last-child {
+    border-bottom: none;
+}
+
+.diag-item span:first-child {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.about-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 24px;
+    padding: 32px;
+}
+
+
+/* ── Search & Filter Bars ───────────────────────────────── */
+
+.search-bar-integrated {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    background: hsla(var(--hue), 20%, 100%, 0.02);
+    padding: 16px 20px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.search-bar-integrated:focus-within {
+    background: hsla(var(--hue), 20%, 100%, 0.04);
+    border-color: var(--accent);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+}
+
+.search-bar-integrated input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 10px;
+    color: var(--text-primary);
+}
+
+.search-bar-integrated input:focus {
+    outline: none;
+}
+
+.search-loading-container {
+    text-align: center;
+    padding: 32px;
+}
+
+.search-loading-text {
+    margin-top: 12px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+    .form-group.row {
+        flex-direction: column;
+    }
+
+    .form-group.row button {
+        width: 100%;
+    }
+
+    .table-header-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .table-header-actions .search-box {
+        max-width: 100%;
+    }
+
+    .settings-tabs-nav {
+        margin-bottom: 16px;
+        padding: 4px;
+        gap: 6px;
+    }
+
+    .settings-tab-btn {
+        padding: 8px 14px;
+        font-size: 0.8rem;
+    }
+
+    .settings-section {
+        padding: 20px 16px;
+        border-radius: 16px;
+        margin-bottom: 16px;
+    }
+
+    .settings-section > h2 {
+        font-size: 1.05rem;
+        margin-bottom: 16px;
+        padding-bottom: 10px;
+    }
+
+    .settings-section .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .settings-section .btn-group .btn {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 8px;
+    }
+
+    .blocked-clients-summary {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;

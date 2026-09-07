@@ -1,0 +1,371 @@
+{{define "settings_advanced"}}
+                <div class="settings-section" data-category="security">
+                    <h2>Threat Intelligence 🛡️</h2>
+                    <p class="help">Automatically block high-risk IP addresses from public threat feeds (blocklist.de).</p>
+                    <div class="form-group checkbox-group" style="margin-bottom: 15px;">
+                        <div class="checkbox-text">
+                            <div class="label-with-info">
+                                <label>Malicious IP Blocking</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Automatically block IPs reported as malicious by blocklist.de (https://www.blocklist.de), such as scanners, botnets, and attackers."></i>
+                            </div>
+                            <p class="help">Enforce real-time protection using curated threat lists.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="malicious-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <div class="label-with-info">
+                            <label>Update Interval (Hours)</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Frequency of updates for the malicious IP list. Default: 8 hours."></i>
+                        </div>
+                        <p class="help">How often to refresh the threat feed (Range: 1-168 hours).</p>
+                        <input type="number" id="malicious-interval-input" min="1" max="168">
+                    </div>
+                </div>
+
+                <div class="settings-section" data-category="security">
+                    <h2>Geo-Blocking 🌍</h2>
+                    <p class="help">Block entire countries from accessing or resolving through this DNS server.</p>
+                    <div class="form-group" style="position: relative;">
+                        <div class="label-with-info">
+                            <label>Select Countries to Block</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Resolutions from these countries will be instantly dropped. High-risk regions are automatically suggested based on current threat intelligence."></i>
+                        </div>
+                        <div class="country-picker-wrapper">
+                            <input type="text" id="country-search" placeholder="Search country (e.g. Russia, China)..."
+                                autocomplete="off">
+                            <div id="country-dropdown" class="custom-dropdown hidden"></div>
+                        </div>
+                        <div id="blocked-countries-tags" class="tag-container"></div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                        <button type="button" id="block-high-risk-countries-btn" class="btn btn-sm danger-outline" style="width: fit-content;">
+                            <i class="fas fa-shield-virus"></i> Block High-Risk Countries (Threat Intelligence)
+                        </button>
+                        <div id="server-location-card" class="info-card mt-3 hidden">
+                            <div class="info-card-content">
+                                <i class="fas fa-server info-card-icon"></i>
+                                <div class="info-card-text">
+                                    <p id="server-location-msg">
+                                        Server country: <span id="server-country-name" class="font-bold">...</span>
+                                    </p>
+                                    <p class="help text-xs opacity-70">This country is protected and cannot be blocked.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="manual-server-country-box" class="settings-subsection hidden mt-3">
+                            <div class="subsection-header">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <h3>Manual Server Location (Fallback)</h3>
+                            </div>
+                            <p class="help mb-3">If automatic detection fails, select the country where this server is hosted to protect it from being blocked.</p>
+                            <div class="form-group mb-0">
+                                <select id="manual-server-country-select" class="select-premium full-width">
+                                    <option value="">-- No manual override --</option>
+                                    <!-- Options will be populated via JS -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section" data-category="security">
+                    <h2>Client IP Blocking 🚫</h2>
+                    <p class="help">Manually block specific client IP addresses or view automatically blocked clients.
+                    </p>
+                    <div class="form-group" style="position: relative;">
+                        <div class="label-with-info">
+                            <label>Block New Client IP</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="Enter a single IP address to permanently ban it from using this DNS server. Local and public IPs are supported."></i>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="manual-client-block-input" placeholder="e.g. 192.168.1.50"
+                                style="flex:1;">
+                            <button type="button" class="btn primary" id="manual-client-block-btn">Block IP</button>
+                        </div>
+                    </div>
+                    <div class="form-group mt-3">
+                        <div class="label-with-info">
+                            <label>Currently Blocked Clients</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="List of manually or automatically blocked clients."></i>
+                        </div>
+                        <div class="blocked-clients-summary mt-2">
+                            <div id="blocked-clients-count-badge" class="badge danger" style="padding: 8px 15px; font-weight: 600;">0 Clients Blocked</div>
+                            <button type="button" class="btn btn-sm secondary" id="view-blocked-clients-btn" style="margin-left: 10px;">
+                                <i class="fas fa-list"></i> View & Manage List
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="settings-subsection mt-4">
+                        <div class="label-with-info">
+                            <label>Autoblock Whitelist 🛡️</label>
+                            <i class="fas fa-info-circle info-icon" data-tooltip="IP addresses in this list will NEVER be automatically blocked by the Abuse Detection engine. The server's public IP is automatically added."></i>
+                        </div>
+                        <p class="help">Prevent specific IPs from being banned by the automated security system.</p>
+                        <div style="display:flex; gap:10px; margin-top: 10px;">
+                            <input type="text" id="autoblock-whitelist-input" placeholder="e.g. 1.2.3.4" style="flex:1;">
+                            <button type="button" class="btn secondary" id="add-whitelist-ip-btn">Add to Whitelist</button>
+                        </div>
+                        <div id="autoblock-whitelist-tags" class="tag-container mt-3">
+                            <!-- Whitelist tags will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Blocked Clients Detailed Modal -->
+                <div id="blocked-clients-modal" class="modal hidden">
+                    <div class="modal-content modal-lg">
+                        <div class="modal-header">
+                            <div class="modal-header-title">
+                                <h2>Currently Blocked Clients</h2>
+                                <p class="help">Detailed list of all client-side bans.</p>
+                            </div>
+                            <button type="button" class="modal-close-btn" id="blocked-clients-close-btn">&times;</button>
+                        </div>
+
+                        <div class="table-header-actions" style="margin-top: 20px;">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="blocked-clients-search" placeholder="Search IP or Reason...">
+                            </div>
+                            <div class="filter-box">
+                                <input type="date" id="blocked-clients-date-filter" class="form-control sm" style="max-width: 150px;">
+                            </div>
+                            <div class="filter-box">
+                                <select id="blocked-clients-country-filter" class="select-premium sm">
+                                    <option value="ALL">All Countries</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="card overflow-x mt-3" style="max-height: 50vh; overflow-y: auto;">
+                            <table class="query-table">
+                                <thead>
+                                    <tr>
+                                        <th>IP Address</th>
+                                        <th>Blocked At</th>
+                                        <th>Country</th>
+                                        <th>Reason</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="blocked-clients-table-body">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="modal-footer-actions mt-4">
+                            <button type="button" class="btn primary" id="blocked-clients-done-btn" style="min-width: 120px;">Close</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section" data-category="system">
+                    <h2>Full System Refresh 🔄</h2>
+                    <p class="help">Perform a total refresh of all system components. This will re-download all enabled
+                        filter lists, reload all custom rules (IP/Geo), and restart the CoreDNS server to apply changes
+                        and flush its cache.</p>
+                    <div class="alert warning"
+                        style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 0.85rem;">
+                        <strong>Note:</strong> This process usually takes a few seconds. DNS resolution will be briefly
+                        interrupted during the restart.
+                    </div>
+                    <button type="button" class="btn secondary" id="full-system-refresh-btn"><i class="fas fa-sync"></i>
+                        Trigger Full System Refresh</button>
+                </div>
+
+                </form>
+
+                <div class="settings-section" data-category="access">
+                    <h2>Security 🔐</h2>
+                    <form id="password-form">
+                        <div class="form-group">
+                            <label>Current Password</label>
+                            <input type="password" id="current-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label>New Password (min 12 chars)</label>
+                            <input type="password" id="new-password" required minlength="12">
+                        </div>
+                        <button type="submit" class="btn secondary">Update Password</button>
+                    </form>
+                </div>
+
+                <div class="settings-section" data-category="access">
+                    <h2>Multi-Factor Authentication (MFA) 🛡️</h2>
+                    <p class="help">Add an extra layer of security to your account using TOTP (Authenticator App) or Passkeys (biometrics, security key, or device PIN).</p>
+
+                    <div id="mfa-status-container" style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-weight: 600;">Status: </span>
+                                <span id="mfa-status-badge" class="badge">Checking...</span>
+                            </div>
+                            <button type="button" id="mfa-toggle-btn" class="btn btn-sm secondary">Set Up MFA</button>
+                        </div>
+                    </div>
+
+                    <div id="mfa-setup-area" class="hidden" style="margin-top: 20px; padding: 20px; border: 1px dashed var(--accent); border-radius: 8px;">
+                        <div id="mfa-totp-setup" class="hidden">
+                            <h3>Set Up Authenticator App</h3>
+                            <p class="help">Scan this QR code with your authenticator app (like Authy, Google Authenticator, or Bitwarden).</p>
+                            <div style="display: flex; justify-content: center; margin: 20px 0;">
+                                <img id="mfa-qr-code" alt="QR code for setting up multi-factor authentication" style="background: white; padding: 10px; border-radius: 8px; max-width: 200px;">
+                            </div>
+                            <div id="mfa-secret-container" class="hidden" style="text-align: center; margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.1); border-radius: 8px; border: 1px solid var(--border);">
+                                <p class="help" style="margin-bottom: 8px;">Cannot scan? Enter this code manually:</p>
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                    <code id="mfa-secret-value" style="font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; font-family: monospace;"></code>
+                                    <button type="button" class="btn btn-sm secondary" onclick="copyText('mfa-secret-value')" title="Copy Secret"><i class="fas fa-copy"></i></button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Device Name (e.g. My iPhone)</label>
+                                <input type="text" id="mfa-setup-totp-name" placeholder="Friendly Name">
+                            </div>
+                            <div class="form-group">
+                                <label>Verification Code</label>
+                                <input type="text" id="mfa-setup-verify-code" placeholder="6-digit code">
+                            </div>
+                            <div class="modal-actions">
+                                <button type="button" class="btn secondary" id="mfa-cancel-setup">Cancel</button>
+                                <button type="button" class="btn primary" id="mfa-complete-setup">Verify & Add</button>
+                            </div>
+                        </div>
+
+                        <div id="mfa-manage-area" class="hidden">
+                            <h3>Authenticator Apps (TOTP)</h3>
+                            <div id="mfa-totp-list" class="help" style="margin-bottom: 20px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">No apps registered.</div>
+
+                            <h3>Security Keys & Passkeys</h3>
+                            <div id="mfa-passkey-list" class="help" style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">No passkeys registered.</div>
+
+                            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                                <button type="button" id="mfa-add-totp-btn" class="btn btn-sm secondary"><i class="fas fa-plus"></i> Add App</button>
+                                <button type="button" id="mfa-add-passkey-btn" class="btn btn-sm secondary"><i class="fas fa-plus"></i> Add Passkey</button>
+                            </div>
+
+                            <div style="margin-top: 35px; padding-top: 15px; border-top: 1px solid var(--border);">
+                                <button type="button" id="mfa-disable-all-btn" class="btn btn-sm danger">Disable All MFA</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section" data-category="cluster" id="cluster-settings-section">
+                    <h2>Cluster & Federation 🌐</h2>
+                    <p class="help">Synchronize configuration across multiple ShieldDNS instances (e.g. primary cloud resolver + secondary local network appliance with failover).</p>
+
+                    <!-- Offline Warning Alert -->
+                    <div id="cluster-warning-banner" class="hidden" style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+                        <i class="fas fa-exclamation-triangle" style="color: var(--danger); font-size: 1.2rem;"></i>
+                        <div>
+                            <strong style="color: var(--danger);">Connection to Primary Node Lost</strong>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary);" id="cluster-warning-msg">Last known configuration and cached admin credentials remain active as fallback.</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cluster Role</label>
+                        <select id="cluster-role-select" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                            <option value="standalone">Standalone (Single Server)</option>
+                            <option value="primary">Primary (Central Configuration Master)</option>
+                            <option value="replica">Secondary / Replica (Synchronized with Primary)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cluster Node Name</label>
+                        <input type="text" id="cluster-node-name-input" placeholder="e.g. Primary Cloud DNS, Home Assistant LAN, Secondary Backup" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                        <p class="help">Human-readable label for this server in query logs and cluster overviews.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Environment Profile</label>
+                        <select id="cluster-inst-type-select" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                            <option value="private">Private / Local Network (LAN appliance, higher rate headroom, local rebinding protection)</option>
+                            <option value="public">Public Internet Node (Cloud server / VPS, strict rate limits, aggressive threat blocking, full mobile profiles)</option>
+                            <option value="hybrid">Hybrid Node (External node handling public DoH/DoT queries and acting as high-availability failover for local networks)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cluster Query Log Replication</label>
+                        <select id="cluster-log-sharing-select" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                            <option value="local_only">Local Only (Each node stores and displays only its own queries)</option>
+                            <option value="push_to_primary">Forward to Primary (Replicas send queries to Primary; Primary has unified cluster overview)</option>
+                            <option value="full_sync">Full Sync (Both Primary and Replicas synchronize and share all query traffic)</option>
+                        </select>
+                        <p class="help">Control how DNS query logs are aggregated across cluster members.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cloudflare Worker Dispatcher Domain</label>
+                        <input type="text" id="cluster-worker-domain-input" placeholder="e.g. worker.domain.com" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                        <p class="help">Optional DNS hostname for a Cloudflare Worker edge distributor. When set, this hostname is presented in setup profiles and trusted for cluster dispatching.</p>
+                        
+                        <div class="alert info" style="margin-top: 10px; padding: 10px 12px; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 0.82rem; line-height: 1.4;">
+                            <strong style="color: var(--text-primary); display: block; margin-bottom: 4px;">
+                                <i class="fas fa-info-circle" style="color: #3b82f6;"></i> Protocol Capabilities & Redundancy Scope:
+                            </strong>
+                            <span style="color: #10b981; font-weight: 600;">✅ DoH / DoH3 (Port 443):</span> Full Worker routing, active failover, and Geo-steering.<br>
+                            <span style="color: #f59e0b; font-weight: 600;">ℹ️ DoT / DoQ / Plain DNS (Port 853 / 53):</span> Cloudflare Workers only proxy HTTP/HTTPS. For DoT/DoQ/UDP failover, configure dual A/AAAA DNS records for your domain so client resolvers automatically fallback between nodes.
+                        </div>
+
+                        <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button type="button" class="btn secondary" id="cluster-worker-generate-btn" style="font-size: 0.85rem; padding: 6px 12px;">
+                                <i class="fab fa-cloudflare" style="color: #f38020; margin-right: 6px;"></i>Generate Prefilled Worker Script
+                            </button>
+                            <a href="https://github.com/FaserF/ShieldDNS/blob/main/tools/cloudflare_worker_template.js" target="_blank" rel="noopener noreferrer" class="btn secondary" style="font-size: 0.85rem; padding: 6px 12px; text-decoration: none; display: inline-flex; align-items: center;">
+                                <i class="fab fa-github" style="margin-right: 6px;"></i>View Template on GitHub
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Primary Node View: Replicas list & connect instructions -->
+                    <div id="cluster-primary-panel" class="hidden" style="margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px;">
+                        <h3>Connected Replicas</h3>
+                        <p class="help">To connect a secondary instance, create an API Token under "Access & Security" with admin permissions and enter it in the replica's setup or cluster settings.</p>
+                        <div id="cluster-replicas-list" style="margin-top: 12px;">
+                            <div class="help">No replicas connected yet.</div>
+                        </div>
+                    </div>
+
+                    <!-- Replica Node View: Primary URL, Sync button & Status -->
+                    <div id="cluster-replica-panel" class="hidden" style="margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px;">
+                        <h3>Primary Server Connection</h3>
+                        <div class="form-group">
+                            <label>Primary ShieldDNS URL</label>
+                            <input type="text" id="cluster-primary-url-input" placeholder="https://dns.example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Primary API Token</label>
+                            <input type="password" id="cluster-primary-token-input" placeholder="Leave empty to keep existing token">
+                        </div>
+                        <div class="form-group checkbox-group" style="margin-bottom: 12px;">
+                            <input type="checkbox" id="cluster-failover-check">
+                            <label for="cluster-failover-check">Use Primary as Upstream DNS Resolver (Failover Resolver)</label>
+                        </div>
+                        <div class="form-group">
+                            <label>Automatic Sync Interval</label>
+                            <select id="cluster-sync-interval" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                                <option value="0">Manual Only (Only when requested via button or on startup)</option>
+                                <option value="60">Every 1 Hour</option>
+                                <option value="360">Every 6 Hours</option>
+                                <option value="1440">Daily (24 Hours)</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
+                            <button type="button" class="btn primary" id="cluster-manual-sync-btn"><i class="fas fa-sync-alt"></i> Sync Now from Primary</button>
+                            <button type="button" class="btn secondary" id="cluster-leave-btn">Disconnect from Cluster</button>
+                            <span id="cluster-sync-status" class="help" style="margin-left: 10px;"></span>
+                        </div>
+                    </div>
+                </div>
+
+{{end}}

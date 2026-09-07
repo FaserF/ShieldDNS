@@ -1,0 +1,397 @@
+{{define "modals_details"}}
+    <!-- IP Detail Modal -->
+
+    <div id="ip-info-modal" class="modal hidden">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h2 id="ip-info-title" style="margin-bottom: 0;">Client Details</h2>
+                        <button type="button" class="btn btn-sm secondary" id="edit-alias-btn" title="Edit Alias"><i
+                                class="fas fa-edit"></i></button>
+                    </div>
+                    <div id="alias-edit-box" class="hidden"
+                        style="margin-top: 5px; display: flex; gap: 5px; max-width: 300px;">
+                        <input type="text" id="client-alias-input" placeholder="Custom Alias (e.g. Work Laptop)"
+                            style="padding: 5px 10px; font-size: 0.8rem;">
+                        <button type="button" class="btn btn-sm primary" id="save-alias-btn">Save</button>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" id="ip-block-btn" class="btn btn-sm danger" style="padding: 6px 14px; display: none;">
+                        <i class="fas fa-ban"></i> Block Client
+                    </button>
+                    <button type="button" id="ip-unblock-btn" class="btn btn-sm secondary" style="padding: 6px 14px; display: none;">
+                        <i class="fas fa-check-circle"></i> Unblock Client
+                    </button>
+                    <button type="button" class="modal-close-btn" id="ip-info-close-btn">&times;</button>
+                </div>
+            </div>
+            <p id="ip-info-subtitle" class="help" style="margin-top: -15px; margin-bottom: 10px;"></p>
+            <div id="ip-info-abuse-reason-badge" class="badge danger mt-1 hidden">
+                <!-- Abuse reason text injected here -->
+            </div>
+
+            <div class="analytics-grid-compact">
+                <div class="stat-card card">
+                    <label>Total Queries</label>
+                    <div class="value" id="ip-info-total">0</div>
+                </div>
+                <div class="stat-card card blocked">
+                    <label>Blocked</label>
+                    <div class="value" id="ip-info-blocked">0</div>
+                    <div class="progress-bar-small">
+                        <div id="ip-info-blocked-bar" style="background: var(--danger); width: 0%;"></div>
+                    </div>
+                </div>
+                <div class="stat-card card">
+                    <label>Network Info</label>
+                    <div class="badge-group">
+                        <span id="ip-info-type-tag" class="badge badge-sm primary" style="width: fit-content;">-</span>
+                        <div class="client-info-value" id="ip-info-hostname">-</div>
+                        <div class="client-info-sub" id="ip-info-isp">-</div>
+                        <div class="client-info-extra" id="ip-info-as">-</div>
+                    </div>
+                </div>
+                <!-- New Device Card -->
+                <div class="stat-card card" id="ip-info-device-card">
+                    <label>Device Info</label>
+                    <div id="ip-info-manufacturer" class="device-info-main">-</div>
+                    <div class="device-info-row">
+                        <div id="ip-info-os">Unknown OS</div>
+                        <span style="opacity: 0.5;">•</span>
+                        <div id="ip-info-mac" style="font-family: monospace;">-</div>
+                    </div>
+                </div>
+                <!-- New Location Card -->
+                <div class="stat-card card">
+                    <label>Location</label>
+                    <div class="location-row">
+                        <div id="ip-info-flag"></div>
+                        <div id="ip-info-country" class="device-info-main">-</div>
+                    </div>
+                    <div id="ip-info-city" class="device-info-row">-</div>
+                </div>
+                <!-- Client Timeline -->
+                <div class="stat-card card activity-timeline-card">
+                    <label style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 5px; display: block;">Activity (Last 24h)</label>
+                    <div style="height: 50px; position: relative;">
+                        <canvas id="ip-info-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analytics-row-compact">
+                <div class="query-log-container card card-layout-compact">
+                    <h3 class="card-title-accent">Top 10 Domains (Allowed)</h3>
+                    <div class="overflow-x">
+                        <table class="query-table table-mini">
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th style="text-align:right">Hits</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ip-info-top-domains">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="query-log-container card card-layout-compact">
+                    <h3 class="card-title-danger">Top Blocked Domains</h3>
+                    <div class="overflow-x">
+                        <table class="query-table table-mini">
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th style="text-align:right">Hits</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ip-info-top-blocked">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="query-log-container card card-layout-compact" style="margin-bottom: 20px;">
+                <h3 class="card-title-secondary">Recent Activity</h3>
+                <div class="overflow-x">
+                    <table class="query-table table-mini">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Domain</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ip-info-history">
+                            <!-- Dynamic -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-footer-actions">
+                <button type="button" class="btn secondary" id="ip-info-view-all-btn">View full log for this client</button>
+                <button type="button" class="btn primary" id="ip-info-done-btn" style="min-width: 120px;">Done</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Domain Details Modal -->
+    <div id="domain-info-modal" class="modal hidden">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <div class="modal-header-title">
+                    <h2 id="domain-info-title">Domain Details</h2>
+                    <div id="domain-info-subtitle" class="modal-header-subtitle">domain.com</div>
+                </div>
+                <div class="modal-header-actions">
+                    <div id="domain-status-badge" class="badge">Checking...</div>
+                    <button type="button" id="domain-block-btn" class="btn btn-sm danger hidden">Block Domain</button>
+                    <button type="button" id="domain-allow-btn" class="btn btn-sm secondary hidden">Allow Domain</button>
+                    <button type="button" class="modal-close-btn" id="domain-info-close-btn">&times;</button>
+                </div>
+            </div>
+
+            <div class="stats-grid-details">
+                <div class="stat-card card">
+                    <label>Category</label>
+                    <div class="value" id="domain-info-category" style="color: var(--accent);">General</div>
+                </div>
+                <div class="stat-card card" style="padding: 16px;">
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Total
+                        Hits (24h)</label>
+                    <div class="value" id="domain-info-total"
+                        style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0</div>
+                </div>
+                <div class="stat-card card blocked" style="padding: 16px;">
+                    <label
+                        style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Blocked</label>
+                    <div class="value" id="domain-info-blocked"
+                        style="font-size: 1.5rem; font-weight: 700; margin-top: 8px; color: var(--danger);">0</div>
+                </div>
+                <div class="stat-card card" style="padding: 16px;">
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Unique
+                        Clients</label>
+                    <div class="value" id="domain-info-clients"
+                        style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0</div>
+                </div>
+                <div class="stat-card card" style="padding: 16px;">
+                    <label style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Blocking
+                        Ratio</label>
+                    <div class="value" id="domain-info-ratio"
+                        style="font-size: 1.5rem; font-weight: 700; margin-top: 8px;">0%</div>
+                </div>
+            </div>
+
+            <div class="analytics-row-details"
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+                <div class="query-log-container card" style="padding: 24px; margin-top: 0;">
+                    <h3
+                        style="margin-bottom: 16px; font-size: 1rem; color: var(--accent); display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-users"></i> Top Clients for this Domain
+                    </h3>
+                    <div class="overflow-x">
+                        <table class="query-table" style="font-size: 0.85rem;">
+                            <thead>
+                                <tr>
+                                    <th>Client</th>
+                                    <th style="text-align:right">Hits</th>
+                                </tr>
+                            </thead>
+                            <tbody id="domain-info-clients-list">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="query-log-container card" style="padding: 24px; margin-top: 0;">
+                    <h3
+                        style="margin-bottom: 16px; font-size: 1rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-history"></i> Recent Queries
+                    </h3>
+                    <div class="overflow-x">
+                        <table class="query-table" style="font-size: 0.85rem;">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Client</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="domain-info-history">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
+                <button type="button" class="btn secondary" id="domain-info-view-logs-btn">View all logs for this domain</button>
+                <button type="button" class="btn primary" id="domain-info-done-btn" style="min-width: 120px;">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup Creator Modal -->
+    <div id="backup-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Create System Backup</h2>
+            <p class="help">Select the backup type and optionally protect it with a password.</p>
+            <div class="form-group mt-3">
+                <label>Backup Type</label>
+                <select id="backup-type" class="form-control" style="background:var(--card-bg); color:var(--text-primary); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+                    <option value="settings">Settings only</option>
+                    <option value="full">Settings + Data</option>
+                </select>
+            </div>
+            <div class="form-group mt-3">
+                <label>Password (Optional)</label>
+                <p class="help">Secures your backup with AES-256 encryption.</p>
+                <input type="password" id="backup-password" class="form-control" placeholder="Leave empty for unencrypted..." style="background:hsla(var(--hue), 20%, 100%, 0.04); color:var(--text-primary); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+            </div>
+            <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
+                <button type="button" class="btn secondary" id="backup-modal-cancel">Cancel</button>
+                <button type="button" class="btn primary" id="backup-modal-confirm">Download</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Decrypt Password Prompt Modal -->
+    <div id="restore-password-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Import Encrypted Backup</h2>
+            <p class="help">This backup is encrypted. Please enter the decryption password.</p>
+            <div class="form-group mt-3">
+                <label>Password</label>
+                <input type="password" id="restore-decrypt-password" class="form-control" placeholder="Decryption password..." style="background:hsla(var(--hue), 20%, 100%, 0.04); color:var(--text-primary); border:1px solid var(--border); padding:8px 12px; border-radius:6px; width:100%;">
+            </div>
+            <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
+                <button type="button" class="btn secondary" id="restore-password-cancel">Cancel</button>
+                <button type="button" class="btn primary" id="restore-password-confirm">Decrypt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore Preview Modal -->
+    <div id="restore-preview-modal" class="modal hidden">
+        <div class="modal-content modal-lg" style="max-width:800px; width:90%;">
+            <h2>Backup Overview & Selection</h2>
+            <p class="help" style="margin-bottom:20px;">Select the components to restore. Red rows indicate settings that will overwrite your current configuration.</p>
+            
+            <div class="restore-categories-selection mt-3" style="background:var(--bg-input); padding:16px; border-radius:8px; border:1px solid var(--border); margin-bottom:20px;">
+                <div style="margin-bottom: 12px; display: flex; gap: 16px; flex-wrap: wrap;">
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-dns" checked> DNS & Upstreams
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-filtering" checked> Filtering Options
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-lists" checked> Blocklists / Allowlists
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-clients" checked> Client Settings
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-abuse" checked> Threat Intelligence
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-system" checked> System Options
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="checkbox" id="sel-cat-auth" checked> Passwords & MFA / API
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;" id="sel-cat-data-wrapper">
+                        <input type="checkbox" id="sel-cat-data" checked> Query Log (Data)
+                    </label>
+                </div>
+            </div>
+
+            <div class="overflow-x mt-3" style="max-height: 350px; overflow-y: auto; margin-bottom:20px; border:1px solid var(--border); border-radius:8px;">
+                <table class="query-table" style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:var(--bg-input);">
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Setting</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Category</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Current Value</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Backup Value</th>
+                            <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="restore-preview-tbody">
+                        <!-- Dynamic content -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-actions mt-4" style="display:flex; justify-content:flex-end; gap:12px;">
+                <button type="button" class="btn secondary" id="restore-preview-cancel">Cancel</button>
+                <button type="button" class="btn primary" id="restore-preview-confirm">Import Selected</button>
+            </div>
+        </div>
+    </div>
+    <!-- System Activity Modal -->
+    <div id="activity-modal" class="modal hidden">
+        <div class="modal-content large">
+            <div class="activity-header">
+                <div>
+                    <h2 id="activity-title">Activity Console</h2>
+                    <p id="activity-desc" class="help">Live feedback during system operations...</p>
+                </div>
+                <div class="activity-controls">
+                    <select id="activity-log-filter" class="form-control sm">
+                        <option value="ALL">All Levels</option>
+                        <option value="WARN">Warnings</option>
+                        <option value="ERROR">Errors Only</option>
+                    </select>
+                </div>
+            </div>
+            <div id="activity-log-stream" class="log-container"></div>
+            <div class="modal-footer">
+                <button type="button" id="activity-close-btn" class="btn secondary">Done</button>
+            </div>
+        </div>
+    </div>
+    <!-- Cloudflare Worker Script Modal -->
+    <div id="worker-script-modal" class="modal hidden">
+        <div class="modal-content large" style="max-width: 800px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div>
+                    <h2 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <i class="fab fa-cloudflare" style="color: #f38020;"></i> Cloudflare Worker Dispatcher Script
+                    </h2>
+                    <p class="help" style="margin: 4px 0 0 0;">Pre-populated with your current cluster topology and geo-steering rules.</p>
+                </div>
+                <button type="button" class="btn secondary sm" id="worker-script-close-x" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div style="position: relative;">
+                <div style="margin-bottom: 8px; padding: 8px 10px; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 0.8rem; color: var(--text-secondary);">
+                    <i class="fas fa-info-circle" style="color: #3b82f6; margin-right: 4px;"></i>
+                    <strong>Protocol Scope:</strong> Cloudflare Workers operate on L7 HTTP/HTTPS (DoH / DoH3 on Port 443). DoT (Port 853) and raw UDP DNS (Port 53) are handled separately via Dual A/AAAA DNS records.
+                </div>
+                <textarea id="worker-script-code" readonly style="width: 100%; height: 380px; font-family: monospace; font-size: 0.82rem; background: var(--bg-input, #0d1117); color: #c9d1d9; border: 1px solid var(--border); border-radius: 6px; padding: 12px; resize: vertical; white-space: pre;"></textarea>
+            </div>
+            <div class="modal-actions mt-3" style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="help" id="worker-script-status">Ready to copy to Cloudflare Dashboard</span>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn secondary" id="worker-script-download-btn">
+                        <i class="fas fa-download"></i> Download worker.js
+                    </button>
+                    <button type="button" class="btn primary" id="worker-script-copy-btn">
+                        <i class="fas fa-copy"></i> Copy to Clipboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{{end}}

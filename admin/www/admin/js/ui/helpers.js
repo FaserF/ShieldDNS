@@ -373,3 +373,21 @@ export const base64FromBuffer = (buffer) => {
     }
     return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 };
+
+/**
+ * Standardizes flag rendering using flagcdn with fallback icons.
+ */
+export const getFlagHTML = (code, size = 'w20') => {
+    if (!code) {
+        return `<i class="fas fa-globe" style="color: var(--accent); opacity: 0.6;"></i>`;
+    }
+    const cleanCode = code.toLowerCase();
+    const invalidFlags = new Set(['ap', 'a1', 'a2', 'o1', 'xx', 'geo', 'unknown']);
+    if (invalidFlags.has(cleanCode) || cleanCode.length !== 2) {
+        return `<i class="fas fa-globe" style="color: var(--accent); opacity: 0.6;"></i>`;
+    }
+    const override = cleanCode === 'an' ? 'nl' : cleanCode;
+    const width = size === 'w40' ? '18px' : '15px';
+    return `<img src="https://flagcdn.com/${size}/${override}.png" alt="${code}" style="height: ${width}; border-radius: 2px; vertical-align: middle;" onerror="this.outerHTML='<i class=\\'fas fa-globe\\' style=\\'color: var(--accent); opacity: 0.6;\\'></i>';">`;
+};
+

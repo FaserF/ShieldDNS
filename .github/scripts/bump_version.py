@@ -1,7 +1,8 @@
+import os
 import re
 import subprocess
 import sys
-import os
+
 
 def get_latest_tag():
     try:
@@ -13,7 +14,7 @@ def get_latest_tag():
         )
         tags = result.stdout.strip().split("\n")
         # Filter for version-like tags
-        version_tags = [t for t in tags if re.match(r'^v?\d+\.\d+\.\d+', t)]
+        version_tags = [t for t in tags if re.match(r"^v?\d+\.\d+\.\d+", t)]
         return version_tags[0] if version_tags else None
     except Exception:  # noqa: BLE001
         return None
@@ -67,12 +68,14 @@ def update_source_code(new_version):
             r'Version\s*=\s*"[^"]+"',
             f'Version        = "{v_version}"',
             content,
-            count=1
+            count=1,
         )
     else:
         # If not found, append it before func main()
         if "func main()" in content:
-            new_content = content.replace("func main()", f'const Version = "{v_version}"\n\nfunc main()')
+            new_content = content.replace(
+                "func main()", f'const Version = "{v_version}"\n\nfunc main()'
+            )
         else:
             new_content = content + f'\nconst Version = "{v_version}"\n'
 
@@ -87,9 +90,9 @@ if __name__ == "__main__":
 
     bump_type = sys.argv[1].lower()
     suffix = sys.argv[2] if len(sys.argv) > 2 else ""
-    
+
     latest_tag = get_latest_tag()
-    
+
     # If no tag is found, fallback to the version in the source code
     if not latest_tag:
         try:
