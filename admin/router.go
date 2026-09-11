@@ -266,6 +266,7 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/javascript")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		tmpl.Execute(w, struct{ CacheVersion string }{CacheVersion: CacheVersion})
 	})
 
