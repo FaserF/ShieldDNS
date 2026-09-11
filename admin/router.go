@@ -280,6 +280,17 @@ func setupStaticHandlers(mux *http.ServeMux) {
 		w.Write(data)
 	})
 
+	// 2.6 manifest.json route (for root/PWA requests)
+	mux.HandleFunc("/manifest.json", func(w http.ResponseWriter, r *http.Request) {
+		data, err := fs.ReadFile(adminFS, "manifest.json")
+		if err != nil {
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/manifest+json")
+		w.Write(data)
+	})
+
 	// 3. Root landing page and public assets
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		configLock.RLock()

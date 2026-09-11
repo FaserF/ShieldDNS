@@ -7,9 +7,8 @@ import { state, getEl } from '../core/state.js';
 import { renderConfig } from './renderers.js';
 import { showActivityOverlay, hideActivityOverlay } from './activity.js';
 import * as fetchService from '../services/fetch.js';
-
 import { initSettingsEvents, saveConfig, setSettingsDirty } from './events_settings.js';
-import { initMFAEvents, initMFA } from './events_mfa.js';
+import { initMFA } from './events_mfa.js';
 import { initBackupEvents } from './events_backup.js';
 import { initAPIKeyEvents } from './events_apikeys.js';
 import { initGeoEvents, detectServerLocation } from './events_geo.js';
@@ -581,5 +580,5 @@ export function initEvents(fetchConfig) {
     initAPIKeyEvents();
     initGeoEvents(fetchConfig);
     initBackupEvents(fetchConfig);
-    initMFAEvents();
+    initMFA();
 }
