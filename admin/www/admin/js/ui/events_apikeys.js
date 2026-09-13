@@ -77,10 +77,14 @@ export function initAPIKeyEvents() {
         }
     });
 
-    getEl('copy-api-key-btn')?.addEventListener('click', () => {
+    getEl('copy-api-key-btn')?.addEventListener('click', async () => {
         const val = getEl('api-key-value').textContent;
-        navigator.clipboard.writeText(val);
-        helpers.showToast('Token copied to clipboard');
+        const ok = await helpers.copyToClipboard(val);
+        if (ok) {
+            helpers.showToast('Token copied to clipboard');
+        } else {
+            helpers.showToast('Failed to copy to clipboard', 'error');
+        }
     });
 
     getEl('cancel-api-key-btn')?.addEventListener('click', () => getEl('api-key-modal')?.classList.add('hidden'));
@@ -318,8 +322,12 @@ export function initAPIKeyEvents() {
                 }
             }
         }, null, 2);
-        navigator.clipboard.writeText(cfg);
-        helpers.showToast('Antigravity MCP configuration copied to clipboard!');
+        const ok = await helpers.copyToClipboard(cfg);
+        if (ok) {
+            helpers.showToast('Antigravity MCP configuration copied to clipboard!');
+        } else {
+            helpers.showToast('Failed to copy to clipboard', 'error');
+        }
     });
 
     // API Key search

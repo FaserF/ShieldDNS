@@ -407,12 +407,16 @@ export function initEvents(fetchConfig) {
         }
     });
 
-    window.copyText = (id) => {
+    window.copyText = async (id) => {
         const el = getEl(id);
         if (el) {
-            const val = el.value || el.textContent;
-            navigator.clipboard.writeText(val);
-            helpers.showToast('Copied to clipboard');
+            const val = el.value !== undefined ? el.value : el.textContent;
+            const ok = await helpers.copyToClipboard(val);
+            if (ok) {
+                helpers.showToast('Copied to clipboard');
+            } else {
+                helpers.showToast('Failed to copy to clipboard', 'error');
+            }
         }
     };
 

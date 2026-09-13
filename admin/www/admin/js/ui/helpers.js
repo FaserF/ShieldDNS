@@ -391,3 +391,47 @@ export const getFlagHTML = (code, size = 'w20') => {
     return `<img src="https://flagcdn.com/${size}/${override}.png" alt="${code}" style="height: ${width}; border-radius: 2px; vertical-align: middle;" onerror="this.outerHTML='<i class=\\'fas fa-globe\\' style=\\'color: var(--accent); opacity: 0.6;\\'></i>';">`;
 };
 
+/**
+ * Robust copy-to-clipboard helper supporting secure context (navigator.clipboard)
+ * and legacy/insecure context fallback (textarea + execCommand).
+ */
+export const copyToClipboard = async (text) => {
+    if (!text && text !== '') return false;
+    const textToCopy = String(text);
+
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(textToCopy);
+            return true;
+        } catch (err) {
+            console.warn('navigator.clipboard failed, attempting fallback...', err);
+        }
+    }
+
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.value = textToCopy;
+        textarea.style.position = 'fixed';
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.width = '2em';
+        textarea.style.height = '2em';
+        textarea.style.padding = '0';
+        textarea.style.border = 'none';
+        textarea.style.outline = 'none';
+        textarea.style.boxShadow = 'none';
+        textarea.style.background = 'transparent';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) return true;
+    } catch (fallbackErr) {
+        console.error('Fallback clipboard copy failed:', fallbackErr);
+    }
+    return false;
+};
+
+

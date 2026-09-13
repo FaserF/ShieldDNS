@@ -188,10 +188,19 @@ var mcpSystemTools = []mcpToolDefinition{
 		},
 		requiredPerm: "write:maintenance",
 		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
-			go checkAll()
+			started := make(chan bool, 1)
+			go func() {
+				started <- checkAll()
+			}()
+			wasStarted := <-started
+			msg := "Upstream health recheck initiated in background"
+			if !wasStarted {
+				msg = "Upstream health check already running; coalesced request"
+			}
 			return map[string]interface{}{
 				"success": true,
-				"message": "Upstream health recheck initiated in background",
+				"started": wasStarted,
+				"message": msg,
 			}, nil
 		},
 	},
@@ -366,7 +375,6 @@ var mcpSystemTools = []mcpToolDefinition{
 		requiredPerm: "write:config",
 		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
 			configLock.Lock()
-			defer configLock.Unlock()
 
 			if ups, ok := args["upstreams"].([]interface{}); ok {
 				cleanUps := make([]string, 0)
@@ -451,8 +459,11 @@ var mcpSystemTools = []mcpToolDefinition{
 			}
 
 			if err := saveConfigNoLock(); err != nil {
+				configLock.Unlock()
 				return nil, fmt.Errorf("failed to save config: %w", err)
 			}
+			sanitized := config.SanitizedCopy()
+			configLock.Unlock()
 
 			updateCorefile()
 			restartCoreDNS()
@@ -460,7 +471,7 @@ var mcpSystemTools = []mcpToolDefinition{
 			return map[string]interface{}{
 				"success": true,
 				"message": "Configuration updated and CoreDNS reloaded",
-				"config":  config.SanitizedCopy(),
+				"config":  sanitized,
 			}, nil
 		},
 	},

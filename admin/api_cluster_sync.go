@@ -44,7 +44,12 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 
 	configLock.RLock()
 	verifyTLS := config.VerifyUpstreamTLS
+	localNodeName := config.ClusterNodeName
 	configLock.RUnlock()
+
+	if strings.TrimSpace(localNodeName) != "" {
+		req.Header.Set("X-Cluster-Node-Name", strings.TrimSpace(localNodeName))
+	}
 
 	client := &http.Client{
 		Timeout: 7 * time.Second,
@@ -134,6 +139,22 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	if exp.WireGuardGateway != "" {
 		config.WireGuardGateway = exp.WireGuardGateway
 	}
+	if exp.BlockedClients != nil {
+		config.BlockedClients = exp.BlockedClients
+	}
+	if exp.BlockedClientsInfo != nil {
+		config.BlockedClientsInfo = exp.BlockedClientsInfo
+	}
+	if exp.ClientRules != nil {
+		config.ClientRules = exp.ClientRules
+	}
+	if exp.ClientAliases != nil {
+		config.ClientAliases = exp.ClientAliases
+	}
+	config.MCPServerEnabled = exp.MCPServerEnabled
+	if exp.APIKeys != nil {
+		config.APIKeys = exp.APIKeys
+	}
 
 	// Configure DNS Upstream: if failover mode is set, use Primary as first upstream!
 	if failover && primaryURL != "" {
@@ -158,7 +179,17 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 		return err
 	}
 
-	go updateCorefile()
+	go func(countries []string, maliciousEnabled bool) {
+		for _, c := range countries {
+			_ = syncCountryIPs(c)
+		}
+		if maliciousEnabled {
+			_ = syncMaliciousIPs(false)
+		}
+		updateCorefile()
+		restartCoreDNS()
+	}(exp.BlockedCountries, exp.MaliciousIPBlockingEnabled)
+
 	go updateBlocklist(nil, true)
 
 	return nil

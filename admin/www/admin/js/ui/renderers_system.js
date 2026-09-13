@@ -225,8 +225,8 @@ export function renderClusterStatus(cluster) {
             if (!pwdBanner) {
                 pwdBanner = document.createElement('div');
                 pwdBanner.id = 'replica-pwd-banner';
-                pwdBanner.style.cssText = 'background: rgba(59, 130, 246, 0.1); border-left: 4px solid var(--accent); padding: 10px 14px; margin-bottom: 15px; border-radius: 4px; font-size: 0.85rem; color: var(--text-primary);';
-                pwdBanner.innerHTML = '<strong>Managed by Primary:</strong> Administrator password is centrally managed on the Primary node and synchronized automatically.';
+                pwdBanner.className = 'replica-locked-banner';
+                pwdBanner.innerHTML = '<i class="fas fa-lock"></i><span><strong>Managed by Primary:</strong> Administrator password is centrally managed on the Primary node and synchronized automatically.</span>';
                 pwdForm.parentNode.insertBefore(pwdBanner, pwdForm);
             }
         } else if (pwdBanner) {
@@ -245,14 +245,18 @@ export function renderClusterStatus(cluster) {
             if (!mfaBanner) {
                 mfaBanner = document.createElement('div');
                 mfaBanner.id = 'replica-mfa-banner';
-                mfaBanner.style.cssText = 'background: rgba(59, 130, 246, 0.1); border-left: 4px solid var(--accent); padding: 10px 14px; margin-top: 15px; border-radius: 4px; font-size: 0.85rem; color: var(--text-primary);';
-                mfaBanner.innerHTML = '<strong>Managed by Primary:</strong> Multi-Factor Authentication credentials are synchronized from the Primary node. Setup and modifications are disabled on replicas.';
+                mfaBanner.className = 'replica-locked-banner';
+                mfaBanner.style.marginTop = '15px';
+                mfaBanner.innerHTML = '<i class="fas fa-lock"></i><span><strong>Managed by Primary:</strong> Multi-Factor Authentication credentials are synchronized from the Primary node. Setup and modifications are disabled on replicas.</span>';
                 mfaStatusContainer.parentNode.insertBefore(mfaBanner, mfaStatusContainer.nextSibling);
             }
         } else if (mfaBanner) {
             mfaBanner.remove();
         }
     }
+
+    // Comprehensive lock-down for settings and views synced from Master
+    applyReplicaSyncedLocks(isReplica);
 
     const primaryPanel = getEl('cluster-primary-panel');
     const replicaPanel = getEl('cluster-replica-panel');
@@ -325,4 +329,180 @@ export function renderClusterStatus(cluster) {
             }
         }
     }
+}
+
+/**
+ * Greys out and disables all controls and views whose configuration is mastered and synced from Primary
+ */
+export function applyReplicaSyncedLocks(isReplica) {
+    // 1. Dashboard Global Protection Toggle
+    const toggleBtn = getEl('toggle-protection-btn');
+    if (toggleBtn) {
+        toggleBtn.disabled = isReplica;
+        if (isReplica) {
+            toggleBtn.title = 'Protection state is synchronized from Cluster Master';
+            toggleBtn.style.cursor = 'not-allowed';
+            toggleBtn.style.opacity = '0.6';
+        } else {
+            toggleBtn.title = '';
+            toggleBtn.style.cursor = '';
+            toggleBtn.style.opacity = '';
+        }
+    }
+
+    // Helper to lock a container or element
+    const lockElement = (id, lock) => {
+        const el = getEl(id);
+        if (!el) return;
+        if (el.tagName === 'INPUT' || el.tagName === 'BUTTON' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
+            el.disabled = lock;
+        }
+        if (lock) {
+            el.classList.add('replica-locked-section');
+        } else {
+            el.classList.remove('replica-locked-section');
+        }
+    };
+
+    // Helper to create or remove managed banner
+    const syncBanner = (containerId, bannerId, message) => {
+        const container = getEl(containerId);
+        if (!container) return;
+        let banner = getEl(bannerId);
+        if (isReplica) {
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = bannerId;
+                banner.className = 'replica-locked-banner';
+                banner.innerHTML = `<i class="fas fa-lock"></i><span><strong>Managed by Cluster Master:</strong> ${message}</span>`;
+                container.parentNode.insertBefore(banner, container);
+            }
+        } else if (banner) {
+            banner.remove();
+        }
+    };
+
+    // 2. Custom Rules View
+    const customRulesView = getEl('custom-rules');
+    if (customRulesView) {
+        const grid = customRulesView.querySelector('.analytics-grid');
+        if (grid) {
+            syncBanner('custom-rules', 'replica-custom-rules-banner', 'Blocklists, Allowlists, Local Mappings, and Routing Rules are synchronized from the Primary Master and read-only on nodes.');
+            if (isReplica) {
+                grid.classList.add('replica-locked-section');
+            } else {
+                grid.classList.remove('replica-locked-section');
+            }
+            grid.querySelectorAll('input, button, select').forEach(el => el.disabled = isReplica);
+        }
+    }
+
+    // 3. Filtering Lists View
+    const listsView = getEl('lists');
+    if (listsView) {
+        syncBanner('lists', 'replica-lists-banner', 'Active Blocklists and Allowlists are synchronized from the Primary Master and read-only on nodes.');
+        const headerActions = listsView.querySelector('.header-actions');
+        if (headerActions) {
+            headerActions.querySelectorAll('button').forEach(btn => btn.disabled = isReplica);
+            if (isReplica) headerActions.classList.add('replica-locked-section');
+            else headerActions.classList.remove('replica-locked-section');
+        }
+        const sections = listsView.querySelectorAll('.list-section');
+        sections.forEach(sec => {
+            if (isReplica) sec.classList.add('replica-locked-section');
+            else sec.classList.remove('replica-locked-section');
+            sec.querySelectorAll('button, input').forEach(el => el.disabled = isReplica);
+        });
+    }
+
+    // 4. Synced Settings in Settings Page
+    const syncedInputIds = [
+        'settings-preset-selector',
+        'upstreams-input',
+        'dot-upstreams-input',
+        'prefer-encrypted-check',
+        'doh3-enabled-check',
+        'ech-optimization-check',
+        'dns-rebinding-protection-check',
+        'strip-ecs-check',
+        'dnssec-check',
+        'serve-stale-check',
+        'smart-selection-policy-input',
+        'doh-rate-limit-input',
+        'rate-limit-rate-input',
+        'rate-limit-burst-input',
+        'abuse-detection-check',
+        'abuse-dga-threshold-input',
+        'abuse-dga-min-len-input',
+        'malicious-check',
+        'malicious-interval-input',
+        'verify-upstream-tls-check',
+        'country-search',
+        'block-high-risk-countries-btn',
+        'manual-client-block-input',
+        'manual-client-block-btn',
+        'autoblock-whitelist-input',
+        'add-whitelist-ip-btn',
+        'mcp-server-enabled-check',
+        'create-api-key-btn'
+    ];
+
+    syncedInputIds.forEach(id => {
+        const el = getEl(id);
+        if (!el) return;
+        el.disabled = isReplica;
+        const formGroup = el.closest('.form-group, .form-group.checkbox-group, .settings-subsection');
+        if (formGroup) {
+            if (isReplica) {
+                formGroup.classList.add('replica-locked-section');
+            } else {
+                formGroup.classList.remove('replica-locked-section');
+            }
+        }
+    });
+
+    // Tag containers for countries & whitelist
+    lockElement('blocked-countries-tags', isReplica);
+    lockElement('autoblock-whitelist-tags', isReplica);
+
+    // API Keys table buttons
+    const apiKeysList = getEl('api-keys-list');
+    if (apiKeysList) {
+        apiKeysList.querySelectorAll('button').forEach(btn => btn.disabled = isReplica);
+    }
+
+    // Banners for Settings Sections
+    const settingsDnsH2 = document.querySelector('#settings-form .settings-section[data-category="dns"]');
+    if (settingsDnsH2) {
+        let b = getEl('replica-dns-sync-banner');
+        if (isReplica) {
+            if (!b) {
+                b = document.createElement('div');
+                b.id = 'replica-dns-sync-banner';
+                b.className = 'replica-locked-banner';
+                b.innerHTML = '<i class="fas fa-lock"></i><span><strong>Master Managed:</strong> DNS upstreams, HTTP/3, DNSSEC, and performance settings are managed centrally on the Master.</span>';
+                settingsDnsH2.insertBefore(b, settingsDnsH2.firstChild.nextSibling);
+            }
+        } else if (b) {
+            b.remove();
+        }
+    }
+
+    // Banner for Access (API Keys & MCP)
+    const accessSections = document.querySelectorAll('#settings-form .settings-section[data-category="access"]');
+    accessSections.forEach((sec, idx) => {
+        const bannerId = `replica-access-sync-banner-${idx}`;
+        let b = getEl(bannerId);
+        if (isReplica) {
+            if (!b) {
+                b = document.createElement('div');
+                b.id = bannerId;
+                b.className = 'replica-locked-banner';
+                b.innerHTML = '<i class="fas fa-lock"></i><span><strong>Master Managed:</strong> API Keys and MCP settings are synchronized from Cluster Master and read-only on nodes.</span>';
+                sec.insertBefore(b, sec.firstChild.nextSibling);
+            }
+        } else if (b) {
+            b.remove();
+        }
+    });
 }

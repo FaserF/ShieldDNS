@@ -407,6 +407,12 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 		StripECS:                   config.StripECS,
 		RoutingRules:               append([]RoutingRule{}, config.RoutingRules...),
 		WireGuardGateway:           config.WireGuardGateway,
+		BlockedClients:             append([]string{}, config.BlockedClients...),
+		BlockedClientsInfo:         make(map[string]BlockedClientInfo),
+		ClientRules:                append([]ClientRule{}, config.ClientRules...),
+		ClientAliases:              make(map[string]string),
+		MCPServerEnabled:           config.MCPServerEnabled,
+		APIKeys:                    append([]APIKey{}, config.APIKeys...),
 		Timestamp:                  time.Now().UTC(),
 	}
 
@@ -414,6 +420,12 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 	copy(exp.Allowlists, config.Allowlists)
 	for k, v := range config.CustomMappings {
 		exp.CustomMappings[k] = v
+	}
+	for k, v := range config.BlockedClientsInfo {
+		exp.BlockedClientsInfo[k] = v
+	}
+	for k, v := range config.ClientAliases {
+		exp.ClientAliases[k] = v
 	}
 
 	// Instance-type specific optimizations

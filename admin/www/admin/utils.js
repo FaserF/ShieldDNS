@@ -89,16 +89,43 @@ function debounce(func, wait) {
 async function copyText(id) {
     const input = document.getElementById(id);
     if (!input) return;
-    try {
-        await navigator.clipboard.writeText(input.value);
+    const textToCopy = input.value !== undefined ? input.value : input.textContent;
+    let success = false;
+
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(textToCopy);
+            success = true;
+        } catch (err) {
+            console.warn('navigator.clipboard failed, attempting fallback...', err);
+        }
+    }
+
+    if (!success) {
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            textarea.style.position = 'fixed';
+            textarea.style.top = '0';
+            textarea.style.left = '0';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            success = document.execCommand('copy');
+            document.body.removeChild(textarea);
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+        }
+    }
+
+    if (success) {
         const btn = input.nextElementSibling;
         if (btn && btn.tagName === 'BUTTON') {
             const originalText = btn.textContent;
             btn.textContent = 'Copied!';
             setTimeout(() => btn.textContent = originalText, 2000);
         }
-    } catch (err) {
-        console.error('Failed to copy text: ', err);
     }
 }
 

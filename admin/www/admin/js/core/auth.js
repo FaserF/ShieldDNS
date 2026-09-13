@@ -175,6 +175,7 @@ export async function joinClusterSetup() {
     const primaryURL = getEl('setup-primary-url')?.value?.trim();
     const apiToken = getEl('setup-primary-token')?.value?.trim();
     const instType = getEl('setup-instance-type')?.value || 'private';
+    const nodeName = getEl('setup-replica-node-name')?.value?.trim() || '';
     const failover = getEl('setup-replica-failover')?.checked ?? true;
 
     if (!primaryURL || !apiToken) {
@@ -193,6 +194,7 @@ export async function joinClusterSetup() {
                 primary_url: primaryURL,
                 api_token: apiToken,
                 instance_type: instType,
+                name: nodeName,
                 failover_mode: failover
             })
         });

@@ -28,6 +28,14 @@ func handleRoutingRules(w http.ResponseWriter, r *http.Request) {
 		})
 
 	case http.MethodPost:
+		configLock.RLock()
+		if config.ClusterRole == "replica" {
+			configLock.RUnlock()
+			sendJSONError(w, "Routing rules are centrally managed by Cluster Master and cannot be modified on a replica node.", http.StatusForbidden)
+			return
+		}
+		configLock.RUnlock()
+
 		var req struct {
 			ID               string `json:"id"`
 			Name             string `json:"name"`
@@ -163,6 +171,14 @@ func handleRoutingRules(w http.ResponseWriter, r *http.Request) {
 		})
 
 	case http.MethodDelete:
+		configLock.RLock()
+		if config.ClusterRole == "replica" {
+			configLock.RUnlock()
+			sendJSONError(w, "Routing rules are centrally managed by Cluster Master and cannot be deleted on a replica node.", http.StatusForbidden)
+			return
+		}
+		configLock.RUnlock()
+
 		id := r.URL.Query().Get("id")
 		match := r.URL.Query().Get("match")
 		if id == "" && match == "" {

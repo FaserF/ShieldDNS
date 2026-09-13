@@ -37,6 +37,14 @@ func handleGetTokens(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCreateToken(w http.ResponseWriter, r *http.Request) {
+	configLock.RLock()
+	if config.ClusterRole == "replica" {
+		configLock.RUnlock()
+		http.Error(w, "API tokens are centrally managed by Cluster Master and cannot be created on a replica node.", http.StatusForbidden)
+		return
+	}
+	configLock.RUnlock()
+
 	var req struct {
 		Name        string   `json:"name"`
 		Permissions []string `json:"permissions"`
@@ -86,6 +94,11 @@ func handleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	configLock.Lock()
 	defer configLock.Unlock()
 
+	if config.ClusterRole == "replica" {
+		http.Error(w, "API tokens are centrally managed by Cluster Master and cannot be deleted on a replica node.", http.StatusForbidden)
+		return
+	}
+
 	newKeys := make([]APIKey, 0)
 	for _, k := range config.APIKeys {
 		if k.ID != id {
@@ -115,6 +128,11 @@ func handleUpdateToken(w http.ResponseWriter, r *http.Request) {
 
 	configLock.Lock()
 	defer configLock.Unlock()
+
+	if config.ClusterRole == "replica" {
+		http.Error(w, "API tokens are centrally managed by Cluster Master and cannot be updated on a replica node.", http.StatusForbidden)
+		return
+	}
 
 	for i := range config.APIKeys {
 		if config.APIKeys[i].ID == req.ID {

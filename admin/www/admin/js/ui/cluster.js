@@ -114,11 +114,15 @@ export function initClusterUI() {
         getEl('worker-script-modal')?.classList.add('hidden');
     });
 
-    getEl('worker-script-copy-btn')?.addEventListener('click', () => {
+    getEl('worker-script-copy-btn')?.addEventListener('click', async () => {
         const script = getEl('worker-script-code')?.value;
         if (!script) return;
-        navigator.clipboard.writeText(script);
-        helpers.showToast('Cloudflare Worker script copied to clipboard!');
+        const ok = await helpers.copyToClipboard(script);
+        if (ok) {
+            helpers.showToast('Cloudflare Worker script copied to clipboard!');
+        } else {
+            helpers.showToast('Failed to copy to clipboard', 'error');
+        }
     });
 
     getEl('worker-script-download-btn')?.addEventListener('click', () => {

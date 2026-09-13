@@ -234,11 +234,15 @@ func handleClusterGetReplicaConfig(w http.ResponseWriter, r *http.Request) {
 	configLock.Lock()
 	var repType = "private"
 	var found = false
+	reportedName := strings.TrimSpace(r.Header.Get("X-Cluster-Node-Name"))
 	now := time.Now().UTC()
 	for i, rep := range config.ClusterReplicas {
 		if rep.TokenHash == tokenHashed {
 			config.ClusterReplicas[i].LastSeen = now
 			config.ClusterReplicas[i].LastSync = now
+			if reportedName != "" {
+				config.ClusterReplicas[i].Name = reportedName
+			}
 			repType = rep.InstanceType
 			found = true
 			break
@@ -334,8 +338,17 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 	if req.InstanceType != "public" && req.InstanceType != "private" && req.InstanceType != "hybrid" {
 		req.InstanceType = "private"
 	}
-	if req.Name == "" {
-		req.Name = "ShieldDNS Secondary Node"
+	if strings.TrimSpace(req.Name) == "" {
+		configLock.RLock()
+		customNodeName := config.ClusterNodeName
+		configLock.RUnlock()
+		if strings.TrimSpace(customNodeName) != "" {
+			req.Name = strings.TrimSpace(customNodeName)
+		} else {
+			req.Name = "ShieldDNS Secondary Node"
+		}
+	} else {
+		req.Name = strings.TrimSpace(req.Name)
 	}
 
 	// Register with Primary node
@@ -543,6 +556,20 @@ func handleClusterUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	configLock.Unlock()
+
+	configLock.RLock()
+	currentRole := config.ClusterRole
+	currentPURL := config.ClusterPrimaryURL
+	currentPTok := config.ClusterPrimaryToken
+	currentIType := config.ClusterInstanceType
+	currentFailover := config.ClusterFailoverMode
+	configLock.RUnlock()
+
+	if currentRole == "replica" && currentPURL != "" && currentPTok != "" {
+		go func() {
+			_ = performReplicaSync(currentPURL, currentPTok, currentIType, currentFailover)
+		}()
+	}
 
 	go updateCorefile()
 

@@ -67,6 +67,14 @@ func handleClientAlias(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
+		configLock.RLock()
+		if config.ClusterRole == "replica" {
+			configLock.RUnlock()
+			http.Error(w, "Client aliases are centrally managed by Cluster Master and cannot be modified on a replica node.", http.StatusForbidden)
+			return
+		}
+		configLock.RUnlock()
+
 		var req struct {
 			IP    string `json:"ip"`
 			Alias string `json:"alias"`
@@ -153,6 +161,14 @@ func handleClientBlock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
+		configLock.RLock()
+		if config.ClusterRole == "replica" {
+			configLock.RUnlock()
+			http.Error(w, "Blocked clients are centrally managed by Cluster Master and cannot be modified on a replica node.", http.StatusForbidden)
+			return
+		}
+		configLock.RUnlock()
+
 		var req struct {
 			IP     string `json:"ip"`
 			Action string `json:"action"` // "block" or "unblock"

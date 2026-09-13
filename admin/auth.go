@@ -127,6 +127,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 		InstanceType string `json:"instance_type"` // "private" or "public"
 		PrimaryURL   string `json:"primary_url"`
 		APIToken     string `json:"api_token"`
+		Name         string `json:"name"`
 		FailoverMode bool   `json:"failover_mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -138,11 +139,22 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 		req.InstanceType = "private"
 	}
 	config.ClusterInstanceType = req.InstanceType
+	if strings.TrimSpace(req.Name) != "" {
+		config.ClusterNodeName = strings.TrimSpace(req.Name)
+	}
 
 	if req.Mode == "replica" {
 		if req.PrimaryURL == "" || req.APIToken == "" {
 			http.Error(w, "Primary URL and API Token are required for replica setup", http.StatusBadRequest)
 			return
+		}
+		replicaName := strings.TrimSpace(req.Name)
+		if replicaName == "" {
+			if strings.TrimSpace(config.ClusterNodeName) != "" {
+				replicaName = strings.TrimSpace(config.ClusterNodeName)
+			} else {
+				replicaName = "Secondary Node"
+			}
 		}
 		// Temporarily unlock configLock to call join logic
 		configLock.Unlock()
@@ -151,7 +163,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 			"api_token":     req.APIToken,
 			"instance_type": req.InstanceType,
 			"failover_mode": req.FailoverMode,
-			"name":          "Secondary Node",
+			"name":          replicaName,
 		})
 		joinHTTPReq, _ := http.NewRequest(http.MethodPost, "/api/cluster/join", bytes.NewReader(joinReq))
 		joinHTTPReq.RemoteAddr = r.RemoteAddr

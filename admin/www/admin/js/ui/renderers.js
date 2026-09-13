@@ -18,8 +18,10 @@ export {
 export {
     renderDiagnostics,
     renderAboutData,
-    renderClusterStatus
+    renderClusterStatus,
+    applyReplicaSyncedLocks
 } from './renderers_system.js';
+import { applyReplicaSyncedLocks as applyLocks } from './renderers_system.js';
 
 export function renderDashStats(data) {
     const c = uiRefs.statsContainer;
@@ -380,6 +382,9 @@ export function renderConfig(cfg) {
         blockedBadge.textContent = `${count} Client${count !== 1 ? 's' : ''} Blocked`;
         blockedBadge.style.display = count > 0 ? 'inline-block' : 'none';
     }
+
+    const isReplica = (state.clusterStatus && state.clusterStatus.role === 'replica') || (cfg.cluster_role === 'replica');
+    applyLocks(isReplica);
 }
 
 export function renderAnalytics(blocked, clients) {
@@ -419,6 +424,8 @@ export function renderAPIKeys(keys) {
     const list = getEl('api-keys-list') || getEl('api-keys-list-container');
     if (!list) return;
 
+    const isReplica = state.currentConfig && state.currentConfig.cluster_role === 'replica';
+
     list.innerHTML = (keys || []).map(k => {
         const createdDate = (!k.created_at || k.created_at.startsWith('0001')) ? 'Unknown' : new Date(k.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
         const lastUsed = (!k.last_used || k.last_used.startsWith('0001')) ? 'Never' : new Date(k.last_used).toLocaleString();
@@ -431,8 +438,8 @@ export function renderAPIKeys(keys) {
                 <td class="help" style="font-size:0.75rem;">${lastUsed}</td>
                 <td>
                     <div style="display:flex; gap:8px;">
-                        <button type="button" class="btn btn-sm secondary" onclick="window.editAPIKey('${k.id}')"><i class="fas fa-edit"></i></button>
-                        <button type="button" class="btn btn-sm secondary danger" onclick="window.deleteAPIKey('${k.id}', event)" title="Delete Key"><i class="fas fa-trash"></i></button>
+                        <button type="button" class="btn btn-sm secondary" onclick="window.editAPIKey('${k.id}')" ${isReplica ? 'disabled' : ''}><i class="fas fa-edit"></i></button>
+                        <button type="button" class="btn btn-sm secondary danger" onclick="window.deleteAPIKey('${k.id}', event)" ${isReplica ? 'disabled' : ''} title="Delete Key"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             </tr>

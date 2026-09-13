@@ -70,6 +70,11 @@
                             <input type="text" id="setup-primary-token" placeholder="Primary API Token">
                             <p class="help">Create an API token in Settings -> API Tokens on the Primary instance.</p>
                         </div>
+                        <div class="form-group">
+                            <label>Cluster Node Name (Optional)</label>
+                            <input type="text" id="setup-replica-node-name" placeholder="e.g. Home Assistant LAN, Secondary Backup">
+                            <p class="help">Human-readable label for this node in the Primary cluster overview.</p>
+                        </div>
                         <div class="form-group checkbox-group" style="margin-bottom: 15px;">
                             <input type="checkbox" id="setup-replica-failover" checked>
                             <label for="setup-replica-failover">Use Primary as upstream DNS (Failover resolver)</label>

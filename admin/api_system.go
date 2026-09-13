@@ -411,6 +411,39 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		newConfig.CustomAllowed = cleanAllowed
 
+		// If this node is a cluster replica, enforce read-only for settings mastered on Primary
+		if config.ClusterRole == "replica" {
+			newConfig.FilteringEnabled = config.FilteringEnabled
+			newConfig.Lists = config.Lists
+			newConfig.Allowlists = config.Allowlists
+			newConfig.CustomBlocked = config.CustomBlocked
+			newConfig.CustomAllowed = config.CustomAllowed
+			newConfig.CustomMappings = config.CustomMappings
+			newConfig.AutoblockWhitelist = config.AutoblockWhitelist
+			newConfig.BlockedCountries = config.BlockedCountries
+			newConfig.SmartSelectionPolicy = config.SmartSelectionPolicy
+			newConfig.ServeStale = config.ServeStale
+			newConfig.DNSSECEnabled = config.DNSSECEnabled
+			newConfig.AbuseDetectionEnabled = config.AbuseDetectionEnabled
+			newConfig.AbuseDGAThreshold = config.AbuseDGAThreshold
+			newConfig.AbuseDGAMinLen = config.AbuseDGAMinLen
+			newConfig.MaliciousIPBlockingEnabled = config.MaliciousIPBlockingEnabled
+			newConfig.MaliciousIPInterval = config.MaliciousIPInterval
+			newConfig.VerifyUpstreamTLS = config.VerifyUpstreamTLS
+			newConfig.PreferEncrypted = config.PreferEncrypted
+			newConfig.DoH3Enabled = config.DoH3Enabled
+			newConfig.RateLimitRate = config.RateLimitRate
+			newConfig.RateLimitBurst = config.RateLimitBurst
+			newConfig.DoHRateLimit = config.DoHRateLimit
+			newConfig.ECHOptimizationEnabled = config.ECHOptimizationEnabled
+			newConfig.DNSRebindingProtection = config.DNSRebindingProtection
+			newConfig.StripECS = config.StripECS
+			newConfig.RoutingRules = config.RoutingRules
+			newConfig.WireGuardGateway = config.WireGuardGateway
+			newConfig.Upstreams = config.Upstreams
+			newConfig.UpstreamDoT = config.UpstreamDoT
+		}
+
 		configHold := config
 		config = newConfig
 		if err := saveConfigNoLock(); err != nil {

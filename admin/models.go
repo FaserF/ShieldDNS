@@ -143,12 +143,18 @@ type ClusterConfigExport struct {
 	DoH3Enabled                bool              `json:"doh3_enabled"`
 	RateLimitRate              int               `json:"rate_limit_rate"`
 	RateLimitBurst             int               `json:"rate_limit_burst"`
-	ECHOptimizationEnabled     bool              `json:"ech_optimization_enabled"`
-	DNSRebindingProtection     bool              `json:"dns_rebinding_protection"`
-	StripECS                   bool              `json:"strip_ecs"`
-	RoutingRules               []RoutingRule     `json:"routing_rules,omitempty"`
-	WireGuardGateway           string            `json:"wireguard_gateway,omitempty"`
-	Timestamp                  time.Time         `json:"timestamp"`
+	ECHOptimizationEnabled     bool                         `json:"ech_optimization_enabled"`
+	DNSRebindingProtection     bool                         `json:"dns_rebinding_protection"`
+	StripECS                   bool                         `json:"strip_ecs"`
+	RoutingRules               []RoutingRule                `json:"routing_rules,omitempty"`
+	WireGuardGateway           string                       `json:"wireguard_gateway,omitempty"`
+	BlockedClients             []string                     `json:"blocked_clients,omitempty"`
+	BlockedClientsInfo         map[string]BlockedClientInfo `json:"blocked_clients_info,omitempty"`
+	ClientRules                []ClientRule                 `json:"client_rules,omitempty"`
+	ClientAliases              map[string]string            `json:"client_aliases,omitempty"`
+	MCPServerEnabled           bool                         `json:"mcp_server_enabled"`
+	APIKeys                    []APIKey                     `json:"api_keys,omitempty"`
+	Timestamp                  time.Time                    `json:"timestamp"`
 }
 
 type BlockedClientInfo struct {

@@ -23,6 +23,11 @@ func handleToggleFiltering(w http.ResponseWriter, r *http.Request) {
 	}
 
 	configLock.Lock()
+	if config.ClusterRole == "replica" {
+		configLock.Unlock()
+		http.Error(w, "Filtering protection is centrally managed by Cluster Master and cannot be toggled on a replica node.", http.StatusForbidden)
+		return
+	}
 	config.FilteringEnabled = req.Enabled
 	if err := saveConfigNoLock(); err != nil {
 		slog.Error("Failed to save config in handleToggleFiltering", "error", err)
@@ -100,6 +105,11 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 
 	configLock.Lock()
 	defer configLock.Unlock()
+
+	if config.ClusterRole == "replica" {
+		sendJSONError(w, "Custom rules are centrally managed by Cluster Master and cannot be modified on a replica node.", http.StatusForbidden)
+		return
+	}
 
 	// If client-specific rule
 	if clientIP != "" {
@@ -251,6 +261,11 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 
 	configLock.Lock()
 	defer configLock.Unlock()
+
+	if config.ClusterRole == "replica" {
+		sendJSONError(w, "Custom rules are centrally managed by Cluster Master and cannot be modified on a replica node.", http.StatusForbidden)
+		return
+	}
 
 	// If removing a client rule or client specified
 	if clientIP != "" {
@@ -440,6 +455,11 @@ func handleResetLists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	configLock.Lock()
+	if config.ClusterRole == "replica" {
+		configLock.Unlock()
+		http.Error(w, "Filter lists are centrally managed by Cluster Master and cannot be reset on a replica node.", http.StatusForbidden)
+		return
+	}
 	config.Lists = DefaultPresets
 	config.Allowlists = DefaultAllowlists
 	if err := saveConfigNoLock(); err != nil {

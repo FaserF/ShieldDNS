@@ -384,10 +384,38 @@
             }
         }
 
+        async function copyToClipboardFallback(text) {
+            if (!text && text !== '') return false;
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                } catch (e) {
+                    console.warn('navigator.clipboard failed, using fallback', e);
+                }
+            }
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(textarea);
+                return ok;
+            } catch (err) {
+                console.error('Copy fallback failed', err);
+                return false;
+            }
+        }
+
         document.querySelectorAll('.copy-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', async function() {
                 const text = this.dataset.copy;
-                navigator.clipboard.writeText(text).then(() => {
+                const ok = await copyToClipboardFallback(text);
+                if (ok) {
                     const span = this.querySelector('span');
                     const originalText = span ? span.textContent : '';
                     
@@ -398,7 +426,7 @@
                         this.classList.remove('success');
                         if (span) span.textContent = originalText;
                     }, 2000);
-                });
+                }
             });
         });
     </script>

@@ -168,7 +168,6 @@ var mcpAdminTools = []mcpToolDefinition{
 		requiredPerm: "write:config",
 		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
 			configLock.Lock()
-			defer configLock.Unlock()
 
 			if rl, ok := args["doh_rate_limit"].(float64); ok && rl > 0 {
 				config.DoHRateLimit = int(rl)
@@ -190,13 +189,10 @@ var mcpAdminTools = []mcpToolDefinition{
 			}
 
 			if err := saveConfigNoLock(); err != nil {
+				configLock.Unlock()
 				return nil, fmt.Errorf("failed to save config: %w", err)
 			}
-
-			updateCorefile()
-			restartCoreDNS()
-
-			return map[string]interface{}{
+			res := map[string]interface{}{
 				"success":                  true,
 				"doh_rate_limit":           config.DoHRateLimit,
 				"abuse_detection_enabled":  config.AbuseDetectionEnabled,
@@ -205,7 +201,13 @@ var mcpAdminTools = []mcpToolDefinition{
 				"rate_limit_burst":         config.RateLimitBurst,
 				"retention_days":           config.RetentionDays,
 				"message":                  "Security profile optimized successfully and CoreDNS reloaded",
-			}, nil
+			}
+			configLock.Unlock()
+
+			updateCorefile()
+			restartCoreDNS()
+
+			return res, nil
 		},
 	},
 
