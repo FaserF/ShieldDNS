@@ -8,6 +8,67 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="stylesheet" href="style.css">
+    <style>
+        .ip-status-card {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .ip-status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-pill.default {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        .status-pill.whitelisted {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .status-pill.blocked {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .btn-unblock {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .btn-unblock:hover {
+            background: #dc2626;
+        }
+    </style>
 </head>
 
 <body>
@@ -27,6 +88,23 @@
                 Advanced DNS filtering for a safer, faster, and cleaner web experience.
             {{end}}
         </p>
+
+        <!-- Dynamic IP Status Card -->
+        <div class="ip-status-card" id="ip-status-card">
+            <div class="ip-status-header">
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; display: block;">Your Client IP</span>
+                    <strong id="client-ip-display" style="font-family: monospace; font-size: 1rem; color: var(--text-primary);">Detecting...</strong>
+                </div>
+                <div id="ip-status-badge">
+                    <span class="status-pill default">Checking...</span>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                <span id="ip-status-desc" style="color: var(--text-secondary);">Querying server policy status...</span>
+                <a href="/admin/#/clients" id="btn-unblock-action" class="btn-unblock" style="display: none;">Unblock IP (Login)</a>
+            </div>
+        </div>
 
         {{if .IsReplica}}
         <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid var(--accent, #3b82f6); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.9rem;">
@@ -187,6 +265,18 @@
         </div>
         {{end}}
 
+        <!-- Connection Test Banner -->
+        <div class="setup-section" style="background: rgba(92, 107, 192, 0.08); border-color: rgba(92, 107, 192, 0.3); text-align: center;">
+            <h2 style="justify-content: center; margin-bottom: 8px;">
+                <svg style="width:20px; height:20px; fill:currentColor;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                Connection Diagnostics &amp; Test
+            </h2>
+            <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 16px;">
+                Test whether your device is currently using ShieldDNS, identify your active protocol (DoH, DoT, DoQ), and check latency.
+            </p>
+            <a href="/test" class="btn-download" style="margin-top: 0; background: var(--accent);">Run Connection Test &rarr;</a>
+        </div>
+
         <a href="https://github.com/FaserF/ShieldDNS" class="github-link" target="_blank">
             <svg viewBox="0 0 24 24">
                 <path
@@ -194,73 +284,6 @@
             </svg>
             Explore on GitHub
         </a>
-
-        <div class="setup-section" style="background: rgba(92, 107, 192, 0.08); border-color: rgba(92, 107, 192, 0.3);">
-            <h2 style="color: var(--accent); display: flex; align-items: center; justify-content: space-between;">
-                <span>Datenschutz &amp; Transparenz (DSGVO / GDPR)</span>
-                <span style="font-size: 0.75rem; background: rgba(92, 107, 192, 0.25); color: #c7d2fe; padding: 3px 8px; border-radius: 9999px; font-weight: 500;">Transparenzbericht</span>
-            </h2>
-            <p style="font-size: 0.85rem; margin-bottom: 16px; color: #cbd5e1; line-height: 1.5;">
-                ShieldDNS schützt deine digitale Privatsphäre und hält strenge Vorgaben der Datenschutz-Grundverordnung (DSGVO) ein. Nachfolgend findest du eine transparente Aufstellung aller Verarbeitungen bei Nutzung dieses Servers:
-            </p>
-
-            <div style="display: grid; gap: 12px; margin-bottom: 16px; font-size: 0.82rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--border);">
-                    <span style="color: var(--text-secondary);"><i class="fas fa-user-shield"></i> Client-IP Speicherung</span>
-                    <span style="font-weight: 600; color: {{if .AnonymizeIPs}}#34d399{{else}}#fbbf24{{end}};">
-                        {{if .AnonymizeIPs}}Anonymisiert (/24 IPv4, /64 IPv6){{else}}Vollständig (für Abuse-Schutz){{end}}
-                    </span>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--border);">
-                    <span style="color: var(--text-secondary);"><i class="fas fa-history"></i> Protokoll-Aufbewahrung (Retention)</span>
-                    <span style="font-weight: 600; color: #93c5fd;">
-                        {{if eq .RetentionDays 0}}Keine Speicherung (0 Tage){{else}}{{.RetentionDays}} Tage (Automatische Löschung){{end}}
-                    </span>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--border);">
-                    <span style="color: var(--text-secondary);"><i class="fas fa-lock"></i> Verschlüsselung zu Upstreams</span>
-                    <span style="font-weight: 600; color: {{if .PreferEncrypted}}#34d399{{else}}#94a3b8{{end}};">
-                        {{if .PreferEncrypted}}DNS-over-TLS (DoT) Aktiviert{{else}}Standard DNS (Port 53){{end}}
-                    </span>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--border);">
-                    <span style="color: var(--text-secondary);"><i class="fas fa-mask"></i> EDNS Client Subnet (ECS)</span>
-                    <span style="font-weight: 600; color: {{if .StripECS}}#34d399{{else}}#94a3b8{{end}};">
-                        {{if .StripECS}}Gestrippt (Keine Subnetz-Weitergabe){{else}}Standard{{end}}
-                    </span>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--border);">
-                    <span style="color: var(--text-secondary);"><i class="fas fa-shield-virus"></i> DNS-Filterung &amp; Schutz</span>
-                    <span style="font-weight: 600; color: {{if .FilteringEnabled}}#34d399{{else}}#ef4444{{end}};">
-                        {{if .FilteringEnabled}}Aktiv (Malware &amp; Tracking Blockiert){{else}}Inaktiv{{end}}
-                    </span>
-                </div>
-            </div>
-
-            <details style="font-size: 0.8rem; color: var(--text-secondary); border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
-                <summary style="cursor: pointer; color: var(--text-primary); font-weight: 600; outline: none; margin-bottom: 8px;">
-                    Detaillierte Datenschutzerklärung ausklappen &rarr;
-                </summary>
-                <div style="margin-top: 10px; line-height: 1.6; display: flex; flex-direction: column; gap: 10px;">
-                    <p>
-                        <strong>1. Webseitenbesuch (HTTP/HTTPS):</strong> Beim Aufruf dieser Informationsseite verarbeitet der Server technisch bedingt Ihre IP-Adresse und Browser-Metadaten zur Auslieferung der Seite. Es werden keine Third-Party-Tracking-Skripte oder Werbe-Cookies eingesetzt.
-                    </p>
-                    <p>
-                        <strong>2. DNS-Auflösung &amp; Profile (DoH / DoT / DoQ):</strong> Wenn Sie diesen Server in Ihrem Betriebssystem oder Router konfigurieren, werden angefragte Domains verarbeitet, um sie auf bösartige Inhalte (Malware, Phishing, Tracker) zu prüfen und die IP-Adresse des Zielservers zurückzuliefern.
-                    </p>
-                    <p>
-                        <strong>3. Speicherdauer:</strong> DNS-Abfragen werden nach Ablauf der konfigurierten Aufbewahrungsfrist (aktuell <strong>{{if eq .RetentionDays 0}}0 Tage (kein Logging){{else}}{{.RetentionDays}} Tage{{end}}</strong>) unwiderruflich aus der Datenbank gelöscht.
-                    </p>
-                    <p>
-                        <strong>4. Keine Weitergabe:</strong> DNS-Abfragen werden unter keinen Umständen an Werbenetzwerke oder Datenhändler weitergegeben oder für Profilbildung genutzt.
-                    </p>
-                </div>
-            </details>
-        </div>
 
         <div class="setup-section" style="background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2);">
             <h2 style="color: #ef4444;">Private Use Notice</h2>
@@ -275,12 +298,58 @@
             Developed for private environments and secure resolution. &copy; 2026 ShieldDNS.
         </div>
 
-        <div class="footer">
+        <div class="footer" style="display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;">
+            <a href="/privacy" class="btn-admin">Privacy Policy &amp; Transparency (GDPR)</a>
+            <a href="/test" class="btn-admin">Connection Test</a>
             <a href="admin/" class="btn-admin">Admin Dashboard</a>
         </div>
     </div>
 
     <script>
+        // Client IP status lookup
+        async function loadClientIPStatus() {
+            try {
+                const res = await fetch('/api/public/my-ip-status', { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                const ipElem = document.getElementById('client-ip-display');
+                const badgeElem = document.getElementById('ip-status-badge');
+                const descElem = document.getElementById('ip-status-desc');
+                const unblockBtn = document.getElementById('btn-unblock-action');
+
+                if (ipElem && data.ip) {
+                    ipElem.textContent = data.ip;
+                }
+
+                if (badgeElem && data.status) {
+                    let badgeClass = 'default';
+                    let label = 'Default';
+                    if (data.status === 'blocked') {
+                        badgeClass = 'blocked';
+                        label = 'Blocked';
+                    } else if (data.status === 'whitelisted') {
+                        badgeClass = 'whitelisted';
+                        label = 'Whitelisted';
+                    }
+                    badgeElem.innerHTML = `<span class="status-pill ${badgeClass}">${label}</span>`;
+                }
+
+                if (descElem && data.reason) {
+                    descElem.textContent = data.reason;
+                }
+
+                if (unblockBtn && data.can_unblock) {
+                    unblockBtn.style.display = 'inline-flex';
+                    unblockBtn.href = `/admin/#/clients?unblock=${encodeURIComponent(data.ip)}`;
+                }
+            } catch (e) {
+                console.error('Failed to load client IP status', e);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadClientIPStatus);
+
         // Detection for Android shortcut
         if (/Android/i.test(navigator.userAgent)) {
             const androidSetup = document.getElementById('android-setup-container');

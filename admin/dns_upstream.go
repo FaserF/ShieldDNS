@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -35,7 +36,14 @@ func startHealthChecker(ctx context.Context) {
 	}
 }
 
-func checkAll() {
+var isCheckingUpstreams atomic.Bool
+
+func checkAll() bool {
+	if !isCheckingUpstreams.CompareAndSwap(false, true) {
+		return false
+	}
+	defer isCheckingUpstreams.Store(false)
+
 	configLock.RLock()
 	upstreams := config.Upstreams
 	dots := config.UpstreamDoT
@@ -93,25 +101,27 @@ func checkAll() {
 
 	wg.Wait()
 
-	healthLock.Lock()
-	healthyUpstreams = newHealthyUpstreams
-	healthyDoT = newHealthyDoT
-
 	if smart {
 		latencyLock.RLock()
-		sort.Slice(healthyUpstreams, func(i, j int) bool {
-			return latencyMap[healthyUpstreams[i]] < latencyMap[healthyUpstreams[j]]
+		sort.Slice(newHealthyUpstreams, func(i, j int) bool {
+			return latencyMap[newHealthyUpstreams[i]] < latencyMap[newHealthyUpstreams[j]]
 		})
-		sort.Slice(healthyDoT, func(i, j int) bool {
-			return latencyMap[healthyDoT[i]] < latencyMap[healthyDoT[j]]
+		sort.Slice(newHealthyDoT, func(i, j int) bool {
+			return latencyMap[newHealthyDoT[i]] < latencyMap[newHealthyDoT[j]]
 		})
 		latencyLock.RUnlock()
 	}
+
+	healthLock.Lock()
+	changed := !equal(healthyUpstreams, newHealthyUpstreams) || !equal(healthyDoT, newHealthyDoT)
+	healthyUpstreams = newHealthyUpstreams
+	healthyDoT = newHealthyDoT
 	healthLock.Unlock()
 
-	if smart {
+	if smart && changed {
 		updateCorefile()
 	}
+	return true
 }
 
 func splitAddr(addr, defaultPort string) (host, port string) {

@@ -223,11 +223,20 @@ func renderError(w http.ResponseWriter, message, code string, status int) {
 }
 
 func getClientIP(r *http.Request) string {
-	clientIP := strings.Split(r.RemoteAddr, ":")[0]
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		clientIP = strings.TrimSpace(strings.Split(xff, ",")[0])
+	if fwd := r.Header.Get("X-Real-IP"); fwd != "" {
+		return strings.TrimSpace(fwd)
 	}
-	return clientIP
+	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		parts := strings.Split(fwd, ",")
+		if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
+			return strings.TrimSpace(parts[0])
+		}
+	}
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil && ip != "" {
+		return ip
+	}
+	return r.RemoteAddr
 }
 
 func hashToken(token string) string {

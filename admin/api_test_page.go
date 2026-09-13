@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -323,17 +324,105 @@ func handlePublicTestInfo(w http.ResponseWriter, r *http.Request) {
 		protocols = append(protocols, "doh3")
 	}
 
+	clientIP := getClientIP(r)
+	ipStatus, blockReason := getIPStatus(clientIP)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	json.NewEncoder(w).Encode(map[string]any{
-		"filter_active":  filteringEnabled,
-		"doh3_enabled":   doh3Enabled,
+		"filter_active":    filteringEnabled,
+		"doh3_enabled":     doh3Enabled,
 		"prefer_encrypted": preferEncrypted,
-		"strip_ecs":      stripECS,
-		"dnssec_enabled": dnssecEnabled,
-		"node_name":      nodeName,
-		"cluster_role":   clusterRole,
-		"admin_domain":   adminDomain,
-		"protocols":      protocols,
+		"strip_ecs":        stripECS,
+		"dnssec_enabled":   dnssecEnabled,
+		"node_name":        nodeName,
+		"cluster_role":     clusterRole,
+		"admin_domain":     adminDomain,
+		"protocols":        protocols,
+		"client_ip":        clientIP,
+		"ip_status":        ipStatus,
+		"block_reason":     blockReason,
 	})
 }
+
+
+func getIPStatus(clientIP string) (status string, reason string) {
+	configLock.RLock()
+	defer configLock.RUnlock()
+
+	// 1. Check if explicitly blocked
+	for _, ip := range config.BlockedClients {
+		if ip == clientIP {
+			reason = "Blocked manually or via abuse detection"
+			if info, ok := config.BlockedClientsInfo[ip]; ok && info.Reason != "" {
+				reason = info.Reason
+			}
+			return "blocked", reason
+		}
+	}
+
+	// 2. Check if whitelisted
+	for _, ip := range config.AutoblockWhitelist {
+		if ip == clientIP {
+			return "whitelisted", "Whitelisted (Protected from automatic blocks)"
+		}
+	}
+
+	// 3. Default
+	return "default", "Default (Standard filtering and rate limiting applied)"
+}
+
+// ---------------------------------------------------------------------------
+// Handler: GET /api/public/my-ip-status
+// ---------------------------------------------------------------------------
+
+func handlePublicMyIPStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	clientIP := getClientIP(r)
+	status, reason := getIPStatus(clientIP)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(map[string]any{
+		"ip":           clientIP,
+		"status":       status,
+		"reason":       reason,
+		"can_unblock":  status == "blocked",
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Handler: POST /api/public/request-unblock
+// ---------------------------------------------------------------------------
+
+func handlePublicRequestUnblock(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	clientIP := getClientIP(r)
+	var req struct {
+		IP string `json:"ip"`
+	}
+	// IP is optional, defaults to request's IP
+	if err := json.NewDecoder(r.Body).Decode(&req); err == nil && strings.TrimSpace(req.IP) != "" {
+		clientIP = strings.TrimSpace(req.IP)
+	}
+
+	status, reason := getIPStatus(clientIP)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"ip":           clientIP,
+		"status":       status,
+		"reason":       reason,
+		"redirect_url": "/admin/#/clients?unblock=" + url.QueryEscape(clientIP),
+		"message":      "Admin authentication required to unblock",
+	})
+}
+

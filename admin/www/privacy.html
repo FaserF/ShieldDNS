@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy &amp; Transparency Report – ShieldDNS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .privacy-container {
+            max-width: 680px;
+            text-align: left;
+        }
+
+        .privacy-card {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 14px;
+        }
+
+        .privacy-card h3 {
+            font-size: 1rem;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .privacy-card p {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 0;
+        }
+
+        .grid-status {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 24px;
+            font-size: 0.85rem;
+        }
+
+        .grid-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .btn-test {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--accent);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .btn-test:hover {
+            transform: scale(1.02);
+            background-color: #7986cb;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container privacy-container">
+        <div class="logo" style="text-align:center;">
+            <a href="/" style="display:inline-block;">
+                <img src="/logo.png?v={{.CacheVersion}}" alt="ShieldDNS" style="width:72px;height:72px;">
+            </a>
+        </div>
+        <h1 style="text-align:center;">Privacy &amp; Transparency</h1>
+        <p style="text-align:center; margin-bottom: 28px;">
+            ShieldDNS complies with strict European Union General Data Protection Regulation (GDPR / DSGVO) principles.
+            Below is a transparent overview of how data is processed on this server.
+        </p>
+
+        <!-- Current Live Server Privacy Configuration -->
+        <div class="setup-section">
+            <h2 style="color: var(--accent); display: flex; align-items: center; justify-content: space-between;">
+                <span>Active Protection &amp; Data Handling</span>
+                <span style="font-size: 0.75rem; background: rgba(92, 107, 192, 0.25); color: #c7d2fe; padding: 3px 8px; border-radius: 9999px; font-weight: 500;">Live Status</span>
+            </h2>
+            <div class="grid-status">
+                <div class="grid-row">
+                    <span style="color: var(--text-secondary);">Client IP Storage</span>
+                    <span style="font-weight: 600; color: {{if .AnonymizeIPs}}#34d399{{else}}#fbbf24{{end}};">
+                        {{if .AnonymizeIPs}}Anonymized (/24 IPv4, /64 IPv6){{else}}Full IP (for abuse defense){{end}}
+                    </span>
+                </div>
+                <div class="grid-row">
+                    <span style="color: var(--text-secondary);">Log Retention</span>
+                    <span style="font-weight: 600; color: #93c5fd;">
+                        {{if eq .RetentionDays 0}}No Storage (0 days){{else}}{{.RetentionDays}} Days (Automatic deletion){{end}}
+                    </span>
+                </div>
+                <div class="grid-row">
+                    <span style="color: var(--text-secondary);">Upstream Encryption</span>
+                    <span style="font-weight: 600; color: {{if .PreferEncrypted}}#34d399{{else}}#94a3b8{{end}};">
+                        {{if .PreferEncrypted}}DNS-over-TLS (DoT) Enabled{{else}}Standard DNS (Port 53){{end}}
+                    </span>
+                </div>
+                <div class="grid-row">
+                    <span style="color: var(--text-secondary);">EDNS Client Subnet (ECS)</span>
+                    <span style="font-weight: 600; color: {{if .StripECS}}#34d399{{else}}#94a3b8{{end}};">
+                        {{if .StripECS}}Stripped (No client subnet passed to upstreams){{else}}Standard{{end}}
+                    </span>
+                </div>
+                <div class="grid-row">
+                    <span style="color: var(--text-secondary);">DNS Filtering &amp; Security</span>
+                    <span style="font-weight: 600; color: {{if .FilteringEnabled}}#34d399{{else}}#ef4444{{end}};">
+                        {{if .FilteringEnabled}}Active (Malware &amp; tracking blocked){{else}}Inactive{{end}}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Legal Disclosures -->
+        <div class="setup-section">
+            <h2>Detailed Transparency Disclosures (GDPR Articles 13 &amp; 14)</h2>
+
+            <div class="privacy-card">
+                <h3>1. Web Visit (HTTP / HTTPS)</h3>
+                <p>
+                    When accessing this information page or the web dashboard, the web server temporarily processes technical connection data (IP address, browser User-Agent, request timestamp) solely to deliver requested assets. No third-party tracking scripts, analytics cookies, or advertising tags are utilized.
+                </p>
+            </div>
+
+            <div class="privacy-card">
+                <h3>2. DNS Resolution &amp; Protocol Tunneling (DoH / DoT / DoQ / Plain)</h3>
+                <p>
+                    When your device queries this DNS resolver, requested domain names are evaluated locally to detect malware, phishing, and unwanted tracking domains. Once resolved, responses are returned directly to your device without external profiling.
+                </p>
+            </div>
+
+            <div class="privacy-card">
+                <h3>3. Data Retention Period</h3>
+                <p>
+                    Resolved queries stored for dashboard visibility are purged automatically and irrevocably after the configured retention period of <strong>{{if eq .RetentionDays 0}}0 days (logging disabled){{else}}{{.RetentionDays}} days{{end}}</strong>.
+                </p>
+            </div>
+
+            <div class="privacy-card">
+                <h3>4. Zero Third-Party Sharing</h3>
+                <p>
+                    DNS records, client IP mappings, and user query histories are strictly confidential and are <strong>never sold, leased, or transmitted</strong> to commercial advertising networks, data aggregators, or telemetry platforms.
+                </p>
+            </div>
+        </div>
+
+        <!-- Connection Test Link -->
+        <div style="text-align: center; margin: 32px 0 16px;">
+            <a href="/test" class="btn-test">
+                <svg style="width:18px;height:18px;fill:currentColor;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                Verify My Connection on Test Page &rarr;
+            </a>
+        </div>
+
+        <div class="footer" style="text-align:center;">
+            <a href="/" class="btn-admin">&larr; Back to Setup Overview</a>
+            &nbsp;·&nbsp;
+            <a href="/test" class="btn-admin">DNS Test Page</a>
+            &nbsp;·&nbsp;
+            <a href="/admin/" class="btn-admin">Admin Dashboard</a>
+        </div>
+
+        <div class="disclaimer">
+            Developed for private environments and secure resolution. &copy; 2026 ShieldDNS.
+        </div>
+    </div>
+</body>
+
+</html>

@@ -224,3 +224,63 @@ func TestCleanupProbes_KeepsFreshEntries(t *testing.T) {
 		t.Error("fresh probe was incorrectly removed")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// handlePublicMyIPStatus & handlePublicRequestUnblock
+// ---------------------------------------------------------------------------
+
+func TestHandlePublicMyIPStatus(t *testing.T) {
+	configLock.Lock()
+	config.BlockedClients = []string{"192.0.2.10"}
+	config.AutoblockWhitelist = []string{"192.0.2.20"}
+	configLock.Unlock()
+
+	// Default IP
+	req := httptest.NewRequest(http.MethodGet, "/api/public/my-ip-status", nil)
+	req.RemoteAddr = "192.0.2.1:12345"
+	rr := httptest.NewRecorder()
+	handlePublicMyIPStatus(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var res map[string]any
+	json.NewDecoder(rr.Body).Decode(&res)
+	if res["status"] != "default" {
+		t.Errorf("expected default status, got %v", res["status"])
+	}
+	if res["can_unblock"] != false {
+		t.Errorf("expected can_unblock=false for default status")
+	}
+
+	// Blocked IP
+	req = httptest.NewRequest(http.MethodGet, "/api/public/my-ip-status", nil)
+	req.Header.Set("X-Real-IP", "192.0.2.10")
+	rr = httptest.NewRecorder()
+	handlePublicMyIPStatus(rr, req)
+
+	res = nil
+	json.NewDecoder(rr.Body).Decode(&res)
+	if res["status"] != "blocked" {
+		t.Errorf("expected blocked status, got %v", res["status"])
+	}
+	if res["can_unblock"] != true {
+		t.Errorf("expected can_unblock=true for blocked IP")
+	}
+}
+
+func TestHandlePublicRequestUnblock(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/public/request-unblock", strings.NewReader(`{"ip":"192.0.2.10"}`))
+	rr := httptest.NewRecorder()
+	handlePublicRequestUnblock(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var res map[string]any
+	json.NewDecoder(rr.Body).Decode(&res)
+	if !strings.Contains(res["redirect_url"].(string), "192.0.2.10") {
+		t.Errorf("expected redirect_url containing IP, got %v", res["redirect_url"])
+	}
+}
+

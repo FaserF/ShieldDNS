@@ -137,12 +137,13 @@ func main() {
 
 	// 1. Primary Server (Admin UI + DoH)
 	primaryServer := &http.Server{
-		Addr:         ":" + adminPort,
-		Handler:      finalHandler,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 0, // Disable timeout for SSE support
-		IdleTimeout:  120 * time.Second,
-		ErrorLog:     log.New(&LogWriter{}, "", 0),
+		Addr:              ":" + adminPort,
+		Handler:           finalHandler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      0, // Disable timeout for SSE support
+		IdleTimeout:       120 * time.Second,
+		ErrorLog:          log.New(&LogWriter{}, "", 0),
 		TLSConfig: &tls.Config{
 			MinVersion:               tls.VersionTLS12,
 			PreferServerCipherSuites: true,
@@ -196,11 +197,12 @@ func main() {
 	var auxiliaryServer *http.Server
 	if ingressPort != "" && ingressPort != adminPort {
 		auxiliaryServer = &http.Server{
-			Addr:         ":" + ingressPort,
-			Handler:      finalHandler, // Shared handler for both ports
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 0, // Disable timeout for SSE support
-			IdleTimeout:  120 * time.Second,
+			Addr:              ":" + ingressPort,
+			Handler:           finalHandler, // Shared handler for both ports
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      0, // Disable timeout for SSE support
+			IdleTimeout:       120 * time.Second,
 		}
 		go func() {
 			slog.Info("Ingress secondary server starting", "port", ingressPort)

@@ -116,6 +116,8 @@ func setupRouter() *http.ServeMux {
 	mux.HandleFunc("/api/public/dns-probe-run", handleDNSProbeRun)
 	mux.HandleFunc("/api/public/dns-probe-status", handleDNSProbeStatus)
 	mux.HandleFunc("/api/public/test-info", handlePublicTestInfo)
+	mux.HandleFunc("/api/public/my-ip-status", handlePublicMyIPStatus)
+	mux.HandleFunc("/api/public/request-unblock", handlePublicRequestUnblock)
 
 	// Health
 	mux.HandleFunc("/api/health/live", func(w http.ResponseWriter, r *http.Request) {
@@ -321,6 +323,7 @@ func setupStaticHandlers(mux *http.ServeMux) {
 		// Case 2: Redirection for blocked domains
 		isInternal := strings.HasPrefix(r.URL.Path, "/api/") ||
 			r.URL.Path == "/test" ||
+			r.URL.Path == "/privacy" ||
 			r.URL.Path == "/admin" || strings.HasPrefix(r.URL.Path, "/admin/") ||
 			strings.HasPrefix(r.URL.Path, "/favicon.ico") ||
 			strings.HasPrefix(r.URL.Path, "/logo.png") ||
@@ -376,6 +379,45 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			}
 			w.Header().Set("Content-Type", "text/html")
 			w.Write(data)
+			return
+		}
+
+		// Privacy policy & transparency report
+		if r.URL.Path == "/privacy" || r.URL.Path == "/privacy/" {
+			tmplBytes, err := fs.ReadFile(wwwFS, "privacy.html")
+			if err != nil {
+				http.Error(w, "Error loading privacy page", http.StatusInternalServerError)
+				return
+			}
+			tmpl, err := template.New("privacy.html").Parse(string(tmplBytes))
+			if err != nil {
+				http.Error(w, "Error parsing privacy page template", http.StatusInternalServerError)
+				return
+			}
+			configLock.RLock()
+			retentionDays := config.RetentionDays
+			anonymizeIPs := config.AnonymizeClientIPs
+			preferEncrypted := config.PreferEncrypted
+			stripECS := config.StripECS
+			filteringEnabled := config.FilteringEnabled
+			configLock.RUnlock()
+
+			w.Header().Set("Content-Type", "text/html")
+			tmpl.Execute(w, struct {
+				CacheVersion     string
+				RetentionDays    int
+				AnonymizeIPs     bool
+				PreferEncrypted  bool
+				StripECS         bool
+				FilteringEnabled bool
+			}{
+				CacheVersion:     CacheVersion,
+				RetentionDays:    retentionDays,
+				AnonymizeIPs:     anonymizeIPs,
+				PreferEncrypted:  preferEncrypted,
+				StripECS:         stripECS,
+				FilteringEnabled: filteringEnabled,
+			})
 			return
 		}
 
