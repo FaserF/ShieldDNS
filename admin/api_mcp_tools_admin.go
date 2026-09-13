@@ -156,9 +156,12 @@ var mcpAdminTools = []mcpToolDefinition{
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"doh_rate_limit":          map[string]interface{}{"type": "integer", "description": "Max queries per second per client (e.g. 30, 50)"},
-					"abuse_detection_enabled": map[string]interface{}{"type": "boolean", "description": "Enable automated abuse and DGA detection"},
-					"retention_days":          map[string]interface{}{"type": "integer", "description": "Query log retention in days (1-90)"},
+					"doh_rate_limit":           map[string]interface{}{"type": "integer", "description": "Max queries per second per client (e.g. 30, 50)"},
+					"abuse_detection_enabled":  map[string]interface{}{"type": "boolean", "description": "Enable automated abuse and DGA detection"},
+					"dns_rebinding_protection": map[string]interface{}{"type": "boolean", "description": "Enable DNS rebinding protection (blocks RFC1918 responses)"},
+					"rate_limit_rate":         map[string]interface{}{"type": "integer", "description": "CoreDNS queries/sec limit per client IP (0 = disabled)"},
+					"rate_limit_burst":        map[string]interface{}{"type": "integer", "description": "CoreDNS flood burst capacity"},
+					"retention_days":           map[string]interface{}{"type": "integer", "description": "Query log retention in days (1-90)"},
 				},
 			},
 		},
@@ -173,6 +176,15 @@ var mcpAdminTools = []mcpToolDefinition{
 			if ad, ok := args["abuse_detection_enabled"].(bool); ok {
 				config.AbuseDetectionEnabled = ad
 			}
+			if reb, ok := args["dns_rebinding_protection"].(bool); ok {
+				config.DNSRebindingProtection = reb
+			}
+			if rlr, ok := args["rate_limit_rate"].(float64); ok && rlr >= 0 {
+				config.RateLimitRate = int(rlr)
+			}
+			if rlb, ok := args["rate_limit_burst"].(float64); ok && rlb > 0 {
+				config.RateLimitBurst = int(rlb)
+			}
 			if rd, ok := args["retention_days"].(float64); ok && rd > 0 && rd <= 365 {
 				config.RetentionDays = int(rd)
 			}
@@ -181,12 +193,18 @@ var mcpAdminTools = []mcpToolDefinition{
 				return nil, fmt.Errorf("failed to save config: %w", err)
 			}
 
+			updateCorefile()
+			restartCoreDNS()
+
 			return map[string]interface{}{
-				"success":                 true,
-				"doh_rate_limit":          config.DoHRateLimit,
-				"abuse_detection_enabled": config.AbuseDetectionEnabled,
-				"retention_days":          config.RetentionDays,
-				"message":                 "Security profile optimized successfully",
+				"success":                  true,
+				"doh_rate_limit":           config.DoHRateLimit,
+				"abuse_detection_enabled":  config.AbuseDetectionEnabled,
+				"dns_rebinding_protection": config.DNSRebindingProtection,
+				"rate_limit_rate":          config.RateLimitRate,
+				"rate_limit_burst":         config.RateLimitBurst,
+				"retention_days":           config.RetentionDays,
+				"message":                  "Security profile optimized successfully and CoreDNS reloaded",
 			}, nil
 		},
 	},
@@ -447,6 +465,64 @@ var mcpAdminTools = []mcpToolDefinition{
 					"Use trigger_system_refresh after updating large blocklists to immediately flush CoreDNS cache.",
 					"Use manage_autoblock_whitelist to prevent false-positive bans on critical local servers.",
 				},
+			}, nil
+		},
+	},
+	// 11. Client Unblock Batch Management
+	{
+		tool: mcpTool{
+			Name:        "unblock_all_clients",
+			Description: "Unblock/unban all currently blocked clients, or unblock only automatically banned clients (preserving manual bans).",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"only_auto": map[string]interface{}{"type": "boolean", "description": "If true, only clear automatic/abuse bans, keeping manually blocked clients intact. Default false."},
+				},
+			},
+		},
+		requiredPerm: "write:rules",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			onlyAuto := false
+			if v, ok := args["only_auto"].(bool); ok {
+				onlyAuto = v
+			}
+
+			configLock.Lock()
+			initialCount := len(config.BlockedClients)
+			var remainingClients []string
+			clearedCount := 0
+
+			if onlyAuto {
+				for _, ip := range config.BlockedClients {
+					info, ok := config.BlockedClientsInfo[ip]
+					if ok && info.Auto {
+						delete(config.BlockedClientsInfo, ip)
+						clearedCount++
+					} else {
+						remainingClients = append(remainingClients, ip)
+					}
+				}
+				config.BlockedClients = remainingClients
+			} else {
+				clearedCount = initialCount
+				config.BlockedClients = []string{}
+				config.BlockedClientsInfo = make(map[string]BlockedClientInfo)
+			}
+
+			if err := saveConfigNoLock(); err != nil {
+				configLock.Unlock()
+				return nil, fmt.Errorf("failed to save config: %w", err)
+			}
+			configLock.Unlock()
+
+			updateCorefile()
+
+			return map[string]interface{}{
+				"success":       true,
+				"cleared_count": clearedCount,
+				"only_auto":     onlyAuto,
+				"remaining":     len(config.BlockedClients),
+				"message":       fmt.Sprintf("Successfully unblocked %d clients", clearedCount),
 			}, nil
 		},
 	},

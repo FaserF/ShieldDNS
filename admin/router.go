@@ -110,6 +110,13 @@ func setupRouter() *http.ServeMux {
 	// Public API
 	mux.HandleFunc("/api/block-info", handleBlockInfo)
 
+	// Public Test Page API (no auth required)
+	startProbeCleanup(appCtx)
+	mux.HandleFunc("/api/public/dns-probe-new", handleDNSProbeNew)
+	mux.HandleFunc("/api/public/dns-probe-run", handleDNSProbeRun)
+	mux.HandleFunc("/api/public/dns-probe-status", handleDNSProbeStatus)
+	mux.HandleFunc("/api/public/test-info", handlePublicTestInfo)
+
 	// Health
 	mux.HandleFunc("/api/health/live", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -313,6 +320,7 @@ func setupStaticHandlers(mux *http.ServeMux) {
 
 		// Case 2: Redirection for blocked domains
 		isInternal := strings.HasPrefix(r.URL.Path, "/api/") ||
+			r.URL.Path == "/test" ||
 			r.URL.Path == "/admin" || strings.HasPrefix(r.URL.Path, "/admin/") ||
 			strings.HasPrefix(r.URL.Path, "/favicon.ico") ||
 			strings.HasPrefix(r.URL.Path, "/logo.png") ||
@@ -356,6 +364,18 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			}
 			configLock.RUnlock()
 			http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+			return
+		}
+
+		// Test page
+		if r.URL.Path == "/test" || r.URL.Path == "/test/" {
+			data, err := fs.ReadFile(wwwFS, "test.html")
+			if err != nil {
+				http.Error(w, "Error loading test page", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html")
+			w.Write(data)
 			return
 		}
 

@@ -198,11 +198,13 @@ var mcpSystemTools = []mcpToolDefinition{
 	{
 		tool: mcpTool{
 			Name:        "get_system_logs",
-			Description: "Retrieve recent daemon and CoreDNS system log entries.",
+			Description: "Retrieve recent daemon and CoreDNS system log entries with optional log level or keyword filtering.",
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"lines": map[string]interface{}{"type": "integer", "description": "Number of recent log lines to retrieve (default 50, max 500)"},
+					"lines":  map[string]interface{}{"type": "integer", "description": "Number of recent log lines to retrieve (default 50, max 500)"},
+					"level":  map[string]interface{}{"type": "string", "enum": []string{"all", "error", "warn", "info", "debug"}, "description": "Filter by log level (error, warn, info, debug)"},
+					"filter": map[string]interface{}{"type": "string", "description": "Keyword or substring filter (case-insensitive)"},
 				},
 			},
 		},
@@ -215,20 +217,52 @@ var mcpSystemTools = []mcpToolDefinition{
 					lines = 500
 				}
 			}
+			levelFilter, _ := args["level"].(string)
+			keywordFilter, _ := args["filter"].(string)
+			levelFilter = strings.ToLower(strings.TrimSpace(levelFilter))
+			keywordFilter = strings.ToLower(strings.TrimSpace(keywordFilter))
+
 			systemLogLock.RLock()
-			totalLogs := len(systemLogBuffer)
-			start := 0
-			if totalLogs > lines {
-				start = totalLogs - lines
-			}
-			logsCopy := make([]string, totalLogs-start)
-			copy(logsCopy, systemLogBuffer[start:])
+			logsCopy := make([]string, len(systemLogBuffer))
+			copy(logsCopy, systemLogBuffer)
 			systemLogLock.RUnlock()
 
+			filtered := make([]string, 0, len(logsCopy))
+			for _, line := range logsCopy {
+				lower := strings.ToLower(line)
+				if levelFilter != "" && levelFilter != "all" {
+					matchLevel := false
+					switch levelFilter {
+					case "error":
+						matchLevel = strings.Contains(lower, "[error]") || strings.Contains(lower, "level=error") || strings.Contains(lower, "fatal")
+					case "warn":
+						matchLevel = strings.Contains(lower, "[warn") || strings.Contains(lower, "level=warn")
+					case "info":
+						matchLevel = strings.Contains(lower, "[info]") || strings.Contains(lower, "level=info")
+					case "debug":
+						matchLevel = strings.Contains(lower, "[debug]") || strings.Contains(lower, "level=debug")
+					}
+					if !matchLevel {
+						continue
+					}
+				}
+				if keywordFilter != "" && !strings.Contains(lower, keywordFilter) {
+					continue
+				}
+				filtered = append(filtered, line)
+			}
+
+			start := 0
+			if len(filtered) > lines {
+				start = len(filtered) - lines
+			}
+			result := filtered[start:]
+
 			return map[string]interface{}{
-				"total_buffered": totalLogs,
-				"returned_lines": len(logsCopy),
-				"logs":           logsCopy,
+				"total_buffered": len(logsCopy),
+				"matched_lines":  len(filtered),
+				"returned_lines": len(result),
+				"logs":           result,
 			}, nil
 		},
 	},
@@ -323,6 +357,8 @@ var mcpSystemTools = []mcpToolDefinition{
 					"rate_limit_burst":       map[string]interface{}{"type": "integer", "description": "CoreDNS flood burst capacity"},
 					"ech_optimization_enabled": map[string]interface{}{"type": "boolean", "description": "Enable HTTPS/SVCB DNS record processing for ECH"},
 					"abuse_detection_enabled": map[string]interface{}{"type": "boolean", "description": "Enable automated abuse and DGA detection"},
+					"dns_rebinding_protection": map[string]interface{}{"type": "boolean", "description": "Block DNS responses resolving to RFC1918/private IP ranges"},
+					"anonymize_client_ips":   map[string]interface{}{"type": "boolean", "description": "Mask the last octet of client IP addresses in query logs"},
 					"debug_mode":             map[string]interface{}{"type": "boolean", "description": "Enable detailed debug logs"},
 				},
 			},
@@ -391,6 +427,12 @@ var mcpSystemTools = []mcpToolDefinition{
 			}
 			if v, ok := args["abuse_detection_enabled"].(bool); ok {
 				config.AbuseDetectionEnabled = v
+			}
+			if v, ok := args["dns_rebinding_protection"].(bool); ok {
+				config.DNSRebindingProtection = v
+			}
+			if v, ok := args["anonymize_client_ips"].(bool); ok {
+				config.AnonymizeClientIPs = v
 			}
 			if v, ok := args["doh3_enabled"].(bool); ok {
 				config.DoH3Enabled = v

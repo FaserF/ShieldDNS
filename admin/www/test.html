@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShieldDNS – Test Your Connection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .test-container {
+            max-width: 640px;
+        }
+
+        /* Status badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 22px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            margin: 20px 0 28px;
+            transition: all 0.4s ease;
+        }
+        .status-badge.loading {
+            background: rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            color: #94a3b8;
+        }
+        .status-badge.protected {
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.5);
+            color: #10b981;
+        }
+        .status-badge.unprotected {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+        .status-badge .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: currentColor;
+            flex-shrink: 0;
+        }
+        .status-badge.loading .dot {
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        /* Protocol pill */
+        .protocol-pill {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .protocol-doh  { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .protocol-dot  { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+        .protocol-doq  { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+        .protocol-doh3 { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+        .protocol-plain { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+        .protocol-unknown { background: rgba(148,163,184,0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+
+        /* Metrics row */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: rgba(0,0,0,0.25);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.7rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.1;
+        }
+        .metric-label {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 4px;
+        }
+        .metric-rating {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-top: 6px;
+        }
+        .rating-excellent { background: rgba(16,185,129,0.15); color: #10b981; }
+        .rating-good      { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .rating-elevated  { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .rating-critical  { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+        /* Diagnostics checklist */
+        .check-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+        .check-icon {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+        }
+        .check-icon.pending  { background: rgba(148,163,184,0.2); color: #94a3b8; animation: pulse 1.4s infinite; }
+        .check-icon.pass     { background: rgba(16,185,129,0.2); color: #10b981; }
+        .check-icon.warn     { background: rgba(245,158,11,0.2); color: #f59e0b; }
+        .check-icon.fail     { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .check-icon.skip     { background: rgba(148,163,184,0.1); color: #475569; }
+
+        .check-text { flex: 1; color: var(--text-primary); }
+        .check-detail { font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px; }
+
+        /* Warning card */
+        .warn-card {
+            background: rgba(245,158,11,0.07);
+            border: 1px solid rgba(245,158,11,0.3);
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 0.85rem;
+            color: #fbbf24;
+            margin-top: 10px;
+            display: none;
+        }
+        .warn-card.visible { display: block; }
+        .warn-card strong { display: block; margin-bottom: 4px; }
+
+        /* Retry button */
+        .btn-retry {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            margin-top: 16px;
+        }
+        .btn-retry:hover { transform: scale(1.03); background: #7986cb; }
+
+        @media (max-width: 480px) {
+            .metrics-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container test-container">
+        <div class="logo">
+            <a href="/" style="display:inline-block;">
+                <img src="/logo.png" alt="ShieldDNS" style="width:72px;height:72px;">
+            </a>
+        </div>
+        <h1>DNS Connection Test</h1>
+        <p>Check whether your device is protected by ShieldDNS, which protocol is active, and how fast your DNS resolution is.</p>
+
+        <!-- Status badge -->
+        <div style="text-align:center;">
+            <div class="status-badge loading" id="status-badge">
+                <span class="dot"></span>
+                <span id="status-text">Running tests…</span>
+            </div>
+        </div>
+
+        <!-- Protocol + metrics -->
+        <div class="setup-section" style="margin-top:0;">
+            <h2>
+                <svg style="width:18px;height:18px;fill:currentColor;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
+                Active Protocol
+            </h2>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                <span class="protocol-pill protocol-unknown" id="protocol-pill">Detecting…</span>
+                <span id="protocol-desc" style="font-size:0.85rem;color:var(--text-secondary);"></span>
+            </div>
+
+            <div class="metrics-row">
+                <div class="metric-card">
+                    <div class="metric-value" id="dns-latency">—</div>
+                    <div class="metric-label">DNS Latency</div>
+                    <div class="metric-rating" id="dns-rating"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="doh-latency">—</div>
+                    <div class="metric-label">DoH Latency</div>
+                    <div class="metric-rating" id="doh-rating"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Diagnostics -->
+        <div class="setup-section">
+            <h2>
+                <svg style="width:18px;height:18px;fill:currentColor;" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                Diagnostics
+            </h2>
+            <ul class="check-list">
+                <li class="check-item" id="chk-reachable">
+                    <div class="check-icon pending" id="chk-reachable-icon">●</div>
+                    <div>
+                        <div class="check-text">ShieldDNS reachable</div>
+                        <div class="check-detail" id="chk-reachable-detail">Testing connectivity…</div>
+                    </div>
+                </li>
+                <li class="check-item" id="chk-doh">
+                    <div class="check-icon pending" id="chk-doh-icon">●</div>
+                    <div>
+                        <div class="check-text">DNS-over-HTTPS (DoH) reachable</div>
+                        <div class="check-detail" id="chk-doh-detail">Checking /dns-query endpoint…</div>
+                    </div>
+                </li>
+                <li class="check-item" id="chk-filter">
+                    <div class="check-icon pending" id="chk-filter-icon">●</div>
+                    <div>
+                        <div class="check-text">Ad &amp; Malware Filtering active</div>
+                        <div class="check-detail" id="chk-filter-detail">Checking filter status…</div>
+                    </div>
+                </li>
+                <li class="check-item" id="chk-block">
+                    <div class="check-icon pending" id="chk-block-icon">●</div>
+                    <div>
+                        <div class="check-text">Malware domain blocked</div>
+                        <div class="check-detail" id="chk-block-detail">Testing block effectiveness…</div>
+                    </div>
+                </li>
+                <li class="check-item" id="chk-ecs">
+                    <div class="check-icon pending" id="chk-ecs-icon">●</div>
+                    <div>
+                        <div class="check-text">EDNS Client Subnet (ECS) stripped</div>
+                        <div class="check-detail" id="chk-ecs-detail">Checking privacy protection…</div>
+                    </div>
+                </li>
+            </ul>
+
+            <!-- Warnings -->
+            <div class="warn-card" id="warn-not-using">
+                <strong>⚠️ Not using ShieldDNS</strong>
+                Your device is resolving DNS through a different resolver (ISP, router default, or another service).
+                Configure your device or router to use this server's DoT hostname for system-wide protection.
+            </div>
+            <div class="warn-card" id="warn-filter-off">
+                <strong>⚠️ Filtering is disabled</strong>
+                The administrator has turned off DNS filtering. Ad and malware blocking are inactive.
+            </div>
+            <div class="warn-card" id="warn-block-fail">
+                <strong>⚠️ Block test failed</strong>
+                A known test malware domain was not blocked by this server. Either filtering is disabled or the block lists have not loaded yet.
+            </div>
+            <div class="warn-card" id="warn-ecs-leak">
+                <strong>⚠️ ECS leak detected</strong>
+                EDNS Client Subnet is enabled. Your approximate IP location may be forwarded to upstream resolvers.
+            </div>
+        </div>
+
+        <!-- Node info -->
+        <div class="setup-section" id="node-section" style="display:none;">
+            <h2>Server Info</h2>
+            <div style="font-size:0.85rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:6px;" id="node-info"></div>
+        </div>
+
+        <div style="text-align:center;">
+            <button class="btn-retry" onclick="runTests()">↺ Re-run Tests</button>
+        </div>
+
+        <div class="footer" style="margin-top:24px;">
+            <a href="/admin/" class="btn-admin">Admin Dashboard</a>
+            &nbsp;·&nbsp;
+            <a href="/" class="btn-admin">Setup Guide</a>
+        </div>
+
+        <div class="disclaimer">
+            This test runs entirely from your browser. No personal data is collected or stored.
+            DNS probe tokens expire automatically after 5 minutes. © 2026 ShieldDNS.
+        </div>
+    </div>
+
+    <script>
+    'use strict';
+
+    const PROTO_INFO = {
+        doh:     { label: 'DNS-over-HTTPS',  cls: 'protocol-doh',  desc: 'Encrypted via HTTPS/443 — Browser-native, firewall-friendly.' },
+        doh3:    { label: 'DoH3 / HTTP3',    cls: 'protocol-doh3', desc: 'Encrypted via HTTP/3 + QUIC/443 — Fastest browser protocol.' },
+        dot:     { label: 'DNS-over-TLS',    cls: 'protocol-dot',  desc: 'Encrypted via TLS/853 — Standard for Android Private DNS & iOS profiles.' },
+        doq:     { label: 'DNS-over-QUIC',   cls: 'protocol-doq',  desc: 'Encrypted via QUIC/853 — Fastest encrypted protocol, no head-of-line blocking.' },
+        plain:   { label: 'Plain DNS',       cls: 'protocol-plain',desc: 'Unencrypted UDP/53 — Vulnerable to ISP inspection & hijacking.' },
+        unknown: { label: 'Unknown',         cls: 'protocol-unknown', desc: 'Protocol could not be determined from this browser session.' },
+    };
+
+    function latencyRating(ms) {
+        if (ms <= 0) return { label: '—', cls: '' };
+        if (ms < 15)  return { label: 'Excellent', cls: 'rating-excellent' };
+        if (ms < 40)  return { label: 'Good',      cls: 'rating-good' };
+        if (ms < 100) return { label: 'Elevated',  cls: 'rating-elevated' };
+        return          { label: 'Critical',  cls: 'rating-critical' };
+    }
+
+    function setCheck(id, state, detail) {
+        const icon = document.getElementById('chk-' + id + '-icon');
+        const det  = document.getElementById('chk-' + id + '-detail');
+        if (!icon) return;
+        icon.className = 'check-icon ' + state;
+        const symbols = { pass: '✓', warn: '!', fail: '✕', skip: '–', pending: '●' };
+        icon.textContent = symbols[state] || '●';
+        if (det && detail !== undefined) det.textContent = detail;
+    }
+
+    function showWarn(id, show) {
+        const el = document.getElementById('warn-' + id);
+        if (el) el.classList.toggle('visible', show);
+    }
+
+    function setProtocol(proto) {
+        const info = PROTO_INFO[proto] || PROTO_INFO.unknown;
+        const pill = document.getElementById('protocol-pill');
+        const desc = document.getElementById('protocol-desc');
+        pill.textContent = info.label;
+        pill.className = 'protocol-pill ' + info.cls;
+        if (desc) desc.textContent = info.desc;
+    }
+
+    function setLatency(elemId, ratingId, ms) {
+        const el = document.getElementById(elemId);
+        const re = document.getElementById(ratingId);
+        if (!el) return;
+        if (ms > 0) {
+            el.textContent = ms.toFixed(1) + ' ms';
+            const r = latencyRating(ms);
+            if (re) { re.textContent = r.label; re.className = 'metric-rating ' + r.cls; }
+        } else {
+            el.textContent = '—';
+        }
+    }
+
+    async function measureDoH() {
+        const start = performance.now();
+        try {
+            // Use a simple GET DoH request for google.com A record
+            const resp = await fetch('/dns-query?name=google.com&type=A', {
+                headers: { 'Accept': 'application/dns-json' },
+                cache: 'no-store',
+            });
+            const ms = performance.now() - start;
+            if (resp.ok) return ms;
+        } catch (_) { /* ignore */ }
+        return -1;
+    }
+
+    async function runTests() {
+        // Reset UI
+        const badge = document.getElementById('status-badge');
+        badge.className = 'status-badge loading';
+        document.getElementById('status-text').textContent = 'Running tests…';
+        setProtocol('unknown');
+        ['reachable', 'doh', 'filter', 'block', 'ecs'].forEach(id => setCheck(id, 'pending', ''));
+        ['not-using', 'filter-off', 'block-fail', 'ecs-leak'].forEach(id => showWarn(id, false));
+
+        // 1. Fetch server info
+        let info = {};
+        try {
+            const r = await fetch('/api/public/test-info', { cache: 'no-store' });
+            if (r.ok) info = await r.json();
+        } catch (_) { /* ignore */ }
+
+        // Show node info if available
+        const nodeSection = document.getElementById('node-section');
+        const nodeInfo    = document.getElementById('node-info');
+        if (info.node_name || info.cluster_role) {
+            nodeSection.style.display = '';
+            const lines = [];
+            if (info.node_name)    lines.push('<span><strong>Node:</strong> ' + escHtml(info.node_name) + '</span>');
+            if (info.cluster_role) lines.push('<span><strong>Role:</strong> ' + escHtml(info.cluster_role) + '</span>');
+            if (info.admin_domain) lines.push('<span><strong>Domain:</strong> ' + escHtml(info.admin_domain) + '</span>');
+            const protos = (info.protocols || []).join(', ').toUpperCase().replace(/-/g, '-');
+            if (protos) lines.push('<span><strong>Protocols:</strong> ' + escHtml(protos) + '</span>');
+            nodeInfo.innerHTML = lines.join('');
+        }
+
+        // 2. Get a probe token
+        let probeId = '';
+        try {
+            const r = await fetch('/api/public/dns-probe-new', { cache: 'no-store' });
+            if (r.ok) { const j = await r.json(); probeId = j.id || ''; }
+        } catch (_) { /* ignore */ }
+
+        // 3. Run probe (server-side DNS lookup + blocking test)
+        let probe = {};
+        if (probeId) {
+            try {
+                const r = await fetch('/api/public/dns-probe-run?id=' + encodeURIComponent(probeId), { cache: 'no-store' });
+                if (r.ok) probe = await r.json();
+            } catch (_) { /* ignore */ }
+        }
+
+        // 4. Measure DoH latency directly from browser
+        const dohMs = await measureDoH();
+
+        // --- Evaluate results ---
+
+        const usingShield = probe.using_shield === true;
+        const proto       = (probe.protocol && probe.protocol !== 'unknown') ? probe.protocol : (dohMs > 0 ? 'doh' : 'unknown');
+        const dnsLatency  = probe.dns_latency_ms || 0;
+
+        // Status badge
+        badge.className = 'status-badge ' + (usingShield ? 'protected' : 'unprotected');
+        document.getElementById('status-text').textContent = usingShield
+            ? '✓ Protected by ShieldDNS'
+            : '✕ Not using ShieldDNS';
+        showWarn('not-using', !usingShield);
+
+        // Protocol
+        setProtocol(dohMs > 0 ? (proto === 'unknown' ? 'doh' : proto) : proto);
+
+        // Latency
+        setLatency('dns-latency', 'dns-rating', dnsLatency);
+        setLatency('doh-latency', 'doh-rating', dohMs > 0 ? dohMs : 0);
+
+        // Check: reachable
+        if (usingShield) {
+            setCheck('reachable', 'pass', 'DNS queries are routed through ShieldDNS.');
+        } else {
+            setCheck('reachable', usingShield ? 'pass' : 'fail', 'ShieldDNS could not verify your DNS traffic.');
+        }
+
+        // Check: DoH
+        if (dohMs > 0) {
+            setCheck('doh', 'pass', 'DoH endpoint reachable in ' + dohMs.toFixed(1) + ' ms.');
+        } else {
+            setCheck('doh', 'warn', 'DoH endpoint not reachable from this browser.');
+        }
+
+        // Check: filtering
+        const filterActive  = probe.filter_active === true;
+        const filterWorking = probe.filter_working === true;
+        if (!filterActive) {
+            setCheck('filter', 'warn', 'Filtering is disabled by the administrator.');
+            showWarn('filter-off', true);
+        } else {
+            setCheck('filter', 'pass', 'DNS filtering is enabled.');
+        }
+
+        // Check: block effectiveness
+        if (!filterActive) {
+            setCheck('block', 'skip', 'Skipped – filtering disabled.');
+        } else if (filterWorking) {
+            setCheck('block', 'pass', 'Test malware domain (shielddns-malware.test) was blocked.');
+        } else {
+            setCheck('block', 'warn', 'Block test inconclusive – block lists may still be loading.');
+            showWarn('block-fail', true);
+        }
+
+        // Check: ECS
+        const stripECS = probe.strip_ecs === true || info.strip_ecs === true;
+        if (stripECS) {
+            setCheck('ecs', 'pass', 'EDNS Client Subnet is stripped – your IP is not forwarded upstream.');
+        } else {
+            setCheck('ecs', 'warn', 'ECS stripping is not enabled – upstream resolvers may see your IP subnet.');
+            showWarn('ecs-leak', true);
+        }
+    }
+
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Run automatically on page load
+    document.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+
+</html>
