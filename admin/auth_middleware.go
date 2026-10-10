@@ -176,18 +176,32 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		cookie, err := r.Cookie(CookieName)
 		if err != nil {
+			if isIngressRequest(r) {
+				// Home Assistant Ingress requests are authenticated by Supervisor.
+				// In cross-site iframes, browsers may block cookies.
+				next.ServeHTTP(w, r)
+				return
+			}
 			renderError(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
 			return
 		}
 
 		val, found := sessionStore.Load(cookie.Value)
 		if !found {
+			if isIngressRequest(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
 			renderError(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
 			return
 		}
 		sess := val.(Session)
 		if time.Now().After(sess.ExpiresAt) {
 			sessionStore.Delete(cookie.Value)
+			if isIngressRequest(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
 			renderError(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
 			return
 		}

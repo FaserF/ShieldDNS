@@ -90,7 +90,44 @@ func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 
 	loggedIn := false
 	mfaRequired := false
-	if cookie, err := r.Cookie(CookieName); err == nil {
+
+	// Home Assistant Ingress support:
+	// Ingress requests are authenticated by Home Assistant Supervisor.
+	// If setup is done, grant access and issue/refresh an active session cookie.
+	if isIngressRequest(r) && hasPwd {
+		loggedIn = true
+		var activeToken string
+		if cookie, err := r.Cookie(CookieName); err == nil {
+			if val, found := sessionStore.Load(cookie.Value); found {
+				sess := val.(Session)
+				if time.Now().Before(sess.ExpiresAt) {
+					activeToken = sess.Token
+				}
+			}
+		}
+		if activeToken == "" {
+			activeToken = generateToken()
+			sess := Session{
+				Token:       activeToken,
+				RemoteIP:    getClientIP(r),
+				UserAgent:   r.UserAgent(),
+				CreatedAt:   time.Now(),
+				ExpiresAt:   time.Now().Add(SessionDuration),
+				MFAVerified: true,
+			}
+			sessionStore.Store(activeToken, sess)
+			isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+			http.SetCookie(w, &http.Cookie{
+				Name:     CookieName,
+				Value:    activeToken,
+				Path:     "/",
+				HttpOnly: true,
+				Secure:   isSecure,
+				MaxAge:   int(SessionDuration.Seconds()),
+				SameSite: http.SameSiteLaxMode,
+			})
+		}
+	} else if cookie, err := r.Cookie(CookieName); err == nil {
 		if val, found := sessionStore.Load(cookie.Value); found {
 			sess := val.(Session)
 			if time.Now().Before(sess.ExpiresAt) {
