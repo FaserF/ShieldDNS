@@ -45,7 +45,7 @@ export function initModalsUI() {
     });
 
     getEl('save-alias-btn')?.addEventListener('click', async () => {
-        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
+        const ip = getEl('ip-info-modal')?.dataset.ip || getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
         const alias = getEl('client-alias-input').value.trim();
         const btn = getEl('save-alias-btn');
         
@@ -66,9 +66,9 @@ export function initModalsUI() {
         }
     });
 
-    getEl('ip-block-btn')?.addEventListener('click', async () => {
-        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
-        if (!await helpers.showConfirm(`Block client ${ip}?`, 'Block Client', true)) return;
+    getEl('ip-block-btn')?.addEventListener('click', async (e) => {
+        const ip = e.currentTarget.dataset.ip || getEl('ip-info-modal')?.dataset.ip || getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
+        if (!ip || !await helpers.showConfirm(`Block client ${ip}?`, 'Block Client', true)) return;
         try {
             await api.apiFetch(api.endpoints.clientBlock, { method: 'POST', body: JSON.stringify({ ip, action: 'block' }) });
             helpers.showToast('Client blocked');
@@ -77,8 +77,9 @@ export function initModalsUI() {
         } catch (e) { helpers.showAlert('Block failed: ' + e.message); }
     });
 
-    getEl('ip-unblock-btn')?.addEventListener('click', async () => {
-        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
+    getEl('ip-unblock-btn')?.addEventListener('click', async (e) => {
+        const ip = e.currentTarget.dataset.ip || getEl('ip-info-modal')?.dataset.ip || getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
+        if (!ip) return;
         try {
             await api.apiFetch(api.endpoints.clientBlock, { method: 'POST', body: JSON.stringify({ ip, action: 'unblock' }) });
             helpers.showToast('Client unblocked');
@@ -109,7 +110,7 @@ export function initModalsUI() {
     });
 
     getEl('ip-info-view-all-btn')?.addEventListener('click', () => {
-        const ip = getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
+        const ip = getEl('ip-info-modal')?.dataset.ip || getEl('ip-info-subtitle').textContent || getEl('ip-info-title').textContent;
         closeModals();
         nav.navigateTo('queries', { search: ip });
     });

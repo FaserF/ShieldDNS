@@ -92,8 +92,15 @@ export function renderBlockedClientsModal(blockedClients, infoMap) {
 export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
     const setTxt = (id, txt) => { const el = getEl(id); if (el) el.textContent = txt; };
 
+    const modal = getEl('ip-info-modal');
+    if (modal) modal.dataset.ip = ip;
+    const blockBtn = getEl('ip-block-btn');
+    if (blockBtn) blockBtn.dataset.ip = ip;
+    const unblockBtn = getEl('ip-unblock-btn');
+    if (unblockBtn) unblockBtn.dataset.ip = ip;
+
     setTxt('ip-info-title', stats.alias || ip);
-    setTxt('ip-info-subtitle', stats.alias ? ip : '');
+    setTxt('ip-info-subtitle', stats.alias ? ip : ip);
     setTxt('ip-info-total', stats.total?.toLocaleString() || '0');
     setTxt('ip-info-blocked', stats.blocked?.toLocaleString() || '0');
 

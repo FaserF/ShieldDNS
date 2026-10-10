@@ -243,7 +243,12 @@ func parseLogLine(line string) {
 
 	// Heuristic for Cache Hit: Very low latency (< 1.5ms) and valid response.
 	// In local container environments, 5ms is often too high for a real cache hit threshold.
-	isCacheHit := !isBlocked && duration > 0 && duration < 1.5
+	hasAA := strings.Contains(rflags, "aa")
+	latencyThreshold := 2.5
+	if isLocal || clientIP == "DoH Proxy" {
+		latencyThreshold = 5.0
+	}
+	isCacheHit := !isBlocked && (hasAA || (duration > 0 && duration < latencyThreshold))
 
 	// Update memory stats for real-time dashboard (Atomic for core counters)
 	atomic.AddInt64(&stats.TotalQueries, 1)

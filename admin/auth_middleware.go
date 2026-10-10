@@ -23,7 +23,9 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 
 		// 3. Clickjacking Protection
-		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		if !isIngressRequest(r) {
+			w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		}
 
 		// 4. XSS Protection
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
@@ -52,7 +54,7 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 			"connect-src 'self' https://api.github.com https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://flagcdn.com https://raw.githubusercontent.com" + dynamicHosts + "; " +
 			"worker-src 'self'; " +
 			"manifest-src 'self'; " +
-			"frame-ancestors 'self'" + dynamicHosts + "; " +
+			"frame-ancestors 'self' *" + dynamicHosts + "; " +
 			"base-uri 'none';"
 
 		w.Header().Set("Content-Security-Policy", csp)
@@ -193,7 +195,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		// Security: Bind session to IP and User-Agent
 		clientIP := getClientIP(r)
 
-		if sess.RemoteIP != clientIP || sess.UserAgent != r.UserAgent() {
+		if (sess.RemoteIP != clientIP || sess.UserAgent != r.UserAgent()) && !isIngressRequest(r) {
 			slog.Warn("Session identity mismatch: possibly hijaked or changed connection",
 				"expected_ip", sess.RemoteIP, "actual_ip", clientIP,
 				"expected_ua", sess.UserAgent, "actual_ua", r.UserAgent())
@@ -315,4 +317,8 @@ func isMFAEndpoint(path string) bool {
 	return strings.HasPrefix(path, "/api/mfa/totp/verify") ||
 		strings.HasPrefix(path, "/api/mfa/webauthn/login") ||
 		path == "/api/mfa/status"
+}
+
+func isIngressRequest(r *http.Request) bool {
+	return r.Header.Get("X-Ingress-Path") != "" || r.Header.Get("X-Hassio-Key") != "" || r.Header.Get("X-Supervisor-Token") != ""
 }
