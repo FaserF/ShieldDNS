@@ -5,7 +5,7 @@ import * as api from '../services/api.js';
 import * as helpers from './helpers.js';
 import { state, getEl } from '../core/state.js';
 import * as fetchService from '../services/fetch.js';
-import { saveConfig } from './events_settings.js';
+import { saveConfig, setSettingsDirty } from './events_settings.js';
 
 export async function detectServerLocation() {
     try {

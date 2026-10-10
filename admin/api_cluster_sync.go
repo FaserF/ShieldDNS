@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,9 +20,11 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 	defer clusterSyncMu.Unlock()
 
 	parsedURL, err := url.Parse(primaryURL)
-	host := parsedURL.Hostname()
-	if !isValidDomain(host) {
-		return fmt.Errorf("invalid host in primary URL: %s", host)
+	if err != nil {
+		return fmt.Errorf("failed to parse primary URL: %w", err)
+	}
+	if err := isSafeClusterTarget(parsedURL); err != nil {
+		return fmt.Errorf("invalid host in primary URL: %w", err)
 	}
 
 	endpoint := (&url.URL{
@@ -51,12 +52,7 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 		req.Header.Set("X-Cluster-Node-Name", strings.TrimSpace(localNodeName))
 	}
 
-	client := &http.Client{
-		Timeout: 7 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS},
-		},
-	}
+	client := newClusterHTTPClient(7*time.Second, verifyTLS)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -345,13 +341,11 @@ func SyncClusterLogs() error {
 	}
 
 	parsedURL, err := url.Parse(primaryURL)
-	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" {
-		return fmt.Errorf("invalid primary URL: %s", primaryURL)
+	if err != nil {
+		return fmt.Errorf("invalid primary URL: %s: %w", primaryURL, err)
 	}
-
-	host := parsedURL.Hostname()
-	if !isValidDomain(host) {
-		return fmt.Errorf("invalid host in primary URL: %s", host)
+	if err := isSafeClusterTarget(parsedURL); err != nil {
+		return fmt.Errorf("invalid host in primary URL: %w", err)
 	}
 
 	endpoint := (&url.URL{
@@ -375,12 +369,7 @@ func SyncClusterLogs() error {
 	verifyTLS := config.VerifyUpstreamTLS
 	configLock.RUnlock()
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS},
-		},
-	}
+	client := newClusterHTTPClient(10*time.Second, verifyTLS)
 
 	resp, err := client.Do(httpReq)
 	if err != nil {

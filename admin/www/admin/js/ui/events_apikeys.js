@@ -313,7 +313,7 @@ export function initAPIKeyEvents() {
         setPerms([]);
     });
 
-    getEl('mcp-copy-antigravity-config-btn')?.addEventListener('click', () => {
+    getEl('mcp-copy-antigravity-config-btn')?.addEventListener('click', async () => {
         const host = (state.currentConfig && state.currentConfig.admin_domain) ? `https://${state.currentConfig.admin_domain}` : (window.location.origin || 'https://shielddns.local');
         const cfg = JSON.stringify({
             mcpServers: {

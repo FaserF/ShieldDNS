@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -21,6 +22,54 @@ var (
 	clusterLastSyncError string
 	clusterSyncMu        sync.Mutex
 )
+
+// isSafeClusterTarget validates scheme and prevents SSRF to sensitive cloud metadata endpoints
+func isSafeClusterTarget(u *url.URL) error {
+	if u == nil {
+		return fmt.Errorf("nil target URL")
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("unsupported scheme: %s", u.Scheme)
+	}
+	host := u.Hostname()
+	if !isValidDomain(host) {
+		return fmt.Errorf("invalid host: %s", host)
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if ip.Equal(net.ParseIP("169.254.169.254")) || ip.IsLinkLocalUnicast() {
+			return fmt.Errorf("access to link-local/metadata address blocked: %s", host)
+		}
+	}
+	return nil
+}
+
+// newClusterHTTPClient returns an http.Client with transport controls restricting unsafe destinations
+func newClusterHTTPClient(timeout time.Duration, verifyTLS bool) *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   timeout,
+		KeepAlive: 30 * time.Second,
+	}
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, _, err := net.SplitHostPort(addr)
+			if err == nil {
+				if ip := net.ParseIP(host); ip != nil {
+					if ip.Equal(net.ParseIP("169.254.169.254")) || ip.IsLinkLocalUnicast() {
+						return nil, fmt.Errorf("connection to metadata/link-local address forbidden: %s", host)
+					}
+				}
+			}
+			return dialer.DialContext(ctx, network, addr)
+		},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS},
+		MaxIdleConns:    50,
+		IdleConnTimeout: 60 * time.Second,
+	}
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
+	}
+}
 
 // handleClusterStatus returns current cluster topology & status
 func handleClusterStatus(w http.ResponseWriter, r *http.Request) {
@@ -359,9 +408,8 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Ensure host is valid domain or IP and construct target URL from parsed components
-	host := parsedURL.Hostname()
-	if !isValidDomain(host) {
-		http.Error(w, "Invalid Primary URL host", http.StatusBadRequest)
+	if err := isSafeClusterTarget(parsedURL); err != nil {
+		http.Error(w, "Invalid Primary URL: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -387,12 +435,7 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 	verifyTLS := config.VerifyUpstreamTLS
 	configLock.RUnlock()
 
-	client := &http.Client{
-		Timeout: 8 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS},
-		},
-	}
+	client := newClusterHTTPClient(8*time.Second, verifyTLS)
 
 	resp, err := client.Do(httpReq)
 	if err != nil {

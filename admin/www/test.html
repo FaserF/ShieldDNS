@@ -410,7 +410,7 @@
             if (info.node_name)    lines.push('<span><strong>Node:</strong> ' + escHtml(info.node_name) + '</span>');
             if (info.cluster_role) lines.push('<span><strong>Role:</strong> ' + escHtml(info.cluster_role) + '</span>');
             if (info.admin_domain) lines.push('<span><strong>Domain:</strong> ' + escHtml(info.admin_domain) + '</span>');
-            const protos = (info.protocols || []).join(', ').toUpperCase().replace(/-/g, '-');
+            const protos = (info.protocols || []).join(', ').toUpperCase().replace(/-/g, ' ');
             if (protos) lines.push('<span><strong>Protocols:</strong> ' + escHtml(protos) + '</span>');
             nodeInfo.innerHTML = lines.join('');
         }
