@@ -53,7 +53,8 @@ export function initModalsUI() {
         try {
             await api.apiFetch(api.endpoints.clientAlias, {
                 method: 'POST',
-                body: JSON.stringify({ ip, alias })\n            });
+                body: JSON.stringify({ ip, alias })
+            });
             helpers.showToast('Alias updated');
             getEl('ip-info-title').textContent = alias || ip;
             getEl('alias-edit-box').classList.add('hidden');
