@@ -2,6 +2,7 @@ import os
 import json
 import ipaddress
 import re
+import tempfile
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 from typing import List, Dict, Optional, Tuple, Any
@@ -56,21 +57,33 @@ def is_whitelisted(ip_str: str, whitelist_entries: List[str]) -> bool:
 def load_blocklist(blocklist_path: str = DEFAULT_BLOCKLIST_PATH) -> List[str]:
     if not os.path.exists(blocklist_path):
         return []
-    with open(blocklist_path, "r", encoding="utf-8") as f:
-        try:
+    try:
+        with open(blocklist_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, list):
-                return data
+                return [str(x) for x in data if isinstance(x, str)]
             if isinstance(data, dict):
-                return data.get("blocked_ips", [])
+                raw = data.get("blocked_ips", [])
+                if isinstance(raw, list):
+                    return [str(x) for x in raw if isinstance(x, str)]
             return []
-        except json.JSONDecodeError:
-            return []
+    except (json.JSONDecodeError, OSError):
+        return []
 
 def save_blocklist(blocked_ips: List[str], blocklist_path: str = DEFAULT_BLOCKLIST_PATH) -> None:
-    os.makedirs(os.path.dirname(os.path.abspath(blocklist_path)), exist_ok=True)
-    with open(blocklist_path, "w", encoding="utf-8") as f:
-        json.dump({"blocked_ips": blocked_ips}, f, indent=2)
+    target_dir = os.path.dirname(os.path.abspath(blocklist_path))
+    os.makedirs(target_dir, exist_ok=True)
+    temp_fd, temp_path = tempfile.mkstemp(dir=target_dir, prefix="blocklist_", suffix=".tmp")
+    try:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            json.dump({"blocked_ips": blocked_ips}, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, blocklist_path)
+    except Exception:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise
 
 def block_ip(
     ip_str: str,
@@ -93,14 +106,20 @@ def parse_log_line(line: str) -> Optional[Tuple[datetime, str]]:
     if line.startswith("{") and line.endswith("}"):
         try:
             record = json.loads(line)
-            ts_val = record.get("timestamp") or record.get("time")
-            ip_val = record.get("client_ip") or record.get("ip") or record.get("ip_address")
-            if ts_val and ip_val:
-                try:
-                    dt = datetime.fromisoformat(ts_val.replace("Z", "+00:00"))
-                except ValueError:
-                    dt = datetime.now(timezone.utc)
-                return dt, ip_val
+            if isinstance(record, dict):
+                ts_val = record.get("timestamp") or record.get("time")
+                ip_val = record.get("client_ip") or record.get("ip") or record.get("ip_address")
+                if isinstance(ts_val, str) and isinstance(ip_val, str):
+                    try:
+                        ipaddress.ip_address(ip_val)
+                    except ValueError:
+                        return None
+                    try:
+                        dt = datetime.fromisoformat(ts_val.replace("Z", "+00:00"))
+                        return dt, ip_val
+                    except ValueError:
+                        return None
+                return None
         except json.JSONDecodeError:
             pass
 
@@ -108,8 +127,13 @@ def parse_log_line(line: str) -> Optional[Tuple[datetime, str]]:
     if not match:
         return None
 
-    ip_val = match.group(0)
-    return datetime.now(timezone.utc), ip_val
+    candidate_ip = match.group(0)
+    try:
+        ipaddress.ip_address(candidate_ip)
+    except ValueError:
+        return None
+
+    return datetime.now(timezone.utc), candidate_ip
 
 class RateLimiterService:
     def __init__(
@@ -132,6 +156,8 @@ class RateLimiterService:
     ) -> Dict[str, Any]:
         if now is None:
             now = datetime.now(timezone.utc)
+        elif now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
         
         window_start = now - timedelta(hours=window_hours)
         ip_counts: Dict[str, int] = defaultdict(int)
