@@ -1,9 +1,15 @@
 import unittest
 import os
+import sys
 import json
 import tempfile
 import shutil
 from datetime import datetime, timezone, timedelta
+
+# Ensure src/ directory is in sys.path regardless of working directory
+src_dir = os.path.dirname(os.path.abspath(__file__))
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 
 from whitelist_manager import (
     shielddns_manage_autoblock_whitelist,
@@ -13,7 +19,8 @@ from whitelist_manager import (
 from rate_limiter import (
     RateLimiterService,
     is_whitelisted,
-    load_blocklist
+    load_blocklist,
+    parse_log_line
 )
 
 class TestShieldDNSRateLimiting(unittest.TestCase):
@@ -39,6 +46,20 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
         self.assertFalse(is_rfc1918("1.1.1.1"))
         self.assertFalse(is_rfc1918("172.32.0.1"))
         self.assertFalse(is_rfc1918("203.0.113.5"))
+
+    def test_parse_log_line_edge_cases(self):
+        # Malformed / non-string timestamps
+        self.assertIsNone(parse_log_line(json.dumps({"timestamp": 1728770000, "client_ip": "203.0.113.50"})))
+        self.assertIsNone(parse_log_line(json.dumps({"timestamp": "invalid-ts", "client_ip": "203.0.113.50"})))
+        # Invalid IP in JSON
+        self.assertIsNone(parse_log_line(json.dumps({"timestamp": "2026-10-12T20:00:00Z", "client_ip": "999.999.999.999"})))
+        self.assertIsNone(parse_log_line(json.dumps({"timestamp": "2026-10-12T20:00:00Z", "client_ip": 12345})))
+        # Valid JSON line
+        parsed = parse_log_line(json.dumps({"timestamp": "2026-10-12T20:00:00Z", "client_ip": "203.0.113.50"}))
+        self.assertIsNotNone(parsed)
+        dt, ip = parsed
+        self.assertEqual(ip, "203.0.113.50")
+        self.assertEqual(dt.year, 2026)
 
     def test_whitelist_management(self):
         res = shielddns_manage_autoblock_whitelist("add", "203.0.113.10", self.whitelist_path)
