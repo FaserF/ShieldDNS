@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 import ipaddress
 from typing import List, Union
 
@@ -21,21 +22,33 @@ def is_rfc1918(ip_or_network: Union[str, ipaddress.IPv4Address, ipaddress.IPv4Ne
 def load_whitelist(config_path: str = DEFAULT_CONFIG_PATH) -> List[str]:
     if not os.path.exists(config_path):
         return []
-    with open(config_path, "r", encoding="utf-8") as f:
-        try:
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, list):
-                return data
+                return [str(x) for x in data if isinstance(x, str)]
             if isinstance(data, dict):
-                return data.get("whitelist", [])
+                raw = data.get("whitelist", [])
+                if isinstance(raw, list):
+                    return [str(x) for x in raw if isinstance(x, str)]
             return []
-        except json.JSONDecodeError:
-            return []
+    except (json.JSONDecodeError, OSError):
+        return []
 
 def save_whitelist(entries: List[str], config_path: str = DEFAULT_CONFIG_PATH) -> None:
-    os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump({"whitelist": entries}, f, indent=2)
+    target_dir = os.path.dirname(os.path.abspath(config_path))
+    os.makedirs(target_dir, exist_ok=True)
+    temp_fd, temp_path = tempfile.mkstemp(dir=target_dir, prefix="whitelist_", suffix=".tmp")
+    try:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            json.dump({"whitelist": entries}, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, config_path)
+    except Exception:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise
 
 def shielddns_manage_autoblock_whitelist(operation: str, target: str, config_path: str = DEFAULT_CONFIG_PATH) -> bool:
     op = operation.strip().lower()
@@ -45,7 +58,7 @@ def shielddns_manage_autoblock_whitelist(operation: str, target: str, config_pat
     try:
         net = ipaddress.ip_network(target, strict=False)
         normalized_target = str(net.network_address) if net.num_addresses == 1 else str(net)
-    except ValueError:
+    except (ValueError, TypeError):
         raise ValueError(f"Invalid IP address or CIDR range: {target}")
 
     entries = load_whitelist(config_path)
