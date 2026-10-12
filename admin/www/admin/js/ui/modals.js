@@ -53,14 +53,13 @@ export function initModalsUI() {
         try {
             await api.apiFetch(api.endpoints.clientAlias, {
                 method: 'POST',
-                body: JSON.stringify({ ip, alias })
-            });
+                body: JSON.stringify({ ip, alias })\n            });
             helpers.showToast('Alias updated');
             getEl('ip-info-title').textContent = alias || ip;
             getEl('alias-edit-box').classList.add('hidden');
             fetchService.fetchConfig();
-        } catch (e) {
-            helpers.showAlert('Failed to update alias: ' + e.message);
+        } catch (err) {
+            helpers.showAlert('Failed to update alias: ' + err.message);
         } finally {
             helpers.setBtnLoading(btn, false);
         }
@@ -74,7 +73,7 @@ export function initModalsUI() {
             helpers.showToast('Client blocked');
             closeModals();
             fetchService.fetchConfig();
-        } catch (e) { helpers.showAlert('Block failed: ' + e.message); }
+        } catch (err) { helpers.showAlert('Block failed: ' + err.message); }
     });
 
     getEl('ip-unblock-btn')?.addEventListener('click', async (e) => {
@@ -85,7 +84,7 @@ export function initModalsUI() {
             helpers.showToast('Client unblocked');
             closeModals();
             fetchService.fetchConfig();
-        } catch (e) { helpers.showAlert('Unblock failed: ' + e.message); }
+        } catch (err) { helpers.showAlert('Unblock failed: ' + err.message); }
     });
 
     getEl('domain-block-btn')?.addEventListener('click', async () => {
@@ -96,7 +95,7 @@ export function initModalsUI() {
             helpers.showToast(`${domain} blocked`);
             closeModals();
             fetchService.fetchConfig();
-        } catch (e) { helpers.showAlert('Block failed: ' + e.message); }
+        } catch (err) { helpers.showAlert('Block failed: ' + err.message); }
     });
 
     getEl('domain-allow-btn')?.addEventListener('click', async () => {
@@ -106,7 +105,7 @@ export function initModalsUI() {
             helpers.showToast(`${domain} allowed`);
             closeModals();
             fetchService.fetchConfig();
-        } catch (e) { helpers.showAlert('Allow failed: ' + e.message); }
+        } catch (err) { helpers.showAlert('Allow failed: ' + err.message); }
     });
 
     getEl('ip-info-view-all-btn')?.addEventListener('click', () => {
