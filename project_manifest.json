@@ -2,7 +2,7 @@
   "project": "ShieldDNS",
   "purpose": "High-performance DNS appliance and security gateway with integrated web administration panel.",
   "connections_map_reference": "project_connections.json (defines component linking for UI and backend files)",
-  "timestamp": "2026-09-13T11:06:24.987852",
+  "timestamp": "2026-10-16T23:42:58.595310",
   "stack": {
     "backend": "Go (embedded FS assets), SQLite (query database), CoreDNS (DNS server)",
     "frontend": "Vanilla HTML5, CSS3 (variables & flex/grid layout), Vanilla JS (ES6 modules)",
@@ -428,6 +428,8 @@
       "stats_windows.go",
       "versions.go",
       "watchdog.go",
+      "webhook.go",
+      "webhook_test.go",
       "worker_template.go"
     ],
     "admin/www": [
