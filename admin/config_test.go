@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -134,5 +136,40 @@ func TestLoadConfig_BlockPageIPEnv(t *testing.T) {
 
 	if config.BlockPageIP != "192.168.1.100" {
 		t.Errorf("expected BlockPageIP 192.168.1.100 from ENV, got %s", config.BlockPageIP)
+	}
+}
+
+func TestApplyCurrentRules_SynthesizeIPv6ForCustomMappings(t *testing.T) {
+	origCombined := CombinedHostsPath
+	origMappings := MappingsPath
+	tmpDir := t.TempDir()
+	CombinedHostsPath = filepath.Join(tmpDir, "shielddns.hosts")
+	MappingsPath = filepath.Join(tmpDir, "mappings.hosts")
+	defer func() {
+		CombinedHostsPath = origCombined
+		MappingsPath = origMappings
+	}()
+
+	mappings := map[string]string{
+		"jellyfin.tailnet.fabiseitz.de": "100.64.0.1",
+		"ipv6.local":                    "2001:db8::1",
+	}
+
+	applyCurrentRules(make(map[string][]string), make(map[string][]string), make(map[string]struct{}), mappings, "127.0.0.1", false)
+
+	combinedData, err := os.ReadFile(CombinedHostsPath)
+	if err != nil {
+		t.Fatalf("Failed to read CombinedHostsPath: %v", err)
+	}
+	content := string(combinedData)
+
+	if !strings.Contains(content, "100.64.0.1 jellyfin.tailnet.fabiseitz.de") {
+		t.Errorf("Expected IPv4 mapping for jellyfin, got:\n%s", content)
+	}
+	if !strings.Contains(content, ":: jellyfin.tailnet.fabiseitz.de") {
+		t.Errorf("Expected synthesized :: mapping for jellyfin, got:\n%s", content)
+	}
+	if strings.Contains(content, ":: ipv6.local") {
+		t.Errorf("Did not expect synthesized :: mapping for native IPv6 mapping")
 	}
 }

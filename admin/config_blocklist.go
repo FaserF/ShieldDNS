@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -156,6 +157,12 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 	combinedBuilder.WriteString("# Custom Mappings\n")
 	for domain, ip := range mappings {
 		combinedBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
+		parsed := net.ParseIP(ip)
+		if parsed != nil && parsed.To4() != nil {
+			// Synthesize IPv6 unspecified address (::) for IPv4-only mappings
+			// to prevent dual-stack clients (RFC 6724) from falling through AAAA queries to public upstream DNS.
+			combinedBuilder.WriteString(fmt.Sprintf(":: %s\n", domain))
+		}
 	}
 
 	// 2. Blocklist
@@ -182,6 +189,10 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 	var mappingsBuilder strings.Builder
 	for domain, ip := range mappings {
 		mappingsBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
+		parsed := net.ParseIP(ip)
+		if parsed != nil && parsed.To4() != nil {
+			mappingsBuilder.WriteString(fmt.Sprintf(":: %s\n", domain))
+		}
 	}
 	os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
 
