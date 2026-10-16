@@ -83,6 +83,9 @@ type Config struct {
 	WireGuardGateway           string                       `json:"wireguard_gateway"`
 	LocalPTRUpstreams          []string                     `json:"local_ptr_upstreams"`
 	ClientRules                []ClientRule                 `json:"client_rules"`
+	WebhookEnabled             bool                         `json:"webhook_enabled"`
+	WebhookURL                 string                       `json:"webhook_url"`
+	WebhookToken               string                       `json:"webhook_token"`
 }
 
 type ClientRule struct {

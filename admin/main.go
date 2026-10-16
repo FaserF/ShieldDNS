@@ -18,8 +18,8 @@ import (
 )
 
 var (
-	Version        = "v1.11.0"
-	Subversion = "2"
+	Version        = "v1.12.0"
+	Subversion = "0"
 	CommitID   = ""
 )
 
@@ -100,12 +100,25 @@ func main() {
 						break
 					}
 					if err := performReplicaSync(currPURL, currPTok, currIType, currFailover); err != nil {
-						atomic.StoreInt32(&clusterConnLost, 1)
+						wasLost := atomic.SwapInt32(&clusterConnLost, 1)
 						clusterLastSyncError = err.Error()
 						slog.Warn("Cluster periodic sync failed", "error", err)
+						if wasLost == 0 {
+							SendSecurityWebhook("cluster_failover", "Cluster Primary unreachable: Operating in replica failover mode", map[string]interface{}{
+								"severity":    "warning",
+								"primary_url": currPURL,
+								"error":       err.Error(),
+							})
+						}
 					} else {
-						atomic.StoreInt32(&clusterConnLost, 0)
+						wasLost := atomic.SwapInt32(&clusterConnLost, 0)
 						clusterLastSyncError = ""
+						if wasLost == 1 {
+							SendSecurityWebhook("cluster_recovered", "Cluster Primary restored: Replica sync healthy", map[string]interface{}{
+								"severity":    "info",
+								"primary_url": currPURL,
+							})
+						}
 					}
 				}
 			}

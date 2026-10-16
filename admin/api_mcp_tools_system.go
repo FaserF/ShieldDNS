@@ -369,6 +369,9 @@ var mcpSystemTools = []mcpToolDefinition{
 					"dns_rebinding_protection": map[string]interface{}{"type": "boolean", "description": "Block DNS responses resolving to RFC1918/private IP ranges"},
 					"anonymize_client_ips":   map[string]interface{}{"type": "boolean", "description": "Mask the last octet of client IP addresses in query logs"},
 					"debug_mode":             map[string]interface{}{"type": "boolean", "description": "Enable detailed debug logs"},
+					"webhook_enabled":        map[string]interface{}{"type": "boolean", "description": "Enable push notifications on threat spikes (client blocks, DNS rebinding, upstream failover)"},
+					"webhook_url":            map[string]interface{}{"type": "string", "description": "Webhook endpoint URL (e.g. http://100.64.0.1:8090/api/webhook/shielddns)"},
+					"webhook_token":          map[string]interface{}{"type": "string", "description": "Optional Bearer auth token for security webhooks"},
 				},
 			},
 		},
@@ -456,6 +459,18 @@ var mcpSystemTools = []mcpToolDefinition{
 			}
 			if v, ok := args["debug_mode"].(bool); ok {
 				config.DebugMode = v
+			}
+			if v, ok := args["webhook_enabled"].(bool); ok {
+				config.WebhookEnabled = v
+			}
+			if v, ok := args["webhook_url"].(string); ok {
+				config.WebhookURL = strings.TrimSpace(v)
+				if config.WebhookURL != "" {
+					config.WebhookEnabled = true
+				}
+			}
+			if v, ok := args["webhook_token"].(string); ok {
+				config.WebhookToken = strings.TrimSpace(v)
 			}
 
 			if err := saveConfigNoLock(); err != nil {

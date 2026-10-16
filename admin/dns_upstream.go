@@ -113,10 +113,58 @@ func checkAll() bool {
 	}
 
 	healthLock.Lock()
+	prevUpstreams := make([]string, len(healthyUpstreams))
+	copy(prevUpstreams, healthyUpstreams)
+	prevDoT := make([]string, len(healthyDoT))
+	copy(prevDoT, healthyDoT)
+
 	changed := !equal(healthyUpstreams, newHealthyUpstreams) || !equal(healthyDoT, newHealthyDoT)
 	healthyUpstreams = newHealthyUpstreams
 	healthyDoT = newHealthyDoT
 	healthLock.Unlock()
+
+	if changed && (len(prevUpstreams) > 0 || len(prevDoT) > 0) {
+		var dropped []string
+		for _, u := range prevUpstreams {
+			found := false
+			for _, nu := range newHealthyUpstreams {
+				if nu == u {
+					found = true
+					break
+				}
+			}
+			if !found {
+				dropped = append(dropped, u)
+			}
+		}
+		for _, u := range prevDoT {
+			found := false
+			for _, nu := range newHealthyDoT {
+				if nu == u {
+					found = true
+					break
+				}
+			}
+			if !found {
+				dropped = append(dropped, u+" (DoT)")
+			}
+		}
+
+		if len(dropped) > 0 {
+			severity := "warning"
+			title := "DNS Upstream Failover: Resolver unreachable"
+			if len(newHealthyUpstreams) == 0 && len(newHealthyDoT) == 0 {
+				severity = "critical"
+				title = "CRITICAL: All DNS Upstreams are unreachable!"
+			}
+			SendSecurityWebhook("upstream_failover", title, map[string]interface{}{
+				"severity":          severity,
+				"dropped_upstreams": dropped,
+				"active_upstreams":  newHealthyUpstreams,
+				"active_dot":        newHealthyDoT,
+			})
+		}
+	}
 
 	if smart && changed {
 		updateCorefile()

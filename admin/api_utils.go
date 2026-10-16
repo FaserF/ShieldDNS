@@ -316,6 +316,11 @@ func createSafeBlocklistClient(timeout time.Duration) *http.Client {
 			}
 			if ip := net.ParseIP(host); ip != nil {
 				if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+					go SendSecurityWebhook("dns_rebinding", "DNS-Rebinding / SSRF Angriff abgewehrt", map[string]interface{}{
+						"target":     addr,
+						"blocked_ip": ip.String(),
+						"type":       "direct_private_ip",
+					})
 					return nil, fmt.Errorf("connection to private/local IP blocked: %s", ip.String())
 				}
 			} else {
@@ -325,6 +330,11 @@ func createSafeBlocklistClient(timeout time.Duration) *http.Client {
 				}
 				for _, ip := range ips {
 					if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+						go SendSecurityWebhook("dns_rebinding", "DNS-Rebinding / SSRF Angriff abgewehrt", map[string]interface{}{
+							"target":     addr,
+							"blocked_ip": ip.String(),
+							"type":       "resolved_private_ip",
+						})
 						return nil, fmt.Errorf("connection to private/local IP blocked: %s", ip.String())
 					}
 				}

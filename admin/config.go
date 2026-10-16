@@ -84,6 +84,9 @@ func loadConfig() {
 		ClusterReplicas:            []ClusterReplica{},
 		RoutingRules:               []RoutingRule{},
 		WireGuardGateway:           "",
+		WebhookEnabled:             false,
+		WebhookURL:                 "",
+		WebhookToken:               "",
 	}
 
 	isNew := false
@@ -145,6 +148,18 @@ func loadConfig() {
 		if envBlockIP := os.Getenv("BLOCK_PAGE_IP"); envBlockIP != "" {
 			config.BlockPageIP = strings.TrimSpace(envBlockIP)
 		}
+	}
+
+	// Webhook environment overrides (allows direct container environment injection)
+	if envWebhookURL := os.Getenv("WEBHOOK_URL"); envWebhookURL != "" {
+		config.WebhookURL = strings.TrimSpace(envWebhookURL)
+		config.WebhookEnabled = true
+	}
+	if envWebhookToken := os.Getenv("WEBHOOK_TOKEN"); envWebhookToken != "" {
+		config.WebhookToken = strings.TrimSpace(envWebhookToken)
+	}
+	if envWebhookEnabled := os.Getenv("WEBHOOK_ENABLED"); envWebhookEnabled != "" {
+		config.WebhookEnabled = strings.ToLower(envWebhookEnabled) == "true" || envWebhookEnabled == "1"
 	}
 
 	// If it was newly created, save the config immediately after env overrides

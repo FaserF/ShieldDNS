@@ -442,6 +442,11 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			newConfig.WireGuardGateway = config.WireGuardGateway
 			newConfig.Upstreams = config.Upstreams
 			newConfig.UpstreamDoT = config.UpstreamDoT
+			if newConfig.WebhookURL == "" && config.WebhookURL != "" {
+				newConfig.WebhookURL = config.WebhookURL
+				newConfig.WebhookToken = config.WebhookToken
+				newConfig.WebhookEnabled = config.WebhookEnabled
+			}
 		}
 
 		configHold := config

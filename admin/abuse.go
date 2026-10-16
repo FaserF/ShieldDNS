@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -140,6 +141,19 @@ func analyzeQuery(clientIP, domain, status string) {
 			}
 		}
 	}
+
+	// --- 6. DNS Rebinding Attack Detection ---
+	if isRebindingDomain(domain) {
+		go func() {
+			blockClientAuto(clientIP, "Abuse: DNS Rebinding Attack Attempt ("+domain+")")
+			SendSecurityWebhook("dns_rebinding", "DNS-Rebinding Angriff abgewehrt", map[string]interface{}{
+				"client_ip": clientIP,
+				"domain":    domain,
+				"reason":    "Client queried dynamic DNS rebinding payload",
+			})
+		}()
+		return
+	}
 }
 
 func pruneWindow(times []time.Time, now time.Time, window time.Duration) []time.Time {
@@ -244,7 +258,36 @@ func blockClientAuto(ip, reason string) {
 	RecordAbuseBlock()
 	configLock.Unlock()
 
+	go SendSecurityWebhook("client_blocked", "Automatischer Client-Block", map[string]interface{}{
+		"client_ip": ip,
+		"reason":    reason,
+		"country":   cc,
+		"auto":      true,
+	})
+
 	go updateCorefile() // Instantly apply ACL update
+}
+
+func isRebindingDomain(domain string) bool {
+	d := strings.ToLower(domain)
+	if strings.HasSuffix(d, ".rebind.network") ||
+		strings.HasSuffix(d, ".rbndr.us") ||
+		strings.HasSuffix(d, ".make-me-a-rebind.net") {
+		return true
+	}
+	if strings.Contains(d, ".nip.io") || strings.Contains(d, ".sslip.io") {
+		parts := strings.Split(d, ".")
+		for _, p := range parts {
+			if ip := net.ParseIP(p); ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()) {
+				return true
+			}
+			dotted := strings.ReplaceAll(p, "-", ".")
+			if ip := net.ParseIP(dotted); ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func startAbuseCleanup(ctx context.Context) {
