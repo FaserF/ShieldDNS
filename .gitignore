@@ -59,3 +59,4 @@ dump.rdb
 AGENTS.md
 CLAUDE.md
 opencode.json
+__pycache__/
