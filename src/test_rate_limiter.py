@@ -1,12 +1,11 @@
-import unittest
-import os
 import sys
+import os
+import unittest
 import json
 import tempfile
 import shutil
 from datetime import datetime, timezone, timedelta
 
-# Ensure src/ directory is in sys.path regardless of working directory
 src_dir = os.path.dirname(os.path.abspath(__file__))
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
@@ -18,7 +17,6 @@ from whitelist_manager import (
 )
 from rate_limiter import (
     RateLimiterService,
-    is_whitelisted,
     load_blocklist,
     parse_log_line
 )

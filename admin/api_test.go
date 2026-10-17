@@ -471,3 +471,162 @@ func TestHandleConfigRejectsInvalidCustomRules(t *testing.T) {
 	}
 }
 
+
+func TestHandleRuleAddRemove_CustomMapping(t *testing.T) {
+	configLock.Lock()
+	config.CustomMappings = make(map[string]string)
+	configLock.Unlock()
+
+	// 1. Add valid mapping
+	body, _ := json.Marshal(map[string]string{
+		"domain": "test.mapping.local",
+		"type":   "mapping",
+		"ip":     "192.168.1.100",
+	})
+	req := httptest.NewRequest("POST", "/api/rules/add", bytes.NewBuffer(body))
+	rr := httptest.NewRecorder()
+	handleRuleAdd(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	configLock.RLock()
+	ip, ok := config.CustomMappings["test.mapping.local"]
+	configLock.RUnlock()
+
+	if !ok || ip != "192.168.1.100" {
+		t.Errorf("Custom mapping not saved correctly, got %s", ip)
+	}
+
+	// 2. Missing IP for mapping
+	bodyNoIP, _ := json.Marshal(map[string]string{
+		"domain": "test2.mapping.local",
+		"type":   "mapping",
+	})
+	reqNoIP := httptest.NewRequest("POST", "/api/rules/add", bytes.NewBuffer(bodyNoIP))
+	rrNoIP := httptest.NewRecorder()
+	handleRuleAdd(rrNoIP, reqNoIP)
+	if rrNoIP.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing IP, got %d", rrNoIP.Code)
+	}
+
+	// 3. Invalid IP for mapping
+	bodyBadIP, _ := json.Marshal(map[string]string{
+		"domain": "test2.mapping.local",
+		"type":   "mapping",
+		"ip":     "999.999.999.999",
+	})
+	reqBadIP := httptest.NewRequest("POST", "/api/rules/add", bytes.NewBuffer(bodyBadIP))
+	rrBadIP := httptest.NewRecorder()
+	handleRuleAdd(rrBadIP, reqBadIP)
+	if rrBadIP.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid IP, got %d", rrBadIP.Code)
+	}
+
+	// 4. Remove mapping
+	delBody, _ := json.Marshal(map[string]string{
+		"domain": "test.mapping.local",
+	})
+	reqDel := httptest.NewRequest("POST", "/api/rules/remove", bytes.NewBuffer(delBody))
+	rrDel := httptest.NewRecorder()
+	handleRuleRemove(rrDel, reqDel)
+
+	if rrDel.Code != http.StatusOK {
+		t.Fatalf("expected 200 on remove, got %d", rrDel.Code)
+	}
+
+	configLock.RLock()
+	_, stillExists := config.CustomMappings["test.mapping.local"]
+	configLock.RUnlock()
+
+	if stillExists {
+		t.Errorf("Custom mapping was not removed")
+	}
+}
+
+func TestHandleRuleAdd_DomainBlockingEdgeCases(t *testing.T) {
+	configLock.Lock()
+	origAllowed := config.CustomAllowed
+	origBlocked := config.CustomBlocked
+	config.CustomAllowed = []string{"edgecase.com"}
+	config.CustomBlocked = []string{}
+	configLock.Unlock()
+
+	defer func() {
+		configLock.Lock()
+		config.CustomAllowed = origAllowed
+		config.CustomBlocked = origBlocked
+		configLock.Unlock()
+	}()
+
+	// 1. Add to blocklist (should remove from allowlist)
+	body, _ := json.Marshal(map[string]string{
+		"domain": "edgecase.com",
+		"type":   "block",
+	})
+	req := httptest.NewRequest("POST", "/api/rules/add", bytes.NewBuffer(body))
+	rr := httptest.NewRecorder()
+	handleRuleAdd(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	configLock.RLock()
+	allowed := config.CustomAllowed
+	blocked := config.CustomBlocked
+	configLock.RUnlock()
+
+	if len(allowed) != 0 {
+		t.Errorf("domain should be removed from CustomAllowed")
+	}
+	if len(blocked) != 1 || blocked[0] != "edgecase.com" {
+		t.Errorf("domain should be added to CustomBlocked")
+	}
+
+	// 2. Add back to allowlist (should remove from blocklist)
+	bodyAllow, _ := json.Marshal(map[string]string{
+		"domain": "edgecase.com",
+		"type":   "allow",
+	})
+	reqAllow := httptest.NewRequest("POST", "/api/rules/add", bytes.NewBuffer(bodyAllow))
+	rrAllow := httptest.NewRecorder()
+	handleRuleAdd(rrAllow, reqAllow)
+
+	configLock.RLock()
+	allowed = config.CustomAllowed
+	blocked = config.CustomBlocked
+	configLock.RUnlock()
+
+	if len(blocked) != 0 {
+		t.Errorf("domain should be removed from CustomBlocked")
+	}
+	if len(allowed) != 1 || allowed[0] != "edgecase.com" {
+		t.Errorf("domain should be added to CustomAllowed")
+	}
+	
+	// 3. Inference from Adblock format
+	bodyInfer, _ := json.Marshal(map[string]string{
+		"domain": "@@||adblock.com^",
+		"type":   "block", // Should be inferred as allow
+	})
+	reqInfer := httptest.NewRequest("POST", "/api/rules/add", bytes.NewBuffer(bodyInfer))
+	rrInfer := httptest.NewRecorder()
+	handleRuleAdd(rrInfer, reqInfer)
+	
+	configLock.RLock()
+	allowedAdblock := config.CustomAllowed
+	configLock.RUnlock()
+	
+	found := false
+	for _, a := range allowedAdblock {
+		if a == "adblock.com" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("domain adblock.com should be added to CustomAllowed due to @@ syntax")
+	}
+}
