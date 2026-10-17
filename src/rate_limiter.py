@@ -8,7 +8,6 @@ from collections import defaultdict
 from typing import List, Dict, Optional, Tuple, Any
 
 from whitelist_manager import (
-    shielddns_manage_autoblock_whitelist,
     is_rfc1918,
     load_whitelist,
     DEFAULT_CONFIG_PATH
