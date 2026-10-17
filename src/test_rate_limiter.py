@@ -1,25 +1,22 @@
-import sys
-import os
-import unittest
 import json
-import tempfile
+import os
 import shutil
-from datetime import datetime, timezone, timedelta
+import sys
+import tempfile
+import unittest
+from datetime import UTC, datetime, timedelta
 
 src_dir = os.path.dirname(os.path.abspath(__file__))
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
+from rate_limiter import RateLimiterService, load_blocklist, parse_log_line
 from whitelist_manager import (
-    shielddns_manage_autoblock_whitelist,
     is_rfc1918,
-    load_whitelist
+    load_whitelist,
+    shielddns_manage_autoblock_whitelist,
 )
-from rate_limiter import (
-    RateLimiterService,
-    load_blocklist,
-    parse_log_line
-)
+
 
 class TestShieldDNSRateLimiting(unittest.TestCase):
     def setUp(self):
@@ -87,7 +84,7 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
             rate_log_path=self.log_path
         )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         now_iso = now.isoformat()
 
         logs = []
