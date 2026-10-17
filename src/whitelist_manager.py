@@ -1,8 +1,7 @@
+import ipaddress
 import json
 import os
 import tempfile
-import ipaddress
-from typing import List, Union
 
 DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config", "whitelist.json")
 
@@ -12,14 +11,14 @@ RFC1918_NETWORKS = (
     ipaddress.ip_network("192.168.0.0/16"),
 )
 
-def is_rfc1918(ip_or_network: Union[str, ipaddress.IPv4Address, ipaddress.IPv4Network, ipaddress.IPv6Address, ipaddress.IPv6Network]) -> bool:
+def is_rfc1918(ip_or_network: str | ipaddress.IPv4Address | ipaddress.IPv4Network | ipaddress.IPv6Address | ipaddress.IPv6Network) -> bool:
     try:
         net = ipaddress.ip_network(ip_or_network, strict=False)
         return any(net.subnet_of(rfc) for rfc in RFC1918_NETWORKS)
     except (ValueError, TypeError):
         return False
 
-def load_whitelist(config_path: str = DEFAULT_CONFIG_PATH) -> List[str]:
+def load_whitelist(config_path: str = DEFAULT_CONFIG_PATH) -> list[str]:
     if not os.path.exists(config_path):
         return []
     try:
@@ -35,7 +34,7 @@ def load_whitelist(config_path: str = DEFAULT_CONFIG_PATH) -> List[str]:
     except (json.JSONDecodeError, OSError):
         return []
 
-def save_whitelist(entries: List[str], config_path: str = DEFAULT_CONFIG_PATH) -> None:
+def save_whitelist(entries: list[str], config_path: str = DEFAULT_CONFIG_PATH) -> None:
     target_dir = os.path.dirname(os.path.abspath(config_path))
     os.makedirs(target_dir, exist_ok=True)
     temp_fd, temp_path = tempfile.mkstemp(dir=target_dir, prefix="whitelist_", suffix=".tmp")
