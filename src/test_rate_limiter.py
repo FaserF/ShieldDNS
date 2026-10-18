@@ -86,6 +86,14 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
         res_rm_none = shielddns_manage_autoblock_whitelist("remove", "1.2.3.4", self.whitelist_path)
         self.assertFalse(res_rm_none)
 
+        with self.assertRaises(ValueError) as context:
+            shielddns_manage_autoblock_whitelist("update", "203.0.113.10", self.whitelist_path)
+        self.assertIn("Invalid operation", str(context.exception))
+
+        with self.assertRaises(ValueError) as context:
+            shielddns_manage_autoblock_whitelist("add", "invalid-ip", self.whitelist_path)
+        self.assertIn("Invalid IP address", str(context.exception))
+
     def test_rate_limiting_and_blocking(self):
         service = RateLimiterService(
             hourly_threshold=5,
