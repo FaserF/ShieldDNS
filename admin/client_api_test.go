@@ -47,9 +47,17 @@ func TestClientAPI(t *testing.T) {
 		{"example.org", "Allowed", "192.168.1.1"},
 	}
 
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("Failed to begin transaction: %v", err)
+	}
 	for _, q := range queries {
-		db.Exec("INSERT INTO queries (timestamp, domain, type, status, client_ip) VALUES (?, ?, ?, ?, ?)",
+		tx.Exec("INSERT INTO queries (timestamp, domain, type, status, client_ip) VALUES (?, ?, ?, ?, ?)",
 			time.Now().Format(time.RFC3339), q.domain, "A", q.status, q.ip)
+	}
+	err = tx.Commit()
+	if err != nil {
+		t.Fatalf("Failed to commit transaction: %v", err)
 	}
 
 	t.Run("HandleClientStats", func(t *testing.T) {
