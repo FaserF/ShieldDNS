@@ -2,9 +2,9 @@
   {
     "username": "FaserF",
     "name": "Fabian Seitz",
-    "email": "fabian.seitz@pari.com",
-    "commit_count": 484,
-    "last_commit_date": "2026-10-17",
+    "email": "github@fabiseitz.de",
+    "commit_count": 493,
+    "last_commit_date": "2026-10-18",
     "profile_url": "https://github.com/FaserF",
     "is_bot": false
   },
@@ -21,8 +21,8 @@
     "username": "github-actions[bot]",
     "name": "github-actions[bot]",
     "email": "github-actions[bot]@users.noreply.github.com",
-    "commit_count": 114,
-    "last_commit_date": "2026-09-13",
+    "commit_count": 117,
+    "last_commit_date": "2026-10-18",
     "profile_url": "https://github.com/github-actions[bot]",
     "is_bot": true
   },
@@ -30,9 +30,27 @@
     "username": "GitHubAction",
     "name": "GitHub Action",
     "email": "action@github.com",
-    "commit_count": 63,
-    "last_commit_date": "2026-09-05",
+    "commit_count": 64,
+    "last_commit_date": "2026-10-16",
     "profile_url": "https://github.com/GitHubAction",
     "is_bot": false
+  },
+  {
+    "username": "google-labs-jules[bot]",
+    "name": "google-labs-jules[bot]",
+    "email": "161369871+google-labs-jules[bot]@users.noreply.github.com",
+    "commit_count": 8,
+    "last_commit_date": "2026-10-17",
+    "profile_url": "https://github.com/apps/google-labs-jules",
+    "is_bot": true
+  },
+  {
+    "username": "faserf-hermes-agent[bot]",
+    "name": "faserf-hermes-agent[bot]",
+    "email": "faserf-hermes-agent[bot]@users.noreply.github.com",
+    "commit_count": 4,
+    "last_commit_date": "2026-10-18",
+    "profile_url": "https://github.com/apps/faserf-hermes-agent",
+    "is_bot": true
   }
 ]
