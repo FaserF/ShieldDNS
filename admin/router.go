@@ -169,20 +169,24 @@ func newDoHProxy() http.Handler {
 
 	// Internal proxy to CoreDNS running on loopback 127.0.0.1:5553.
 	// Traffic is strictly local IPC within the container. Since public TLS certificates
-	// contain domain DNS SANs and not IP SANs for 127.0.0.1, we enable loopback trust
-	// and extract the domain name as ServerName if present.
+	// contain domain DNS SANs and not IP SANs for 127.0.0.1, we dynamically extract
+	// the certificate's primary DNSName as ServerName so TLS verification succeeds cleanly.
 	certFile := os.Getenv("CERT_FILE")
 	if certFile == "" {
 		certFile = "/ssl/fullchain.pem"
 	}
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: true,
+		MinVersion: tls.VersionTLS12,
 	}
 	if certBytes, err := os.ReadFile(certFile); err == nil && len(certBytes) > 0 {
 		block, _ := pem.Decode(certBytes)
 		if block != nil {
-			if cert, err := x509.ParseCertificate(block.Bytes); err == nil && len(cert.DNSNames) > 0 {
-				tlsConfig.ServerName = cert.DNSNames[0]
+			if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+				if len(cert.DNSNames) > 0 {
+					tlsConfig.ServerName = cert.DNSNames[0]
+				} else if cert.Subject.CommonName != "" {
+					tlsConfig.ServerName = cert.Subject.CommonName
+				}
 			}
 		}
 		pool := x509.NewCertPool()
