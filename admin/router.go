@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"html/template"
 	"io/fs"
 	"log/slog"
@@ -167,20 +168,26 @@ func newDoHProxy() http.Handler {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
 	// Internal proxy to CoreDNS running on loopback 127.0.0.1:5553.
-	// CoreDNS uses the server cert or runs in test mode.
+	// Traffic is strictly local IPC within the container. Since public TLS certificates
+	// contain domain DNS SANs and not IP SANs for 127.0.0.1, we enable loopback trust
+	// and extract the domain name as ServerName if present.
 	certFile := os.Getenv("CERT_FILE")
 	if certFile == "" {
 		certFile = "/ssl/fullchain.pem"
 	}
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: testMode,
-		ServerName:         "127.0.0.1",
+		InsecureSkipVerify: true,
 	}
 	if certBytes, err := os.ReadFile(certFile); err == nil && len(certBytes) > 0 {
+		block, _ := pem.Decode(certBytes)
+		if block != nil {
+			if cert, err := x509.ParseCertificate(block.Bytes); err == nil && len(cert.DNSNames) > 0 {
+				tlsConfig.ServerName = cert.DNSNames[0]
+			}
+		}
 		pool := x509.NewCertPool()
 		if pool.AppendCertsFromPEM(certBytes) {
 			tlsConfig.RootCAs = pool
-			tlsConfig.InsecureSkipVerify = false
 		}
 	}
 
@@ -198,9 +205,10 @@ func newDoHProxy() http.Handler {
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		// Suppress error logging if it's just a temporary connection refusal (likely during restart)
-		if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "i/o timeout") {
-			slog.Debug("DoH Proxy temporary unavailability", "error", err)
+		// Suppress error logging if it's just a temporary connection refusal, timeout, or client cancellation
+		errStr := err.Error()
+		if strings.Contains(errStr, "connection refused") || strings.Contains(errStr, "i/o timeout") || strings.Contains(errStr, "context canceled") || strings.Contains(errStr, "client disconnected") {
+			slog.Debug("DoH Proxy client request aborted or temporary unavailability", "error", err)
 		} else {
 			slog.Error("DoH Proxy Error", "target", target.String(), "error", err)
 		}
