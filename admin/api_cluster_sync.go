@@ -19,6 +19,10 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 	clusterSyncMu.Lock()
 	defer clusterSyncMu.Unlock()
 
+	if !isValidRedirectUrl(primaryURL) {
+		return fmt.Errorf("invalid or disallowed primary URL: %s", primaryURL)
+	}
+
 	parsedURL, err := url.Parse(primaryURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse primary URL: %w", err)
@@ -32,6 +36,11 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 		Host:   parsedURL.Host,
 		Path:   "/api/cluster/replicas/sync",
 	}).String()
+
+	if !isValidRedirectUrl(endpoint) {
+		return fmt.Errorf("invalid cluster sync endpoint: %s", endpoint)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 	defer cancel()
 
@@ -340,6 +349,10 @@ func SyncClusterLogs() error {
 		return fmt.Errorf("failed to encode queries payload: %w", err)
 	}
 
+	if !isValidRedirectUrl(primaryURL) {
+		return fmt.Errorf("invalid or disallowed primary URL: %s", primaryURL)
+	}
+
 	parsedURL, err := url.Parse(primaryURL)
 	if err != nil {
 		return fmt.Errorf("invalid primary URL: %s: %w", primaryURL, err)
@@ -353,6 +366,11 @@ func SyncClusterLogs() error {
 		Host:   parsedURL.Host,
 		Path:   "/api/cluster/logs/ingest",
 	}).String()
+
+	if !isValidRedirectUrl(endpoint) {
+		return fmt.Errorf("invalid cluster log ingest endpoint: %s", endpoint)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

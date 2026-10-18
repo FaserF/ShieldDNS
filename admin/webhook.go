@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -45,7 +46,7 @@ func SendSecurityWebhook(event string, title string, details map[string]interfac
 		token = os.Getenv("WEBHOOK_TOKEN")
 	}
 
-	if !enabled || url == "" {
+	if !enabled || url == "" || !isValidRedirectUrl(url) {
 		return
 	}
 
@@ -95,13 +96,21 @@ func SendSecurityWebhook(event string, title string, details map[string]interfac
 	}
 
 	go func(targetURL, authToken string, p WebhookPayload) {
+		if !isValidRedirectUrl(targetURL) {
+			slog.Warn("Rejected invalid or unsafe webhook target URL", "url", targetURL)
+			return
+		}
+
 		body, err := json.Marshal(p)
 		if err != nil {
 			slog.Error("Failed to marshal webhook payload", "error", err)
 			return
 		}
 
-		req, err := http.NewRequest(http.MethodPost, targetURL, bytes.NewReader(body))
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 		if err != nil {
 			slog.Error("Failed to create webhook request", "error", err)
 			return

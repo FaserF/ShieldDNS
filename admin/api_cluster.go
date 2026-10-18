@@ -23,26 +23,6 @@ var (
 	clusterSyncMu        sync.Mutex
 )
 
-// isSafeClusterTarget validates scheme and prevents SSRF to sensitive cloud metadata endpoints
-func isSafeClusterTarget(u *url.URL) error {
-	if u == nil {
-		return fmt.Errorf("nil target URL")
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("unsupported scheme: %s", u.Scheme)
-	}
-	host := u.Hostname()
-	if !isValidDomain(host) {
-		return fmt.Errorf("invalid host: %s", host)
-	}
-	if ip := net.ParseIP(host); ip != nil {
-		if ip.Equal(net.ParseIP("169.254.169.254")) || ip.IsLinkLocalUnicast() {
-			return fmt.Errorf("access to link-local/metadata address blocked: %s", host)
-		}
-	}
-	return nil
-}
-
 // newClusterHTTPClient returns an http.Client with transport controls restricting unsafe destinations
 func newClusterHTTPClient(timeout time.Duration, verifyTLS bool) *http.Client {
 	dialer := &net.Dialer{
@@ -378,6 +358,11 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 		req.PrimaryURL = "https://" + req.PrimaryURL
 	}
 
+	if !isValidRedirectUrl(req.PrimaryURL) {
+		http.Error(w, "Invalid Primary URL", http.StatusBadRequest)
+		return
+	}
+
 	parsedURL, err := url.Parse(req.PrimaryURL)
 	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" {
 		http.Error(w, "Invalid Primary URL", http.StatusBadRequest)
@@ -418,6 +403,10 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 		Host:   parsedURL.Host,
 		Path:   "/api/cluster/replicas/register",
 	}).String()
+	if !isValidRedirectUrl(primaryEndpoint) {
+		http.Error(w, "Invalid Primary Endpoint URL", http.StatusBadRequest)
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 

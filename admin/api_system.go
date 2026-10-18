@@ -242,6 +242,14 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		if newConfig.WebhookURL != "" && !isValidRedirectUrl(newConfig.WebhookURL) {
+			http.Error(w, "Invalid WebhookURL: must be a valid http or https URL", http.StatusBadRequest)
+			return
+		}
+		if newConfig.ClusterPrimaryURL != "" && !isValidRedirectUrl(newConfig.ClusterPrimaryURL) {
+			http.Error(w, "Invalid ClusterPrimaryURL: must be a valid http or https URL", http.StatusBadRequest)
+			return
+		}
 		configLock.Lock()
 		// Preserve fields that might not be sent in a partial update
 		if len(newConfig.BlockedCountries) == 0 && len(config.BlockedCountries) > 0 {
