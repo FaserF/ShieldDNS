@@ -142,3 +142,92 @@ func TestGetRoutingZoneBlocks(t *testing.T) {
 		t.Errorf("Expected DoT block for corp.internal, got: %s", blocks)
 	}
 }
+
+func TestRoutingRules_EdgeCases(t *testing.T) {
+	// 1. Replica Node Forbidden (POST & DELETE)
+	configLock.Lock()
+	config.ClusterRole = "replica"
+	configLock.Unlock()
+
+	reqReplicaPOST := httptest.NewRequest(http.MethodPost, "/api/routing/rules", bytes.NewBufferString(`{}`))
+	rrReplicaPOST := httptest.NewRecorder()
+	handleRoutingRules(rrReplicaPOST, reqReplicaPOST)
+	if rrReplicaPOST.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for replica POST, got %d", rrReplicaPOST.Code)
+	}
+
+	reqReplicaDEL := httptest.NewRequest(http.MethodDelete, "/api/routing/rules?id=1", nil)
+	rrReplicaDEL := httptest.NewRecorder()
+	handleRoutingRules(rrReplicaDEL, reqReplicaDEL)
+	if rrReplicaDEL.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for replica DELETE, got %d", rrReplicaDEL.Code)
+	}
+
+	configLock.Lock()
+	config.ClusterRole = "primary" // restore
+	configLock.Unlock()
+
+	// 2. POST with Empty Match
+	reqEmptyMatch := httptest.NewRequest(http.MethodPost, "/api/routing/rules", bytes.NewBufferString(`{"match": ""}`))
+	rrEmptyMatch := httptest.NewRecorder()
+	handleRoutingRules(rrEmptyMatch, reqEmptyMatch)
+	if rrEmptyMatch.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422 for empty match, got %d", rrEmptyMatch.Code)
+	}
+
+	// 3. POST with Invalid matchType
+	reqInvalidMatchType := httptest.NewRequest(http.MethodPost, "/api/routing/rules", bytes.NewBufferString(`{"match": "example.com", "match_type": "invalid"}`))
+	rrInvalidMatchType := httptest.NewRecorder()
+	handleRoutingRules(rrInvalidMatchType, reqInvalidMatchType)
+	if rrInvalidMatchType.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid match_type, got %d", rrInvalidMatchType.Code)
+	}
+
+	// 4. POST with Invalid Domain
+	reqInvalidDomain := httptest.NewRequest(http.MethodPost, "/api/routing/rules", bytes.NewBufferString(`{"match": "invalid!!domain", "match_type": "domain"}`))
+	rrInvalidDomain := httptest.NewRecorder()
+	handleRoutingRules(rrInvalidDomain, reqInvalidDomain)
+	if rrInvalidDomain.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid domain, got %d", rrInvalidDomain.Code)
+	}
+
+	// 5. POST with Invalid IP
+	reqInvalidIP := httptest.NewRequest(http.MethodPost, "/api/routing/rules", bytes.NewBufferString(`{"match": "999.999.999.999", "match_type": "client_ip"}`))
+	rrInvalidIP := httptest.NewRecorder()
+	handleRoutingRules(rrInvalidIP, reqInvalidIP)
+	if rrInvalidIP.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid IP, got %d", rrInvalidIP.Code)
+	}
+
+	// 6. POST with Invalid CIDR
+	reqInvalidCIDR := httptest.NewRequest(http.MethodPost, "/api/routing/rules", bytes.NewBufferString(`{"match": "192.168.1.0/99", "match_type": "client_ip"}`))
+	rrInvalidCIDR := httptest.NewRecorder()
+	handleRoutingRules(rrInvalidCIDR, reqInvalidCIDR)
+	if rrInvalidCIDR.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid CIDR, got %d", rrInvalidCIDR.Code)
+	}
+
+	// 7. POST target=host but no host_target
+	reqNoHostTarget := httptest.NewRequest(http.MethodPost, "/api/routing/rules", bytes.NewBufferString(`{"match": "example.com", "match_type": "domain", "target": "host"}`))
+	rrNoHostTarget := httptest.NewRecorder()
+	handleRoutingRules(rrNoHostTarget, reqNoHostTarget)
+	if rrNoHostTarget.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing host_target, got %d", rrNoHostTarget.Code)
+	}
+
+	// 8. DELETE with missing ID and Match
+	reqMissingDel := httptest.NewRequest(http.MethodDelete, "/api/routing/rules", nil)
+	rrMissingDel := httptest.NewRecorder()
+	handleRoutingRules(rrMissingDel, reqMissingDel)
+	if rrMissingDel.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing ID/match on delete, got %d", rrMissingDel.Code)
+	}
+
+	// 9. DELETE non-existent rule
+	reqDel404 := httptest.NewRequest(http.MethodDelete, "/api/routing/rules?id=nonexistent", nil)
+	rrDel404 := httptest.NewRecorder()
+	handleRoutingRules(rrDel404, reqDel404)
+	if rrDel404.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for non-existent rule, got %d", rrDel404.Code)
+	}
+}
