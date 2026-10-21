@@ -18,7 +18,8 @@ from whitelist_manager import (
 from rate_limiter import (
     RateLimiterService,
     load_blocklist,
-    parse_log_line
+    parse_log_line,
+    is_whitelisted
 )
 
 class TestShieldDNSRateLimiting(unittest.TestCase):
@@ -44,6 +45,12 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
         self.assertFalse(is_rfc1918("1.1.1.1"))
         self.assertFalse(is_rfc1918("172.32.0.1"))
         self.assertFalse(is_rfc1918("203.0.113.5"))
+
+    def test_is_whitelisted_invalid_ip(self):
+        whitelist = ["1.1.1.1", "192.168.1.0/24"]
+        self.assertFalse(is_whitelisted("not-an-ip", whitelist))
+        self.assertFalse(is_whitelisted("999.999.999.999", whitelist))
+        self.assertFalse(is_whitelisted("", whitelist))
 
     def test_parse_log_line_edge_cases(self):
         # Malformed / non-string timestamps
