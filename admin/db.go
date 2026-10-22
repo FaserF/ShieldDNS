@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -266,7 +267,7 @@ func startLogWorker(ctx context.Context) {
 }
 
 func flushLogs(queries []Query) {
-	if db == nil {
+	if db == nil || len(queries) == 0 {
 		return
 	}
 
@@ -276,26 +277,36 @@ func flushLogs(queries []Query) {
 		return
 	}
 
-	stmt, err := tx.Prepare("INSERT INTO queries (timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-	if err != nil {
-		slog.Error("Error preparing log statement", "error", err)
-		tx.Rollback()
-		return
-	}
-	defer stmt.Close()
-
 	configLock.RLock()
 	localNodeName := config.ClusterNodeName
 	configLock.RUnlock()
 
-	for _, q := range queries {
-		nodeName := q.NodeName
-		if nodeName == "" {
-			nodeName = localNodeName
+	batchSize := 100
+	for k := 0; k < len(queries); k += batchSize {
+		end := k + batchSize
+		if end > len(queries) {
+			end = len(queries)
 		}
-		_, err = stmt.Exec(q.Time.UTC().Format("2006-01-02 15:04:05"), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs, q.CountryCode, nodeName)
+		batch := queries[k:end]
+
+		valueStrings := make([]string, 0, len(batch))
+		valueArgs := make([]interface{}, 0, len(batch)*9)
+
+		for _, q := range batch {
+			nodeName := q.NodeName
+			if nodeName == "" {
+				nodeName = localNodeName
+			}
+			valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			valueArgs = append(valueArgs, q.Time.UTC().Format("2006-01-02 15:04:05"), q.Domain, q.Type, q.Status, q.ClientIP, q.IsCacheHit, q.DurationMs, q.CountryCode, nodeName)
+		}
+
+		query := "INSERT INTO queries (timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name) VALUES " +
+			strings.Join(valueStrings, ",")
+
+		_, err = tx.Exec(query, valueArgs...)
 		if err != nil {
-			slog.Error("Error executing log statement", "domain", q.Domain, "error", err)
+			slog.Error("Error executing log batch statement", "error", err)
 		}
 	}
 
@@ -467,4 +478,3 @@ func refreshStats() {
 		}
 	}
 }
-
