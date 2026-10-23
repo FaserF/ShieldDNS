@@ -87,7 +87,7 @@ class TestWhitelistManager(unittest.TestCase):
         # Exception during save should raise and not corrupt file (simulated by mocking)
         with patch('os.replace') as mock_replace:
             mock_replace.side_effect = Exception("Mock replace error")
-            with self.assertRaises(Exception):
+            with self.assertRaises(Exception):  # noqa: B017
                 save_whitelist(["8.8.8.8"], self.whitelist_path)
 
             # The original file should still contain the old data, because replace failed
