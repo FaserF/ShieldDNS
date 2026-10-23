@@ -1,26 +1,27 @@
-import sys
-import os
-import unittest
 import json
-import tempfile
+import os
 import shutil
-from datetime import datetime, timezone, timedelta
+import sys
+import tempfile
+import unittest
+from datetime import UTC, datetime, timedelta
 
 src_dir = os.path.dirname(os.path.abspath(__file__))
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
-from whitelist_manager import (
-    shielddns_manage_autoblock_whitelist,
-    is_rfc1918,
-    load_whitelist
-)
 from rate_limiter import (
     RateLimiterService,
+    is_whitelisted,
     load_blocklist,
     parse_log_line,
-    is_whitelisted
 )
+from whitelist_manager import (
+    is_rfc1918,
+    load_whitelist,
+    shielddns_manage_autoblock_whitelist,
+)
+
 
 class TestShieldDNSRateLimiting(unittest.TestCase):
     def setUp(self):
@@ -149,7 +150,7 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
             rate_log_path=self.log_path
         )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         now_iso = now.isoformat()
 
         logs = []
@@ -198,7 +199,7 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
             rate_log_path=self.log_path
         )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Test with missing file
         missing_file_path = os.path.join(self.test_dir, "non_existent.log")
@@ -216,8 +217,7 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
             logs.append(json.dumps({"timestamp": now_iso, "client_ip": "203.0.113.50"}))
 
         with open(log_file_path, "w", encoding="utf-8") as f:
-            for log in logs:
-                f.write(log + "\n")
+            f.writelines(log + "\n" for log in logs)
 
         result_existing = service.process_log_file(log_file_path, window_hours=1.0, now=now)
         self.assertIn("203.0.113.50", result_existing["newly_blocked"])

@@ -1,9 +1,9 @@
-import sys
-import os
-import unittest
 import json
-import tempfile
+import os
 import shutil
+import sys
+import tempfile
+import unittest
 from unittest.mock import patch
 
 src_dir = os.path.dirname(os.path.abspath(__file__))
@@ -14,8 +14,9 @@ from whitelist_manager import (
     is_rfc1918,
     load_whitelist,
     save_whitelist,
-    shielddns_manage_autoblock_whitelist
+    shielddns_manage_autoblock_whitelist,
 )
+
 
 class TestWhitelistManager(unittest.TestCase):
     def setUp(self):
