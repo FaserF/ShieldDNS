@@ -10,7 +10,7 @@ RUN go mod download && go mod tidy
 RUN GOOS=linux GOARCH=$TARGETARCH go build -o shielddns-admin .
 
 # Stage 3: Runtime Image
-FROM alpine:3.24@sha256:71e9b7bae160ba167fa17414401b94cbcdaf3c32feeab9298bd794a2a0614c35
+FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 
 # Install dependencies including libcap for setcap
 RUN apk add --no-cache jq ca-certificates bash curl dos2unix openssl libcap su-exec
