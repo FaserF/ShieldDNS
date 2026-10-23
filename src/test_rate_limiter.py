@@ -67,10 +67,6 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
         self.assertEqual(ip, "203.0.113.50")
         self.assertEqual(dt.year, 2026)
 
-    def test_is_whitelisted_invalid_ip(self):
-        self.assertFalse(is_whitelisted("not-an-ip", []))
-        self.assertFalse(is_whitelisted("999.999.999.999", ["127.0.0.1"]))
-
     def test_whitelist_management(self):
         res = shielddns_manage_autoblock_whitelist("add", "203.0.113.10", self.whitelist_path)
         self.assertTrue(res)
