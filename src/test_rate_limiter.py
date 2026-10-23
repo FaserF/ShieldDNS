@@ -79,6 +79,49 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
         res_rm_none = shielddns_manage_autoblock_whitelist("remove", "1.2.3.4", self.whitelist_path)
         self.assertFalse(res_rm_none)
 
+    def test_load_blocklist_edge_cases(self):
+        # Non-existent file
+        self.assertEqual(load_blocklist("/non/existent/path/that/does/not/exist.json"), [])
+
+        # Write invalid JSON
+        with open(self.blocklist_path, "w", encoding="utf-8") as f:
+            f.write("not valid json")
+        self.assertEqual(load_blocklist(self.blocklist_path), [])
+
+        # Write valid JSON but not dict or list
+        with open(self.blocklist_path, "w", encoding="utf-8") as f:
+            f.write("12345")
+        self.assertEqual(load_blocklist(self.blocklist_path), [])
+
+        # Write list with mixed types
+        with open(self.blocklist_path, "w", encoding="utf-8") as f:
+            json.dump(["192.168.1.1", 123, {"ip": "1.1.1.1"}, "10.0.0.1"], f)
+        self.assertEqual(load_blocklist(self.blocklist_path), ["192.168.1.1", "10.0.0.1"])
+
+        # Write dict with mixed types in blocked_ips
+        with open(self.blocklist_path, "w", encoding="utf-8") as f:
+            json.dump({"blocked_ips": ["1.1.1.1", 456, ["nested"], "8.8.8.8"]}, f)
+        self.assertEqual(load_blocklist(self.blocklist_path), ["1.1.1.1", "8.8.8.8"])
+
+        # Write dict without blocked_ips
+        with open(self.blocklist_path, "w", encoding="utf-8") as f:
+            json.dump({"other_key": "value"}, f)
+        self.assertEqual(load_blocklist(self.blocklist_path), [])
+
+        # Write dict where blocked_ips is not a list
+        with open(self.blocklist_path, "w", encoding="utf-8") as f:
+            json.dump({"blocked_ips": "1.1.1.1"}, f)
+        self.assertEqual(load_blocklist(self.blocklist_path), [])
+
+        # Simulate OSError
+        from unittest.mock import patch
+        # we need a file that exists so it passes the os.path.exists check
+        with open(self.blocklist_path, "w", encoding="utf-8") as f:
+            f.write("[]")
+        
+        with patch("builtins.open", side_effect=OSError("Permission denied")):
+            self.assertEqual(load_blocklist(self.blocklist_path), [])
+
     def test_rate_limiting_and_blocking(self):
         service = RateLimiterService(
             hourly_threshold=5,
