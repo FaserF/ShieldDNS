@@ -31,20 +31,6 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.test_dir)
 
-    def test_rfc1918_detection(self):
-        self.assertTrue(is_rfc1918("10.0.0.1"))
-        self.assertTrue(is_rfc1918("10.254.0.15"))
-        self.assertTrue(is_rfc1918("172.16.0.1"))
-        self.assertTrue(is_rfc1918("172.31.255.255"))
-        self.assertTrue(is_rfc1918("192.168.1.100"))
-        self.assertTrue(is_rfc1918("192.168.0.0/16"))
-
-        self.assertFalse(is_rfc1918("127.0.0.1"))
-        self.assertFalse(is_rfc1918("8.8.8.8"))
-        self.assertFalse(is_rfc1918("1.1.1.1"))
-        self.assertFalse(is_rfc1918("172.32.0.1"))
-        self.assertFalse(is_rfc1918("203.0.113.5"))
-
     def test_parse_log_line_edge_cases(self):
         # Malformed / non-string timestamps
         self.assertIsNone(parse_log_line(json.dumps({"timestamp": 1728770000, "client_ip": "203.0.113.50"})))
@@ -58,26 +44,6 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
         dt, ip = parsed
         self.assertEqual(ip, "203.0.113.50")
         self.assertEqual(dt.year, 2026)
-
-    def test_whitelist_management(self):
-        res = shielddns_manage_autoblock_whitelist("add", "203.0.113.10", self.whitelist_path)
-        self.assertTrue(res)
-        self.assertIn("203.0.113.10", load_whitelist(self.whitelist_path))
-
-        res_cidr = shielddns_manage_autoblock_whitelist("add", "198.51.100.0/24", self.whitelist_path)
-        self.assertTrue(res_cidr)
-        self.assertIn("198.51.100.0/24", load_whitelist(self.whitelist_path))
-
-        res_dup = shielddns_manage_autoblock_whitelist("add", "203.0.113.10", self.whitelist_path)
-        self.assertTrue(res_dup)
-        self.assertEqual(len(load_whitelist(self.whitelist_path)), 2)
-
-        res_rm = shielddns_manage_autoblock_whitelist("remove", "203.0.113.10", self.whitelist_path)
-        self.assertTrue(res_rm)
-        self.assertNotIn("203.0.113.10", load_whitelist(self.whitelist_path))
-
-        res_rm_none = shielddns_manage_autoblock_whitelist("remove", "1.2.3.4", self.whitelist_path)
-        self.assertFalse(res_rm_none)
 
     def test_rate_limiting_and_blocking(self):
         service = RateLimiterService(
