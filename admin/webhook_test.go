@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -13,11 +14,14 @@ func TestSendSecurityWebhook(t *testing.T) {
 	var callCount atomic.Int32
 	var lastPayload WebhookPayload
 	var lastAuthHeader string
+	var mu sync.Mutex
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount.Add(1)
+		mu.Lock()
 		lastAuthHeader = r.Header.Get("Authorization")
 		_ = json.NewDecoder(r.Body).Decode(&lastPayload)
+		mu.Unlock()
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -54,14 +58,20 @@ func TestSendSecurityWebhook(t *testing.T) {
 	if callCount.Load() != 1 {
 		t.Fatalf("expected 1 webhook call, got %d", callCount.Load())
 	}
-	if lastAuthHeader != "Bearer test-token-123" {
-		t.Errorf("expected Bearer test-token-123, got %s", lastAuthHeader)
+	mu.Lock()
+	authHeader := lastAuthHeader
+	payloadEvent := lastPayload.Event
+	payloadNode := lastPayload.Node
+	mu.Unlock()
+
+	if authHeader != "Bearer test-token-123" {
+		t.Errorf("expected Bearer test-token-123, got %s", authHeader)
 	}
-	if lastPayload.Event != "test_event" {
-		t.Errorf("expected test_event, got %s", lastPayload.Event)
+	if payloadEvent != "test_event" {
+		t.Errorf("expected test_event, got %s", payloadEvent)
 	}
-	if lastPayload.Node != "test-node" {
-		t.Errorf("expected test-node, got %s", lastPayload.Node)
+	if payloadNode != "test-node" {
+		t.Errorf("expected test-node, got %s", payloadNode)
 	}
 
 	// Immediate duplicate call should be debounced
