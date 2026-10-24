@@ -57,6 +57,16 @@ ShieldDNS is designed for high performance and long-term maintainability:
 
 </div>
 
+---
+
+## 🔌 Recommended Hardware & Ecosystem Links
+
+| Device / Service | Integration Use Case | Link |
+| :--- | :--- | :--- |
+| **OpenWrt-kompatible Wi-Fi 6/7 Router & Gateways** | Native Ubus/RPC, WireGuard, SQM & Präsenz-Erkennung in Home Assistant | [Offizielle Geräte-Seite →](https://fabiseitz.de/go/ha-router) |
+| **Home Assistant Green / Yellow Zentrale** | Dedizierter, stromsparender 24/7 Smart-Home-Host | [Offizielle Geräte-Seite →](https://fabiseitz.de/go/ha-hardware) |
+
+
 ## 🧐 ShieldDNS vs. AdGuard Home vs. Pi-hole
 
 ShieldDNS is a modern, lightweight alternative to established solutions like AdGuard Home or Pi-hole. It was built with a focus on performance (CoreDNS-based) and native support for encrypted DNS (DoT/DoH).
