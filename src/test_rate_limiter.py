@@ -55,49 +55,90 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
 
     def test_parse_log_line_edge_cases(self):
         # Malformed / non-string timestamps
-        self.assertIsNone(parse_log_line(json.dumps({"timestamp": 1728770000, "client_ip": "203.0.113.50"})))
-        self.assertIsNone(parse_log_line(json.dumps({"timestamp": "invalid-ts", "client_ip": "203.0.113.50"})))
+        self.assertIsNone(
+            parse_log_line(
+                json.dumps({"timestamp": 1728770000, "client_ip": "203.0.113.50"})
+            )
+        )
+        self.assertIsNone(
+            parse_log_line(
+                json.dumps({"timestamp": "invalid-ts", "client_ip": "203.0.113.50"})
+            )
+        )
         # Invalid IP in JSON
-        self.assertIsNone(parse_log_line(json.dumps({"timestamp": "2026-10-12T20:00:00Z", "client_ip": "999.999.999.999"})))
-        self.assertIsNone(parse_log_line(json.dumps({"timestamp": "2026-10-12T20:00:00Z", "client_ip": 12345})))
+        self.assertIsNone(
+            parse_log_line(
+                json.dumps(
+                    {
+                        "timestamp": "2026-10-12T20:00:00Z",
+                        "client_ip": "999.999.999.999",
+                    }
+                )
+            )
+        )
+        self.assertIsNone(
+            parse_log_line(
+                json.dumps({"timestamp": "2026-10-12T20:00:00Z", "client_ip": 12345})
+            )
+        )
         # Valid JSON line
-        parsed = parse_log_line(json.dumps({"timestamp": "2026-10-12T20:00:00Z", "client_ip": "203.0.113.50"}))
+        parsed = parse_log_line(
+            json.dumps(
+                {"timestamp": "2026-10-12T20:00:00Z", "client_ip": "203.0.113.50"}
+            )
+        )
         self.assertIsNotNone(parsed)
         dt, ip = parsed
         self.assertEqual(ip, "203.0.113.50")
         self.assertEqual(dt.year, 2026)
 
     def test_whitelist_management(self):
-        res = shielddns_manage_autoblock_whitelist("add", "203.0.113.10", self.whitelist_path)
+        res = shielddns_manage_autoblock_whitelist(
+            "add", "203.0.113.10", self.whitelist_path
+        )
         self.assertTrue(res)
         self.assertIn("203.0.113.10", load_whitelist(self.whitelist_path))
 
-        res_cidr = shielddns_manage_autoblock_whitelist("add", "198.51.100.0/24", self.whitelist_path)
+        res_cidr = shielddns_manage_autoblock_whitelist(
+            "add", "198.51.100.0/24", self.whitelist_path
+        )
         self.assertTrue(res_cidr)
         self.assertIn("198.51.100.0/24", load_whitelist(self.whitelist_path))
 
-        res_dup = shielddns_manage_autoblock_whitelist("add", "203.0.113.10", self.whitelist_path)
+        res_dup = shielddns_manage_autoblock_whitelist(
+            "add", "203.0.113.10", self.whitelist_path
+        )
         self.assertTrue(res_dup)
         self.assertEqual(len(load_whitelist(self.whitelist_path)), 2)
 
-        res_rm = shielddns_manage_autoblock_whitelist("remove", "203.0.113.10", self.whitelist_path)
+        res_rm = shielddns_manage_autoblock_whitelist(
+            "remove", "203.0.113.10", self.whitelist_path
+        )
         self.assertTrue(res_rm)
         self.assertNotIn("203.0.113.10", load_whitelist(self.whitelist_path))
 
-        res_rm_none = shielddns_manage_autoblock_whitelist("remove", "1.2.3.4", self.whitelist_path)
+        res_rm_none = shielddns_manage_autoblock_whitelist(
+            "remove", "1.2.3.4", self.whitelist_path
+        )
         self.assertFalse(res_rm_none)
 
         with self.assertRaises(ValueError) as context:
-            shielddns_manage_autoblock_whitelist("update", "203.0.113.10", self.whitelist_path)
+            shielddns_manage_autoblock_whitelist(
+                "update", "203.0.113.10", self.whitelist_path
+            )
         self.assertIn("Invalid operation", str(context.exception))
 
         with self.assertRaises(ValueError) as context:
-            shielddns_manage_autoblock_whitelist("add", "invalid-ip", self.whitelist_path)
+            shielddns_manage_autoblock_whitelist(
+                "add", "invalid-ip", self.whitelist_path
+            )
         self.assertIn("Invalid IP address", str(context.exception))
 
     def test_load_blocklist_edge_cases(self):
         # Non-existent file
-        self.assertEqual(load_blocklist("/non/existent/path/that/does/not/exist.json"), [])
+        self.assertEqual(
+            load_blocklist("/non/existent/path/that/does/not/exist.json"), []
+        )
 
         # Write invalid JSON
         with open(self.blocklist_path, "w", encoding="utf-8") as f:
@@ -112,7 +153,9 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
         # Write list with mixed types
         with open(self.blocklist_path, "w", encoding="utf-8") as f:
             json.dump(["192.168.1.1", 123, {"ip": "1.1.1.1"}, "10.0.0.1"], f)
-        self.assertEqual(load_blocklist(self.blocklist_path), ["192.168.1.1", "10.0.0.1"])
+        self.assertEqual(
+            load_blocklist(self.blocklist_path), ["192.168.1.1", "10.0.0.1"]
+        )
 
         # Write dict with mixed types in blocked_ips
         with open(self.blocklist_path, "w", encoding="utf-8") as f:
@@ -131,6 +174,7 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
 
         # Simulate OSError
         from unittest.mock import patch
+
         # we need a file that exists so it passes the os.path.exists check
         with open(self.blocklist_path, "w", encoding="utf-8") as f:
             f.write("[]")
@@ -143,7 +187,7 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
             hourly_threshold=5,
             whitelist_config_path=self.whitelist_path,
             blocklist_path=self.blocklist_path,
-            rate_log_path=self.log_path
+            rate_log_path=self.log_path,
         )
 
         now = datetime.now(UTC)
@@ -165,7 +209,9 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
 
         old_time = (now - timedelta(hours=2)).isoformat()
         for _ in range(10):
-            logs.append(json.dumps({"timestamp": old_time, "client_ip": "203.0.113.70"}))
+            logs.append(
+                json.dumps({"timestamp": old_time, "client_ip": "203.0.113.70"})
+            )
 
         result = service.process_logs(logs, window_hours=1.0, now=now)
 
@@ -192,14 +238,16 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
             hourly_threshold=5,
             whitelist_config_path=self.whitelist_path,
             blocklist_path=self.blocklist_path,
-            rate_log_path=self.log_path
+            rate_log_path=self.log_path,
         )
 
         now = datetime.now(UTC)
 
         # Test with missing file
         missing_file_path = os.path.join(self.test_dir, "non_existent.log")
-        result_missing = service.process_log_file(missing_file_path, window_hours=1.0, now=now)
+        result_missing = service.process_log_file(
+            missing_file_path, window_hours=1.0, now=now
+        )
         self.assertEqual(result_missing["processed_counts"], {})
         self.assertEqual(result_missing["newly_blocked"], [])
         self.assertEqual(result_missing["ignored_rfc1918"], [])
@@ -215,9 +263,12 @@ class TestShieldDNSRateLimiting(unittest.TestCase):
         with open(log_file_path, "w", encoding="utf-8") as f:
             f.writelines(log + "\n" for log in logs)
 
-        result_existing = service.process_log_file(log_file_path, window_hours=1.0, now=now)
+        result_existing = service.process_log_file(
+            log_file_path, window_hours=1.0, now=now
+        )
         self.assertIn("203.0.113.50", result_existing["newly_blocked"])
         self.assertEqual(result_existing["processed_counts"]["203.0.113.50"], 10)
+
 
 if __name__ == "__main__":
     unittest.main()

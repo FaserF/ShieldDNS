@@ -505,7 +505,7 @@ def collect() -> dict:
         if env_commit:
             commit_id = env_commit[:7]
 
-    timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime(
+    timestamp = datetime.datetime.now(tz=datetime.UTC).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
 

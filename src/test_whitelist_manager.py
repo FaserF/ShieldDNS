@@ -52,7 +52,9 @@ class TestWhitelistManager(unittest.TestCase):
         # Valid list format
         with open(self.whitelist_path, "w", encoding="utf-8") as f:
             json.dump(["192.168.1.1", "10.0.0.1"], f)
-        self.assertEqual(load_whitelist(self.whitelist_path), ["192.168.1.1", "10.0.0.1"])
+        self.assertEqual(
+            load_whitelist(self.whitelist_path), ["192.168.1.1", "10.0.0.1"]
+        )
 
         # Valid dict format
         with open(self.whitelist_path, "w", encoding="utf-8") as f:
@@ -85,7 +87,7 @@ class TestWhitelistManager(unittest.TestCase):
         self.assertEqual(data, {"whitelist": entries})
 
         # Exception during save should raise and not corrupt file (simulated by mocking)
-        with patch('os.replace') as mock_replace:
+        with patch("os.replace") as mock_replace:
             mock_replace.side_effect = Exception("Mock replace error")
             with self.assertRaises(Exception):  # noqa: B017
                 save_whitelist(["8.8.8.8"], self.whitelist_path)
@@ -98,35 +100,50 @@ class TestWhitelistManager(unittest.TestCase):
     def test_shielddns_manage_autoblock_whitelist(self):
         # Invalid operation
         with self.assertRaises(ValueError):
-            shielddns_manage_autoblock_whitelist("update", "10.0.0.1", self.whitelist_path)
+            shielddns_manage_autoblock_whitelist(
+                "update", "10.0.0.1", self.whitelist_path
+            )
 
         # Invalid IP
         with self.assertRaises(ValueError):
-            shielddns_manage_autoblock_whitelist("add", "invalid_ip", self.whitelist_path)
+            shielddns_manage_autoblock_whitelist(
+                "add", "invalid_ip", self.whitelist_path
+            )
 
         # Add single IP
-        res = shielddns_manage_autoblock_whitelist("add", "203.0.113.10", self.whitelist_path)
+        res = shielddns_manage_autoblock_whitelist(
+            "add", "203.0.113.10", self.whitelist_path
+        )
         self.assertTrue(res)
         self.assertIn("203.0.113.10", load_whitelist(self.whitelist_path))
 
         # Add CIDR range
-        res_cidr = shielddns_manage_autoblock_whitelist("add", "198.51.100.0/24", self.whitelist_path)
+        res_cidr = shielddns_manage_autoblock_whitelist(
+            "add", "198.51.100.0/24", self.whitelist_path
+        )
         self.assertTrue(res_cidr)
         self.assertIn("198.51.100.0/24", load_whitelist(self.whitelist_path))
 
         # Add duplicate
-        res_dup = shielddns_manage_autoblock_whitelist("add", "203.0.113.10", self.whitelist_path)
+        res_dup = shielddns_manage_autoblock_whitelist(
+            "add", "203.0.113.10", self.whitelist_path
+        )
         self.assertTrue(res_dup)
         self.assertEqual(len(load_whitelist(self.whitelist_path)), 2)
 
         # Remove existing IP
-        res_rm = shielddns_manage_autoblock_whitelist("remove", "203.0.113.10", self.whitelist_path)
+        res_rm = shielddns_manage_autoblock_whitelist(
+            "remove", "203.0.113.10", self.whitelist_path
+        )
         self.assertTrue(res_rm)
         self.assertNotIn("203.0.113.10", load_whitelist(self.whitelist_path))
 
         # Remove non-existent IP
-        res_rm_none = shielddns_manage_autoblock_whitelist("remove", "1.2.3.4", self.whitelist_path)
+        res_rm_none = shielddns_manage_autoblock_whitelist(
+            "remove", "1.2.3.4", self.whitelist_path
+        )
         self.assertFalse(res_rm_none)
+
 
 if __name__ == "__main__":
     unittest.main()
