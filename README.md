@@ -1,4 +1,4 @@
-<img src="admin/www/logo.png" align="right" width="128" height="128">
+﻿<img src="admin/www/logo.png" align="right" width="128" height="128">
 
 # ShieldDNS 🛡️
 
@@ -63,8 +63,8 @@ ShieldDNS is designed for high performance and long-term maintainability:
 
 | Device / Service | Integration Use Case | Link |
 | :--- | :--- | :--- |
-| **OpenWrt-kompatible Wi-Fi 6/7 Router & Gateways** | Native Ubus/RPC, WireGuard, SQM & Präsenz-Erkennung in Home Assistant | [Offizielle Geräte-Seite →](https://fabiseitz.de/go/ha-router) |
-| **Home Assistant Green / Yellow Zentrale** | Dedizierter, stromsparender 24/7 Smart-Home-Host | [Offizielle Geräte-Seite →](https://fabiseitz.de/go/ha-hardware) |
+| **OpenWrt-compatible Wi-Fi 6/7 Routers & Gateways** | Native Ubus/RPC, WireGuard, SQM & presence detection in Home Assistant | [Official Device Page →](https://fabiseitz.de/go/ha-router) |
+| **Home Assistant Green / Yellow Hub** | Dedicated, power-efficient 24/7 smart home appliance | [Official Device Page →](https://fabiseitz.de/go/ha-hardware) |
 
 
 ## 🧐 ShieldDNS vs. AdGuard Home vs. Pi-hole
