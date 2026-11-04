@@ -42,7 +42,7 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 
 	query += " ORDER BY timestamp DESC LIMIT 50000"
 
-	rows, err := db.Query(query, args...)
+	rows, err := dbQuery(query, args...)
 	if err != nil {
 		slog.Error("Export failed: DB query error", "error", err, "query", query)
 		http.Error(w, "Error querying database", http.StatusInternalServerError)

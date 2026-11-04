@@ -86,6 +86,7 @@ type Config struct {
 	WebhookEnabled             bool                         `json:"webhook_enabled"`
 	WebhookURL                 string                       `json:"webhook_url"`
 	WebhookToken               string                       `json:"webhook_token"`
+	DatabaseURL                string                       `json:"database_url,omitempty"`
 }
 
 type ClientRule struct {

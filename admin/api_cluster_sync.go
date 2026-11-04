@@ -304,7 +304,7 @@ func SyncClusterLogs() error {
 	lastSyncQueryMu.Unlock()
 
 	// Select queries created since last sync that originated from this node (prevent echo loops)
-	rows, err := db.Query(`
+	rows, err := dbQuery(`
 		SELECT id, timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name
 		FROM queries
 		WHERE id > ? AND (node_name = '' OR node_name = ?)

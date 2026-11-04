@@ -61,7 +61,7 @@ func getStatsData() Stats {
 
 	if db != nil && time.Since(lastUpdate) > 1*time.Minute {
 		var uniqueClients int
-		err := db.QueryRow("SELECT COUNT(DISTINCT client_ip) FROM queries WHERE timestamp > datetime('now', '-24 hours') AND client_ip != 'DoH Proxy'").Scan(&uniqueClients)
+		err := dbQueryRow("SELECT COUNT(DISTINCT client_ip) FROM queries WHERE timestamp > datetime('now', '-24 hours') AND client_ip != 'DoH Proxy'").Scan(&uniqueClients)
 		if err == nil {
 			statsLock.Lock()
 			cachedUniqueClients = uniqueClients
@@ -247,7 +247,7 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 
 	query += fmt.Sprintf(" ORDER BY timestamp DESC LIMIT %d", limit)
 
-	rows, err := db.Query(query, args...)
+	rows, err := dbQuery(query, args...)
 	if err != nil {
 		slog.Error("Error querying history/logs", "query", query, "error", err)
 		http.Error(w, "Error querying database", http.StatusInternalServerError)
@@ -305,7 +305,7 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 
 	// Query aggregated stats for hours 1-23 (all but the current hour) from hourly_stats
 	cutoff := slots[0].hour.Format("2006-01-02 15:04:05")
-	rows, err := db.Query(`
+	rows, err := dbQuery(`
 		SELECT timestamp, total, blocked
 		FROM hourly_stats
 		WHERE timestamp >= ?
@@ -338,7 +338,7 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 	nextHour := curHour.Add(1 * time.Hour)
 	nextHourStr := nextHour.Format("2006-01-02 15:04:05")
 
-	db.QueryRow(`
+	dbQueryRow(`
 		SELECT
 			COUNT(*),
 			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0)
@@ -372,7 +372,7 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleTopBlocked(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query(`
+	rows, err := dbQuery(`
 		SELECT domain, COUNT(*) as count
 		FROM queries
 		WHERE status LIKE 'Blocked%' AND timestamp > datetime('now', '-24 hours')
@@ -398,7 +398,7 @@ func handleTopBlocked(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleTopClients(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query(`
+	rows, err := dbQuery(`
 		SELECT client_ip, COUNT(*) as count
 		FROM queries
 		WHERE timestamp > datetime('now', '-24 hours') AND client_ip != 'DoH Proxy'
@@ -458,7 +458,7 @@ func handleTopDomainsForClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := db.Query(`
+	rows, err := dbQuery(`
 		SELECT domain, COUNT(*) as count
 		FROM queries
 		WHERE client_ip = ? AND timestamp > datetime('now', '-24 hours')
@@ -493,7 +493,7 @@ func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
 		days = 365
 	}
 
-	rows, err := db.Query(`
+	rows, err := dbQuery(`
 		SELECT timestamp, total, blocked, cache_hits 
 		FROM hourly_stats 
 		WHERE timestamp > datetime('now', ?)

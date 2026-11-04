@@ -160,7 +160,7 @@ func GenerateBackupZIP(includeData bool) ([]byte, error) {
 	var tmpDB string
 	if includeData {
 		tmpDB = filepath.Join(os.TempDir(), fmt.Sprintf("shielddns-backup-%d.db", time.Now().UnixNano()))
-		if db != nil {
+		if db != nil && dbDriver == "sqlite" {
 			if _, err := db.Exec("VACUUM INTO ?", tmpDB); err == nil {
 				defer os.Remove(tmpDB)
 				files = append(files, backupFile{Path: tmpDB, Target: "shielddns.db", WithLock: false})
@@ -169,6 +169,9 @@ func GenerateBackupZIP(includeData bool) ([]byte, error) {
 				tmpDB = DBPath // fallback to live file
 				files = append(files, backupFile{Path: tmpDB, Target: "shielddns.db", WithLock: false})
 			}
+		} else if db != nil && dbDriver == "postgres" {
+			// In PostgreSQL mode, live database is centrally backed up via postgres containers
+			slog.Debug("PostgreSQL mode: skipping SQLite snapshot backup")
 		} else {
 			files = append(files, backupFile{Path: DBPath, Target: "shielddns.db", WithLock: false})
 		}

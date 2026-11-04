@@ -327,3 +327,97 @@ func TestIsLocalOrTailnetHost(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeDomain_RobustURLAndSlashHandling(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"www.communicationads.net/", "www.communicationads.net"},
+		{"https://www.communicationads.net/deal/123", "www.communicationads.net"},
+		{"http://mydealz.digidip.net/?clickref=abc", "mydealz.digidip.net"},
+		{"mydealz.digidip.net:443", "mydealz.digidip.net"},
+		{"*.digidip.net", "*.digidip.net"},
+		{"SHOULD-LOWERCASE.COM", "should-lowercase.com"},
+		{"/etc/passwd", ""},
+		{"../../../etc/shadow", ""},
+		{"invalid domain with spaces.com", ""},
+	}
+
+	for _, tt := range tests {
+		got := NormalizeDomain(tt.input)
+		if got != tt.expected {
+			t.Errorf("NormalizeDomain(%q) = %q; want %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestApplyCurrentRules_SubdomainAllowPruningWildcard(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "shielddns-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldCombined := CombinedHostsPath
+	oldBlocklist := BlocklistPath
+	oldAllowlist := AllowlistPath
+	oldMappings := MappingsPath
+	CombinedHostsPath = filepath.Join(tmpDir, "combined.hosts")
+	BlocklistPath = filepath.Join(tmpDir, "blocklist.hosts")
+	AllowlistPath = filepath.Join(tmpDir, "allowlist.hosts")
+	MappingsPath = filepath.Join(tmpDir, "mappings.hosts")
+	defer func() {
+		CombinedHostsPath = oldCombined
+		BlocklistPath = oldBlocklist
+		AllowlistPath = oldAllowlist
+		MappingsPath = oldMappings
+	}()
+
+	// Simulate blocklist with parent apex and wildcard
+	attribution := map[string][]string{
+		"digidip.net":        {"TestBlocklist"},
+		"*.digidip.net":      {"TestBlocklist"},
+		"static.digidip.net": {"TestBlocklist"},
+		"other-bad.com":      {"TestBlocklist"},
+	}
+	allowAttr := make(map[string][]string)
+
+	// User specifically allowlists subdomain "mydealz.digidip.net"
+	allowSet := map[string]struct{}{
+		"mydealz.digidip.net":   {},
+		"*.mydealz.digidip.net": {},
+	}
+
+	applyCurrentRules(attribution, allowAttr, allowSet, nil, "0.0.0.0", false)
+
+	// Parent wildcard must be removed to avoid masking allowlisted subdomain in CoreDNS
+	if _, ok := attribution["*.digidip.net"]; ok {
+		t.Errorf("Conflicting wildcard '*.digidip.net' was NOT pruned from attribution!")
+	}
+
+	// Apex domain and explicit subdomains must remain blocked
+	if _, ok := attribution["digidip.net"]; !ok {
+		t.Errorf("Apex domain 'digidip.net' was unexpectedly removed from attribution")
+	}
+	if _, ok := attribution["static.digidip.net"]; !ok {
+		t.Errorf("Explicit subdomain 'static.digidip.net' was unexpectedly removed from attribution")
+	}
+
+	// Read generated hosts file
+	contentBytes, err := os.ReadFile(CombinedHostsPath)
+	if err != nil {
+		t.Fatalf("failed to read generated hosts file: %v", err)
+	}
+	content := string(contentBytes)
+
+	if strings.Contains(content, "*.digidip.net") {
+		t.Errorf("Generated hosts file contains '*.digidip.net' which blocks allowlisted subdomain")
+	}
+	if strings.Contains(content, "mydealz.digidip.net") {
+		t.Errorf("Generated hosts file unexpectedly blocked 'mydealz.digidip.net'")
+	}
+	if !strings.Contains(content, "0.0.0.0 digidip.net") {
+		t.Errorf("Generated hosts file missing '0.0.0.0 digidip.net'")
+	}
+}

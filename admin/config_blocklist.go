@@ -128,6 +128,20 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 		}
 	}
 
+	// Subdomain exception handling:
+	// If a specific subdomain is allowlisted (e.g. "mydealz.digidip.net"),
+	// any broader parent wildcard block in attribution (e.g. "*.digidip.net")
+	// will match and block that subdomain in CoreDNS hosts plugin.
+	// We delete conflicting parent wildcards from attribution so the allowlisted subdomain can resolve.
+	for allowed := range allowSet {
+		clean := strings.TrimPrefix(allowed, "*.")
+		parts := strings.Split(clean, ".")
+		for i := 1; i < len(parts); i++ {
+			parentWildcard := "*." + strings.Join(parts[i:], ".")
+			delete(attribution, parentWildcard)
+		}
+	}
+
 	blockDomains := make(map[string]struct{})
 
 	// Always enforce blocking for the built-in test domain regardless of allowlists

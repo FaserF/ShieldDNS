@@ -94,23 +94,26 @@ func NormalizeDomain(s string) string {
 		return ""
 	}
 
-	// Heuristic: If it contains a slash but no protocol delimiter, it's a path traversal or absolute path
-	// e.g. "../../../etc/passwd" or "/etc/passwd"
-	// but "http://google.com" is fine.
-	firstSlash := strings.Index(s, "/")
-	protocolIdx := strings.Index(s, "://")
-	if firstSlash != -1 && (protocolIdx == -1 || firstSlash < protocolIdx) {
+	// Security: Reject path traversal attacks or relative path notations
+	if strings.HasPrefix(s, "/") || strings.HasPrefix(s, "\\") || strings.Contains(s, "..") {
 		return ""
 	}
 
-	// Strip protocols
-	if protocolIdx != -1 {
+	// Strip protocols (e.g. https://, http://, ftp://)
+	if protocolIdx := strings.Index(s, "://"); protocolIdx != -1 {
 		s = s[protocolIdx+3:]
 	}
-	// Strip paths and query strings
-	if idx := strings.IndexAny(s, "/?#"); idx != -1 {
+
+	// Strip paths, query strings, and fragments
+	if idx := strings.IndexAny(s, "/?#\\"); idx != -1 {
 		s = s[:idx]
 	}
+
+	// Strip port if present (e.g. domain.com:443 or domain.com:80)
+	if host, _, err := net.SplitHostPort(s); err == nil && host != "" {
+		s = host
+	}
+
 	// Strip trailing dot
 	s = strings.TrimSuffix(s, ".")
 

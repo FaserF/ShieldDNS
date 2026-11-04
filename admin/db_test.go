@@ -68,3 +68,31 @@ func TestAddColumnIfNotExists(t *testing.T) {
 	// Verify it still has the old definition (SQLite ALTER TABLE doesn't update existing columns usually)
 	// But most importantly, it shouldn't have failed.
 }
+
+func TestRebindAndFormatQuery(t *testing.T) {
+	oldDriver := dbDriver
+	defer func() { dbDriver = oldDriver }()
+
+	// Test SQLite dialect (no-op)
+	dbDriver = "sqlite"
+	q1 := "SELECT * FROM queries WHERE client_ip = ? AND timestamp > datetime('now', '-24 hours')"
+	if got := formatQuery(q1); got != q1 {
+		t.Errorf("expected formatQuery in SQLite mode to return original query, got: %s", got)
+	}
+
+	// Test PostgreSQL dialect translations
+	dbDriver = "postgres"
+	qPG := formatQuery(q1)
+	expectedPG := "SELECT * FROM queries WHERE client_ip = $1 AND timestamp > (NOW() - INTERVAL '24 hours')"
+	if qPG != expectedPG {
+		t.Errorf("formatQuery postgres mismatch:\n got:  %s\n want: %s", qPG, expectedPG)
+	}
+
+	// Test multiple parameter placeholders and literals
+	qMulti := "SELECT id FROM queries WHERE domain = ? AND status = ? AND note = 'is it ?' AND duration > ?"
+	qMultiPG := formatQuery(qMulti)
+	expectedMulti := "SELECT id FROM queries WHERE domain = $1 AND status = $2 AND note = 'is it ?' AND duration > $3"
+	if qMultiPG != expectedMulti {
+		t.Errorf("rebind postgres literal handling mismatch:\n got:  %s\n want: %s", qMultiPG, expectedMulti)
+	}
+}

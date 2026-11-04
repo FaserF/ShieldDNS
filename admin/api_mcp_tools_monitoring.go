@@ -92,7 +92,7 @@ var mcpMonitoringTools = []mcpToolDefinition{
 
 			query += fmt.Sprintf(" ORDER BY timestamp DESC LIMIT %d", limit)
 
-			rows, err := db.Query(query, qArgs...)
+			rows, err := dbQuery(query, qArgs...)
 			if err != nil {
 				return nil, err
 			}
@@ -140,7 +140,7 @@ var mcpMonitoringTools = []mcpToolDefinition{
 			}
 
 			// Top Blocked
-			bRows, err := db.Query(`
+			bRows, err := dbQuery(`
 				SELECT domain, COUNT(*) as count
 				FROM queries
 				WHERE status LIKE 'Blocked%' AND timestamp > datetime('now', '-24 hours')
@@ -160,7 +160,7 @@ var mcpMonitoringTools = []mcpToolDefinition{
 			}
 
 			// Top Clients
-			cRows, err := db.Query(`
+			cRows, err := dbQuery(`
 				SELECT client_ip, COUNT(*) as count
 				FROM queries
 				WHERE timestamp > datetime('now', '-24 hours') AND client_ip != 'DoH Proxy'

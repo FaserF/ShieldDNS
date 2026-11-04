@@ -17,7 +17,7 @@ func getClientStats(ip string) (ClientStats, error) {
 	}
 
 	// 1. Total and Blocked (24h)
-	row := db.QueryRow(`
+	row := dbQueryRow(`
 		SELECT 
 			COUNT(*), 
 			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0)
@@ -29,7 +29,7 @@ func getClientStats(ip string) (ClientStats, error) {
 	}
 
 	// 2. Query Types (24h)
-	rows, err := db.Query(`
+	rows, err := dbQuery(`
 		SELECT type, COUNT(*) 
 		FROM queries 
 		WHERE client_ip = ? AND timestamp > datetime('now', '-24 hours')
@@ -55,7 +55,7 @@ func getClientStats(ip string) (ClientStats, error) {
 		}
 	}
 
-	tRows, err := db.Query(`
+	tRows, err := dbQuery(`
 		SELECT 
 			strftime('%Y-%m-%d %H:00:00', timestamp) as hr,
 			COUNT(*),
@@ -71,7 +71,9 @@ func getClientStats(ip string) (ClientStats, error) {
 			var hr string
 			var hTotal, hBlocked int64
 			if err := tRows.Scan(&hr, &hTotal, &hBlocked); err == nil {
-				aggMap[hr] = struct{ total, blocked int64 }{total: hTotal, blocked: hBlocked}
+				t, _ := ParseFlexibleTime(hr)
+				normalizedKey := t.UTC().Format("2006-01-02 15:04:05")
+				aggMap[normalizedKey] = struct{ total, blocked int64 }{total: hTotal, blocked: hBlocked}
 			}
 		}
 
@@ -97,7 +99,7 @@ func getClientTopBlocked(ip string, limit int) ([]DomainCount, error) {
 		return results, fmt.Errorf("DB not initialized")
 	}
 
-	rows, err := db.Query(`
+	rows, err := dbQuery(`
 		SELECT domain, COUNT(*) as c
 		FROM queries
 		WHERE client_ip = ? AND status LIKE 'Blocked%' AND timestamp > datetime('now', '-24 hours')
@@ -126,7 +128,7 @@ func saveClientUA(ip, ua string) {
 		return
 	}
 	// Upsert: Try to insert, update if exists
-	_, err := db.Exec(`
+	_, err := dbExec(`
 		INSERT INTO clients (ip, user_agent, last_seen) 
 		VALUES (?, ?, datetime('now'))
 		ON CONFLICT(ip) DO UPDATE SET 
@@ -143,7 +145,7 @@ func getClientUA(ip string) string {
 		return ""
 	}
 	var ua string
-	err := db.QueryRow("SELECT user_agent FROM clients WHERE ip = ?", ip).Scan(&ua)
+	err := dbQueryRow("SELECT user_agent FROM clients WHERE ip = ?", ip).Scan(&ua)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			slog.Error("Error getting client UA", "ip", ip, "error", err)
@@ -160,7 +162,7 @@ func getDomainStats(domain string) (DomainStats, error) {
 	}
 
 	// 1. Total and Blocked (24h)
-	row := db.QueryRow(`
+	row := dbQueryRow(`
 		SELECT 
 			COUNT(*), 
 			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0)
@@ -172,7 +174,7 @@ func getDomainStats(domain string) (DomainStats, error) {
 	}
 
 	// 2. Count Unique Clients (24h)
-	row = db.QueryRow(`
+	row = dbQueryRow(`
 		SELECT COUNT(DISTINCT client_ip)
 		FROM queries
 		WHERE domain = ? AND timestamp > datetime('now', '-24 hours')
@@ -188,7 +190,7 @@ func getDomainClients(domain string, limit int) ([]ClientCount, error) {
 		return results, fmt.Errorf("DB not initialized")
 	}
 
-	rows, err := db.Query(`
+	rows, err := dbQuery(`
 		SELECT client_ip, COUNT(*) as c
 		FROM queries
 		WHERE domain = ? AND timestamp > datetime('now', '-24 hours')
@@ -218,7 +220,7 @@ func getAllClients() ([]map[string]interface{}, error) {
 		return results, fmt.Errorf("DB not initialized")
 	}
 
-	rows, err := db.Query("SELECT ip, user_agent, last_seen FROM clients ORDER BY last_seen DESC")
+	rows, err := dbQuery("SELECT ip, user_agent, last_seen FROM clients ORDER BY last_seen DESC")
 	if err != nil {
 		return results, err
 	}
@@ -242,18 +244,20 @@ func ClearQueryLogs() error {
 	if db == nil {
 		return fmt.Errorf("database not initialized")
 	}
-	_, err := db.Exec("DELETE FROM queries")
+	_, err := dbExec("DELETE FROM queries")
 	if err != nil {
 		slog.Error("Failed to clear query logs", "error", err)
 		return err
 	}
-	// Also run VACUUM to reclaim space
-	_, _ = db.Exec("VACUUM")
+	if dbDriver == "sqlite" {
+		_, _ = db.Exec("VACUUM")
+	}
 	slog.Info("All query logs cleared manually")
 	return nil
 }
+
 func ParseFlexibleTime(ts string) (time.Time, error) {
-	// 1. Try RFC3339 (modern Go/SQLite storage format)
+	// 1. Try RFC3339 (modern Go/SQLite/Postgres storage format)
 	if t, err := time.Parse(time.RFC3339, ts); err == nil {
 		return t, nil
 	}
@@ -276,7 +280,7 @@ func Get24hStats() (int64, int64, int64, error) {
 	curHourStr := curHour.Format("2006-01-02 15:04:05")
 
 	// 1. Sum from hourly_stats (historical buckets)
-	err := db.QueryRow(`
+	err := dbQueryRow(`
 		SELECT COALESCE(SUM(total), 0), COALESCE(SUM(blocked), 0), COALESCE(SUM(cache_hits), 0)
 		FROM hourly_stats 
 		WHERE timestamp > datetime('now', '-24 hours') AND timestamp < ?
@@ -287,11 +291,11 @@ func Get24hStats() (int64, int64, int64, error) {
 
 	// 2. Add current hour from queries table (live data)
 	var curTotal, curBlocked, curCacheHits int64
-	err = db.QueryRow(`
+	err = dbQueryRow(`
 		SELECT 
 			COUNT(*), 
 			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END), 0)
+			COALESCE(SUM(CASE WHEN is_cache_hit IS TRUE THEN 1 ELSE 0 END), 0)
 		FROM queries
 		WHERE timestamp >= ?
 	`, curHourStr).Scan(&curTotal, &curBlocked, &curCacheHits)
@@ -307,6 +311,6 @@ func GetAverageLatency() (float64, error) {
 		return 0, fmt.Errorf("DB not initialized")
 	}
 	var avg float64
-	err := db.QueryRow("SELECT COALESCE(AVG(duration_ms), 0) FROM queries WHERE timestamp > datetime('now', '-24 hours')").Scan(&avg)
+	err := dbQueryRow("SELECT COALESCE(AVG(duration_ms), 0) FROM queries WHERE timestamp > datetime('now', '-24 hours')").Scan(&avg)
 	return avg, err
 }

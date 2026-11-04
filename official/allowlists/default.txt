@@ -43,3 +43,13 @@
 @@||githubusercontent.com^
 @@||tailscale.com^
 @@||tailscale.io^
+# Deal, Shopping & Affiliate Redirects (MyDealz, Idealo, Shoop)
+@@||communicationads.net^
+@@||digidip.net^
+@@||awin1.com^
+@@||adcell.de^
+@@||belboon.com^
+@@||webgains.com^
+@@||tradedoubler.com^
+@@||financeads.net^
+@@||shoop.de^
