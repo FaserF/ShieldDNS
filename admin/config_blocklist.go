@@ -168,10 +168,19 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 	// 2. Blocklist
 	combinedBuilder.WriteString("\n# Blocked Domains\n")
 	if blockIP == "" {
-		blockIP = "127.0.0.1"
+		blockIP = "0.0.0.0"
+	}
+	isIPv4 := false
+	if parsed := net.ParseIP(blockIP); parsed != nil && parsed.To4() != nil {
+		isIPv4 = true
 	}
 	for domain := range blockDomains {
 		combinedBuilder.WriteString(fmt.Sprintf("%s %s\n", blockIP, domain))
+		if isIPv4 {
+			// Synthesize IPv6 unspecified address (::) for IPv4 block IPs so dual-stack clients
+			// querying AAAA records do not fall through to upstream public DNS.
+			combinedBuilder.WriteString(fmt.Sprintf(":: %s\n", domain))
+		}
 	}
 
 	os.MkdirAll(filepath.Dir(CombinedHostsPath), 0755)
@@ -351,7 +360,10 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		}
 
 		// Skip AdGuard/uBlock Origin cosmetic filters and advanced rules
-		if strings.Contains(line, "##") || strings.Contains(line, "#?#") || strings.Contains(line, "#$#") {
+		if strings.Contains(line, "##") || strings.Contains(line, "#@#") ||
+			strings.Contains(line, "#?#") || strings.Contains(line, "#$#") ||
+			strings.Contains(line, "#@$#") || strings.Contains(line, "#%#") ||
+			strings.Contains(line, "#@%#") || strings.Contains(line, "$$") {
 			continue
 		}
 
@@ -411,9 +423,26 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		}
 
 		// 6. Fallback: Raw domain or comma-separated list
-		lineContent := strings.Split(line, "#")[0]
-		lineContent = strings.Split(lineContent, "!")[0]
-		parts := strings.Fields(lineContent)
+		// In hosts/domain files, comments after a domain must be preceded by whitespace (e.g. "domain.com # comment").
+		// Any inline '#' or '!' without leading whitespace indicates a cosmetic selector or invalid syntax.
+		if idx := strings.Index(line, "#"); idx != -1 {
+			if idx > 0 && (line[idx-1] == ' ' || line[idx-1] == '\t') {
+				line = strings.TrimSpace(line[:idx])
+			} else {
+				continue
+			}
+		}
+		if idx := strings.Index(line, "!"); idx != -1 {
+			if idx > 0 && (line[idx-1] == ' ' || line[idx-1] == '\t') {
+				line = strings.TrimSpace(line[:idx])
+			} else {
+				continue
+			}
+		}
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
 		for _, p := range parts {
 			subParts := strings.Split(p, ",")
 			for _, sub := range subParts {

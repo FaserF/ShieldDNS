@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -359,8 +360,9 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			r.URL.Path == "/stopped" ||
 			r.URL.Path == "/blocked"
 
-		if !isInternal && !isSetupMode && adminDomain != "" && r.Host != adminDomain &&
-			!strings.HasPrefix(r.Host, "127.0.0.1") && !strings.HasPrefix(r.Host, "localhost") {
+		isIngress := r.Header.Get("X-Ingress-Path") != ""
+		if !isInternal && !isSetupMode && !isIngress && adminDomain != "" && r.Host != adminDomain &&
+			!isLocalOrTailnetHost(r.Host) {
 			// Security: Use url.QueryEscape to prevent URI injection/Open Redirect via r.Host
 			target := "https://" + adminDomain + "/stopped?domain=" + url.QueryEscape(r.Host)
 			http.Redirect(w, r, target, http.StatusFound)
@@ -548,4 +550,35 @@ func ingressMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isLocalOrTailnetHost(hostHeader string) bool {
+	h := hostHeader
+	if host, _, err := net.SplitHostPort(hostHeader); err == nil {
+		h = host
+	}
+	h = strings.ToLower(strings.TrimSpace(h))
+
+	if h == "localhost" || h == "127.0.0.1" || h == "::1" || h == "shielddns.local" {
+		return true
+	}
+	if strings.HasSuffix(h, ".local") || strings.HasSuffix(h, ".lan") ||
+		strings.HasSuffix(h, ".home.arpa") || strings.HasSuffix(h, ".internal") ||
+		strings.HasSuffix(h, ".tailnet.fabiseitz.de") || strings.HasSuffix(h, ".ts.net") {
+		return true
+	}
+
+	ip := net.ParseIP(h)
+	if ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() {
+			return true
+		}
+		// Tailscale CGNAT range 100.64.0.0/10
+		if ip4 := ip.To4(); ip4 != nil {
+			if ip4[0] == 100 && (ip4[1]&0xc0) == 64 {
+				return true
+			}
+		}
+	}
+	return false
 }

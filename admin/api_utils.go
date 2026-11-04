@@ -148,8 +148,11 @@ func ParseAdblockRule(raw string) *AdblockRule {
 		return nil
 	}
 
-	// Skip HTML/CSS cosmetic rules from browser adblockers (##, #?#, #$#)
-	if strings.Contains(line, "##") || strings.Contains(line, "#?#") || strings.Contains(line, "#$#") {
+	// Skip HTML/CSS cosmetic rules from browser adblockers (##, #@#, #?#, #$#, #@$#, #%#, #@%#, $$)
+	if strings.Contains(line, "##") || strings.Contains(line, "#@#") ||
+		strings.Contains(line, "#?#") || strings.Contains(line, "#$#") ||
+		strings.Contains(line, "#@$#") || strings.Contains(line, "#%#") ||
+		strings.Contains(line, "#@%#") || strings.Contains(line, "$$") {
 		return nil
 	}
 

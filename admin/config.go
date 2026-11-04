@@ -119,6 +119,9 @@ func loadConfig() {
 		if config.ClusterRole == "" {
 			config.ClusterRole = "standalone"
 		}
+		if config.ClusterRole == "replica" && config.ClusterSyncInterval <= 0 {
+			config.ClusterSyncInterval = 5
+		}
 		if config.ClusterInstanceType == "" {
 			config.ClusterInstanceType = "private"
 		}

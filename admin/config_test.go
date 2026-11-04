@@ -173,3 +173,112 @@ func TestApplyCurrentRules_SynthesizeIPv6ForCustomMappings(t *testing.T) {
 		t.Errorf("Did not expect synthesized :: mapping for native IPv6 mapping")
 	}
 }
+
+func TestApplyCurrentRules_SynthesizeIPv6ForBlocklist(t *testing.T) {
+	origCombined := CombinedHostsPath
+	origBlocklist := BlocklistPath
+	tmpDir := t.TempDir()
+	CombinedHostsPath = filepath.Join(tmpDir, "shielddns.hosts")
+	BlocklistPath = filepath.Join(tmpDir, "blocklist.hosts")
+	defer func() {
+		CombinedHostsPath = origCombined
+		BlocklistPath = origBlocklist
+	}()
+
+	blockAttribution := map[string][]string{
+		"adservice.google.com": {"AdGuard"},
+	}
+
+	applyCurrentRules(blockAttribution, make(map[string][]string), make(map[string]struct{}), nil, "0.0.0.0", false)
+
+	combinedData, err := os.ReadFile(CombinedHostsPath)
+	if err != nil {
+		t.Fatalf("Failed to read CombinedHostsPath: %v", err)
+	}
+	content := string(combinedData)
+
+	if !strings.Contains(content, "0.0.0.0 adservice.google.com") {
+		t.Errorf("Expected IPv4 block record for adservice.google.com, got:\n%s", content)
+	}
+	if !strings.Contains(content, ":: adservice.google.com") {
+		t.Errorf("Expected IPv6 synthesized record (::) for adservice.google.com, got:\n%s", content)
+	}
+}
+
+func TestProcessList_CosmeticAndFallbackParsing(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		// Cosmetic rules and exceptions that should NEVER be parsed as domains
+		fmt.Fprintln(w, "chefkoch.de#@#.ad-unit")
+		fmt.Fprintln(w, "spiegel.de,heise.de##.header-ad")
+		fmt.Fprintln(w, "bild.de#?#.article-banner")
+		fmt.Fprintln(w, "zeit.de#$#.paywall-fix")
+		fmt.Fprintln(w, "golem.de#%#//scriptlet('prevent-ad')")
+		fmt.Fprintln(w, "focus.de$$div[class='ad']")
+		// Real valid rules
+		fmt.Fprintln(w, "0.0.0.0 real-ad.com # trailing comment")
+		fmt.Fprintln(w, "||tracker.com^")
+		fmt.Fprintln(w, "bad-domain.net")
+	}))
+	defer ts.Close()
+
+	list := List{
+		Name:    "CosmeticTestList",
+		URL:     ts.URL,
+		Enabled: true,
+	}
+
+	blockMap := make(map[string][]string)
+	allowMap := make(map[string]struct{})
+
+	processList(&list, blockMap, allowMap, nil)
+
+	for _, domain := range []string{"chefkoch.de", "spiegel.de", "heise.de", "bild.de", "zeit.de", "golem.de", "focus.de"} {
+		if _, ok := blockMap[domain]; ok {
+			t.Errorf("Cosmetic rule domain '%s' was incorrectly added to blockMap!", domain)
+		}
+	}
+
+	if _, ok := blockMap["real-ad.com"]; !ok {
+		t.Errorf("Expected real-ad.com to be parsed")
+	}
+	if _, ok := blockMap["tracker.com"]; !ok {
+		t.Errorf("Expected tracker.com to be parsed")
+	}
+	if _, ok := blockMap["bad-domain.net"]; !ok {
+		t.Errorf("Expected bad-domain.net to be parsed")
+	}
+}
+
+func TestIsLocalOrTailnetHost(t *testing.T) {
+	tests := []struct {
+		host     string
+		expected bool
+	}{
+		{"localhost", true},
+		{"localhost:9443", true},
+		{"127.0.0.1", true},
+		{"127.0.0.1:8090", true},
+		{"::1", true},
+		{"shielddns.local", true},
+		{"router.local", true},
+		{"ha.tailnet.fabiseitz.de", true},
+		{"oracle-vm.tailnet.fabiseitz.de:9443", true},
+		{"100.64.0.1:9443", true},
+		{"100.64.0.2", true},
+		{"100.127.255.254", true},
+		{"192.168.1.100:443", true},
+		{"10.0.0.5", true},
+		{"172.16.0.1", true},
+		{"google.com", false},
+		{"attacker.com:9443", false},
+		{"100.128.0.1", false},
+	}
+
+	for _, tt := range tests {
+		got := isLocalOrTailnetHost(tt.host)
+		if got != tt.expected {
+			t.Errorf("isLocalOrTailnetHost(%q) = %v; want %v", tt.host, got, tt.expected)
+		}
+	}
+}

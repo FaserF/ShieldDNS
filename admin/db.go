@@ -348,15 +348,17 @@ func initializeStatsFromDB() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
-	aggregateHourlyStats(ctx, time.Now().UTC().Add(-1*time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05"))
+	initCtx, initCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	aggregateHourlyStats(initCtx, time.Now().UTC().Add(-1*time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05"))
+	initCancel()
 
 	// Run full catch-up in background
 	slog.Info("Starting initial stats catch-up...")
 	for i := 1; i <= 24; i++ {
 		targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-		aggregateHourlyStats(ctx, targetHour)
+		hCtx, hCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		aggregateHourlyStats(hCtx, targetHour)
+		hCancel()
 	}
 
 	total, blocked, cacheHits, err := Get24hStats()
@@ -378,13 +380,13 @@ func initializeStatsFromDB() {
 		"cache_hits", cacheHits)
 
 	// 2. Query Types (last 24h)
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
+	tCtx, tCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer tCancel()
 
 	if stats.QueryTypes == nil {
 		stats.QueryTypes = make(map[string]int64)
 	}
-	tRows, err := db.QueryContext(ctx, `
+	tRows, err := db.QueryContext(tCtx, `
 		SELECT type, COUNT(*) 
 		FROM queries 
 		WHERE timestamp > datetime('now', '-24 hours')
@@ -405,10 +407,13 @@ func initializeStatsFromDB() {
 	}
 
 	// 3. Top Countries (last 24h)
+	cCtx, cCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cCancel()
+
 	if stats.TopCountries == nil {
 		stats.TopCountries = make(map[string]int64)
 	}
-	cRows, err := db.QueryContext(ctx, `
+	cRows, err := db.QueryContext(cCtx, `
 		SELECT country_code, COUNT(*) 
 		FROM queries 
 		WHERE timestamp > datetime('now', '-24 hours')

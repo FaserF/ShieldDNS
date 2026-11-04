@@ -84,9 +84,12 @@ func main() {
 				slog.Info("Cluster replica initial sync succeeded")
 			}
 
-			// Periodic sync if interval configured (> 0 minutes)
-			if interval > 0 {
-				ticker := time.NewTicker(time.Duration(interval) * time.Minute)
+			// Periodic sync if interval configured (> 0 minutes, default 5m for replicas)
+			syncInterval := interval
+			if syncInterval <= 0 {
+				syncInterval = 5
+			}
+			ticker := time.NewTicker(time.Duration(syncInterval) * time.Minute)
 				for range ticker.C {
 					configLock.RLock()
 					currRole := config.ClusterRole

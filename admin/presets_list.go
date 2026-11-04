@@ -81,6 +81,6 @@ var DefaultAllowlists = []List{
 	{Name: "Regex Whitelist", URL: "https://raw.githubusercontent.com/mmotti/pihole-regex/master/whitelist.list", Enabled: false, Category: "Privacy & Tracking"},
 	{Name: "AnudeepND", URL: "https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whitelist.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
 	{Name: "Optional", URL: "https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/optional-list.txt", Enabled: false, Category: "General Blocking"},
-	{Name: "Referral", URL: "https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/referral-sites.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
+	{Name: "Referral", URL: "https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/referral-sites.txt", Enabled: false, Category: "General Blocking", IsRecommended: false},
 	{Name: "FaserF Whitelist Autopilot", URL: "https://raw.githubusercontent.com/FaserF/adguardhome_lists/master/whitelist_ms_autopilot", Enabled: false, Category: "Official", IsRecommended: true},
 }
