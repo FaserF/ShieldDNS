@@ -46,7 +46,7 @@ func loadConfig() {
 		PreferEncrypted:            true,
 		FilteringEnabled:           true,
 		AdminDomain:                "shielddns.local",
-		BlockPageIP:                "127.0.0.1",
+		BlockPageIP:                "0.0.0.0",
 		Lists:                      DefaultPresets,
 		Allowlists:                 DefaultAllowlists,
 		LatencyTestInterval:        10,
@@ -199,7 +199,7 @@ func loadConfig() {
 		config.AdminDomain = "shielddns.local"
 	}
 	if config.BlockPageIP == "" {
-		config.BlockPageIP = "127.0.0.1"
+		config.BlockPageIP = "0.0.0.0"
 	}
 	if config.LatencyTestInterval == 0 {
 		config.LatencyTestInterval = 10

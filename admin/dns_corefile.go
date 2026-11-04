@@ -37,13 +37,33 @@ func updateCorefile() {
 	var upstreams []string
 	var dotServerName string
 	if cfg.PreferEncrypted {
+		var distinctDoTHosts []string
+		for _, u := range hDoT {
+			host, _ := splitAddr(u, "853")
+			if net.ParseIP(host) == nil {
+				found := false
+				for _, h := range distinctDoTHosts {
+					if h == host {
+						found = true
+						break
+					}
+				}
+				if !found {
+					distinctDoTHosts = append(distinctDoTHosts, host)
+				}
+			}
+		}
 		for _, u := range hDoT {
 			host, port := splitAddr(u, "853")
-			ip := resolveHost(host)
-			if dotServerName == "" && ip != host {
-				dotServerName = host
+			if len(distinctDoTHosts) > 1 && net.ParseIP(host) == nil {
+				upstreams = append(upstreams, fmt.Sprintf("tls://%s:%s", host, port))
+			} else {
+				ip := resolveHost(host)
+				upstreams = append(upstreams, fmt.Sprintf("tls://%s:%s", ip, port))
 			}
-			upstreams = append(upstreams, fmt.Sprintf("tls://%s:%s", ip, port))
+		}
+		if len(distinctDoTHosts) == 1 {
+			dotServerName = distinctDoTHosts[0]
 		}
 	}
 
