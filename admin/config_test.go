@@ -139,7 +139,7 @@ func TestLoadConfig_BlockPageIPEnv(t *testing.T) {
 	}
 }
 
-func TestApplyCurrentRules_SynthesizeIPv6ForCustomMappings(t *testing.T) {
+func TestApplyCurrentRules_NoIPv6BlackholeForCustomMappings(t *testing.T) {
 	origCombined := CombinedHostsPath
 	origMappings := MappingsPath
 	tmpDir := t.TempDir()
@@ -166,8 +166,8 @@ func TestApplyCurrentRules_SynthesizeIPv6ForCustomMappings(t *testing.T) {
 	if !strings.Contains(content, "100.64.0.1 jellyfin.tailnet.fabiseitz.de") {
 		t.Errorf("Expected IPv4 mapping for jellyfin, got:\n%s", content)
 	}
-	if !strings.Contains(content, ":: jellyfin.tailnet.fabiseitz.de") {
-		t.Errorf("Expected synthesized :: mapping for jellyfin, got:\n%s", content)
+	if strings.Contains(content, ":: jellyfin.tailnet.fabiseitz.de") {
+		t.Errorf("Did not expect synthesized :: mapping for IPv4 custom mapping, got:\n%s", content)
 	}
 	if strings.Contains(content, ":: ipv6.local") {
 		t.Errorf("Did not expect synthesized :: mapping for native IPv6 mapping")

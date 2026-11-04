@@ -356,9 +356,6 @@ func getTemplateBlocks(cfg *Config) string {
 				sb.WriteString(fmt.Sprintf("    template IN A %s {\n", ex.domain))
 				sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN A %s\"\n", ex.ip))
 				sb.WriteString("    }\n")
-				sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", ex.domain))
-				sb.WriteString("        answer \"{{ .Name }} 60 IN AAAA ::\"\n")
-				sb.WriteString("    }\n")
 			}
 		}
 
@@ -370,9 +367,6 @@ func getTemplateBlocks(cfg *Config) string {
 		} else {
 			sb.WriteString(fmt.Sprintf("    template IN A %s {\n", wc.apexZone))
 			sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN A %s\"\n", wc.ip))
-			sb.WriteString("    }\n")
-			sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", wc.apexZone))
-			sb.WriteString("        answer \"{{ .Name }} 60 IN AAAA ::\"\n")
 			sb.WriteString("    }\n")
 		}
 	}

@@ -449,13 +449,15 @@ func TestUpdateCorefileWildcardTemplates(t *testing.T) {
 		"template IN A dash.tailnet.fabiseitz.de {",
 		"template IN A tailnet.fabiseitz.de {",
 		`answer "{{ .Name }} 60 IN A 100.64.0.1"`,
-		"template IN AAAA tailnet.fabiseitz.de {",
-		`answer "{{ .Name }} 60 IN AAAA ::"`,
 	}
 
 	for _, snippet := range expectedSnippets {
 		if !strings.Contains(sContent, snippet) {
 			t.Errorf("Expected Corefile to contain '%s', but it didn't.\nContent:\n%s", snippet, sContent)
 		}
+	}
+
+	if strings.Contains(sContent, "AAAA ::") {
+		t.Errorf("Did not expect Corefile to contain 'AAAA ::' blackhole records, but found it.\nContent:\n%s", sContent)
 	}
 }
