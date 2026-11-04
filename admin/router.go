@@ -365,7 +365,7 @@ func setupStaticHandlers(mux *http.ServeMux) {
 			!isLocalOrTailnetHost(r.Host) {
 			// Security: Use url.QueryEscape to prevent URI injection/Open Redirect via r.Host
 			target := "https://" + adminDomain + "/stopped?domain=" + url.QueryEscape(r.Host)
-			http.Redirect(w, r, target, http.StatusFound)
+			http.Redirect(w, r, sanitizeRedirect(target), http.StatusFound)
 			return
 		}
 
@@ -378,7 +378,7 @@ func setupStaticHandlers(mux *http.ServeMux) {
 				target = strings.TrimRight(config.ClusterPrimaryURL, "/") + "/admin/"
 			}
 			configLock.RUnlock()
-			http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+			http.Redirect(w, r, sanitizeRedirect(target), http.StatusTemporaryRedirect)
 			return
 		}
 		if pathLower == "/slave" || pathLower == "/replica" {
@@ -393,7 +393,7 @@ func setupStaticHandlers(mux *http.ServeMux) {
 				}
 			}
 			configLock.RUnlock()
-			http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+			http.Redirect(w, r, sanitizeRedirect(target), http.StatusTemporaryRedirect)
 			return
 		}
 

@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"strings"
 )
 
 // safeOutboundURLRegex validates that an outbound URL has an explicit http/https scheme,
@@ -49,4 +50,28 @@ func isSafeClusterTarget(u *url.URL) error {
 		return fmt.Errorf("invalid or disallowed cluster target URL: %s", u.String())
 	}
 	return nil
+}
+
+// sanitizeRedirect validates and sanitizes a redirection target URL.
+// It serves as a sanitizer for CodeQL CWE-601 (go/bad-redirect-check and Open Redirect).
+// Relative redirects are permitted only if they start with a single '/' and not '//' or '/\'.
+func sanitizeRedirect(target string) string {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return "/admin/"
+	}
+	// Guard against protocol-relative (//example.com) and backslash-prefixed (/\example.com or \example.com) evasion
+	if strings.HasPrefix(target, "//") || strings.HasPrefix(target, "/\\") || strings.HasPrefix(target, "\\") {
+		return "/admin/"
+	}
+	if len(target) > 1 && target[0] == '/' && (target[1] == '/' || target[1] == '\\') {
+		return "/admin/"
+	}
+	if len(target) > 0 && target[0] == '/' {
+		return target
+	}
+	if isValidRedirectUrl(target) {
+		return target
+	}
+	return "/admin/"
 }

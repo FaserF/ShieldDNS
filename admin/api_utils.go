@@ -94,8 +94,8 @@ func NormalizeDomain(s string) string {
 		return ""
 	}
 
-	// Security: Reject path traversal attacks or relative path notations
-	if strings.HasPrefix(s, "/") || strings.HasPrefix(s, "\\") || strings.Contains(s, "..") {
+	// Security: Reject protocol-relative notations (//, /\), path traversal attacks, or relative path notations
+	if strings.HasPrefix(s, "//") || strings.HasPrefix(s, "/\\") || (len(s) > 1 && s[0] == '/' && (s[1] == '/' || s[1] == '\\')) || strings.HasPrefix(s, "/") || strings.HasPrefix(s, "\\") || strings.Contains(s, "..") {
 		return ""
 	}
 

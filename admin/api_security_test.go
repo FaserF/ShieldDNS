@@ -52,3 +52,33 @@ func TestIsSafeClusterTarget(t *testing.T) {
 		t.Errorf("expected error for nil URL, got nil")
 	}
 }
+
+func TestSanitizeRedirect(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"/admin/", "/admin/"},
+		{"/admin/#/settings", "/admin/#/settings"},
+		{"https://primary.tailnet.fabiseitz.de:8443/admin/", "https://primary.tailnet.fabiseitz.de:8443/admin/"},
+		{"http://192.168.1.100:8080/admin/", "http://192.168.1.100:8080/admin/"},
+
+		// Evasion and Open Redirect vectors
+		{"", "/admin/"},
+		{"//evil.com", "/admin/"},
+		{"//evil.com/admin/", "/admin/"},
+		{"/\\evil.com", "/admin/"},
+		{"\\evil.com", "/admin/"},
+		{"javascript:alert(1)", "/admin/"},
+		{"data:text/html,evil", "/admin/"},
+		{"ftp://evil.com", "/admin/"},
+		{"http://169.254.169.254/latest/meta-data/", "/admin/"},
+	}
+
+	for _, tt := range tests {
+		got := sanitizeRedirect(tt.input)
+		if got != tt.expected {
+			t.Errorf("sanitizeRedirect(%q) = %q; want %q", tt.input, got, tt.expected)
+		}
+	}
+}
