@@ -1,4 +1,4 @@
-﻿module shielddns-admin
+module shielddns-admin
 
 go 1.26.0
 
