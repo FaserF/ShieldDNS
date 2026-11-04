@@ -429,7 +429,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 				continue
 			}
 		}
-		if line == "" {
+		if line == "" || strings.ContainsAny(line, "/?=&:$*") {
 			continue
 		}
 		parts := strings.Fields(line)

@@ -135,6 +135,20 @@ type AdblockRule struct {
 	Modifiers   []string // List of modifiers like important, all, cname, etc.
 }
 
+// isBrowserModifier returns true if the modifier is browser/content-specific
+// and cannot be evaluated at the DNS level.
+func isBrowserModifier(mod string) bool {
+	mod = strings.ToLower(strings.TrimSpace(mod))
+	if mod == "important" || mod == "~important" || mod == "badfilter" {
+		return false
+	}
+	if strings.HasPrefix(mod, "client=") || strings.HasPrefix(mod, "ctag=") ||
+		strings.HasPrefix(mod, "dnstype=") || strings.HasPrefix(mod, "dnsrewrite=") {
+		return false
+	}
+	return true
+}
+
 // ParseAdblockRule parses AdGuard / AdBlock Plus DNS filter rules:
 // - @@||example.com^ (exception/allowlist)
 // - ||example.com^ (block domain and all subdomains)
@@ -173,17 +187,20 @@ func ParseAdblockRule(raw string) *AdblockRule {
 			if mod == "" {
 				continue
 			}
-			rule.Modifiers = append(rule.Modifiers, strings.ToLower(mod))
+			lowMod := strings.ToLower(mod)
+			if isBrowserModifier(lowMod) {
+				// Browser-specific modifier (e.g. $domain=..., $image, $script, $3p)
+				// cannot be enforced at DNS level. Discarding prevents global allowlist
+				// leakage (e.g. @@...$domain=...) or false-positive global blocks.
+				return nil
+			}
+			rule.Modifiers = append(rule.Modifiers, lowMod)
 			if strings.EqualFold(mod, "important") {
 				rule.IsImportant = true
 			}
 			// Parse $client='192.168.1.108' or $client=192.168.1.108
-			lowMod := strings.ToLower(mod)
 			if strings.HasPrefix(lowMod, "client=") {
-				clientVal := strings.TrimPrefix(mod, "client=")
-				if strings.HasPrefix(lowMod, "client=") {
-					clientVal = mod[len("client="):]
-				}
+				clientVal := mod[len("client="):]
 				clientVal = strings.Trim(clientVal, "'\" ")
 				rule.ClientIP = clientVal
 			}
@@ -195,6 +212,12 @@ func ParseAdblockRule(raw string) *AdblockRule {
 		rule.IsRegex = true
 		rule.Domain = line[1 : len(line)-1]
 		return rule
+	}
+
+	// URL-level path rules (e.g. "||example.com/banner.gif" or "domain.com/path")
+	// cannot be enforced at DNS level. Discard unless it's a regex rule.
+	if strings.Contains(line, "/") {
+		return nil
 	}
 
 	// 4. Handle ||domain^ or ||domain

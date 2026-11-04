@@ -250,6 +250,51 @@ func TestProcessList_CosmeticAndFallbackParsing(t *testing.T) {
 	}
 }
 
+func TestProcessList_BrowserModifiersAndPathSkipped(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		// Browser-scoped rules that must NOT be converted to DNS rules
+		fmt.Fprintln(w, "doubleclick.net^$domain=video.sport1.de")
+		fmt.Fprintln(w, "securepubads.g.doubleclick.net/gpt/pubads_impl_*.js$domain=gamestar.de")
+		fmt.Fprintln(w, "ib.adnxs.com/ptv$domain=tele5.de")
+		fmt.Fprintln(w, "g.doubleclick.net/gampad/adx?*/sparta/*&t=ad_type%3Dtoolbar%26$document,subdocument,domain=wetter.com,badfilter")
+		fmt.Fprintln(w, "banner.gif$image,script")
+		// Valid DNS rules
+		fmt.Fprintln(w, "@@||valid-whitelist.org^")
+		fmt.Fprintln(w, "||valid-block.com^")
+	}))
+	defer ts.Close()
+
+	list := List{
+		Name:    "BrowserScopeList",
+		URL:     ts.URL,
+		Enabled: true,
+	}
+
+	blockMap := make(map[string][]string)
+	allowMap := make(map[string]struct{})
+
+	processList(&list, blockMap, allowMap, nil)
+
+	// Verify browser-scoped rules were discarded
+	for _, domain := range []string{"doubleclick.net", "securepubads.g.doubleclick.net", "ib.adnxs.com", "g.doubleclick.net", "banner.gif"} {
+		if _, ok := allowMap[domain]; ok {
+			t.Errorf("Browser-scoped rule '%s' was incorrectly added to allowMap!", domain)
+		}
+		if _, ok := blockMap[domain]; ok {
+			t.Errorf("Browser-scoped rule '%s' was incorrectly added to blockMap!", domain)
+		}
+	}
+
+	// Verify valid DNS rules were retained
+	if _, ok := allowMap["valid-whitelist.org"]; !ok {
+		t.Errorf("Expected valid-whitelist.org to be in allowMap")
+	}
+	if _, ok := blockMap["valid-block.com"]; !ok {
+		t.Errorf("Expected valid-block.com to be in blockMap")
+	}
+}
+
 func TestIsLocalOrTailnetHost(t *testing.T) {
 	tests := []struct {
 		host     string
