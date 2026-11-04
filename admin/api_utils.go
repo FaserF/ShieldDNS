@@ -214,9 +214,27 @@ func ParseAdblockRule(raw string) *AdblockRule {
 		return rule
 	}
 
-	// URL-level path rules (e.g. "||example.com/banner.gif" or "domain.com/path")
-	// cannot be enforced at DNS level. Discard unless it's a regex rule.
-	if strings.Contains(line, "/") {
+	// URL-level subpath rules (e.g. "||example.com/banner.gif" or "domain.com/path")
+	// cannot be enforced at DNS level. Discard unless it's a domain-only rule with optional protocol/root slash.
+	checkLine := line
+	if strings.HasPrefix(checkLine, "||") {
+		checkLine = strings.TrimPrefix(checkLine, "||")
+	}
+	if strings.HasPrefix(checkLine, "|") {
+		checkLine = strings.Trim(checkLine, "|")
+	}
+	if strings.HasPrefix(checkLine, "https://") {
+		checkLine = strings.TrimPrefix(checkLine, "https://")
+	} else if strings.HasPrefix(checkLine, "http://") {
+		checkLine = strings.TrimPrefix(checkLine, "http://")
+	}
+	if strings.HasSuffix(checkLine, "^") {
+		checkLine = strings.TrimSuffix(checkLine, "^")
+	}
+	if strings.HasSuffix(checkLine, "/") {
+		checkLine = strings.TrimSuffix(checkLine, "/")
+	}
+	if strings.Contains(checkLine, "/") {
 		return nil
 	}
 
