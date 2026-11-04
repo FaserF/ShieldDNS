@@ -30,6 +30,7 @@ type CorefileData struct {
 	RateLimitRate    int
 	RateLimitBurst   int
 	RoutingBlocks    string
+	TemplateBlocks   string
 }
 
 const CorefileTemplate = `{{.RoutingBlocks}}
@@ -44,6 +45,7 @@ const CorefileTemplate = `{{.RoutingBlocks}}
         fallthrough
     }
     {{end}}
+{{.TemplateBlocks}}
     cache 3600 {
         success 50000
         denial 30000
@@ -74,6 +76,7 @@ tls://.:{{.DOTPort}} {
         fallthrough
     }
     {{end}}
+{{.TemplateBlocks}}
     cache 3600 {
         success 50000
         denial 30000
@@ -103,6 +106,7 @@ https://.:{{.InternalDOHPort}} {
         fallthrough
     }
     {{end}}
+{{.TemplateBlocks}}
     cache 3600 {
         success 50000
         denial 30000
@@ -136,6 +140,7 @@ quic://.:{{.DOTPort}} {
         fallthrough
     }
     {{end}}
+{{.TemplateBlocks}}
     cache 3600 {
         success 50000
         denial 30000

@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"html/template"
+	"text/template"
 	"log/slog"
 	"net"
 	"os"
@@ -141,6 +141,7 @@ func updateCorefile() {
 		RateLimitRate:    cfg.RateLimitRate,
 		RateLimitBurst:   cfg.RateLimitBurst,
 		RoutingBlocks:    getRoutingZoneBlocks(cfg, dnsPort, dotPort, internalDOHPort, hasCerts, certFile, keyFile),
+		TemplateBlocks:   getTemplateBlocks(cfg),
 	}
 
 	tmpl, err := template.New("corefile").Parse(CorefileTemplate)
@@ -285,3 +286,96 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 	return strings.TrimSpace(sb.String())
 }
 
+
+
+func getTemplateBlocks(cfg *Config) string {
+	if cfg == nil || len(cfg.CustomMappings) == 0 {
+		return ""
+	}
+
+	type wildcardEntry struct {
+		pattern  string
+		apexZone string
+		ip       string
+	}
+	var wildcards []wildcardEntry
+	for domain, ip := range cfg.CustomMappings {
+		d := strings.ToLower(strings.TrimSpace(domain))
+		if strings.HasPrefix(d, "*.") || strings.HasPrefix(d, "*") {
+			apex := strings.TrimPrefix(d, "*.")
+			apex = strings.TrimPrefix(apex, "*")
+			apex = strings.Trim(apex, ".")
+			if apex != "" {
+				wildcards = append(wildcards, wildcardEntry{
+					pattern:  d,
+					apexZone: apex,
+					ip:       strings.TrimSpace(ip),
+				})
+			}
+		}
+	}
+
+	if len(wildcards) == 0 {
+		return ""
+	}
+
+	sort.Slice(wildcards, func(i, j int) bool {
+		return len(wildcards[i].apexZone) > len(wildcards[j].apexZone)
+	})
+
+	var sb strings.Builder
+	handledExact := make(map[string]bool)
+
+	for _, wc := range wildcards {
+		var exacts []struct{ domain, ip string }
+		for domain, ip := range cfg.CustomMappings {
+			d := strings.ToLower(strings.TrimSpace(domain))
+			if strings.HasPrefix(d, "*") {
+				continue
+			}
+			d = strings.Trim(d, ".")
+			if d == wc.apexZone || strings.HasSuffix(d, "."+wc.apexZone) {
+				if !handledExact[d] {
+					exacts = append(exacts, struct{ domain, ip string }{domain: d, ip: strings.TrimSpace(ip)})
+					handledExact[d] = true
+				}
+			}
+		}
+
+		sort.Slice(exacts, func(i, j int) bool {
+			return exacts[i].domain < exacts[j].domain
+		})
+
+		for _, ex := range exacts {
+			parsed := net.ParseIP(ex.ip)
+			if parsed != nil && parsed.To4() == nil {
+				sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", ex.domain))
+				sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN AAAA %s\"\n", ex.ip))
+				sb.WriteString("    }\n")
+			} else {
+				sb.WriteString(fmt.Sprintf("    template IN A %s {\n", ex.domain))
+				sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN A %s\"\n", ex.ip))
+				sb.WriteString("    }\n")
+				sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", ex.domain))
+				sb.WriteString("        answer \"{{ .Name }} 60 IN AAAA ::\"\n")
+				sb.WriteString("    }\n")
+			}
+		}
+
+		parsedWC := net.ParseIP(wc.ip)
+		if parsedWC != nil && parsedWC.To4() == nil {
+			sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", wc.apexZone))
+			sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN AAAA %s\"\n", wc.ip))
+			sb.WriteString("    }\n")
+		} else {
+			sb.WriteString(fmt.Sprintf("    template IN A %s {\n", wc.apexZone))
+			sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN A %s\"\n", wc.ip))
+			sb.WriteString("    }\n")
+			sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", wc.apexZone))
+			sb.WriteString("        answer \"{{ .Name }} 60 IN AAAA ::\"\n")
+			sb.WriteString("    }\n")
+		}
+	}
+
+	return sb.String()
+}

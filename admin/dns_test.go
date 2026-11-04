@@ -397,3 +397,65 @@ func TestParseLogLine_AnonymizedIP(t *testing.T) {
 		t.Errorf("Expected masked IP 192.168.1.0, got %s", logBuffer[0].ClientIP)
 	}
 }
+
+
+func TestUpdateCorefileWildcardTemplates(t *testing.T) {
+	tmpCorefile := "test_Corefile_wildcard"
+	defer os.Remove(tmpCorefile)
+
+	oldPath := CorefilePath
+	CorefilePath = tmpCorefile
+	defer func() { CorefilePath = oldPath }()
+
+	os.Setenv("DNS_PORT", "10053")
+	defer os.Unsetenv("DNS_PORT")
+
+	configLock.Lock()
+	oldConfig := config.Clone()
+	config.Upstreams = []string{"1.1.1.1"}
+	config.CustomMappings = map[string]string{
+		"*.tailnet.fabiseitz.de":    "100.64.0.1",
+		"ha.tailnet.fabiseitz.de":   "100.64.0.2",
+		"dash.tailnet.fabiseitz.de": "100.64.0.2",
+		"fritz.box":                 "192.168.178.1",
+	}
+	configLock.Unlock()
+	defer func() {
+		configLock.Lock()
+		config = *oldConfig
+		configLock.Unlock()
+	}()
+
+	healthLock.Lock()
+	healthyUpstreams = []string{"1.1.1.1"}
+	healthLock.Unlock()
+	defer func() {
+		healthLock.Lock()
+		healthyUpstreams = nil
+		healthLock.Unlock()
+	}()
+
+	updateCorefile()
+
+	content, err := os.ReadFile(tmpCorefile)
+	if err != nil {
+		t.Fatalf("Failed to read generated Corefile: %v", err)
+	}
+
+	sContent := string(content)
+
+	expectedSnippets := []string{
+		"template IN A ha.tailnet.fabiseitz.de {",
+		"template IN A dash.tailnet.fabiseitz.de {",
+		"template IN A tailnet.fabiseitz.de {",
+		`answer "{{ .Name }} 60 IN A 100.64.0.1"`,
+		"template IN AAAA tailnet.fabiseitz.de {",
+		`answer "{{ .Name }} 60 IN AAAA ::"`,
+	}
+
+	for _, snippet := range expectedSnippets {
+		if !strings.Contains(sContent, snippet) {
+			t.Errorf("Expected Corefile to contain '%s', but it didn't.\nContent:\n%s", snippet, sContent)
+		}
+	}
+}
