@@ -205,6 +205,30 @@
                                     <input type="password" id="nextdns-api-key-input" placeholder="NextDNS API Key">
                                 </div>
                             </div>
+                            <div class="form-group" style="margin-bottom: 12px;">
+                                <div class="label-with-info">
+                                    <label>NextDNS Monthly Query Limit</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Maximum queries per calendar month for this NextDNS profile (Free tier: 300,000). When this limit is reached, ShieldDNS automatically falls back to standard DNS / SNI Geo-Proxy routing until the month resets on the 1st, keeping ad-free streaming working 100% seamlessly."></i>
+                                </div>
+                                <input type="number" id="nextdns-monthly-limit-input" placeholder="300000" min="1000" step="5000">
+                                <p class="help">Default: 300,000 queries/month. ShieldDNS automatically routes queries via standard paths / GeoProxy once exceeded.</p>
+                            </div>
+                            <div id="nextdns-quota-status-box" style="margin-bottom: 12px; padding: 10px 14px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px; font-size: 0.9em; display: none;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-weight: 600;" id="nextdns-status-title">NextDNS Quota Status</span>
+                                    <span class="badge" id="nextdns-status-badge" style="padding: 2px 8px; border-radius: 4px; font-size: 0.85em; background: #10b981; color: #fff;">Active</span>
+                                </div>
+                                <div style="margin-bottom: 4px; color: var(--text-secondary); display: flex; justify-content: space-between;">
+                                    <span id="nextdns-queries-text">Monthly Queries: 0 / 300,000</span>
+                                    <span id="nextdns-percent-text">0.0%</span>
+                                </div>
+                                <div style="width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
+                                    <div id="nextdns-quota-progress" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+                                </div>
+                                <div style="font-size: 0.85em; color: var(--text-secondary);" id="nextdns-reset-text">
+                                    Resets on: 1st of next month
+                                </div>
+                            </div>
                             <div class="form-group checkbox-group">
                                 <div class="checkbox-text">
                                     <div class="label-with-info">

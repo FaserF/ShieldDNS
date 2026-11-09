@@ -340,6 +340,7 @@ func startWorkers() {
 	// Start health and monitoring
 	go startHealthChecker(appCtx)
 	go startDNSWatchdog(appCtx)
+	go startNextDNSQuotaWatchdog(appCtx)
 	go detectServerCountry()
 
 	startAuthWorkers()

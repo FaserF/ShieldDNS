@@ -236,6 +236,10 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 				upstreams = append(upstreams, net.JoinHostPort(ip, port))
 			}
 		case "nextdns":
+			if isNextDNSQuotaExceeded(cfg) {
+				slog.Warn("NextDNS monthly quota exceeded; skipping rule routing to NextDNS", "rule_id", rule.ID, "match", rule.Match)
+				continue
+			}
 			profileID := strings.TrimSpace(rule.HostTarget)
 			if profileID == "" {
 				profileID = strings.TrimSpace(cfg.NextDNSProfileID)
@@ -263,8 +267,8 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 		}
 	}
 
-	// Automatic NextDNS routing for YouTube and Reddit ad-free playback
-	if nextProfile := strings.TrimSpace(cfg.NextDNSProfileID); nextProfile != "" {
+	// Automatic NextDNS routing for YouTube and Reddit ad-free playback (falls back to standard ShieldDNS / Geo-Proxy if monthly quota is exceeded)
+	if nextProfile := strings.TrimSpace(cfg.NextDNSProfileID); nextProfile != "" && !isNextDNSQuotaExceeded(cfg) {
 		nextUpstreams := []string{"tls://45.90.28.0:853", "tls://45.90.30.0:853"}
 		nextSNI := fmt.Sprintf("%s.dns.nextdns.io", nextProfile)
 

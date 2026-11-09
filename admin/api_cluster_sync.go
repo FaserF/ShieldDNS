@@ -189,6 +189,9 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	if exp.NextDNSAPIKey != "" {
 		config.NextDNSAPIKey = exp.NextDNSAPIKey
 	}
+	if exp.NextDNSMonthlyLimit > 0 {
+		config.NextDNSMonthlyLimit = exp.NextDNSMonthlyLimit
+	}
 	config.NextDNSYouTube = exp.NextDNSYouTube
 	config.NextDNSReddit = exp.NextDNSReddit
 	if exp.SNIProxyPort > 0 {

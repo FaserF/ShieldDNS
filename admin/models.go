@@ -101,6 +101,7 @@ type Config struct {
 	SNIProxyPort               int                          `json:"sni_proxy_port,omitempty"`
 	NextDNSProfileID           string                       `json:"nextdns_profile_id,omitempty"`
 	NextDNSAPIKey              string                       `json:"nextdns_api_key,omitempty"`
+	NextDNSMonthlyLimit        int                          `json:"nextdns_monthly_limit,omitempty"`
 	NextDNSYouTube             bool                         `json:"nextdns_youtube,omitempty"`
 	NextDNSReddit              bool                         `json:"nextdns_reddit,omitempty"`
 	LocalPTRUpstreams          []string                     `json:"local_ptr_upstreams"`
@@ -196,6 +197,7 @@ type ClusterConfigExport struct {
 	SNIProxyPort               int                          `json:"sni_proxy_port,omitempty"`
 	NextDNSProfileID           string                       `json:"nextdns_profile_id,omitempty"`
 	NextDNSAPIKey              string                       `json:"nextdns_api_key,omitempty"`
+	NextDNSMonthlyLimit        int                          `json:"nextdns_monthly_limit,omitempty"`
 	NextDNSYouTube             bool                         `json:"nextdns_youtube,omitempty"`
 	NextDNSReddit              bool                         `json:"nextdns_reddit,omitempty"`
 	BlockedClients             []string                     `json:"blocked_clients,omitempty"`

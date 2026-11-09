@@ -256,6 +256,33 @@ export function renderConfig(cfg) {
     if (getEl('nextdns-api-key-input')) getEl('nextdns-api-key-input').value = cfg.nextdns_api_key || '';
     if (getEl('nextdns-youtube-check')) getEl('nextdns-youtube-check').checked = !!cfg.nextdns_youtube;
     if (getEl('nextdns-reddit-check')) getEl('nextdns-reddit-check').checked = !!cfg.nextdns_reddit;
+    if (getEl('nextdns-monthly-limit-input')) getEl('nextdns-monthly-limit-input').value = cfg.nextdns_monthly_limit || 300000;
+
+    const quotaBox = getEl('nextdns-quota-status-box');
+    if (quotaBox && cfg.nextdns_profile_id) {
+        quotaBox.style.display = 'block';
+        api.apiFetch('/api/routing/nextdns-status').then(st => {
+            if (!st) return;
+            const badge = getEl('nextdns-status-badge'), qText = getEl('nextdns-queries-text'), pText = getEl('nextdns-percent-text'), prog = getEl('nextdns-quota-progress'), rText = getEl('nextdns-reset-text');
+            if (qText) qText.textContent = `Monthly Queries: ${Number(st.monthly_queries || 0).toLocaleString()} / ${Number(st.monthly_limit || 300000).toLocaleString()}`;
+            const pct = Math.min(100, Math.max(0, st.percentage_used || 0));
+            if (pText) pText.textContent = `${pct.toFixed(1)}%`;
+            if (prog) {
+                prog.style.width = `${pct}%`;
+                prog.style.background = st.quota_exceeded ? '#ef4444' : (pct > 85 ? '#f59e0b' : '#10b981');
+            }
+            if (badge) {
+                badge.textContent = st.quota_exceeded ? 'Quota Exceeded (Fallback Active)' : 'Active (NextDNS DoT)';
+                badge.style.background = st.quota_exceeded ? '#ef4444' : '#10b981';
+            }
+            if (rText && st.reset_date) {
+                const rd = new Date(st.reset_date);
+                rText.textContent = `Resets on: ${rd.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'})} (Auto-resumes)`;
+            }
+        }).catch(() => {});
+    } else if (quotaBox) {
+        quotaBox.style.display = 'none';
+    }
 
     const currentOrigin = (cfg && cfg.admin_domain) ? `https://${cfg.admin_domain}` : (window.location.origin || 'https://shielddns.local');
 

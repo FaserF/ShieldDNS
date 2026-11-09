@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHandleRoutingRules(t *testing.T) {
@@ -377,6 +378,62 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	handleRoutingRules(rrNext, reqNext)
 	if rrNext.Code != http.StatusOK {
 		t.Fatalf("POST /api/routing/rules for target=nextdns expected 200, got %d (%s)", rrNext.Code, rrNext.Body.String())
+	}
+
+	// 9. Test NextDNS Monthly Limit & Automatic Quota Fallback
+	configLock.Lock()
+	config.NextDNSMonthlyLimit = 500
+	configLock.Unlock()
+
+	if limit := GetNextDNSMonthlyLimit(&config); limit != 500 {
+		t.Errorf("expected GetNextDNSMonthlyLimit to return 500, got %d", limit)
+	}
+
+	// Below limit: not exceeded
+	nextDNSCacheMu.Lock()
+	cachedNextDNSQueries = 100
+	cachedNextDNSMonth = time.Now().UTC().Month()
+	cachedNextDNSYear = time.Now().UTC().Year()
+	lastNextDNSQueryCheck = time.Now().UTC()
+	cachedNextDNSExceeded.Store(false)
+	nextDNSCacheMu.Unlock()
+
+	if isNextDNSQuotaExceeded(&config) {
+		t.Errorf("expected isNextDNSQuotaExceeded to be false when queries(100) < limit(500)")
+	}
+
+	// Simulate exceeding monthly limit
+	nextDNSCacheMu.Lock()
+	cachedNextDNSQueries = 500
+	lastNextDNSQueryCheck = time.Now().UTC()
+	nextDNSCacheMu.Unlock()
+
+	if !isNextDNSQuotaExceeded(&config) {
+		t.Errorf("expected isNextDNSQuotaExceeded to be true when queries(500) >= limit(500)")
+	}
+
+	// Corefile should NOT generate NextDNS blocks when quota is exceeded, falling back to standard/geoproxy
+	fallbackCoreBlocks := getRoutingZoneBlocks(&config, "53", "853", "443", true, "/ssl/cert.pem", "/ssl/key.pem")
+	if strings.Contains(fallbackCoreBlocks, "tls_servername 2351bb.dns.nextdns.io") {
+		t.Errorf("expected NextDNS blocks to be omitted when quota exceeded, got:\n%s", fallbackCoreBlocks)
+	}
+
+	// Test GET /api/routing/nextdns-status endpoint
+	statusReq := httptest.NewRequest(http.MethodGet, "/api/routing/nextdns-status", nil)
+	statusRR := httptest.NewRecorder()
+	handleNextDNSStatus(statusRR, statusReq)
+	if statusRR.Code != http.StatusOK {
+		t.Fatalf("GET /api/routing/nextdns-status expected 200, got %d", statusRR.Code)
+	}
+	var statusData map[string]interface{}
+	if err := json.Unmarshal(statusRR.Body.Bytes(), &statusData); err != nil {
+		t.Fatalf("failed to decode nextdns-status JSON: %v", err)
+	}
+	if statusData["quota_exceeded"] != true {
+		t.Errorf("expected quota_exceeded true in status response, got %v", statusData["quota_exceeded"])
+	}
+	if statusData["current_routing"] != "fallback_standard" {
+		t.Errorf("expected current_routing fallback_standard, got %v", statusData["current_routing"])
 	}
 }
 

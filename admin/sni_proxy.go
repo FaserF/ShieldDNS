@@ -28,13 +28,13 @@ var (
 
 func activeServiceGeoZones(cfg *Config) [][]string {
 	var sets [][]string
-	if cfg.YouTubeAdblockEnabled && !cfg.NextDNSYouTube {
+	if cfg.YouTubeAdblockEnabled && (!cfg.NextDNSYouTube || isNextDNSQuotaExceeded(cfg)) {
 		sets = append(sets, defaultYouTubeGeoDomains)
 	}
 	if cfg.TwitchAdblockEnabled {
 		sets = append(sets, defaultTwitchGeoDomains)
 	}
-	if cfg.RedditAdblockEnabled && !cfg.NextDNSReddit {
+	if cfg.RedditAdblockEnabled && (!cfg.NextDNSReddit || isNextDNSQuotaExceeded(cfg)) {
 		sets = append(sets, defaultRedditGeoDomains)
 	}
 	if cfg.SpotifyAdblockEnabled {
@@ -81,7 +81,7 @@ func GetGeoRoutedZones(cfg *Config) []string {
 		d = strings.Trim(d, ".")
 		if d != "" && isValidDomain(d) && !seen[d] {
 			for _, r := range cfg.RoutingRules {
-				if r.Enabled && r.Target == "nextdns" && strings.EqualFold(strings.TrimPrefix(r.Match, "*."), d) {
+				if r.Enabled && r.Target == "nextdns" && !isNextDNSQuotaExceeded(cfg) && strings.EqualFold(strings.TrimPrefix(r.Match, "*."), d) {
 					return
 				}
 			}
@@ -545,10 +545,11 @@ func dialSOCKS5(proxyHost, targetAddr string, authUser *url.Userinfo, timeout ti
 		return nil, fmt.Errorf("SOCKS5 handshake failed")
 	}
 	if resp[1] == 0x02 && authUser != nil {
-		user := authUser.Username()
-		pw, _ := authUser.Password()
-		authReq := append([]byte{0x01, byte(len(user))}, []byte(user)...)
-		authReq = append(authReq, byte(len(pw)))
+		user, pw := authUser.Username(), ""
+		if p, ok := authUser.Password(); ok {
+			pw = p
+		}
+		authReq := append(append([]byte{0x01, byte(len(user))}, []byte(user)...), byte(len(pw)))
 		authReq = append(authReq, []byte(pw)...)
 		if _, err := conn.Write(authReq); err != nil {
 			conn.Close()
@@ -563,8 +564,7 @@ func dialSOCKS5(proxyHost, targetAddr string, authUser *url.Userinfo, timeout ti
 		return nil, fmt.Errorf("SOCKS5 unsupported auth method %d", resp[1])
 	}
 
-	req := append([]byte{0x05, 0x01, 0x00, 0x03, byte(len(host))}, []byte(host)...)
-	req = append(req, byte(port>>8), byte(port&0xff))
+	req := append(append([]byte{0x05, 0x01, 0x00, 0x03, byte(len(host))}, []byte(host)...), byte(port>>8), byte(port&0xff))
 	if _, err := conn.Write(req); err != nil {
 		conn.Close()
 		return nil, err

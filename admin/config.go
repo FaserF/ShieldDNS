@@ -460,6 +460,7 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 		SNIProxyPort:               config.SNIProxyPort,
 		NextDNSProfileID:           config.NextDNSProfileID,
 		NextDNSAPIKey:              config.NextDNSAPIKey,
+		NextDNSMonthlyLimit:        config.NextDNSMonthlyLimit,
 		NextDNSYouTube:             config.NextDNSYouTube,
 		NextDNSReddit:              config.NextDNSReddit,
 		BlockedClients:             append([]string{}, config.BlockedClients...),

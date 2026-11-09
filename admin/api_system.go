@@ -291,6 +291,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.NextDNSProfileID == "" && config.NextDNSProfileID != "" {
 			newConfig.NextDNSProfileID = config.NextDNSProfileID
 		}
+		if newConfig.NextDNSMonthlyLimit <= 0 && config.NextDNSMonthlyLimit > 0 {
+			newConfig.NextDNSMonthlyLimit = config.NextDNSMonthlyLimit
+		}
 		if newConfig.SNIProxyPort <= 0 {
 			if config.SNIProxyPort > 0 {
 				newConfig.SNIProxyPort = config.SNIProxyPort
@@ -298,10 +301,10 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 				newConfig.SNIProxyPort = 8444
 			}
 		}
-		if newConfig.LocalPTRUpstreams == nil && config.LocalPTRUpstreams != nil {
+		if newConfig.LocalPTRUpstreams == nil {
 			newConfig.LocalPTRUpstreams = config.LocalPTRUpstreams
 		}
-		if newConfig.ClientRules == nil && config.ClientRules != nil {
+		if newConfig.ClientRules == nil {
 			newConfig.ClientRules = config.ClientRules
 		}
 
@@ -325,13 +328,13 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		if newConfig.BlockedClientsInfo == nil && config.BlockedClientsInfo != nil {
+		if newConfig.BlockedClientsInfo == nil {
 			newConfig.BlockedClientsInfo = config.BlockedClientsInfo
 		}
-		if newConfig.ClientAliases == nil && config.ClientAliases != nil {
+		if newConfig.ClientAliases == nil {
 			newConfig.ClientAliases = config.ClientAliases
 		}
-		if newConfig.APIKeys == nil && config.APIKeys != nil {
+		if newConfig.APIKeys == nil {
 			newConfig.APIKeys = config.APIKeys
 		} else if newConfig.APIKeys != nil && config.APIKeys != nil {
 			// Restore masked token hashes
@@ -355,24 +358,12 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.AdminPasswordHashed == "" || newConfig.AdminPasswordHashed == "********" {
 			newConfig.AdminPasswordHashed = config.AdminPasswordHashed
 		}
-		if newConfig.LastLogin.IsZero() {
-			newConfig.LastLogin = config.LastLogin
-		}
-		if newConfig.PreviousLogin.IsZero() {
-			newConfig.PreviousLogin = config.PreviousLogin
-		}
-		if !newConfig.SetupDone {
-			newConfig.SetupDone = config.SetupDone
-		}
-		if newConfig.DoHRateLimit == 0 {
-			newConfig.DoHRateLimit = config.DoHRateLimit
-		}
-		if newConfig.RetentionDays == 0 {
-			newConfig.RetentionDays = config.RetentionDays
-		}
-		if !newConfig.MFAEnabled {
-			newConfig.MFAEnabled = config.MFAEnabled
-		}
+		if newConfig.LastLogin.IsZero() { newConfig.LastLogin = config.LastLogin }
+		if newConfig.PreviousLogin.IsZero() { newConfig.PreviousLogin = config.PreviousLogin }
+		if !newConfig.SetupDone { newConfig.SetupDone = config.SetupDone }
+		if newConfig.DoHRateLimit == 0 { newConfig.DoHRateLimit = config.DoHRateLimit }
+		if newConfig.RetentionDays == 0 { newConfig.RetentionDays = config.RetentionDays }
+		if !newConfig.MFAEnabled { newConfig.MFAEnabled = config.MFAEnabled }
 		if len(newConfig.TOTPConfigs) > 0 {
 			for i, nt := range newConfig.TOTPConfigs {
 				if nt.Secret == "********" {
@@ -455,7 +446,8 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			newConfig.RoutingRules, newConfig.WireGuardGateway = config.RoutingRules, config.WireGuardGateway
 			newConfig.YouTubeAdblockEnabled, newConfig.VPNProvider, newConfig.VPNDefaultCountry = config.YouTubeAdblockEnabled, config.VPNProvider, config.VPNDefaultCountry
 			newConfig.VPNProxyURL, newConfig.VPNDNSUpstream, newConfig.GeoProxyIP, newConfig.SNIProxyPort = config.VPNProxyURL, config.VPNDNSUpstream, config.GeoProxyIP, config.SNIProxyPort
-			newConfig.NextDNSProfileID, newConfig.NextDNSAPIKey, newConfig.NextDNSYouTube, newConfig.NextDNSReddit = config.NextDNSProfileID, config.NextDNSAPIKey, config.NextDNSYouTube, config.NextDNSReddit
+			newConfig.NextDNSProfileID, newConfig.NextDNSAPIKey, newConfig.NextDNSMonthlyLimit = config.NextDNSProfileID, config.NextDNSAPIKey, config.NextDNSMonthlyLimit
+			newConfig.NextDNSYouTube, newConfig.NextDNSReddit = config.NextDNSYouTube, config.NextDNSReddit
 			newConfig.Upstreams, newConfig.UpstreamDoT = config.Upstreams, config.UpstreamDoT
 			if newConfig.WebhookURL == "" && config.WebhookURL != "" {
 				newConfig.WebhookURL = config.WebhookURL

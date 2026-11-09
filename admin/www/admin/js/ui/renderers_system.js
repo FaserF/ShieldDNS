@@ -436,6 +436,7 @@ export function applyReplicaSyncedLocks(isReplica) {
         'geo-proxy-ip-input',
         'nextdns-profile-id-input',
         'nextdns-api-key-input',
+        'nextdns-monthly-limit-input',
         'nextdns-youtube-check',
         'nextdns-reddit-check',
         'strip-ecs-check',

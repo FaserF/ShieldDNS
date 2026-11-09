@@ -86,6 +86,7 @@ export async function saveConfig(fetchConfig) {
         geo_proxy_ip: getEl('geo-proxy-ip-input')?.value.trim() || '',
         nextdns_profile_id: getEl('nextdns-profile-id-input')?.value.trim() || '',
         nextdns_api_key: getEl('nextdns-api-key-input')?.value.trim() || '',
+        nextdns_monthly_limit: parseInt(getEl('nextdns-monthly-limit-input')?.value, 10) || 300000,
         nextdns_youtube: !!getEl('nextdns-youtube-check')?.checked,
         nextdns_reddit: !!getEl('nextdns-reddit-check')?.checked
     };

@@ -307,6 +307,7 @@ func parseLogLine(line string) {
 
 	// Record real-time metrics and QPS
 	RecordQuery(q)
+	TrackNextDNSQuery(qDomain)
 
 	bufferLock.Lock()
 	logBuffer = append(logBuffer, q)

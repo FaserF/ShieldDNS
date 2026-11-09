@@ -73,3 +73,21 @@ func startDNSWatchdog(ctx context.Context) {
 		}
 	}
 }
+
+// startNextDNSQuotaWatchdog periodically evaluates NextDNS quota state changes and triggers CoreDNS reload if needed.
+func startNextDNSQuotaWatchdog(ctx context.Context) {
+	if testMode {
+		return
+	}
+	ticker := time.NewTicker(2 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			CheckNextDNSQuotaTransition()
+		}
+	}
+}
