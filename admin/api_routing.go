@@ -118,14 +118,24 @@ func handleRoutingRules(w http.ResponseWriter, r *http.Request) {
 		if target == "" {
 			target = "default"
 		}
-		if target != "default" && target != "host" && target != "wireguard" && target != "vpn" && target != "geo_proxy" {
-			sendJSONError(w, "target must be 'default', 'host', 'wireguard', 'vpn', or 'geo_proxy'", http.StatusBadRequest)
+		if target != "default" && target != "host" && target != "wireguard" && target != "vpn" && target != "geo_proxy" && target != "nextdns" {
+			sendJSONError(w, "target must be 'default', 'host', 'wireguard', 'vpn', 'geo_proxy', or 'nextdns'", http.StatusBadRequest)
 			return
 		}
 
 		if target == "host" && strings.TrimSpace(req.HostTarget) == "" {
 			sendJSONError(w, "host_target is required when target is 'host'", http.StatusBadRequest)
 			return
+		}
+
+		if target == "nextdns" && strings.TrimSpace(req.HostTarget) == "" {
+			configLock.RLock()
+			globalProfile := strings.TrimSpace(config.NextDNSProfileID)
+			configLock.RUnlock()
+			if globalProfile == "" {
+				sendJSONError(w, "NextDNS Profile ID is required (configure globally in Settings or specify in host_target)", http.StatusBadRequest)
+				return
+			}
 		}
 
 		enabled := true

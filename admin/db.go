@@ -199,15 +199,23 @@ func initDB() {
 
 		slog.Info("PostgreSQL database initialized successfully")
 
-		// Automatic zero-downtime migration if SQLite database exists and PostgreSQL is empty
+		// Automatic zero-downtime migration if SQLite database exists
 		if _, statErr := os.Stat(DBPath); statErr == nil {
-			var pgCount int64
-			if err := db.QueryRow("SELECT COUNT(*) FROM queries").Scan(&pgCount); err == nil && pgCount == 0 {
+			var pgMaxTime sql.NullTime
+			_ = db.QueryRow("SELECT MAX(timestamp) FROM queries").Scan(&pgMaxTime)
+			if !pgMaxTime.Valid {
 				slog.Info("PostgreSQL is empty; SQLite database detected. Starting seamless migration...", "sqlite_path", DBPath)
-				if err := autoMigrateFromSQLite(DBPath, db); err != nil {
+				if err := autoMigrateFromSQLite(DBPath, db, time.Time{}); err != nil {
 					slog.Error("Migration from SQLite to PostgreSQL failed", "error", err)
 				} else {
 					slog.Info("Automatic migration from SQLite to PostgreSQL completed successfully! All records preserved.")
+				}
+			} else {
+				slog.Info("Syncing missing newer records from SQLite to PostgreSQL...", "since", pgMaxTime.Time)
+				if err := autoMigrateFromSQLite(DBPath, db, pgMaxTime.Time); err != nil {
+					slog.Error("Incremental migration from SQLite to PostgreSQL failed", "error", err)
+				} else {
+					slog.Info("Incremental migration from SQLite to PostgreSQL completed successfully.")
 				}
 			}
 		}

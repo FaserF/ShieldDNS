@@ -25,18 +25,14 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	// Check DB connection and writability
 	if db != nil {
-		// Try a dummy write test to detect read-only or full-disk issues
-		_, err := db.Exec("CREATE TABLE IF NOT EXISTS _health_check (id INTEGER PRIMARY KEY); INSERT INTO _health_check (id) VALUES (1) ON CONFLICT(id) DO UPDATE SET id=1;")
-		if err != nil {
-			health["status"] = "unhealthy"
-			health["database"] = "error: " + err.Error()
+		if _, err := db.Exec("CREATE TABLE IF NOT EXISTS _health_check (id INTEGER PRIMARY KEY); INSERT INTO _health_check (id) VALUES (1) ON CONFLICT(id) DO UPDATE SET id=1;"); err != nil {
+			health["status"], health["database"] = "unhealthy", "error: "+err.Error()
 			slog.Error("Health check: Database write test failed", "error", err)
 		} else {
 			health["database"] = "ok"
 		}
 	} else {
-		health["status"] = "unhealthy"
-		health["database"] = "not connected"
+		health["status"], health["database"] = "unhealthy", "not connected"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -57,9 +53,7 @@ func getSystemStats() map[string]interface{} {
 
 func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	certFile := os.Getenv("CERT_FILE")
-	if certFile == "" {
-		certFile = "/ssl/fullchain.pem"
-	}
+	if certFile == "" { certFile = "/ssl/fullchain.pem" }
 
 	data, err := os.ReadFile(certFile)
 	if err != nil {
@@ -252,44 +246,50 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		configLock.Lock()
 		// Preserve fields that might not be sent in a partial update
-		if len(newConfig.BlockedCountries) == 0 && len(config.BlockedCountries) > 0 {
+		if len(newConfig.BlockedCountries) == 0 {
 			newConfig.BlockedCountries = config.BlockedCountries
 		}
-		if len(newConfig.BlockedClients) == 0 && len(config.BlockedClients) > 0 {
+		if len(newConfig.BlockedClients) == 0 {
 			newConfig.BlockedClients = config.BlockedClients
 		}
-		if len(newConfig.AutoblockWhitelist) == 0 && len(config.AutoblockWhitelist) > 0 {
+		if len(newConfig.AutoblockWhitelist) == 0 {
 			newConfig.AutoblockWhitelist = config.AutoblockWhitelist
 		}
-		if len(newConfig.CustomBlocked) == 0 && len(config.CustomBlocked) > 0 {
+		if len(newConfig.CustomBlocked) == 0 {
 			newConfig.CustomBlocked = config.CustomBlocked
 		}
-		if len(newConfig.CustomAllowed) == 0 && len(config.CustomAllowed) > 0 {
+		if len(newConfig.CustomAllowed) == 0 {
 			newConfig.CustomAllowed = config.CustomAllowed
 		}
-		if newConfig.CustomMappings == nil && config.CustomMappings != nil {
+		if newConfig.CustomMappings == nil {
 			newConfig.CustomMappings = config.CustomMappings
 		}
-		if newConfig.RoutingRules == nil && config.RoutingRules != nil {
+		if newConfig.RoutingRules == nil {
 			newConfig.RoutingRules = config.RoutingRules
 		}
-		if newConfig.WireGuardGateway == "" && config.WireGuardGateway != "" {
+		if newConfig.WireGuardGateway == "" {
 			newConfig.WireGuardGateway = config.WireGuardGateway
 		}
-		if newConfig.VPNProvider == "" && config.VPNProvider != "" {
+		if newConfig.VPNProvider == "" {
 			newConfig.VPNProvider = config.VPNProvider
 		}
-		if newConfig.VPNMode == "" && config.VPNMode != "" {
+		if newConfig.VPNMode == "" {
 			newConfig.VPNMode = config.VPNMode
 		}
-		if newConfig.VPNDefaultCountry == "" && config.VPNDefaultCountry != "" {
+		if newConfig.VPNDefaultCountry == "" {
 			newConfig.VPNDefaultCountry = config.VPNDefaultCountry
 		}
-		if newConfig.VPNCountryProxies == nil && config.VPNCountryProxies != nil {
+		if newConfig.VPNCountryProxies == nil {
 			newConfig.VPNCountryProxies = config.VPNCountryProxies
 		}
 		if newConfig.VPNPassword == "" || newConfig.VPNPassword == "********" {
 			newConfig.VPNPassword = config.VPNPassword
+		}
+		if newConfig.NextDNSAPIKey == "" || newConfig.NextDNSAPIKey == "********" {
+			newConfig.NextDNSAPIKey = config.NextDNSAPIKey
+		}
+		if newConfig.NextDNSProfileID == "" && config.NextDNSProfileID != "" {
+			newConfig.NextDNSProfileID = config.NextDNSProfileID
 		}
 		if newConfig.SNIProxyPort <= 0 {
 			if config.SNIProxyPort > 0 {
@@ -346,10 +346,10 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		if len(newConfig.Lists) == 0 && len(config.Lists) > 0 {
+		if len(newConfig.Lists) == 0 {
 			newConfig.Lists = config.Lists
 		}
-		if len(newConfig.Allowlists) == 0 && len(config.Allowlists) > 0 {
+		if len(newConfig.Allowlists) == 0 {
 			newConfig.Allowlists = config.Allowlists
 		}
 		if newConfig.AdminPasswordHashed == "" || newConfig.AdminPasswordHashed == "********" {
@@ -361,16 +361,16 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.PreviousLogin.IsZero() {
 			newConfig.PreviousLogin = config.PreviousLogin
 		}
-		if !newConfig.SetupDone && config.SetupDone {
+		if !newConfig.SetupDone {
 			newConfig.SetupDone = config.SetupDone
 		}
-		if newConfig.DoHRateLimit == 0 && config.DoHRateLimit != 0 {
+		if newConfig.DoHRateLimit == 0 {
 			newConfig.DoHRateLimit = config.DoHRateLimit
 		}
-		if newConfig.RetentionDays == 0 && config.RetentionDays != 0 {
+		if newConfig.RetentionDays == 0 {
 			newConfig.RetentionDays = config.RetentionDays
 		}
-		if !newConfig.MFAEnabled && config.MFAEnabled {
+		if !newConfig.MFAEnabled {
 			newConfig.MFAEnabled = config.MFAEnabled
 		}
 		if len(newConfig.TOTPConfigs) > 0 {
@@ -455,6 +455,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			newConfig.RoutingRules, newConfig.WireGuardGateway = config.RoutingRules, config.WireGuardGateway
 			newConfig.YouTubeAdblockEnabled, newConfig.VPNProvider, newConfig.VPNDefaultCountry = config.YouTubeAdblockEnabled, config.VPNProvider, config.VPNDefaultCountry
 			newConfig.VPNProxyURL, newConfig.VPNDNSUpstream, newConfig.GeoProxyIP, newConfig.SNIProxyPort = config.VPNProxyURL, config.VPNDNSUpstream, config.GeoProxyIP, config.SNIProxyPort
+			newConfig.NextDNSProfileID, newConfig.NextDNSAPIKey, newConfig.NextDNSYouTube, newConfig.NextDNSReddit = config.NextDNSProfileID, config.NextDNSAPIKey, config.NextDNSYouTube, config.NextDNSReddit
 			newConfig.Upstreams, newConfig.UpstreamDoT = config.Upstreams, config.UpstreamDoT
 			if newConfig.WebhookURL == "" && config.WebhookURL != "" {
 				newConfig.WebhookURL = config.WebhookURL

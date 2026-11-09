@@ -197,9 +197,11 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 		}
 	}
 
-	if len(cfg.RoutingRules) == 0 {
-		return strings.TrimSpace(sb.String())
+	type routingTarget struct {
+		upstreams     []string
+		tlsServerName string
 	}
+	zoneTargets := make(map[string]routingTarget)
 
 	for _, rule := range cfg.RoutingRules {
 		if !rule.Enabled {
@@ -211,10 +213,10 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 			continue
 		}
 		// CoreDNS expects normalized root without wildcards in zone names
-		matchDomain = strings.TrimPrefix(matchDomain, "*.")
-		matchDomain = strings.Trim(matchDomain, ".")
+		matchDomain = strings.ToLower(strings.Trim(strings.TrimPrefix(matchDomain, "*."), "."))
 
 		var upstreams []string
+		var tlsServerName string
 		switch rule.Target {
 		case "host":
 			h := strings.TrimSpace(rule.HostTarget)
@@ -233,6 +235,15 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 				ip := resolveHost(host)
 				upstreams = append(upstreams, net.JoinHostPort(ip, port))
 			}
+		case "nextdns":
+			profileID := strings.TrimSpace(rule.HostTarget)
+			if profileID == "" {
+				profileID = strings.TrimSpace(cfg.NextDNSProfileID)
+			}
+			if profileID != "" {
+				upstreams = []string{"tls://45.90.28.0:853", "tls://45.90.30.0:853"}
+				tlsServerName = fmt.Sprintf("%s.dns.nextdns.io", profileID)
+			}
 		case "vpn", "geo_proxy":
 			// Only emit a pure DNS forward zone if SNI Geo-Proxy IP is not active and VPNDNSUpstream is configured
 			if GetEffectiveGeoProxyIP(cfg) == "" {
@@ -247,49 +258,82 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 			continue
 		}
 
-		if len(upstreams) == 0 {
-			continue
+		if len(upstreams) > 0 {
+			zoneTargets[matchDomain] = routingTarget{upstreams: upstreams, tlsServerName: tlsServerName}
+		}
+	}
+
+	// Automatic NextDNS routing for YouTube and Reddit ad-free playback
+	if nextProfile := strings.TrimSpace(cfg.NextDNSProfileID); nextProfile != "" {
+		nextUpstreams := []string{"tls://45.90.28.0:853", "tls://45.90.30.0:853"}
+		nextSNI := fmt.Sprintf("%s.dns.nextdns.io", nextProfile)
+
+		if cfg.NextDNSYouTube {
+			for _, d := range defaultYouTubeGeoDomains {
+				dom := strings.ToLower(strings.Trim(strings.TrimPrefix(d, "*."), "."))
+				if _, exists := zoneTargets[dom]; !exists && isValidDomain(dom) {
+					zoneTargets[dom] = routingTarget{upstreams: nextUpstreams, tlsServerName: nextSNI}
+				}
+			}
+		}
+		if cfg.NextDNSReddit {
+			redditDomains := append([]string{}, defaultRedditGeoDomains...)
+			redditDomains = append(redditDomains, "reddit.com", "redd.it")
+			for _, d := range redditDomains {
+				dom := strings.ToLower(strings.Trim(strings.TrimPrefix(d, "*."), "."))
+				if _, exists := zoneTargets[dom]; !exists && isValidDomain(dom) {
+					zoneTargets[dom] = routingTarget{upstreams: nextUpstreams, tlsServerName: nextSNI}
+				}
+			}
+		}
+	}
+
+	if len(zoneTargets) == 0 {
+		return strings.TrimSpace(sb.String())
+	}
+
+	sortedDomains := make([]string, 0, len(zoneTargets))
+	for d := range zoneTargets {
+		sortedDomains = append(sortedDomains, d)
+	}
+	sort.Strings(sortedDomains)
+
+	filteringBlock := ""
+	if cfg.FilteringEnabled {
+		filteringBlock = fmt.Sprintf("    hosts %s {\n        reload 5s\n        fallthrough\n    }\n", CombinedHostsPath)
+	}
+
+	for _, matchDomain := range sortedDomains {
+		target := zoneTargets[matchDomain]
+		upstreamStr := strings.Join(target.upstreams, " ")
+
+		writeZone := func(prefix string) {
+			if prefix == "" {
+				sb.WriteString(fmt.Sprintf("%s:%s {\n", matchDomain, dnsPort))
+			} else if prefix == "tls" {
+				sb.WriteString(fmt.Sprintf("tls://%s:%s {\n    tls %s %s\n", matchDomain, dotPort, certFile, keyFile))
+			} else if prefix == "https" {
+				sb.WriteString(fmt.Sprintf("https://%s:%s {\n    tls %s %s\n", matchDomain, dohPort, certFile, keyFile))
+			}
+			if cfg.DNSSECEnabled {
+				sb.WriteString("    dnssec\n")
+			}
+			sb.WriteString("    metadata\n    reload 5s\n")
+			sb.WriteString(filteringBlock)
+			sb.WriteString("    cache 3600\n")
+			sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n", upstreamStr))
+			if target.tlsServerName != "" {
+				sb.WriteString(fmt.Sprintf("        tls_servername %s\n", target.tlsServerName))
+			}
+			sb.WriteString("    }\n")
+			sb.WriteString(fmt.Sprintf("%s\n", getGeoACLRules(cfg)))
+			sb.WriteString("    errors\n}\n\n")
 		}
 
-		upstreamStr := strings.Join(upstreams, " ")
-		filteringBlock := ""
-		if cfg.FilteringEnabled {
-			filteringBlock = fmt.Sprintf("    hosts %s {\n        reload 5s\n        fallthrough\n    }\n", CombinedHostsPath)
-		}
-
-		sb.WriteString(fmt.Sprintf("%s:%s {\n", matchDomain, dnsPort))
-		if cfg.DNSSECEnabled {
-			sb.WriteString("    dnssec\n")
-		}
-		sb.WriteString("    metadata\n    reload 5s\n")
-		sb.WriteString(filteringBlock)
-		sb.WriteString("    cache 3600\n")
-		sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
-		sb.WriteString(fmt.Sprintf("%s\n", getGeoACLRules(cfg)))
-		sb.WriteString("    errors\n}\n\n")
-
+		writeZone("")
 		if hasCerts {
-			sb.WriteString(fmt.Sprintf("tls://%s:%s {\n    tls %s %s\n", matchDomain, dotPort, certFile, keyFile))
-			if cfg.DNSSECEnabled {
-				sb.WriteString("    dnssec\n")
-			}
-			sb.WriteString("    metadata\n    reload 5s\n")
-			sb.WriteString(filteringBlock)
-			sb.WriteString("    cache 3600\n")
-			sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
-			sb.WriteString(fmt.Sprintf("%s\n", getGeoACLRules(cfg)))
-			sb.WriteString("    errors\n}\n\n")
-
-			sb.WriteString(fmt.Sprintf("https://%s:%s {\n    tls %s %s\n", matchDomain, dohPort, certFile, keyFile))
-			if cfg.DNSSECEnabled {
-				sb.WriteString("    dnssec\n")
-			}
-			sb.WriteString("    metadata\n    reload 5s\n")
-			sb.WriteString(filteringBlock)
-			sb.WriteString("    cache 3600\n")
-			sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
-			sb.WriteString(fmt.Sprintf("%s\n", getGeoACLRules(cfg)))
-			sb.WriteString("    errors\n}\n\n")
+			writeZone("tls")
+			writeZone("https")
 		}
 	}
 

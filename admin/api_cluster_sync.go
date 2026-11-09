@@ -183,6 +183,14 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	if exp.GeoProxyIP != "" {
 		config.GeoProxyIP = exp.GeoProxyIP
 	}
+	if exp.NextDNSProfileID != "" {
+		config.NextDNSProfileID = exp.NextDNSProfileID
+	}
+	if exp.NextDNSAPIKey != "" {
+		config.NextDNSAPIKey = exp.NextDNSAPIKey
+	}
+	config.NextDNSYouTube = exp.NextDNSYouTube
+	config.NextDNSReddit = exp.NextDNSReddit
 	if exp.SNIProxyPort > 0 {
 		config.SNIProxyPort = exp.SNIProxyPort
 	}

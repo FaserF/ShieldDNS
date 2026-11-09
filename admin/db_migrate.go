@@ -4,11 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/lib/pq"
 )
 
-func autoMigrateFromSQLite(sqlitePath string, targetDB *sql.DB) error {
+func autoMigrateFromSQLite(sqlitePath string, targetDB *sql.DB, since time.Time) error {
 	srcDB, err := sql.Open("sqlite", sqlitePath+"?mode=ro")
 	if err != nil {
 		return fmt.Errorf("failed to open source sqlite db: %w", err)
@@ -75,7 +76,12 @@ func autoMigrateFromSQLite(sqlitePath string, targetDB *sql.DB) error {
 	}
 
 	// 3. Migrate queries table using PostgreSQL COPY protocol
-	qRows, err := srcDB.Query("SELECT timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name FROM queries ORDER BY id ASC")
+	var qRows *sql.Rows
+	if !since.IsZero() {
+		qRows, err = srcDB.Query("SELECT timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name FROM queries WHERE timestamp > ? ORDER BY id ASC", since.Format(time.RFC3339))
+	} else {
+		qRows, err = srcDB.Query("SELECT timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name FROM queries ORDER BY id ASC")
+	}
 	if err != nil {
 		return fmt.Errorf("failed to query source queries: %w", err)
 	}

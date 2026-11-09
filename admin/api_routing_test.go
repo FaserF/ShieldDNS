@@ -338,6 +338,46 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	if vpnStatus["vpn_mode"] != "native_openvpn" || vpnStatus["vpn_country"] != "AL" {
 		t.Errorf("unexpected vpnStatus response: %+v", vpnStatus)
 	}
+
+	// 8. Verify NextDNS Routing and DoT Corefile generation
+	configLock.Lock()
+	config.NextDNSProfileID = "2351bb"
+	config.NextDNSAPIKey = "3be9cf7680280fc4e73c59b52a1bc3b6bea250fb"
+	config.NextDNSYouTube = true
+	config.NextDNSReddit = true
+	configLock.Unlock()
+
+	sanitizedNextDNS := config.SanitizedCopy()
+	if sanitizedNextDNS.NextDNSAPIKey != "********" {
+		t.Errorf("expected NextDNSAPIKey to be masked in SanitizedCopy, got %q", sanitizedNextDNS.NextDNSAPIKey)
+	}
+
+	coreBlocks := getRoutingZoneBlocks(&config, "53", "853", "443", true, "/ssl/cert.pem", "/ssl/key.pem")
+	if !strings.Contains(coreBlocks, "youtube.com:53 {") {
+		t.Errorf("expected youtube.com:53 block in Corefile when NextDNSYouTube is true, got:\n%s", coreBlocks)
+	}
+	if !strings.Contains(coreBlocks, "tls_servername 2351bb.dns.nextdns.io") {
+		t.Errorf("expected tls_servername 2351bb.dns.nextdns.io in Corefile, got:\n%s", coreBlocks)
+	}
+	if !strings.Contains(coreBlocks, "reddit.com:53 {") {
+		t.Errorf("expected reddit.com:53 block in Corefile when NextDNSReddit is true, got:\n%s", coreBlocks)
+	}
+
+	// Verify custom rule with target="nextdns"
+	postNextDNS := map[string]interface{}{
+		"name":       "NextDNS Custom Rule",
+		"match":      "custom-feed.org",
+		"match_type": "domain",
+		"target":     "nextdns",
+		"enabled":    true,
+	}
+	bNext, _ := json.Marshal(postNextDNS)
+	reqNext := httptest.NewRequest(http.MethodPost, "/api/routing/rules", bytes.NewReader(bNext))
+	rrNext := httptest.NewRecorder()
+	handleRoutingRules(rrNext, reqNext)
+	if rrNext.Code != http.StatusOK {
+		t.Fatalf("POST /api/routing/rules for target=nextdns expected 200, got %d (%s)", rrNext.Code, rrNext.Body.String())
+	}
 }
 
 func buildTestClientHello(sni string) []byte {

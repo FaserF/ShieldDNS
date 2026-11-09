@@ -543,7 +543,7 @@ export function initEvents(fetchConfig) {
         const payload = {
             match,
             target: target || 'default',
-            host_target: target === 'host' ? targetParam : '',
+            host_target: (target === 'host' || target === 'nextdns') ? targetParam : '',
             wireguard_config: target === 'wireguard' ? targetParam : '',
             country: (isVpnTarget && !isProxyUrl) ? (targetParam || state.currentConfig?.vpn_default_country || 'AL') : '',
             proxy_url: isProxyUrl ? targetParam : '',

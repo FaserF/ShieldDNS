@@ -252,6 +252,10 @@ export function renderConfig(cfg) {
     if (getEl('vpn-password-input')) getEl('vpn-password-input').value = cfg.vpn_password || '';
     if (getEl('vpn-config-content-input')) getEl('vpn-config-content-input').value = cfg.vpn_config_content || '';
     if (getEl('geo-proxy-ip-input')) getEl('geo-proxy-ip-input').value = cfg.geo_proxy_ip || '';
+    if (getEl('nextdns-profile-id-input')) getEl('nextdns-profile-id-input').value = cfg.nextdns_profile_id || '';
+    if (getEl('nextdns-api-key-input')) getEl('nextdns-api-key-input').value = cfg.nextdns_api_key || '';
+    if (getEl('nextdns-youtube-check')) getEl('nextdns-youtube-check').checked = !!cfg.nextdns_youtube;
+    if (getEl('nextdns-reddit-check')) getEl('nextdns-reddit-check').checked = !!cfg.nextdns_reddit;
 
     const currentOrigin = (cfg && cfg.admin_domain) ? `https://${cfg.admin_domain}` : (window.location.origin || 'https://shielddns.local');
 
@@ -326,6 +330,9 @@ export function renderConfig(cfg) {
                     badgeClass = 'success';
                     const countryLabel = rule.country || cfg.vpn_default_country || 'AL';
                     targetText = `Geo-Proxy (${countryLabel})${rule.proxy_url ? ' [' + rule.proxy_url + ']' : ''}`;
+                } else if (rule.target === 'nextdns') {
+                    badgeClass = 'official';
+                    targetText = `NextDNS: ${rule.host_target || cfg.nextdns_profile_id || 'Profile'}`;
                 }
                 const matchIcon = rule.match_type === 'client_ip' ? 'fa-laptop' : 'fa-globe';
                 return `

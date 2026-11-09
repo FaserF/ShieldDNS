@@ -28,13 +28,13 @@ var (
 
 func activeServiceGeoZones(cfg *Config) [][]string {
 	var sets [][]string
-	if cfg.YouTubeAdblockEnabled {
+	if cfg.YouTubeAdblockEnabled && !cfg.NextDNSYouTube {
 		sets = append(sets, defaultYouTubeGeoDomains)
 	}
 	if cfg.TwitchAdblockEnabled {
 		sets = append(sets, defaultTwitchGeoDomains)
 	}
-	if cfg.RedditAdblockEnabled {
+	if cfg.RedditAdblockEnabled && !cfg.NextDNSReddit {
 		sets = append(sets, defaultRedditGeoDomains)
 	}
 	if cfg.SpotifyAdblockEnabled {
@@ -80,6 +80,11 @@ func GetGeoRoutedZones(cfg *Config) []string {
 		d = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(d), "*."))
 		d = strings.Trim(d, ".")
 		if d != "" && isValidDomain(d) && !seen[d] {
+			for _, r := range cfg.RoutingRules {
+				if r.Enabled && r.Target == "nextdns" && strings.EqualFold(strings.TrimPrefix(r.Match, "*."), d) {
+					return
+				}
+			}
 			seen[d] = true
 			zones = append(zones, d)
 		}

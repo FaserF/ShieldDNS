@@ -192,6 +192,47 @@
                             </label>
                         </div>
 
+                        <div style="border-top: 1px solid var(--border); margin: 20px 0; padding-top: 15px;">
+                            <h3 style="margin-bottom: 8px;">NextDNS Upstream &amp; Adblock Profile 🚀</h3>
+                            <p class="help">Route YouTube and Reddit queries through your dedicated NextDNS profile to eliminate video and feed ads without needing an external proxy.</p>
+                            <div class="form-group row" style="display: flex; gap: 10px; margin-bottom: 12px;">
+                                <div style="flex: 1;">
+                                    <label>NextDNS Profile ID</label>
+                                    <input type="text" id="nextdns-profile-id-input" placeholder="e.g. 2351bb">
+                                </div>
+                                <div style="flex: 2;">
+                                    <label>NextDNS API Key (Optional)</label>
+                                    <input type="password" id="nextdns-api-key-input" placeholder="NextDNS API Key">
+                                </div>
+                            </div>
+                            <div class="form-group checkbox-group">
+                                <div class="checkbox-text">
+                                    <div class="label-with-info">
+                                        <label>Route YouTube via NextDNS</label>
+                                        <i class="fas fa-info-circle info-icon" data-tooltip="Forwards all YouTube and Google Video queries directly to NextDNS DoT endpoints for this profile, utilizing NextDNS's YouTube ad-reduction server features."></i>
+                                    </div>
+                                    <p class="help">Use NextDNS specialized servers for ad-free YouTube streaming.</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="nextdns-youtube-check">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="form-group checkbox-group">
+                                <div class="checkbox-text">
+                                    <div class="label-with-info">
+                                        <label>Route Reddit via NextDNS</label>
+                                        <i class="fas fa-info-circle info-icon" data-tooltip="Forwards Reddit domains and API endpoints to NextDNS to filter promoted feed cards and sponsored posts."></i>
+                                    </div>
+                                    <p class="help">Filter Reddit promoted feed posts and sponsored cards via NextDNS.</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="nextdns-reddit-check">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label>VPN Execution Mode (Native vs. Proxy / Tailnet)</label>
                             <p class="help">Run VPN natively inside ShieldDNS (without an external Docker container) or connect via proxy / Tailscale interface.</p>

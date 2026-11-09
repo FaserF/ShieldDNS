@@ -99,6 +99,10 @@ type Config struct {
 	VPNDNSUpstream             string                       `json:"vpn_dns_upstream,omitempty"`
 	GeoProxyIP                 string                       `json:"geo_proxy_ip,omitempty"`
 	SNIProxyPort               int                          `json:"sni_proxy_port,omitempty"`
+	NextDNSProfileID           string                       `json:"nextdns_profile_id,omitempty"`
+	NextDNSAPIKey              string                       `json:"nextdns_api_key,omitempty"`
+	NextDNSYouTube             bool                         `json:"nextdns_youtube,omitempty"`
+	NextDNSReddit              bool                         `json:"nextdns_reddit,omitempty"`
 	LocalPTRUpstreams          []string                     `json:"local_ptr_upstreams"`
 	ClientRules                []ClientRule                 `json:"client_rules"`
 	WebhookEnabled             bool                         `json:"webhook_enabled"`
@@ -118,7 +122,7 @@ type RoutingRule struct {
 	Name            string    `json:"name,omitempty"`
 	Match           string    `json:"match"`                      // domain name or client IP/CIDR
 	MatchType       string    `json:"match_type"`                 // "domain" or "client_ip"
-	Target          string    `json:"target"`                     // "default", "host", "wireguard", "vpn", "geo_proxy"
+	Target          string    `json:"target"`                     // "default", "host", "wireguard", "vpn", "geo_proxy", "nextdns"
 	HostTarget      string    `json:"host_target,omitempty"`      // host or host:port for mode B
 	WireGuardConfig string    `json:"wireguard_config,omitempty"` // endpoint/interface for mode C
 	Country         string    `json:"country,omitempty"`          // ISO country code or country name (e.g. "AL", "Albania") for mode D
@@ -190,6 +194,10 @@ type ClusterConfigExport struct {
 	VPNDNSUpstream             string                       `json:"vpn_dns_upstream,omitempty"`
 	GeoProxyIP                 string                       `json:"geo_proxy_ip,omitempty"`
 	SNIProxyPort               int                          `json:"sni_proxy_port,omitempty"`
+	NextDNSProfileID           string                       `json:"nextdns_profile_id,omitempty"`
+	NextDNSAPIKey              string                       `json:"nextdns_api_key,omitempty"`
+	NextDNSYouTube             bool                         `json:"nextdns_youtube,omitempty"`
+	NextDNSReddit              bool                         `json:"nextdns_reddit,omitempty"`
 	BlockedClients             []string                     `json:"blocked_clients,omitempty"`
 	BlockedClientsInfo         map[string]BlockedClientInfo `json:"blocked_clients_info,omitempty"`
 	ClientRules                []ClientRule                 `json:"client_rules,omitempty"`
@@ -525,6 +533,9 @@ func (c *Config) SanitizedCopy() Config {
 	}
 	if clone.VPNPassword != "" {
 		clone.VPNPassword = "********"
+	}
+	if clone.NextDNSAPIKey != "" {
+		clone.NextDNSAPIKey = "********"
 	}
 	if clone.TOTPConfigs != nil {
 		clone.TOTPConfigs = make([]TOTPConfig, len(c.TOTPConfigs))
