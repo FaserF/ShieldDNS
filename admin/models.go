@@ -361,10 +361,12 @@ var (
 	latencyLock sync.RWMutex
 
 	// Blocklist & Allowlist Attribution
-	blockAttribution     = make(map[string][]string)
-	blockAttributionLock sync.RWMutex
-	allowAttribution     = make(map[string][]string)
-	allowAttributionLock sync.RWMutex
+	blockAttribution         = make(map[string][]string)
+	blockAttributionLock     sync.RWMutex
+	allowAttribution         = make(map[string][]string)
+	allowAttributionLock     sync.RWMutex
+	importantAttribution     = make(map[string]struct{})
+	importantAttributionLock sync.RWMutex
 
 	// Client info caches
 	ipToUA       sync.Map // IP -> User-Agent string

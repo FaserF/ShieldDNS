@@ -1,9 +1,35 @@
 # ShieldDNS Official Blocklist
 # Format: AdBlock/AdGuard-style domain rules
-||doubleclick.net^
+||doubleclick.net^$important
 ||google-analytics.com^
 ||analytics.google.com^
 ||example-malware-site.com^
 ||get947615.host55s.cfd^
 ||go.tours-mbde-quiff.com^
 ||safeframe.googlesyndication.com^
+
+# Essential Video Ad & Header Bidding Networks
+||imasdk.googleapis.com^$important
+||c.amazon-adsystem.com^$important
+||s.amazon-adsystem.com^$important
+||aax.amazon-adsystem.com^$important
+||aax-eu.amazon-adsystem.com^$important
+||ad.doubleclick.net^$important
+||valnetinc.com^$important
+||targetvideo.com^$important
+||connatix.com^$important
+||anyclip.com^$important
+||showheroes.com^$important
+||primis.tech^$important
+||adsninja.ca^$important
+||sentinelpro.com^$important
+||springserve.com^$important
+||aniview.com^$important
+||brid.tv^$important
+||viqeo.tv^$important
+||glomex.com^$important
+||vidsplay.com^$important
+||ad-delivery.net^$important
+||minutemedia-prebid.com^$important
+||intergient.com^$important
+||playwire.com^$important

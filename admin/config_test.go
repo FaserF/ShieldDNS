@@ -34,7 +34,7 @@ func TestProcessList_StreamingMemoryEfficiency(t *testing.T) {
 	allowMap := make(map[string]struct{})
 
 	// Should not crash and should parse correctly
-	processList(&list, blockMap, allowMap, nil)
+	processList(&list, blockMap, allowMap, nil, nil)
 
 	// We expect 200: for each || rule we add the domain AND the *.domain wildcard
 	if len(blockMap) != 200 {
@@ -71,7 +71,7 @@ func TestProcessList_AllowlistSupport(t *testing.T) {
 	blockMap := make(map[string][]string)
 	allowMap := make(map[string]struct{})
 
-	processList(&list, blockMap, allowMap, nil)
+	processList(&list, blockMap, allowMap, nil, nil)
 
 	if _, ok := allowMap["good-site.com"]; !ok {
 		t.Errorf("allowlist parsing failed, good-site.com not in allowMap")
@@ -102,7 +102,7 @@ func TestProcessList_AdGuardSyntax(t *testing.T) {
 	blockMap := make(map[string][]string)
 	allowMap := make(map[string]struct{})
 
-	processList(&list, blockMap, allowMap, nil)
+	processList(&list, blockMap, allowMap, nil, nil)
 
 	if _, ok := blockMap["adservice.org"]; !ok {
 		t.Errorf("expected adservice.org in blockMap")
@@ -155,7 +155,7 @@ func TestApplyCurrentRules_NoIPv6BlackholeForCustomMappings(t *testing.T) {
 		"ipv6.local":                    "2001:db8::1",
 	}
 
-	applyCurrentRules(make(map[string][]string), make(map[string][]string), make(map[string]struct{}), mappings, "127.0.0.1", false)
+	applyCurrentRules(make(map[string][]string), make(map[string][]string), make(map[string]struct{}), nil, nil, mappings, "127.0.0.1", false)
 
 	combinedData, err := os.ReadFile(CombinedHostsPath)
 	if err != nil {
@@ -189,7 +189,7 @@ func TestApplyCurrentRules_SynthesizeIPv6ForBlocklist(t *testing.T) {
 		"adservice.google.com": {"AdGuard"},
 	}
 
-	applyCurrentRules(blockAttribution, make(map[string][]string), make(map[string]struct{}), nil, "0.0.0.0", false)
+	applyCurrentRules(blockAttribution, make(map[string][]string), make(map[string]struct{}), nil, nil, nil, "0.0.0.0", false)
 
 	combinedData, err := os.ReadFile(CombinedHostsPath)
 	if err != nil {
@@ -231,7 +231,7 @@ func TestProcessList_CosmeticAndFallbackParsing(t *testing.T) {
 	blockMap := make(map[string][]string)
 	allowMap := make(map[string]struct{})
 
-	processList(&list, blockMap, allowMap, nil)
+	processList(&list, blockMap, allowMap, nil, nil)
 
 	for _, domain := range []string{"chefkoch.de", "spiegel.de", "heise.de", "bild.de", "zeit.de", "golem.de", "focus.de"} {
 		if _, ok := blockMap[domain]; ok {
@@ -274,7 +274,7 @@ func TestProcessList_BrowserModifiersAndPathSkipped(t *testing.T) {
 	blockMap := make(map[string][]string)
 	allowMap := make(map[string]struct{})
 
-	processList(&list, blockMap, allowMap, nil)
+	processList(&list, blockMap, allowMap, nil, nil)
 
 	// Verify browser-scoped rules were discarded
 	for _, domain := range []string{"doubleclick.net", "securepubads.g.doubleclick.net", "ib.adnxs.com", "g.doubleclick.net", "banner.gif"} {
@@ -389,7 +389,7 @@ func TestApplyCurrentRules_SubdomainAllowPruningWildcard(t *testing.T) {
 		"*.mydealz.digidip.net": {},
 	}
 
-	applyCurrentRules(attribution, allowAttr, allowSet, nil, "0.0.0.0", false)
+	applyCurrentRules(attribution, allowAttr, allowSet, nil, nil, nil, "0.0.0.0", false)
 
 	// Parent wildcard must be removed to avoid masking allowlisted subdomain in CoreDNS
 	if _, ok := attribution["*.digidip.net"]; ok {
@@ -419,5 +419,48 @@ func TestApplyCurrentRules_SubdomainAllowPruningWildcard(t *testing.T) {
 	}
 	if !strings.Contains(content, "0.0.0.0 digidip.net") {
 		t.Errorf("Generated hosts file missing '0.0.0.0 digidip.net'")
+	}
+}
+
+func TestApplyCurrentRules_ImportantRulePrecedence(t *testing.T) {
+	origCombined := CombinedHostsPath
+	origBlocklist := BlocklistPath
+	tmpDir := t.TempDir()
+	CombinedHostsPath = filepath.Join(tmpDir, "shielddns.hosts")
+	BlocklistPath = filepath.Join(tmpDir, "blocklist.hosts")
+	defer func() {
+		CombinedHostsPath = origCombined
+		BlocklistPath = origBlocklist
+	}()
+
+	attribution := map[string][]string{
+		"c.amazon-adsystem.com":   {"Official"},
+		"*.c.amazon-adsystem.com": {"Official"},
+		"normal-ad.com":           {"NormalList"},
+	}
+	allowAttr := map[string][]string{
+		"c.amazon-adsystem.com": {"ThirdPartyWhitelist"},
+		"normal-ad.com":         {"ThirdPartyWhitelist"},
+	}
+	allowSet := map[string]struct{}{
+		"c.amazon-adsystem.com": {},
+		"normal-ad.com":         {},
+	}
+	importantSet := map[string]struct{}{
+		"c.amazon-adsystem.com":   {},
+		"*.c.amazon-adsystem.com": {},
+	}
+	customAllowedSet := make(map[string]struct{})
+
+	applyCurrentRules(attribution, allowAttr, allowSet, importantSet, customAllowedSet, nil, "0.0.0.0", false)
+
+	// normal-ad.com should be unblocked by allowSet
+	if _, ok := attribution["normal-ad.com"]; ok {
+		t.Errorf("Expected normal-ad.com to be allowlisted, but remained blocked")
+	}
+
+	// c.amazon-adsystem.com is marked $important and should REMAIN BLOCKED despite being in allowSet
+	if _, ok := attribution["c.amazon-adsystem.com"]; !ok {
+		t.Errorf("c.amazon-adsystem.com should have remained blocked due to $important flag!")
 	}
 }

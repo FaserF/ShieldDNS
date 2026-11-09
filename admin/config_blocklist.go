@@ -37,6 +37,8 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 	newBlockAttribution := make(map[string][]string)
 	newAllowAttribution := make(map[string][]string)
 	allowDomains := make(map[string]struct{})
+	importantBlocks := make(map[string]struct{})
+	customAllowedSet := make(map[string]struct{})
 
 	for i := range blocklists {
 		list := &blocklists[i]
@@ -44,7 +46,7 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 			continue
 		}
 		slog.Info("Processing blocklist", "name", list.Name)
-		processList(list, newBlockAttribution, allowDomains, nil)
+		processList(list, newBlockAttribution, allowDomains, nil, importantBlocks)
 	}
 
 	for i := range allowlists {
@@ -53,7 +55,7 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 			continue
 		}
 		slog.Info("Processing allowlist", "name", list.Name)
-		processList(list, nil, allowDomains, newAllowAttribution) // Allowlists populate allowDomains and allowAttribution
+		processList(list, nil, allowDomains, newAllowAttribution, nil) // Allowlists populate allowDomains and allowAttribution
 	}
 
 	// Update the config lists with the new metadata (Entries, UpdatedAt, and RemoteUpdatedAt)
@@ -94,9 +96,11 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 	}
 	for _, d := range customAllowed {
 		allowDomains[d] = struct{}{}
+		customAllowedSet[d] = struct{}{}
 		newAllowAttribution[d] = append(newAllowAttribution[d], "Custom Allowlist")
 		if !strings.HasPrefix(d, "*.") {
 			allowDomains["*."+d] = struct{}{}
+			customAllowedSet["*."+d] = struct{}{}
 			newAllowAttribution["*."+d] = append(newAllowAttribution["*."+d], "Custom Allowlist")
 		}
 	}
@@ -104,12 +108,27 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 	if err := saveConfig(); err != nil {
 		slog.Error("Failed to save config in updateBlocklist", "error", err)
 	}
-	applyCurrentRules(newBlockAttribution, newAllowAttribution, allowDomains, customMappings, blockPageIP, restartCore)
+	applyCurrentRules(newBlockAttribution, newAllowAttribution, allowDomains, importantBlocks, customAllowedSet, customMappings, blockPageIP, restartCore)
 }
 
-func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]string, allowSet map[string]struct{}, mappings map[string]string, blockIP string, restartCore bool) {
+func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]string, allowSet map[string]struct{}, importantSet map[string]struct{}, customAllowedSet map[string]struct{}, mappings map[string]string, blockIP string, restartCore bool) {
+	if importantSet == nil {
+		importantSet = make(map[string]struct{})
+	}
+	if customAllowedSet == nil {
+		customAllowedSet = make(map[string]struct{})
+	}
+
 	// Remove allowlisted domains (and their subdomains) from attribution in O(N) time
 	for ad := range attribution {
+		// If domain is marked $important, standard allowlists cannot unblock it.
+		// Only explicit user custom allowed rules can unblock an $important rule.
+		if _, isImp := importantSet[ad]; isImp {
+			if _, inCustom := customAllowedSet[ad]; !inCustom {
+				continue
+			}
+		}
+
 		// Exact match
 		if _, ok := allowSet[ad]; ok {
 			delete(attribution, ad)
@@ -138,6 +157,11 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 		parts := strings.Split(clean, ".")
 		for i := 1; i < len(parts); i++ {
 			parentWildcard := "*." + strings.Join(parts[i:], ".")
+			if _, isImp := importantSet[parentWildcard]; isImp {
+				if _, inCustom := customAllowedSet[allowed]; !inCustom {
+					continue
+				}
+			}
 			delete(attribution, parentWildcard)
 		}
 	}
@@ -156,6 +180,11 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 	blockAttribution = attribution
 	slog.Info("Blocklist attribution updated", "total_blocked_domains", len(blockAttribution))
 	blockAttributionLock.Unlock()
+
+	// Update global important attribution map
+	importantAttributionLock.Lock()
+	importantAttribution = importantSet
+	importantAttributionLock.Unlock()
 
 	// Update global allow attribution map
 	allowAttributionLock.Lock()
@@ -249,6 +278,7 @@ func reloadRulesFastNoLock(cfg *Config) {
 
 	allowDomains := make(map[string]struct{})
 	newAllowAttribution := make(map[string][]string)
+	customAllowedSet := make(map[string]struct{})
 
 	// RE-APPLY CURRENT CUSTOM RULES
 	for _, d := range cfg.CustomBlocked {
@@ -260,20 +290,29 @@ func reloadRulesFastNoLock(cfg *Config) {
 	}
 	for _, d := range cfg.CustomAllowed {
 		allowDomains[d] = struct{}{}
+		customAllowedSet[d] = struct{}{}
 		newAllowAttribution[d] = append(newAllowAttribution[d], "Custom Allowlist")
 		// For allowlists, we don't strictly need to add *.d because applyCurrentRules
 		// already handles subdomain allowance by checking parent domains.
 		// However, adding it explicitly doesn't hurt and makes attribution clearer.
 		if !strings.HasPrefix(d, "*.") {
 			allowDomains["*."+d] = struct{}{}
+			customAllowedSet["*."+d] = struct{}{}
 			newAllowAttribution["*."+d] = append(newAllowAttribution["*."+d], "Custom Allowlist")
 		}
 	}
 
-	applyCurrentRules(newAttribution, newAllowAttribution, allowDomains, cfg.CustomMappings, cfg.BlockPageIP, true)
+	importantAttributionLock.RLock()
+	importantCopy := make(map[string]struct{}, len(importantAttribution))
+	for k := range importantAttribution {
+		importantCopy[k] = struct{}{}
+	}
+	importantAttributionLock.RUnlock()
+
+	applyCurrentRules(newAttribution, newAllowAttribution, allowDomains, importantCopy, customAllowedSet, cfg.CustomMappings, cfg.BlockPageIP, true)
 }
 
-func processList(list *List, blockMap map[string][]string, allowMap map[string]struct{}, allowAttr map[string][]string) {
+func processList(list *List, blockMap map[string][]string, allowMap map[string]struct{}, allowAttr map[string][]string, importantMap map[string]struct{}) {
 	var reader io.Reader
 
 	if strings.HasPrefix(list.URL, "file://") {
@@ -393,6 +432,12 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			if !hasBadFilter {
 				if added := addDomain(parsedRule.Domain, parsedRule.IsAllowlist, list.Name, true, blockMap, allowMap, allowAttr); added {
 					count++
+					if parsedRule.IsImportant && !parsedRule.IsAllowlist && importantMap != nil {
+						importantMap[parsedRule.Domain] = struct{}{}
+						if !strings.HasPrefix(parsedRule.Domain, "*.") {
+							importantMap["*."+parsedRule.Domain] = struct{}{}
+						}
+					}
 				}
 				continue
 			}
