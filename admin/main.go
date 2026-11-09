@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -201,12 +202,22 @@ func main() {
 				slog.Error("Primary server stopped", "error", err)
 			}
 		} else {
-			slog.Info("Primary Admin server starting", "port", "443", "mode", "HTTPS")
-			if err := primaryServer.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
+			slog.Info("Primary Admin server starting", "port", "443", "mode", "HTTPS + SNI Geo-Proxy")
+			rawLn, err := net.Listen("tcp", primaryServer.Addr)
+			if err != nil {
+				slog.Error("Primary server failed to listen on :443", "error", err)
+				return
+			}
+			muxLn := NewSNIMuxListener(rawLn)
+			if err := primaryServer.ServeTLS(muxLn, certFile, keyFile); err != nil && err != http.ErrServerClosed {
 				slog.Error("Primary server stopped", "error", err)
 			}
 		}
 	}()
+
+	// Start dedicated SNI Geo-Proxy listener (default :8444) for reverse-proxy / non-443 setups
+	go startSNIProxyServer(appCtx)
+	go syncNativeVPN(config.Clone())
 
 	// 2. Optional Ingress Server (Home Assistant internal access)
 	var auxiliaryServer *http.Server
@@ -295,7 +306,6 @@ func initServices() {
 
 	// Initialize SQLite
 	initDB()
-	initializeStatsFromDB()
 	initMetrics()
 
 	// Ensure hosts file exists before CoreDNS starts to prevent listener failures
@@ -307,6 +317,9 @@ func initServices() {
 }
 
 func startWorkers() {
+	// Populate statistics from DB asynchronously so HTTP/DNS listeners start immediately
+	go initializeStatsFromDB()
+
 	// Start background updater tickers
 	go startBackgroundUpdater(appCtx)
 	go startMaliciousUpdater(appCtx)

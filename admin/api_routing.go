@@ -19,12 +19,22 @@ func handleRoutingRules(w http.ResponseWriter, r *http.Request) {
 		configLock.RLock()
 		rules := append([]RoutingRule{}, config.RoutingRules...)
 		wgGateway := config.WireGuardGateway
+		ytEnabled := config.YouTubeAdblockEnabled
+		vpnProvider := config.VPNProvider
+		vpnCountry := config.VPNDefaultCountry
+		vpnProxy := config.VPNProxyURL
+		geoProxyIP := config.GeoProxyIP
 		configLock.RUnlock()
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"rules":             rules,
-			"wireguard_gateway": wgGateway,
+			"rules":                   rules,
+			"wireguard_gateway":       wgGateway,
+			"youtube_adblock_enabled": ytEnabled,
+			"vpn_provider":            vpnProvider,
+			"vpn_default_country":     vpnCountry,
+			"vpn_proxy_url":           vpnProxy,
+			"geo_proxy_ip":            geoProxyIP,
 		})
 
 	case http.MethodPost:
@@ -41,10 +51,12 @@ func handleRoutingRules(w http.ResponseWriter, r *http.Request) {
 			Name             string `json:"name"`
 			Match            string `json:"match"`
 			MatchType        string `json:"match_type"` // "domain" or "client_ip"
-			Target           string `json:"target"`     // "default", "host", "wireguard"
+			Target           string `json:"target"`     // "default", "host", "wireguard", "vpn", "geo_proxy"
 			HostTarget       string `json:"host_target"`
 			WireGuardConfig  string `json:"wireguard_config"`
 			WireGuardGateway string `json:"wireguard_gateway"`
+			Country          string `json:"country"`
+			ProxyURL         string `json:"proxy_url"`
 			Enabled          *bool  `json:"enabled"`
 		}
 
@@ -106,8 +118,8 @@ func handleRoutingRules(w http.ResponseWriter, r *http.Request) {
 		if target == "" {
 			target = "default"
 		}
-		if target != "default" && target != "host" && target != "wireguard" {
-			sendJSONError(w, "target must be 'default', 'host' or 'wireguard'", http.StatusBadRequest)
+		if target != "default" && target != "host" && target != "wireguard" && target != "vpn" && target != "geo_proxy" {
+			sendJSONError(w, "target must be 'default', 'host', 'wireguard', 'vpn', or 'geo_proxy'", http.StatusBadRequest)
 			return
 		}
 
@@ -134,6 +146,8 @@ func handleRoutingRules(w http.ResponseWriter, r *http.Request) {
 			Target:          target,
 			HostTarget:      strings.TrimSpace(req.HostTarget),
 			WireGuardConfig: strings.TrimSpace(req.WireGuardConfig),
+			Country:         strings.ToUpper(strings.TrimSpace(req.Country)),
+			ProxyURL:        strings.TrimSpace(req.ProxyURL),
 			Enabled:         enabled,
 			CreatedAt:       time.Now().UTC(),
 		}

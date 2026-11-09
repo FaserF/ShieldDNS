@@ -12,8 +12,8 @@ RUN GOOS=linux GOARCH=$TARGETARCH go build -o shielddns-admin .
 # Stage 3: Runtime Image
 FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 
-# Install dependencies including libcap for setcap
-RUN apk add --no-cache jq ca-certificates bash curl dos2unix openssl libcap su-exec
+# Install dependencies including libcap for setcap and native VPN clients (OpenVPN & WireGuard)
+RUN apk add --no-cache jq ca-certificates bash curl dos2unix openssl libcap su-exec openvpn wireguard-tools iproute2 iptables
 
 # Create shielddns user and group with fixed IDs for easier volume permissions
 RUN addgroup -g 1000 -S shielddns && adduser -u 1000 -S shielddns -G shielddns
@@ -30,9 +30,11 @@ COPY --from=binary /coredns /usr/bin/coredns
 # Copy Admin binary (contains embedded web assets)
 COPY --from=admin-build /app/shielddns-admin /usr/bin/shielddns-admin
 
-# Grant capability to bind to privileged ports (53, 443, 853) to the binaries
+# Grant capability to bind to privileged ports (53, 443, 853) and manage native VPN tunnels (tun/wg)
 RUN setcap 'cap_net_bind_service=+ep' /usr/bin/coredns && \
-    setcap 'cap_net_bind_service=+ep' /usr/bin/shielddns-admin
+    setcap 'cap_net_bind_service,cap_net_admin,cap_net_raw=+ep' /usr/bin/shielddns-admin && \
+    (setcap 'cap_net_admin,cap_net_raw=+ep' /usr/sbin/openvpn 2>/dev/null || true) && \
+    (setcap 'cap_net_admin,cap_net_raw=+ep' /usr/bin/wg 2>/dev/null || true)
 
 # Expose ports
 EXPOSE 53/udp 53/tcp 443/tcp 853/tcp

@@ -376,7 +376,16 @@ export async function finishSetup() {
                 auto_update_enabled: true,
                 auto_update_hour: 4,
                 update_channel: "stable",
-                server_country: "DE"
+                server_country: "DE",
+                youtube_adblock_enabled: true,
+                twitch_adblock_enabled: true,
+                reddit_adblock_enabled: true,
+                spotify_adblock_enabled: true,
+                social_adblock_enabled: true,
+                smarttv_adblock_enabled: true,
+                vpn_provider: "privado",
+                vpn_default_country: "AL",
+                vpn_proxy_url: "http://127.0.0.1:18888"
             });
         } else if (state.selectedSetupPreset === 'maxperf') {
             Object.assign(extraParams, {

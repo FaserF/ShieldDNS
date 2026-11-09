@@ -237,6 +237,21 @@ export function renderConfig(cfg) {
     if (getEl('anonymize-client-ips-check')) getEl('anonymize-client-ips-check').checked = !!cfg.anonymize_client_ips;
     if (getEl('dns-rebinding-protection-check')) getEl('dns-rebinding-protection-check').checked = !!cfg.dns_rebinding_protection;
     if (getEl('strip-ecs-check')) getEl('strip-ecs-check').checked = !!cfg.strip_ecs;
+    if (getEl('youtube-adblock-check')) getEl('youtube-adblock-check').checked = !!cfg.youtube_adblock_enabled;
+    if (getEl('twitch-adblock-check')) getEl('twitch-adblock-check').checked = !!cfg.twitch_adblock_enabled;
+    if (getEl('reddit-adblock-check')) getEl('reddit-adblock-check').checked = !!cfg.reddit_adblock_enabled;
+    if (getEl('spotify-adblock-check')) getEl('spotify-adblock-check').checked = !!cfg.spotify_adblock_enabled;
+    if (getEl('social-adblock-check')) getEl('social-adblock-check').checked = !!cfg.social_adblock_enabled;
+    if (getEl('smarttv-adblock-check')) getEl('smarttv-adblock-check').checked = !!cfg.smarttv_adblock_enabled;
+    if (getEl('vpn-provider-select')) getEl('vpn-provider-select').value = cfg.vpn_provider || 'privado';
+    if (getEl('vpn-mode-select')) getEl('vpn-mode-select').value = cfg.vpn_mode || 'proxy';
+    if (getEl('vpn-country-select')) getEl('vpn-country-select').value = cfg.vpn_default_country || 'AL';
+    if (getEl('vpn-proxy-url-input')) getEl('vpn-proxy-url-input').value = cfg.vpn_proxy_url || '';
+    if (getEl('vpn-interface-input')) getEl('vpn-interface-input').value = cfg.vpn_interface || '';
+    if (getEl('vpn-username-input')) getEl('vpn-username-input').value = cfg.vpn_username || '';
+    if (getEl('vpn-password-input')) getEl('vpn-password-input').value = cfg.vpn_password || '';
+    if (getEl('vpn-config-content-input')) getEl('vpn-config-content-input').value = cfg.vpn_config_content || '';
+    if (getEl('geo-proxy-ip-input')) getEl('geo-proxy-ip-input').value = cfg.geo_proxy_ip || '';
 
     const currentOrigin = (cfg && cfg.admin_domain) ? `https://${cfg.admin_domain}` : (window.location.origin || 'https://shielddns.local');
 
@@ -307,6 +322,10 @@ export function renderConfig(cfg) {
                 } else if (rule.target === 'wireguard') {
                     badgeClass = 'success';
                     targetText = `WireGuard: ${rule.wireguard_config || cfg.wireguard_gateway || 'VPN'}`;
+                } else if (rule.target === 'vpn' || rule.target === 'geo_proxy') {
+                    badgeClass = 'success';
+                    const countryLabel = rule.country || cfg.vpn_default_country || 'AL';
+                    targetText = `Geo-Proxy (${countryLabel})${rule.proxy_url ? ' [' + rule.proxy_url + ']' : ''}`;
                 }
                 const matchIcon = rule.match_type === 'client_ip' ? 'fa-laptop' : 'fa-globe';
                 return `

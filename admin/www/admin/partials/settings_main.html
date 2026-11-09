@@ -104,6 +104,169 @@
                         </div>
                     </div>
 
+                    <div class="settings-section" data-category="dns">
+                        <h2>Smart DNS &amp; Geo-Routing (NextDNS / VPN) 🌍</h2>
+                        <p class="help">Route specific apps and streaming services (like YouTube on Smart TVs, Apple TV, Android TV, and mobile apps) through ad-free regions (e.g. Albania) or custom VPN exit nodes via built-in TLS SNI Proxy redirection.</p>
+
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>YouTube &amp; YouTube Music Ad-Free (Smart TV &amp; Apps)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Blocks YouTube video and music ads on Smart TVs, Apple TV, Fire TV, iOS, and Android apps by routing YouTube &amp; Google Video TLS streams via Albania (AL) using ShieldDNS's built-in SNI Geo-Proxy. Default: OFF."></i>
+                                </div>
+                                <p class="help">Eliminate YouTube &amp; YouTube Music ads on Smart TVs and mobile apps via transparent SNI Geo-Routing to Albania (<code>AL</code>). Default: OFF.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="youtube-adblock-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Twitch Stream Ad-Free (HLS / SSAI Bypass)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Routes Twitch HLS playlist and GraphQL requests (usher.ttvnw.net, gql.twitch.tv, hls.ttvnw.net) through your ad-free VPN exit so Server-Side Ad Insertion (SSAI) pre-rolls and mid-rolls are stripped. Default: OFF."></i>
+                                </div>
+                                <p class="help">Bypass Twitch pre-roll &amp; mid-roll video ads on Smart TVs, consoles, and mobile apps. Default: OFF.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="twitch-adblock-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Reddit Promoted Feed Ad-Free (iOS / Android App)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Routes Reddit GraphQL and OAuth API feeds (gql.reddit.com, oauth.reddit.com, gateway.reddit.com) via Albania so promoted posts and inline video ads are omitted server-side. Default: OFF."></i>
+                                </div>
+                                <p class="help">Strip sponsored posts and promoted feed cards in the official Reddit mobile app. Default: OFF.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="reddit-adblock-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Spotify &amp; SoundCloud Audio Ad-Free (Web / TV / Apps)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Routes Spotify dealer/spclient and SoundCloud API/HLS endpoints via your non-monetized VPN exit to suppress regional audio ad insertions. Default: OFF."></i>
+                                </div>
+                                <p class="help">Suppress regional audio ad stitching on SoundCloud and Spotify Web/Smart TV players. Default: OFF.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="spotify-adblock-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>TikTok, Instagram &amp; X (Twitter) Sponsored Feed Ad-Free</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Routes first-party GraphQL/timeline APIs (tiktokv.com, i.instagram.com, api.x.com) via Albania where regional ad campaign inventory is unfilled. Default: OFF."></i>
+                                </div>
+                                <p class="help">Eliminate region-targeted sponsored timeline posts in TikTok, Instagram, and X mobile apps. Default: OFF.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="social-adblock-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Smart TV Home Screen Ad-Free (LG webOS, Samsung Tizen, Fire TV)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Geo-routes Smart TV OS ad/tile endpoints (LG webOS, Samsung Tizen, Amazon Fire TV) through non-monetized regions so home screen banner campaigns remain empty without triggering offline retry loops. Default: OFF."></i>
+                                </div>
+                                <p class="help">Prevent Smart TV OS home screen banner ads and sponsored tiles without causing retry storms. Default: OFF.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="smarttv-adblock-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label>VPN Execution Mode (Native vs. Proxy / Tailnet)</label>
+                            <p class="help">Run VPN natively inside ShieldDNS (without an external Docker container) or connect via proxy / Tailscale interface.</p>
+                            <select id="vpn-mode-select" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                                <option value="proxy">Universal HTTP CONNECT / SOCKS5 Proxy (Gluetun / External / Multi-Country)</option>
+                                <option value="native_openvpn">Native OpenVPN inside ShieldDNS (.ovpn / Privado / Mullvad / Proton / NordVPN — No external Docker)</option>
+                                <option value="native_wireguard">Native WireGuard inside ShieldDNS (wg0 / .conf with Table=off — No external Docker)</option>
+                                <option value="tailscale">Tailscale / Headscale Exit Interface (tailscale0)</option>
+                                <option value="interface">Custom Host Network Interface (tun0 / wg0 / eth1)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>VPN / Geo-Proxy Provider</label>
+                            <p class="help">Select your VPN provider preset or universal protocol format.</p>
+                            <select id="vpn-provider-select" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                                <option value="privado">PrivadoVPN (Native OpenVPN / WireGuard / Proxy — Supports Albania AL)</option>
+                                <option value="gluetun">Gluetun Gateway (Privado / Mullvad / Proton / NordVPN / Surfshark)</option>
+                                <option value="mullvad">Mullvad VPN (Native WireGuard / OpenVPN / SOCKS5)</option>
+                                <option value="protonvpn">ProtonVPN (Native WireGuard / OpenVPN)</option>
+                                <option value="nordvpn">NordVPN (Native WireGuard NordLynx / OpenVPN / SOCKS5)</option>
+                                <option value="surfshark">Surfshark VPN (Native WireGuard / OpenVPN)</option>
+                                <option value="wireguard">Universal WireGuard (.conf / Native Interface)</option>
+                                <option value="openvpn">Universal OpenVPN (.ovpn + Auth)</option>
+                                <option value="tailscale">Tailscale / Headscale Tailnet</option>
+                                <option value="custom_proxy">Custom HTTP CONNECT / SOCKS5 Proxy</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Default Geo-Routing Exit Country</label>
+                            <p class="help">Target exit country for ad-free YouTube and geo-routed rules (Albania <code>AL</code> has no YouTube ad monetization).</p>
+                            <select id="vpn-country-select" class="form-control" style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+                                <option value="AL">🇦🇱 Albania (AL) — Recommended for Ad-Free YouTube / Twitch / Reddit / Social</option>
+                                <option value="MD">🇲🇩 Moldova (MD) — Ad-Free YouTube Alternative</option>
+                                <option value="MM">🇲🇲 Myanmar (MM) — Ad-Free YouTube Alternative</option>
+                                <option value="CH">🇨🇭 Switzerland (CH) — Privacy Exit</option>
+                                <option value="IS">🇮🇸 Iceland (IS) — Privacy Exit</option>
+                                <option value="NL">🇳🇱 Netherlands (NL)</option>
+                                <option value="DE">🇩🇪 Germany (DE)</option>
+                                <option value="US">🇺🇸 United States (US)</option>
+                                <option value="GB">🇬🇧 United Kingdom (GB)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="label-with-info">
+                                <label>VPN Outbound Proxy Endpoint or Interface URI</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="HTTP CONNECT proxy (http://127.0.0.1:8888), SOCKS5 proxy (socks5://127.0.0.1:1080), or direct interface binding (interface://tun_shield, interface://wg0, interface://tailscale0). Leave empty in Native VPN mode to automatically bind to the native tunnel interface."></i>
+                            </div>
+                            <p class="help">Example: <code>http://127.0.0.1:18888</code>, <code>socks5://127.0.0.1:1080</code>, or <code>interface://tun_shield</code> (automatic in Native mode).</p>
+                            <input type="text" id="vpn-proxy-url-input" placeholder="http://127.0.0.1:18888 or interface://tun_shield">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Native VPN Interface &amp; Credentials (Optional — For Native OpenVPN / WireGuard Mode)</label>
+                            <p class="help">When using Native OpenVPN or Native WireGuard mode inside ShieldDNS (with <code>--route-nopull</code> / <code>Table = off</code> so host routing is untouched), specify optional interface name, username/password, and raw <code>.ovpn</code> or WireGuard <code>.conf</code> profile.</p>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 8px;">
+                                <input type="text" id="vpn-interface-input" placeholder="Interface (e.g. tun_shield, wg_shield, tailscale0)">
+                                <input type="text" id="vpn-username-input" placeholder="VPN Username (OpenVPN)">
+                                <input type="password" id="vpn-password-input" placeholder="VPN Password (OpenVPN)">
+                            </div>
+                            <textarea id="vpn-config-content-input" rows="3" placeholder="Paste WireGuard (.conf) or OpenVPN (.ovpn) configuration here for standalone native execution inside ShieldDNS..." style="width: 100%; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.85rem;"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="label-with-info">
+                                <label>Geo-Proxy Redirect IPv4 (Optional Override)</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="The IPv4 address returned by DNS for geo-routed domains (must point to this ShieldDNS server's SNI Proxy on port 443). If left blank, ShieldDNS automatically uses the Default IPv4 Block Page IP."></i>
+                            </div>
+                            <p class="help">Leave blank to automatically use your server's Block Page IP.</p>
+                            <input type="text" id="geo-proxy-ip-input" placeholder="Auto (uses Default Block Page IP)">
+                        </div>
+                    </div>
+
                     <div class="settings-section" data-category="security">
                         <h2>Privacy & Anonymization 🔒</h2>
                         <div class="form-group checkbox-group">

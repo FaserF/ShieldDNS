@@ -426,6 +426,7 @@
       "presets_test.go",
       "router.go",
       "session_test.go",
+      "sni_proxy.go",
       "stats_linux.go",
       "stats_other.go",
       "stats_windows.go",

@@ -276,6 +276,28 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.WireGuardGateway == "" && config.WireGuardGateway != "" {
 			newConfig.WireGuardGateway = config.WireGuardGateway
 		}
+		if newConfig.VPNProvider == "" && config.VPNProvider != "" {
+			newConfig.VPNProvider = config.VPNProvider
+		}
+		if newConfig.VPNMode == "" && config.VPNMode != "" {
+			newConfig.VPNMode = config.VPNMode
+		}
+		if newConfig.VPNDefaultCountry == "" && config.VPNDefaultCountry != "" {
+			newConfig.VPNDefaultCountry = config.VPNDefaultCountry
+		}
+		if newConfig.VPNCountryProxies == nil && config.VPNCountryProxies != nil {
+			newConfig.VPNCountryProxies = config.VPNCountryProxies
+		}
+		if newConfig.VPNPassword == "" || newConfig.VPNPassword == "********" {
+			newConfig.VPNPassword = config.VPNPassword
+		}
+		if newConfig.SNIProxyPort <= 0 {
+			if config.SNIProxyPort > 0 {
+				newConfig.SNIProxyPort = config.SNIProxyPort
+			} else {
+				newConfig.SNIProxyPort = 8444
+			}
+		}
 		if newConfig.LocalPTRUpstreams == nil && config.LocalPTRUpstreams != nil {
 			newConfig.LocalPTRUpstreams = config.LocalPTRUpstreams
 		}
@@ -421,35 +443,19 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		// If this node is a cluster replica, enforce read-only for settings mastered on Primary
 		if config.ClusterRole == "replica" {
-			newConfig.FilteringEnabled = config.FilteringEnabled
-			newConfig.Lists = config.Lists
-			newConfig.Allowlists = config.Allowlists
-			newConfig.CustomBlocked = config.CustomBlocked
-			newConfig.CustomAllowed = config.CustomAllowed
-			newConfig.CustomMappings = config.CustomMappings
-			newConfig.AutoblockWhitelist = config.AutoblockWhitelist
-			newConfig.BlockedCountries = config.BlockedCountries
-			newConfig.SmartSelectionPolicy = config.SmartSelectionPolicy
-			newConfig.ServeStale = config.ServeStale
-			newConfig.DNSSECEnabled = config.DNSSECEnabled
-			newConfig.AbuseDetectionEnabled = config.AbuseDetectionEnabled
-			newConfig.AbuseDGAThreshold = config.AbuseDGAThreshold
-			newConfig.AbuseDGAMinLen = config.AbuseDGAMinLen
-			newConfig.MaliciousIPBlockingEnabled = config.MaliciousIPBlockingEnabled
-			newConfig.MaliciousIPInterval = config.MaliciousIPInterval
-			newConfig.VerifyUpstreamTLS = config.VerifyUpstreamTLS
-			newConfig.PreferEncrypted = config.PreferEncrypted
-			newConfig.DoH3Enabled = config.DoH3Enabled
-			newConfig.RateLimitRate = config.RateLimitRate
-			newConfig.RateLimitBurst = config.RateLimitBurst
-			newConfig.DoHRateLimit = config.DoHRateLimit
-			newConfig.ECHOptimizationEnabled = config.ECHOptimizationEnabled
-			newConfig.DNSRebindingProtection = config.DNSRebindingProtection
-			newConfig.StripECS = config.StripECS
-			newConfig.RoutingRules = config.RoutingRules
-			newConfig.WireGuardGateway = config.WireGuardGateway
-			newConfig.Upstreams = config.Upstreams
-			newConfig.UpstreamDoT = config.UpstreamDoT
+			newConfig.FilteringEnabled, newConfig.Lists, newConfig.Allowlists = config.FilteringEnabled, config.Lists, config.Allowlists
+			newConfig.CustomBlocked, newConfig.CustomAllowed, newConfig.CustomMappings = config.CustomBlocked, config.CustomAllowed, config.CustomMappings
+			newConfig.AutoblockWhitelist, newConfig.BlockedCountries = config.AutoblockWhitelist, config.BlockedCountries
+			newConfig.SmartSelectionPolicy, newConfig.ServeStale, newConfig.DNSSECEnabled = config.SmartSelectionPolicy, config.ServeStale, config.DNSSECEnabled
+			newConfig.AbuseDetectionEnabled, newConfig.AbuseDGAThreshold, newConfig.AbuseDGAMinLen = config.AbuseDetectionEnabled, config.AbuseDGAThreshold, config.AbuseDGAMinLen
+			newConfig.MaliciousIPBlockingEnabled, newConfig.MaliciousIPInterval = config.MaliciousIPBlockingEnabled, config.MaliciousIPInterval
+			newConfig.VerifyUpstreamTLS, newConfig.PreferEncrypted, newConfig.DoH3Enabled = config.VerifyUpstreamTLS, config.PreferEncrypted, config.DoH3Enabled
+			newConfig.RateLimitRate, newConfig.RateLimitBurst, newConfig.DoHRateLimit = config.RateLimitRate, config.RateLimitBurst, config.DoHRateLimit
+			newConfig.ECHOptimizationEnabled, newConfig.DNSRebindingProtection, newConfig.StripECS = config.ECHOptimizationEnabled, config.DNSRebindingProtection, config.StripECS
+			newConfig.RoutingRules, newConfig.WireGuardGateway = config.RoutingRules, config.WireGuardGateway
+			newConfig.YouTubeAdblockEnabled, newConfig.VPNProvider, newConfig.VPNDefaultCountry = config.YouTubeAdblockEnabled, config.VPNProvider, config.VPNDefaultCountry
+			newConfig.VPNProxyURL, newConfig.VPNDNSUpstream, newConfig.GeoProxyIP, newConfig.SNIProxyPort = config.VPNProxyURL, config.VPNDNSUpstream, config.GeoProxyIP, config.SNIProxyPort
+			newConfig.Upstreams, newConfig.UpstreamDoT = config.Upstreams, config.UpstreamDoT
 			if newConfig.WebhookURL == "" && config.WebhookURL != "" {
 				newConfig.WebhookURL = config.WebhookURL
 				newConfig.WebhookToken = config.WebhookToken
@@ -482,6 +488,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		updateCorefile()
 		restartCoreDNS() // Ensure Corefile changes (ACL) are applied
+		go syncNativeVPN(config.Clone())
 		initWebAuthn()   // Update WebAuthn RPID if domain changed
 
 		w.Header().Set("Content-Type", "application/json")

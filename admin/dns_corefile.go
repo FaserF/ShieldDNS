@@ -233,6 +233,16 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 				ip := resolveHost(host)
 				upstreams = append(upstreams, net.JoinHostPort(ip, port))
 			}
+		case "vpn", "geo_proxy":
+			// Only emit a pure DNS forward zone if SNI Geo-Proxy IP is not active and VPNDNSUpstream is configured
+			if GetEffectiveGeoProxyIP(cfg) == "" {
+				vpnDNS := strings.TrimSpace(cfg.VPNDNSUpstream)
+				if vpnDNS != "" {
+					host, port := splitAddr(vpnDNS, "53")
+					ip := resolveHost(host)
+					upstreams = append(upstreams, net.JoinHostPort(ip, port))
+				}
+			}
 		default: // "default" or unrecognized
 			continue
 		}
@@ -289,8 +299,36 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 
 
 func getTemplateBlocks(cfg *Config) string {
-	if cfg == nil || len(cfg.CustomMappings) == 0 {
+	if cfg == nil {
 		return ""
+	}
+
+	var sb strings.Builder
+
+	// 1. SmartDNS / Geo-Proxy Redirection Blocks (YouTube Ad-Free & VPN Geo-Routed Domains)
+	geoIP := GetEffectiveGeoProxyIP(cfg)
+	if geoIP != "" {
+		geoZones := GetGeoRoutedZones(cfg)
+		for _, zone := range geoZones {
+			parsedGeo := net.ParseIP(geoIP)
+			if parsedGeo != nil && parsedGeo.To4() == nil {
+				sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", zone))
+				sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN AAAA %s\"\n", geoIP))
+				sb.WriteString("    }\n")
+				sb.WriteString(fmt.Sprintf("    template IN A %s {\n        rcode NOERROR\n    }\n", zone))
+			} else {
+				sb.WriteString(fmt.Sprintf("    template IN A %s {\n", zone))
+				sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN A %s\"\n", geoIP))
+				sb.WriteString("    }\n")
+				// Suppress AAAA and HTTPS (type 65 / QUIC) so Smart TVs & mobile apps connect via IPv4 TLS:443 to the SNI Geo-Proxy
+				sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n        rcode NOERROR\n    }\n", zone))
+			}
+			sb.WriteString(fmt.Sprintf("    template IN HTTPS %s {\n        rcode NOERROR\n    }\n", zone))
+		}
+	}
+
+	if len(cfg.CustomMappings) == 0 {
+		return sb.String()
 	}
 
 	type wildcardEntry struct {
@@ -316,14 +354,13 @@ func getTemplateBlocks(cfg *Config) string {
 	}
 
 	if len(wildcards) == 0 {
-		return ""
+		return sb.String()
 	}
 
 	sort.Slice(wildcards, func(i, j int) bool {
 		return len(wildcards[i].apexZone) > len(wildcards[j].apexZone)
 	})
 
-	var sb strings.Builder
 	handledExact := make(map[string]bool)
 
 	for _, wc := range wildcards {

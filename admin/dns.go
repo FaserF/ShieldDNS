@@ -38,7 +38,7 @@ const CorefileTemplate = `{{.RoutingBlocks}}
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     health 127.0.0.1:8082
-    reload 300s
+    reload 10s
     {{if .FilteringEnabled}}
     hosts {{.HostsPath}} {
         reload 300s
@@ -69,7 +69,7 @@ tls://.:{{.DOTPort}} {
     tls {{.CertFile}} {{.KeyFile}}
     {{if .DNSSEC}}dnssec{{end}}
     metadata
-    reload 300s
+    reload 10s
     {{if .FilteringEnabled}}
     hosts {{.HostsPath}} {
         reload 300s
@@ -99,7 +99,7 @@ https://.:{{.InternalDOHPort}} {
     tls {{.CertFile}} {{.KeyFile}}
     {{if .DNSSEC}}dnssec{{end}}
     metadata
-    reload 300s
+    reload 10s
     {{if .FilteringEnabled}}
     hosts {{.HostsPath}} {
         reload 300s
@@ -133,7 +133,7 @@ quic://.:{{.DOTPort}} {
     }
     {{if .DNSSEC}}dnssec{{end}}
     metadata
-    reload 300s
+    reload 10s
     {{if .FilteringEnabled}}
     hosts {{.HostsPath}} {
         reload 300s

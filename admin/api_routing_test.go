@@ -231,3 +231,147 @@ func TestRoutingRules_EdgeCases(t *testing.T) {
 		t.Errorf("expected 404 for non-existent rule, got %d", rrDel404.Code)
 	}
 }
+
+func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
+	cfg := &Config{
+		AdminDomain:           "dns.example.com",
+		BlockPageIP:           "89.168.74.120",
+		YouTubeAdblockEnabled: false,
+		VPNProvider:           "privado",
+		VPNDefaultCountry:     "AL",
+		VPNProxyURL:           "http://127.0.0.1:8888",
+	}
+
+	// 1. Default OFF: no YouTube domains should match SNI Geo-Route or generate template blocks
+	if _, matched := MatchSNIGeoRoute(cfg, "youtubei.googleapis.com"); matched {
+		t.Errorf("expected youtubei.googleapis.com NOT to match when YouTubeAdblockEnabled is false")
+	}
+	if zones := GetGeoRoutedZones(cfg); len(zones) != 0 {
+		t.Errorf("expected 0 geo-routed zones when disabled, got %v", zones)
+	}
+
+	// 2. Enable YouTube Adblock: YouTube & GoogleVideo domains should match, AdminDomain and unrelated domains must NOT match
+	cfg.YouTubeAdblockEnabled = true
+	proxyURL, matched := MatchSNIGeoRoute(cfg, "rr1---sn-4g5ednsd.googlevideo.com")
+	if !matched || proxyURL != "http://127.0.0.1:8888" {
+		t.Errorf("expected googlevideo subdomain to match with proxy URL, got matched=%v proxy=%s", matched, proxyURL)
+	}
+	if _, matched := MatchSNIGeoRoute(cfg, "youtubei.googleapis.com"); !matched {
+		t.Errorf("expected youtubei.googleapis.com to match when YouTubeAdblockEnabled is true")
+	}
+	if _, matched := MatchSNIGeoRoute(cfg, "dns.example.com"); matched {
+		t.Errorf("expected AdminDomain dns.example.com never to match SNI Geo-Proxy")
+	}
+	if _, matched := MatchSNIGeoRoute(cfg, "evil-open-proxy-test.com"); matched {
+		t.Errorf("expected unauthorized domain not to match SNI Geo-Proxy")
+	}
+
+	// 3. Verify Corefile template blocks redirect A to GeoProxyIP and suppress AAAA / HTTPS (type 65 QUIC)
+	tmpl := getTemplateBlocks(cfg)
+	if !strings.Contains(tmpl, "template IN A googlevideo.com") || !strings.Contains(tmpl, "89.168.74.120") {
+		t.Errorf("expected Corefile template IN A googlevideo.com -> 89.168.74.120, got:\n%s", tmpl)
+	}
+	if !strings.Contains(tmpl, "template IN HTTPS googlevideo.com") || !strings.Contains(tmpl, "template IN AAAA googlevideo.com") {
+		t.Errorf("expected AAAA and HTTPS suppression templates for googlevideo.com, got:\n%s", tmpl)
+	}
+
+	// 4. Verify custom RoutingRule with target="vpn" and country="AL"
+	postPayload := map[string]interface{}{
+		"name":       "Custom Geo Service",
+		"match":      "stream.example.org",
+		"match_type": "domain",
+		"target":     "vpn",
+		"country":    "AL",
+		"proxy_url":  "socks5://127.0.0.1:1080",
+		"enabled":    true,
+	}
+	b, _ := json.Marshal(postPayload)
+	reqPost := httptest.NewRequest(http.MethodPost, "/api/routing/rules", bytes.NewReader(b))
+	rrPost := httptest.NewRecorder()
+	handleRoutingRules(rrPost, reqPost)
+	if rrPost.Code != http.StatusOK {
+		t.Fatalf("POST /api/routing/rules for target=vpn expected 200, got %d (%s)", rrPost.Code, rrPost.Body.String())
+	}
+
+	// 5. Verify multi-service SmartDNS toggles (Twitch, Reddit, Spotify/SoundCloud, Social, SmartTV) and VPNCountryProxies map
+	cfg.TwitchAdblockEnabled = true
+	cfg.RedditAdblockEnabled = true
+	cfg.SpotifyAdblockEnabled = true
+	cfg.SocialAdblockEnabled = true
+	cfg.SmartTVAdblockEnabled = true
+	for _, domain := range []string{"usher.ttvnw.net", "gql.reddit.com", "spclient.wg.spotify.com", "api16-normal-c-useast1a.tiktokv.com", "ads.samsung.com"} {
+		if _, ok := MatchSNIGeoRoute(cfg, domain); !ok {
+			t.Errorf("expected %s to match SNI Geo-Route when service toggle is enabled", domain)
+		}
+	}
+
+	// 6. Verify TLS ClientHello SNI extraction
+	clientHello := buildTestClientHello("youtubei.googleapis.com")
+	if sni := ExtractTLSSNI(clientHello); sni != "youtubei.googleapis.com" {
+		t.Errorf("expected extracted SNI 'youtubei.googleapis.com', got %q", sni)
+	}
+
+	// 7. Verify Native VPN Mode & Status API (/api/vpn/status)
+	configLock.Lock()
+	config.VPNMode = "native_openvpn"
+	config.VPNProvider = "privado"
+	config.VPNDefaultCountry = "AL"
+	config.VPNInterface = "tun_shield"
+	config.VPNPassword = "secret-password"
+	configLock.Unlock()
+
+	sanitized := config.SanitizedCopy()
+	if sanitized.VPNPassword != "********" {
+		t.Errorf("expected VPNPassword to be masked in SanitizedCopy, got %q", sanitized.VPNPassword)
+	}
+
+	reqVPN := httptest.NewRequest(http.MethodGet, "/api/vpn/status", nil)
+	rrVPN := httptest.NewRecorder()
+	handleVPNStatus(rrVPN, reqVPN)
+	if rrVPN.Code != http.StatusOK {
+		t.Fatalf("GET /api/vpn/status expected 200, got %d", rrVPN.Code)
+	}
+	var vpnStatus map[string]interface{}
+	if err := json.Unmarshal(rrVPN.Body.Bytes(), &vpnStatus); err != nil {
+		t.Fatalf("failed to decode /api/vpn/status: %v", err)
+	}
+	if vpnStatus["vpn_mode"] != "native_openvpn" || vpnStatus["vpn_country"] != "AL" {
+		t.Errorf("unexpected vpnStatus response: %+v", vpnStatus)
+	}
+}
+
+func buildTestClientHello(sni string) []byte {
+	sniBytes := []byte(sni)
+	// server_name extension payload: listLen(2) + nameType(1=0x00) + nameLen(2) + sniBytes
+	extDataLen := 2 + 1 + 2 + len(sniBytes)
+	// extensions total length: extType(2=0x0000) + extLen(2) + extDataLen
+	extsLen := 2 + 2 + extDataLen
+	// ClientHello body: Version(2) + Random(32) + SessionID(1=0) + CipherSuites(2+2) + Compression(1+1) + ExtsLen(2) + Exts
+	chBodyLen := 2 + 32 + 1 + 4 + 2 + 2 + extsLen
+	// Handshake record: Type(1=0x01) + Len(3) + chBodyLen
+	hsLen := 1 + 3 + chBodyLen
+
+	buf := make([]byte, 0, 5+hsLen)
+	// TLS Record header
+	buf = append(buf, 0x16, 0x03, 0x01, byte(hsLen>>8), byte(hsLen))
+	// Handshake header
+	buf = append(buf, 0x01, byte(chBodyLen>>16), byte(chBodyLen>>8), byte(chBodyLen))
+	// Version TLS 1.2
+	buf = append(buf, 0x03, 0x03)
+	// Random (32B)
+	buf = append(buf, make([]byte, 32)...)
+	// SessionID (0)
+	buf = append(buf, 0x00)
+	// CipherSuites (len 2, 0x1301)
+	buf = append(buf, 0x00, 0x02, 0x13, 0x01)
+	// Compression (len 1, 0x00)
+	buf = append(buf, 0x01, 0x00)
+	// Extensions length
+	buf = append(buf, byte(extsLen>>8), byte(extsLen))
+	// Extension: server_name (0x0000)
+	buf = append(buf, 0x00, 0x00, byte(extDataLen>>8), byte(extDataLen))
+	listLen := 1 + 2 + len(sniBytes)
+	buf = append(buf, byte(listLen>>8), byte(listLen), 0x00, byte(len(sniBytes)>>8), byte(len(sniBytes)))
+	buf = append(buf, sniBytes...)
+	return buf
+}

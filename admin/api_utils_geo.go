@@ -493,6 +493,12 @@ func detectServerCountry() {
 			if success {
 				slog.Info("Server info detected", "country", detectedServerCountry, "ip", detectedServerIP, "source", url)
 				ensureServerIPWhitelisted(detectedServerIP)
+				configLock.RLock()
+				needsCorefileUpdate := len(GetGeoRoutedZones(&config)) > 0 && strings.TrimSpace(config.GeoProxyIP) == ""
+				configLock.RUnlock()
+				if needsCorefileUpdate {
+					updateCorefile()
+				}
 				break
 			}
 		}

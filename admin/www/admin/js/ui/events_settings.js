@@ -68,7 +68,22 @@ export async function saveConfig(fetchConfig) {
         auto_update_hour: parseInt(getEl('auto-update-hour')?.value) !== undefined ? parseInt(getEl('auto-update-hour')?.value) : 3,
         anonymize_client_ips: getEl('anonymize-client-ips-check')?.checked,
         dns_rebinding_protection: getEl('dns-rebinding-protection-check')?.checked,
-        strip_ecs: getEl('strip-ecs-check')?.checked
+        strip_ecs: getEl('strip-ecs-check')?.checked,
+        youtube_adblock_enabled: !!getEl('youtube-adblock-check')?.checked,
+        twitch_adblock_enabled: !!getEl('twitch-adblock-check')?.checked,
+        reddit_adblock_enabled: !!getEl('reddit-adblock-check')?.checked,
+        spotify_adblock_enabled: !!getEl('spotify-adblock-check')?.checked,
+        social_adblock_enabled: !!getEl('social-adblock-check')?.checked,
+        smarttv_adblock_enabled: !!getEl('smarttv-adblock-check')?.checked,
+        vpn_provider: getEl('vpn-provider-select')?.value || 'privado',
+        vpn_mode: getEl('vpn-mode-select')?.value || 'proxy',
+        vpn_default_country: getEl('vpn-country-select')?.value || 'AL',
+        vpn_proxy_url: getEl('vpn-proxy-url-input')?.value.trim() || '',
+        vpn_interface: getEl('vpn-interface-input')?.value.trim() || '',
+        vpn_username: getEl('vpn-username-input')?.value.trim() || '',
+        vpn_password: getEl('vpn-password-input')?.value || '',
+        vpn_config_content: getEl('vpn-config-content-input')?.value.trim() || '',
+        geo_proxy_ip: getEl('geo-proxy-ip-input')?.value.trim() || ''
     };
 
     try {
@@ -170,6 +185,7 @@ export function initSettingsEvents(fetchConfig) {
             state.currentConfig.malicious_ip_interval = 8;
             state.currentConfig.verify_upstream_tls = true;
             state.currentConfig.blocked_countries = [];
+            state.currentConfig.youtube_adblock_enabled = false;
         } else if (val === 'minimal') {
             state.currentConfig.upstreams = ["86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"];
             state.currentConfig.upstream_dot = ["unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"];
@@ -189,6 +205,7 @@ export function initSettingsEvents(fetchConfig) {
             state.currentConfig.malicious_ip_interval = 24;
             state.currentConfig.verify_upstream_tls = true;
             state.currentConfig.blocked_countries = [];
+            state.currentConfig.youtube_adblock_enabled = false;
         } else if (val === 'maxperf') {
             state.currentConfig.upstreams = ["86.54.11.100", "1.1.1.1", "9.9.9.9", "8.8.8.8", "1.0.0.1"];
             state.currentConfig.upstream_dot = ["unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"];
@@ -208,6 +225,7 @@ export function initSettingsEvents(fetchConfig) {
             state.currentConfig.malicious_ip_interval = 12;
             state.currentConfig.verify_upstream_tls = true;
             state.currentConfig.blocked_countries = [];
+            state.currentConfig.youtube_adblock_enabled = false;
         } else if (val === 'faserf') {
             state.currentConfig.upstreams = ["86.54.11.100", "9.9.9.9", "1.1.1.1", "8.8.8.8", "1.0.0.1"];
             state.currentConfig.upstream_dot = ["unfiltered.joindns4.eu", "dns.quad9.net", "one.one.one.one", "dns.google"];
@@ -227,6 +245,15 @@ export function initSettingsEvents(fetchConfig) {
             state.currentConfig.malicious_ip_interval = 12;
             state.currentConfig.verify_upstream_tls = true;
             state.currentConfig.blocked_countries = ["CN", "RU", "IR", "KP", "VN", "BR", "BY", "IQ", "UA"];
+            state.currentConfig.youtube_adblock_enabled = true;
+            state.currentConfig.twitch_adblock_enabled = true;
+            state.currentConfig.reddit_adblock_enabled = true;
+            state.currentConfig.spotify_adblock_enabled = true;
+            state.currentConfig.social_adblock_enabled = true;
+            state.currentConfig.smarttv_adblock_enabled = true;
+            state.currentConfig.vpn_provider = "privado";
+            state.currentConfig.vpn_default_country = "AL";
+            state.currentConfig.vpn_proxy_url = "http://127.0.0.1:18888";
         }
         
         renderConfig(state.currentConfig);

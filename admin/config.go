@@ -32,6 +32,8 @@ func initPaths() {
 
 	if cp := os.Getenv("COREFILE_PATH"); cp != "" {
 		CorefilePath = cp
+	} else {
+		CorefilePath = filepath.Join(DataDir, "Corefile")
 	}
 }
 
@@ -84,6 +86,13 @@ func loadConfig() {
 		ClusterReplicas:            []ClusterReplica{},
 		RoutingRules:               []RoutingRule{},
 		WireGuardGateway:           "",
+		YouTubeAdblockEnabled:      false,
+		VPNProvider:                "gluetun",
+		VPNDefaultCountry:          "AL",
+		VPNProxyURL:                "",
+		VPNDNSUpstream:             "",
+		GeoProxyIP:                 "",
+		SNIProxyPort:               8444,
 		WebhookEnabled:             false,
 		WebhookURL:                 "",
 		WebhookToken:               "",
@@ -221,6 +230,12 @@ func loadConfig() {
 	}
 	if config.AbuseDGAMinLen == 0 {
 		config.AbuseDGAMinLen = 8
+	}
+	if config.VPNDefaultCountry == "" {
+		config.VPNDefaultCountry = "AL"
+	}
+	if config.SNIProxyPort <= 0 {
+		config.SNIProxyPort = 8444
 	}
 	debugModeEnabled.Store(config.DebugMode)
 }
@@ -425,6 +440,24 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 		StripECS:                   config.StripECS,
 		RoutingRules:               append([]RoutingRule{}, config.RoutingRules...),
 		WireGuardGateway:           config.WireGuardGateway,
+		YouTubeAdblockEnabled:      config.YouTubeAdblockEnabled,
+		TwitchAdblockEnabled:       config.TwitchAdblockEnabled,
+		RedditAdblockEnabled:       config.RedditAdblockEnabled,
+		SpotifyAdblockEnabled:      config.SpotifyAdblockEnabled,
+		SocialAdblockEnabled:       config.SocialAdblockEnabled,
+		SmartTVAdblockEnabled:      config.SmartTVAdblockEnabled,
+		VPNProvider:                config.VPNProvider,
+		VPNMode:                    config.VPNMode,
+		VPNDefaultCountry:          config.VPNDefaultCountry,
+		VPNProxyURL:                config.VPNProxyURL,
+		VPNCountryProxies:          make(map[string]string),
+		VPNInterface:               config.VPNInterface,
+		VPNConfigContent:           config.VPNConfigContent,
+		VPNUsername:                config.VPNUsername,
+		VPNPassword:                config.VPNPassword,
+		VPNDNSUpstream:             config.VPNDNSUpstream,
+		GeoProxyIP:                 config.GeoProxyIP,
+		SNIProxyPort:               config.SNIProxyPort,
 		BlockedClients:             append([]string{}, config.BlockedClients...),
 		BlockedClientsInfo:         make(map[string]BlockedClientInfo),
 		ClientRules:                append([]ClientRule{}, config.ClientRules...),
@@ -444,6 +477,9 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 	}
 	for k, v := range config.ClientAliases {
 		exp.ClientAliases[k] = v
+	}
+	for k, v := range config.VPNCountryProxies {
+		exp.VPNCountryProxies[k] = v
 	}
 
 	// Instance-type specific optimizations

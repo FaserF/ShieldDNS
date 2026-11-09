@@ -81,6 +81,24 @@ type Config struct {
 	ClusterReplicas            []ClusterReplica             `json:"cluster_replicas"`
 	RoutingRules               []RoutingRule                `json:"routing_rules"`
 	WireGuardGateway           string                       `json:"wireguard_gateway"`
+	YouTubeAdblockEnabled      bool                         `json:"youtube_adblock_enabled"`
+	TwitchAdblockEnabled       bool                         `json:"twitch_adblock_enabled"`
+	RedditAdblockEnabled       bool                         `json:"reddit_adblock_enabled"`
+	SpotifyAdblockEnabled      bool                         `json:"spotify_adblock_enabled"`
+	SocialAdblockEnabled       bool                         `json:"social_adblock_enabled"`
+	SmartTVAdblockEnabled      bool                         `json:"smarttv_adblock_enabled"`
+	VPNProvider                string                       `json:"vpn_provider,omitempty"`
+	VPNMode                    string                       `json:"vpn_mode,omitempty"` // "proxy", "native_openvpn", "native_wireguard", "interface", "tailscale"
+	VPNDefaultCountry          string                       `json:"vpn_default_country,omitempty"`
+	VPNProxyURL                string                       `json:"vpn_proxy_url,omitempty"`
+	VPNCountryProxies          map[string]string            `json:"vpn_country_proxies,omitempty"`
+	VPNInterface               string                       `json:"vpn_interface,omitempty"`
+	VPNConfigContent           string                       `json:"vpn_config_content,omitempty"`
+	VPNUsername                string                       `json:"vpn_username,omitempty"`
+	VPNPassword                string                       `json:"vpn_password,omitempty"`
+	VPNDNSUpstream             string                       `json:"vpn_dns_upstream,omitempty"`
+	GeoProxyIP                 string                       `json:"geo_proxy_ip,omitempty"`
+	SNIProxyPort               int                          `json:"sni_proxy_port,omitempty"`
 	LocalPTRUpstreams          []string                     `json:"local_ptr_upstreams"`
 	ClientRules                []ClientRule                 `json:"client_rules"`
 	WebhookEnabled             bool                         `json:"webhook_enabled"`
@@ -98,11 +116,13 @@ type ClientRule struct {
 type RoutingRule struct {
 	ID              string    `json:"id"`
 	Name            string    `json:"name,omitempty"`
-	Match           string    `json:"match"`                 // domain name or client IP/CIDR
-	MatchType       string    `json:"match_type"`            // "domain" or "client_ip"
-	Target          string    `json:"target"`                // "default", "host", "wireguard"
-	HostTarget      string    `json:"host_target,omitempty"` // host or host:port for mode B
+	Match           string    `json:"match"`                      // domain name or client IP/CIDR
+	MatchType       string    `json:"match_type"`                 // "domain" or "client_ip"
+	Target          string    `json:"target"`                     // "default", "host", "wireguard", "vpn", "geo_proxy"
+	HostTarget      string    `json:"host_target,omitempty"`      // host or host:port for mode B
 	WireGuardConfig string    `json:"wireguard_config,omitempty"` // endpoint/interface for mode C
+	Country         string    `json:"country,omitempty"`          // ISO country code or country name (e.g. "AL", "Albania") for mode D
+	ProxyURL        string    `json:"proxy_url,omitempty"`        // optional custom HTTP/SOCKS5 proxy URL for mode D
 	Enabled         bool      `json:"enabled"`
 	CreatedAt       time.Time `json:"created_at"`
 }
@@ -152,6 +172,24 @@ type ClusterConfigExport struct {
 	StripECS                   bool                         `json:"strip_ecs"`
 	RoutingRules               []RoutingRule                `json:"routing_rules,omitempty"`
 	WireGuardGateway           string                       `json:"wireguard_gateway,omitempty"`
+	YouTubeAdblockEnabled      bool                         `json:"youtube_adblock_enabled"`
+	TwitchAdblockEnabled       bool                         `json:"twitch_adblock_enabled"`
+	RedditAdblockEnabled       bool                         `json:"reddit_adblock_enabled"`
+	SpotifyAdblockEnabled      bool                         `json:"spotify_adblock_enabled"`
+	SocialAdblockEnabled       bool                         `json:"social_adblock_enabled"`
+	SmartTVAdblockEnabled      bool                         `json:"smarttv_adblock_enabled"`
+	VPNProvider                string                       `json:"vpn_provider,omitempty"`
+	VPNMode                    string                       `json:"vpn_mode,omitempty"` // "proxy", "native_openvpn", "native_wireguard", "interface", "tailscale"
+	VPNDefaultCountry          string                       `json:"vpn_default_country,omitempty"`
+	VPNProxyURL                string                       `json:"vpn_proxy_url,omitempty"`
+	VPNCountryProxies          map[string]string            `json:"vpn_country_proxies,omitempty"`
+	VPNInterface               string                       `json:"vpn_interface,omitempty"`
+	VPNConfigContent           string                       `json:"vpn_config_content,omitempty"`
+	VPNUsername                string                       `json:"vpn_username,omitempty"`
+	VPNPassword                string                       `json:"vpn_password,omitempty"`
+	VPNDNSUpstream             string                       `json:"vpn_dns_upstream,omitempty"`
+	GeoProxyIP                 string                       `json:"geo_proxy_ip,omitempty"`
+	SNIProxyPort               int                          `json:"sni_proxy_port,omitempty"`
 	BlockedClients             []string                     `json:"blocked_clients,omitempty"`
 	BlockedClientsInfo         map[string]BlockedClientInfo `json:"blocked_clients_info,omitempty"`
 	ClientRules                []ClientRule                 `json:"client_rules,omitempty"`
@@ -416,6 +454,12 @@ func (c *Config) Clone() *Config {
 			newCfg.ClientAliases[k] = v
 		}
 	}
+	if c.VPNCountryProxies != nil {
+		newCfg.VPNCountryProxies = make(map[string]string)
+		for k, v := range c.VPNCountryProxies {
+			newCfg.VPNCountryProxies[k] = v
+		}
+	}
 
 	// Deep copy APIKeys
 	if c.APIKeys != nil {
@@ -476,6 +520,9 @@ func (c *Config) SanitizedCopy() Config {
 	clone := *c
 	if clone.AdminPasswordHashed != "" {
 		clone.AdminPasswordHashed = "********"
+	}
+	if clone.VPNPassword != "" {
+		clone.VPNPassword = "********"
 	}
 	if clone.TOTPConfigs != nil {
 		clone.TOTPConfigs = make([]TOTPConfig, len(c.TOTPConfigs))

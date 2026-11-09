@@ -267,22 +267,14 @@ var mcpSystemTools = []mcpToolDefinition{
 			}
 			result := filtered[start:]
 
-			return map[string]interface{}{
-				"total_buffered": len(logsCopy),
-				"matched_lines":  len(filtered),
-				"returned_lines": len(result),
-				"logs":           result,
-			}, nil
+			return map[string]interface{}{"total_buffered": len(logsCopy), "matched_lines": len(filtered), "returned_lines": len(result), "logs": result}, nil
 		},
 	},
 	{
 		tool: mcpTool{
 			Name:        "trigger_system_refresh",
 			Description: "Trigger a full system refresh: re-downloads all active blocklists, regenerates CoreDNS configuration, flushes cache, and restarts CoreDNS.",
-			InputSchema: map[string]interface{}{
-				"type":       "object",
-				"properties": map[string]interface{}{},
-			},
+			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{}},
 		},
 		requiredPerm: "write:maintenance",
 		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
@@ -293,10 +285,7 @@ var mcpSystemTools = []mcpToolDefinition{
 				updateCorefile()
 				restartCoreDNS()
 			}()
-			return map[string]interface{}{
-				"success": true,
-				"message": "Full system refresh initiated in background",
-			}, nil
+			return map[string]interface{}{"success": true, "message": "Full system refresh initiated in background"}, nil
 		},
 	},
 	{
@@ -357,6 +346,17 @@ var mcpSystemTools = []mcpToolDefinition{
 					"routing_rules":          map[string]interface{}{"type": "array", "description": "Routing rules configuration"},
 					"local_ptr_upstreams":    map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Local PTR / reverse-DNS upstream servers for LAN IP resolution"},
 					"wireguard_gateway":      map[string]interface{}{"type": "string", "description": "Default WireGuard DNS gateway IP"},
+					"youtube_adblock_enabled": map[string]interface{}{"type": "boolean", "description": "Enable NextDNS-style YouTube Ad-Free Geo-Routing (Smart TV & Apps) via Albania/VPN SNI Proxy"},
+					"twitch_adblock_enabled":  map[string]interface{}{"type": "boolean", "description": "Enable Twitch Ad-Free HLS/GraphQL Geo-Routing via Albania/VPN SNI Proxy"},
+					"reddit_adblock_enabled":  map[string]interface{}{"type": "boolean", "description": "Enable Reddit Promoted Feed Ad-Free Geo-Routing via Albania/VPN SNI Proxy"},
+					"spotify_adblock_enabled": map[string]interface{}{"type": "boolean", "description": "Enable Spotify & SoundCloud Audio Ad-Free Geo-Routing via Albania/VPN SNI Proxy"},
+					"social_adblock_enabled":  map[string]interface{}{"type": "boolean", "description": "Enable TikTok, Instagram & X Sponsored Feed Ad-Free Geo-Routing via Albania/VPN SNI Proxy"},
+					"smarttv_adblock_enabled": map[string]interface{}{"type": "boolean", "description": "Enable LG webOS, Samsung Tizen & Fire TV Home Screen Ad-Free Geo-Routing"},
+					"vpn_provider":           map[string]interface{}{"type": "string", "description": "VPN / Geo-Routing provider (e.g. 'gluetun', 'privado', 'mullvad', 'nordvpn', 'protonvpn', 'custom_proxy')"},
+					"vpn_default_country":    map[string]interface{}{"type": "string", "description": "Default target country code for VPN / Geo-Proxy routing (e.g. 'AL' for Albania)"},
+					"vpn_proxy_url":          map[string]interface{}{"type": "string", "description": "Outbound HTTP CONNECT or SOCKS5 proxy URL for Geo-Proxy routing (e.g. 'http://127.0.0.1:8888')"},
+					"vpn_dns_upstream":       map[string]interface{}{"type": "string", "description": "Optional DNS upstream inside VPN tunnel (e.g. '127.0.0.1:8053')"},
+					"geo_proxy_ip":           map[string]interface{}{"type": "string", "description": "Public/LAN IPv4 returned by DNS for geo-routed domains (defaults to block_page_ip)"},
 					"admin_domain":           map[string]interface{}{"type": "string", "description": "Admin UI domain name"},
 					"block_page_ip":          map[string]interface{}{"type": "string", "description": "Default IPv4 block page IP"},
 					"doh_rate_limit":         map[string]interface{}{"type": "integer", "description": "Max DoH queries per second per client"},
@@ -471,6 +471,39 @@ var mcpSystemTools = []mcpToolDefinition{
 			}
 			if v, ok := args["webhook_token"].(string); ok {
 				config.WebhookToken = strings.TrimSpace(v)
+			}
+			if v, ok := args["youtube_adblock_enabled"].(bool); ok {
+				config.YouTubeAdblockEnabled = v
+			}
+			if v, ok := args["twitch_adblock_enabled"].(bool); ok {
+				config.TwitchAdblockEnabled = v
+			}
+			if v, ok := args["reddit_adblock_enabled"].(bool); ok {
+				config.RedditAdblockEnabled = v
+			}
+			if v, ok := args["spotify_adblock_enabled"].(bool); ok {
+				config.SpotifyAdblockEnabled = v
+			}
+			if v, ok := args["social_adblock_enabled"].(bool); ok {
+				config.SocialAdblockEnabled = v
+			}
+			if v, ok := args["smarttv_adblock_enabled"].(bool); ok {
+				config.SmartTVAdblockEnabled = v
+			}
+			if v, ok := args["vpn_provider"].(string); ok {
+				config.VPNProvider = strings.TrimSpace(v)
+			}
+			if v, ok := args["vpn_default_country"].(string); ok && strings.TrimSpace(v) != "" {
+				config.VPNDefaultCountry = strings.ToUpper(strings.TrimSpace(v))
+			}
+			if v, ok := args["vpn_proxy_url"].(string); ok {
+				config.VPNProxyURL = strings.TrimSpace(v)
+			}
+			if v, ok := args["vpn_dns_upstream"].(string); ok {
+				config.VPNDNSUpstream = strings.TrimSpace(v)
+			}
+			if v, ok := args["geo_proxy_ip"].(string); ok {
+				config.GeoProxyIP = strings.TrimSpace(v)
 			}
 
 			if err := saveConfigNoLock(); err != nil {

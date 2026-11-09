@@ -472,13 +472,6 @@ func startDBWorker(ctx context.Context) {
 	if testMode {
 		return
 	}
-	// 1. Initial 24h Stats Catch-up (One-time on boot)
-	slog.Info("Starting initial statistics catch-up...")
-	for i := 1; i <= 24; i++ {
-		targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-		aggregateHourlyStats(ctx, targetHour)
-	}
-	slog.Info("Initial statistics catch-up complete")
 
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
@@ -686,25 +679,11 @@ func initializeStatsFromDB() {
 		return
 	}
 
-	statsLock.Lock()
-	defer statsLock.Unlock()
-
-	atomic.StoreInt64(&stats.TotalQueries, total)
-	atomic.StoreInt64(&stats.BlockedQueries, blocked)
-	atomic.StoreInt64(&stats.CacheHits, cacheHits)
-
-	slog.Info("Stats initialized from DB (Rolling 24h Window)",
-		"total", total,
-		"blocked", blocked,
-		"cache_hits", cacheHits)
-
 	// 2. Query Types (last 24h)
 	tCtx, tCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer tCancel()
 
-	if stats.QueryTypes == nil {
-		stats.QueryTypes = make(map[string]int64)
-	}
+	queryTypes := make(map[string]int64)
 	tRows, err := dbQueryContext(tCtx, `
 		SELECT type, COUNT(*) 
 		FROM queries 
@@ -716,9 +695,8 @@ func initializeStatsFromDB() {
 		for tRows.Next() {
 			var qt string
 			var count int64
-			err = tRows.Scan(&qt, &count)
-			if err == nil {
-				stats.QueryTypes[qt] = count
+			if err = tRows.Scan(&qt, &count); err == nil {
+				queryTypes[qt] = count
 			}
 		}
 	} else {
@@ -729,9 +707,7 @@ func initializeStatsFromDB() {
 	cCtx, cCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cCancel()
 
-	if stats.TopCountries == nil {
-		stats.TopCountries = make(map[string]int64)
-	}
+	topCountries := make(map[string]int64)
 	cRows, err := dbQueryContext(cCtx, `
 		SELECT country_code, COUNT(*) 
 		FROM queries 
@@ -749,16 +725,24 @@ func initializeStatsFromDB() {
 		for cRows.Next() {
 			var cc string
 			var count int64
-			err = cRows.Scan(&cc, &count)
-			if err == nil {
-				stats.TopCountries[cc] = count
+			if err = cRows.Scan(&cc, &count); err == nil {
+				topCountries[cc] = count
 			}
 		}
 	} else {
 		slog.Error("Error initializing country stats from DB", "error", err)
 	}
 
-	slog.Info("Statistics initialized from database", "total", stats.TotalQueries, "blocked", stats.BlockedQueries)
+	statsLock.Lock()
+	defer statsLock.Unlock()
+
+	atomic.StoreInt64(&stats.TotalQueries, total)
+	atomic.StoreInt64(&stats.BlockedQueries, blocked)
+	atomic.StoreInt64(&stats.CacheHits, cacheHits)
+	stats.QueryTypes = queryTypes
+	stats.TopCountries = topCountries
+
+	slog.Info("Statistics initialized from database", "total", total, "blocked", blocked, "cache_hits", cacheHits)
 }
 
 func refreshStats() {
@@ -771,34 +755,36 @@ func refreshStats() {
 		return
 	}
 
+	// Update Query Types quietly before acquiring statsLock
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	queryTypes := make(map[string]int64)
+	if err := db.PingContext(ctx); err == nil {
+		tRows, err := dbQueryContext(ctx, `
+			SELECT type, COUNT(*) 
+			FROM queries 
+			WHERE timestamp > datetime('now', '-24 hours')
+			GROUP BY type
+		`)
+		if err == nil {
+			defer tRows.Close()
+			for tRows.Next() {
+				var qt string
+				var count int64
+				if err = tRows.Scan(&qt, &count); err == nil {
+					queryTypes[qt] = count
+				}
+			}
+		}
+	}
+
 	statsLock.Lock()
 	defer statsLock.Unlock()
 
 	atomic.StoreInt64(&stats.TotalQueries, total)
 	atomic.StoreInt64(&stats.BlockedQueries, blocked)
 	atomic.StoreInt64(&stats.CacheHits, cacheHits)
-
-	// Update Query Types quietly
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
-		stats.QueryTypes = make(map[string]int64)
-	}
-	tRows, err := dbQueryContext(ctx, `
-		SELECT type, COUNT(*) 
-		FROM queries 
-		WHERE timestamp > datetime('now', '-24 hours')
-		GROUP BY type
-	`)
-	if err == nil {
-		defer tRows.Close()
-		for tRows.Next() {
-			var qt string
-			var count int64
-			err = tRows.Scan(&qt, &count)
-			if err == nil {
-				stats.QueryTypes[qt] = count
-			}
-		}
+	if len(queryTypes) > 0 {
+		stats.QueryTypes = queryTypes
 	}
 }

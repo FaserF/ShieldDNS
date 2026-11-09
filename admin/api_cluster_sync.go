@@ -144,6 +144,48 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	if exp.WireGuardGateway != "" {
 		config.WireGuardGateway = exp.WireGuardGateway
 	}
+	config.YouTubeAdblockEnabled = exp.YouTubeAdblockEnabled
+	config.TwitchAdblockEnabled = exp.TwitchAdblockEnabled
+	config.RedditAdblockEnabled = exp.RedditAdblockEnabled
+	config.SpotifyAdblockEnabled = exp.SpotifyAdblockEnabled
+	config.SocialAdblockEnabled = exp.SocialAdblockEnabled
+	config.SmartTVAdblockEnabled = exp.SmartTVAdblockEnabled
+	if exp.VPNCountryProxies != nil {
+		config.VPNCountryProxies = exp.VPNCountryProxies
+	}
+	if exp.VPNProvider != "" {
+		config.VPNProvider = exp.VPNProvider
+	}
+	if exp.VPNMode != "" {
+		config.VPNMode = exp.VPNMode
+	}
+	if exp.VPNDefaultCountry != "" {
+		config.VPNDefaultCountry = exp.VPNDefaultCountry
+	}
+	if exp.VPNProxyURL != "" {
+		config.VPNProxyURL = exp.VPNProxyURL
+	}
+	if exp.VPNInterface != "" {
+		config.VPNInterface = exp.VPNInterface
+	}
+	if exp.VPNConfigContent != "" {
+		config.VPNConfigContent = exp.VPNConfigContent
+	}
+	if exp.VPNUsername != "" {
+		config.VPNUsername = exp.VPNUsername
+	}
+	if exp.VPNPassword != "" {
+		config.VPNPassword = exp.VPNPassword
+	}
+	if exp.VPNDNSUpstream != "" {
+		config.VPNDNSUpstream = exp.VPNDNSUpstream
+	}
+	if exp.GeoProxyIP != "" {
+		config.GeoProxyIP = exp.GeoProxyIP
+	}
+	if exp.SNIProxyPort > 0 {
+		config.SNIProxyPort = exp.SNIProxyPort
+	}
 	if exp.BlockedClients != nil {
 		config.BlockedClients = exp.BlockedClients
 	}

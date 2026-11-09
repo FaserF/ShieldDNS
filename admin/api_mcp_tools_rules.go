@@ -30,16 +30,18 @@ var mcpRulesTools = []mcpToolDefinition{
 	{
 		tool: mcpTool{
 			Name:        "set_routing_rule",
-			Description: "Create or update a policy-based DNS routing rule (targets: 'default', 'host', 'wireguard').",
+			Description: "Create or update a policy-based DNS routing rule (targets: 'default', 'host', 'wireguard', 'vpn', 'geo_proxy').",
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"name":             map[string]interface{}{"type": "string", "description": "Optional rule label/name"},
-					"match":            map[string]interface{}{"type": "string", "description": "Domain name (e.g. 'internal.lan') or client IP/CIDR (e.g. '192.168.1.50')"},
+					"match":            map[string]interface{}{"type": "string", "description": "Domain name (e.g. 'internal.lan' or 'youtube.com') or client IP/CIDR"},
 					"match_type":       map[string]interface{}{"type": "string", "enum": []string{"domain", "client_ip"}, "description": "Type of match criteria (default: auto-detected)"},
-					"target":           map[string]interface{}{"type": "string", "enum": []string{"default", "host", "wireguard"}, "description": "Routing target: 'default', 'host', or 'wireguard'"},
+					"target":           map[string]interface{}{"type": "string", "enum": []string{"default", "host", "wireguard", "vpn", "geo_proxy"}, "description": "Routing target: 'default', 'host', 'wireguard', 'vpn', or 'geo_proxy'"},
 					"host_target":      map[string]interface{}{"type": "string", "description": "Upstream host/IP (e.g. '10.0.0.1:53') when target is 'host'"},
 					"wireguard_config": map[string]interface{}{"type": "string", "description": "WireGuard DNS resolver / tunnel endpoint when target is 'wireguard'"},
+					"country":          map[string]interface{}{"type": "string", "description": "ISO country code (e.g. 'AL' for Albania) when target is 'vpn' or 'geo_proxy'"},
+					"proxy_url":        map[string]interface{}{"type": "string", "description": "Optional custom HTTP/SOCKS5 proxy URL when target is 'vpn' or 'geo_proxy'"},
 					"enabled":          map[string]interface{}{"type": "boolean", "description": "Whether rule is enabled (default: true)"},
 				},
 				"required": []string{"match", "target"},
@@ -53,6 +55,8 @@ var mcpRulesTools = []mcpToolDefinition{
 			matchType, _ := args["match_type"].(string)
 			hostTarget, _ := args["host_target"].(string)
 			wgConfig, _ := args["wireguard_config"].(string)
+			country, _ := args["country"].(string)
+			proxyURL, _ := args["proxy_url"].(string)
 			enabled := true
 			if en, ok := args["enabled"].(bool); ok {
 				enabled = en
@@ -79,6 +83,8 @@ var mcpRulesTools = []mcpToolDefinition{
 				Target:          target,
 				HostTarget:      hostTarget,
 				WireGuardConfig: wgConfig,
+				Country:         strings.ToUpper(strings.TrimSpace(country)),
+				ProxyURL:        strings.TrimSpace(proxyURL),
 				Enabled:         enabled,
 				CreatedAt:       time.Now().UTC(),
 			}

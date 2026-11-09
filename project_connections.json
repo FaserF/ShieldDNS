@@ -7,6 +7,9 @@
       "purpose": "Core DNS engine, Corefile updating, DoH internal proxies, query logging, and dashboard statistics.",
       "backend_files": [
         "admin/dns.go",
+        "admin/dns_corefile.go",
+        "admin/sni_proxy.go",
+        "admin/api_routing.go",
         "admin/metrics.go",
         "admin/presets_list.go",
         "admin/api_stats.go"

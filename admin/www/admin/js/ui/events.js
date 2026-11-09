@@ -213,6 +213,10 @@ export function initEvents(fetchConfig) {
             state.currentConfig.malicious_ip_interval = 12;
             state.currentConfig.verify_upstream_tls = true;
             state.currentConfig.blocked_countries = ["CN", "RU", "IR", "KP", "VN", "BR", "BY", "IQ", "UA"];
+            state.currentConfig.youtube_adblock_enabled = true;
+            state.currentConfig.vpn_provider = "privado";
+            state.currentConfig.vpn_default_country = "AL";
+            state.currentConfig.vpn_proxy_url = "http://127.0.0.1:18888";
         }
         
         renderConfig(state.currentConfig);
@@ -534,11 +538,15 @@ export function initEvents(fetchConfig) {
         const btn = event?.currentTarget;
         helpers.setBtnLoading(btn, true, 'Adding Route...');
 
+        const isVpnTarget = target === 'vpn' || target === 'geo_proxy';
+        const isProxyUrl = isVpnTarget && (targetParam.includes('://') || targetParam.includes(':'));
         const payload = {
             match,
             target: target || 'default',
             host_target: target === 'host' ? targetParam : '',
             wireguard_config: target === 'wireguard' ? targetParam : '',
+            country: (isVpnTarget && !isProxyUrl) ? (targetParam || state.currentConfig?.vpn_default_country || 'AL') : '',
+            proxy_url: isProxyUrl ? targetParam : '',
             enabled: true
         };
 
