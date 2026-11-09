@@ -105,19 +105,99 @@
                     </div>
 
                     <div class="settings-section" data-category="dns">
-                        <h2>Smart DNS &amp; Geo-Routing (NextDNS / VPN) 🌍</h2>
-                        <p class="help">Route specific apps and streaming services (like YouTube on Smart TVs, Apple TV, Android TV, and mobile apps) through ad-free regions (e.g. Albania) or custom VPN exit nodes via built-in TLS SNI Proxy redirection.</p>
+                        <h2>NextDNS Upstream &amp; Adblock Profile 🚀</h2>
+                        <p class="help">Routet YouTube- und Reddit-Anfragen direkt verschlüsselt über dein persönliches NextDNS-Profil via DNS-over-TLS (DoT). Blockiert Video- und Feed-Werbung nativ ohne Proxy- oder VPN-Umwege.</p>
+
+                        <div class="form-group row" style="display: flex; gap: 10px; margin-bottom: 12px;">
+                            <div style="flex: 1;">
+                                <label>NextDNS Profile ID</label>
+                                <input type="text" id="nextdns-profile-id-input" placeholder="e.g. 2351bb">
+                            </div>
+                            <div style="flex: 2;">
+                                <label>NextDNS API Key (Optional)</label>
+                                <input type="password" id="nextdns-api-key-input" placeholder="NextDNS API Key">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <div class="label-with-info">
+                                <label>NextDNS Monatliches Query-Limit</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Maximales monatliches Kontingent für dieses NextDNS-Profil (Free-Tier: 300.000). Bei Erreichen schaltet ShieldDNS unterbrechungsfrei auf Standard-DNS / GeoProxy-Fallback um, bis am 1. des Folgemonats das Limit zurückgesetzt wird."></i>
+                            </div>
+                            <input type="number" id="nextdns-monthly-limit-input" placeholder="300000">
+                            <p class="help">Standard: 300.000 Queries/Monat. ShieldDNS schaltet automatisch auf Fallback um, sobald das Limit erreicht ist.</p>
+                        </div>
+                        <div id="nextdns-quota-status-box" style="margin-bottom: 12px; padding: 10px 14px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px; font-size: 0.9em; display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span style="font-weight: 600;" id="nextdns-status-title">NextDNS Quota Status</span>
+                                <span class="badge" id="nextdns-status-badge" style="padding: 2px 8px; border-radius: 4px; font-size: 0.85em; background: #10b981; color: #fff;">Active</span>
+                            </div>
+                            <div style="margin-bottom: 4px; color: var(--text-secondary); display: flex; justify-content: space-between;">
+                                <span id="nextdns-queries-text">Monthly Queries: 0 / 300,000</span>
+                                <span id="nextdns-percent-text">0.0%</span>
+                            </div>
+                            <div style="width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
+                                <div id="nextdns-quota-progress" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+                            </div>
+                            <div style="font-size: 0.85em; color: var(--text-secondary);" id="nextdns-reset-text">
+                                Resets on: 1st of next month
+                            </div>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>YouTube über NextDNS routen</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Leitet alle YouTube &amp; Google Video DNS-Abfragen an NextDNS weiter für werbefreies Streaming."></i>
+                                </div>
+                                <p class="help">Nutzt spezialisierte NextDNS-Server für werbefreies YouTube-Streaming.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="nextdns-youtube-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Reddit über NextDNS routen</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Leitet Reddit-Feeds an NextDNS weiter, um gesponserte Beiträge und Werbung auszublenden."></i>
+                                </div>
+                                <p class="help">Filtert gesponserte Reddit-Feed-Karten und Werbebeiträge über NextDNS.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="nextdns-reddit-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-section" data-category="dns">
+                        <h2>Erweiterter SNI Geo-Proxy &amp; VPN Exit-Nodes (Optional) 🌍</h2>
+                        <p class="help"><strong>Optional:</strong> Leitet spezifische Streaming-Apps (Twitch, Spotify, Smart TV) oder als Notfall-Fallback für YouTube/Reddit über einen externen VPN-Exit (z.B. Albanien) weiter, falls kein NextDNS verwendet wird oder das NextDNS-Kontingent aufgebraucht ist.</p>
 
                         <div class="form-group checkbox-group">
                             <div class="checkbox-text">
                                 <div class="label-with-info">
-                                    <label>YouTube &amp; YouTube Music Ad-Free (Smart TV &amp; Apps)</label>
-                                    <i class="fas fa-info-circle info-icon" data-tooltip="Blocks YouTube video and music ads on Smart TVs, Apple TV, Fire TV, iOS, and Android apps by routing YouTube &amp; Google Video TLS streams via Albania (AL) using ShieldDNS's built-in SNI Geo-Proxy. Default: OFF."></i>
+                                    <label>YouTube &amp; YouTube Music Fallback via Geo-Proxy (Albanien)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Routet YouTube-TLS-Streams über Albanien, falls NextDNS deaktiviert oder das Kontingent erschöpft ist."></i>
                                 </div>
-                                <p class="help">Eliminate YouTube &amp; YouTube Music ads on Smart TVs and mobile apps via transparent SNI Geo-Routing to Albania (<code>AL</code>). Default: OFF.</p>
+                                <p class="help">SNI Geo-Routing Fallback nach Albanien (<code>AL</code>).</p>
                             </div>
                             <label class="switch">
                                 <input type="checkbox" id="youtube-adblock-check">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <div class="checkbox-text">
+                                <div class="label-with-info">
+                                    <label>Reddit Fallback via Geo-Proxy (Albanien)</label>
+                                    <i class="fas fa-info-circle info-icon" data-tooltip="Routet Reddit GraphQL und OAuth APIs über Albanien, falls NextDNS deaktiviert oder das Kontingent erschöpft ist."></i>
+                                </div>
+                                <p class="help">SNI Geo-Routing Fallback nach Albanien für Reddit-Feeds.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="reddit-adblock-check">
                                 <span class="slider"></span>
                             </label>
                         </div>
@@ -132,20 +212,6 @@
                             </div>
                             <label class="switch">
                                 <input type="checkbox" id="twitch-adblock-check">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="form-group checkbox-group">
-                            <div class="checkbox-text">
-                                <div class="label-with-info">
-                                    <label>Reddit Promoted Feed Ad-Free (iOS / Android App)</label>
-                                    <i class="fas fa-info-circle info-icon" data-tooltip="Routes Reddit GraphQL and OAuth API feeds (gql.reddit.com, oauth.reddit.com, gateway.reddit.com) via Albania so promoted posts and inline video ads are omitted server-side. Default: OFF."></i>
-                                </div>
-                                <p class="help">Strip sponsored posts and promoted feed cards in the official Reddit mobile app. Default: OFF.</p>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" id="reddit-adblock-check">
                                 <span class="slider"></span>
                             </label>
                         </div>
@@ -190,71 +256,6 @@
                                 <input type="checkbox" id="smarttv-adblock-check">
                                 <span class="slider"></span>
                             </label>
-                        </div>
-
-                        <div style="border-top: 1px solid var(--border); margin: 20px 0; padding-top: 15px;">
-                            <h3 style="margin-bottom: 8px;">NextDNS Upstream &amp; Adblock Profile 🚀</h3>
-                            <p class="help">Route YouTube and Reddit queries through your dedicated NextDNS profile to eliminate video and feed ads without needing an external proxy.</p>
-                            <div class="form-group row" style="display: flex; gap: 10px; margin-bottom: 12px;">
-                                <div style="flex: 1;">
-                                    <label>NextDNS Profile ID</label>
-                                    <input type="text" id="nextdns-profile-id-input" placeholder="e.g. 2351bb">
-                                </div>
-                                <div style="flex: 2;">
-                                    <label>NextDNS API Key (Optional)</label>
-                                    <input type="password" id="nextdns-api-key-input" placeholder="NextDNS API Key">
-                                </div>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 12px;">
-                                <div class="label-with-info">
-                                    <label>NextDNS Monthly Query Limit</label>
-                                    <i class="fas fa-info-circle info-icon" data-tooltip="Maximum queries per calendar month for this NextDNS profile (Free tier: 300,000). When this limit is reached, ShieldDNS automatically falls back to standard DNS / SNI Geo-Proxy routing until the month resets on the 1st, keeping ad-free streaming working 100% seamlessly."></i>
-                                </div>
-                                <input type="number" id="nextdns-monthly-limit-input" placeholder="300000" min="1000" step="5000">
-                                <p class="help">Default: 300,000 queries/month. ShieldDNS automatically routes queries via standard paths / GeoProxy once exceeded.</p>
-                            </div>
-                            <div id="nextdns-quota-status-box" style="margin-bottom: 12px; padding: 10px 14px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px; font-size: 0.9em; display: none;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                    <span style="font-weight: 600;" id="nextdns-status-title">NextDNS Quota Status</span>
-                                    <span class="badge" id="nextdns-status-badge" style="padding: 2px 8px; border-radius: 4px; font-size: 0.85em; background: #10b981; color: #fff;">Active</span>
-                                </div>
-                                <div style="margin-bottom: 4px; color: var(--text-secondary); display: flex; justify-content: space-between;">
-                                    <span id="nextdns-queries-text">Monthly Queries: 0 / 300,000</span>
-                                    <span id="nextdns-percent-text">0.0%</span>
-                                </div>
-                                <div style="width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
-                                    <div id="nextdns-quota-progress" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
-                                </div>
-                                <div style="font-size: 0.85em; color: var(--text-secondary);" id="nextdns-reset-text">
-                                    Resets on: 1st of next month
-                                </div>
-                            </div>
-                            <div class="form-group checkbox-group">
-                                <div class="checkbox-text">
-                                    <div class="label-with-info">
-                                        <label>Route YouTube via NextDNS</label>
-                                        <i class="fas fa-info-circle info-icon" data-tooltip="Forwards all YouTube and Google Video queries directly to NextDNS DoT endpoints for this profile, utilizing NextDNS's YouTube ad-reduction server features."></i>
-                                    </div>
-                                    <p class="help">Use NextDNS specialized servers for ad-free YouTube streaming.</p>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" id="nextdns-youtube-check">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <div class="form-group checkbox-group">
-                                <div class="checkbox-text">
-                                    <div class="label-with-info">
-                                        <label>Route Reddit via NextDNS</label>
-                                        <i class="fas fa-info-circle info-icon" data-tooltip="Forwards Reddit domains and API endpoints to NextDNS to filter promoted feed cards and sponsored posts."></i>
-                                    </div>
-                                    <p class="help">Filter Reddit promoted feed posts and sponsored cards via NextDNS.</p>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" id="nextdns-reddit-check">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
                         </div>
 
                         <div class="form-group">

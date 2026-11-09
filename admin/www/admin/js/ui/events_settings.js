@@ -28,7 +28,7 @@ export function setSettingsDirty(dirty) {
 }
 
 export async function saveConfig(fetchConfig) {
-    const saveBtn = document.querySelector('#settings-form button[type="submit"]');
+    const saveBtn = getEl('save-settings-btn') || document.querySelector('.settings-save-footer .btn.primary') || document.querySelector('#settings-form button[type="submit"]');
     helpers.setBtnLoading(saveBtn, true, 'Saving...');
 
     const upstreams = getEl('upstreams-input')?.value.split(',').map(s => s.trim()).filter(Boolean);
@@ -266,6 +266,15 @@ export function initSettingsEvents(fetchConfig) {
         helpers.showToast(`Loaded preset: ${val}`);
         settingsPresetSelector.value = "";
     });
+
+    window.saveShieldSettings = () => saveConfig(fetchConfig);
+    const saveBtn = getEl('save-settings-btn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            saveConfig(fetchConfig);
+        });
+    }
 
     const settingsForm = getEl('settings-form');
     settingsForm?.addEventListener('submit', async (e) => {

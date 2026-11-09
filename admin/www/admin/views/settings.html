@@ -16,12 +16,14 @@
                     <button type="button" class="settings-tab-btn" data-tab="cluster"><i class="fas fa-network-wired"></i> Cluster & Multi-Node</button>
                 </div>
 
-                <form id="settings-form">
+                <form id="settings-form" novalidate onsubmit="event.preventDefault(); window.saveShieldSettings ? window.saveShieldSettings() : null;">
 
                     {{template "settings_main" .}}
                     {{template "settings_advanced" .}}
+                </form>
+
                 <div class="settings-section" data-category="access">
-                    <button id="logout-btn" class="btn danger">Logout</button>
+                    <button type="button" id="logout-btn" class="btn danger">Logout</button>
                 </div>
 
                 <div class="settings-save-footer">
@@ -30,8 +32,8 @@
                         All changes must be saved. Reboot (via Full System Refresh) might be required for some CoreDNS
                         modifications.
                     </div>
-                    <button type="button" class="btn primary"
-                        onclick="document.getElementById('settings-form').requestSubmit()">Save Configuration</button>
+                    <button type="button" id="save-settings-btn" class="btn primary"
+                        onclick="window.saveShieldSettings ? window.saveShieldSettings() : document.getElementById('settings-form').requestSubmit()">Save Configuration</button>
                 </div>
             </section>
 {{end}}
