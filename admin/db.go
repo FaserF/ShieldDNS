@@ -176,6 +176,8 @@ func initDB() {
 			CREATE INDEX IF NOT EXISTS idx_queries_ts_client ON queries(timestamp, client_ip);
 			CREATE INDEX IF NOT EXISTS idx_queries_domain_ts ON queries(domain, timestamp);
 			CREATE INDEX IF NOT EXISTS idx_queries_hourly_agg ON queries(timestamp, status, is_cache_hit);
+			CREATE INDEX IF NOT EXISTS idx_queries_ts_type ON queries(timestamp, type);
+			CREATE INDEX IF NOT EXISTS idx_queries_ts_country ON queries(timestamp, country_code);
 
 			CREATE TABLE IF NOT EXISTS clients (
 				ip TEXT PRIMARY KEY,
@@ -214,17 +216,16 @@ func initDB() {
 	} else {
 		dbDriver = "sqlite"
 		os.MkdirAll(filepath.Dir(DBPath), 0755)
-		db, err = sql.Open("sqlite", DBPath+"?_busy_timeout=10000")
+		db, err = sql.Open("sqlite", DBPath+"?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=temp_store(MEMORY)")
 		if err != nil {
 			slog.Error("Could not open database", "path", DBPath, "error", err)
 			os.Exit(1)
 		}
 
-		// Performance Tuning: SQLite handles multiple readers in WAL mode,
-		// but is limited to a single writer. For ShieldDNS, we use a single
-		// open connection to eliminate SQLITE_BUSY contention across goroutines.
-		db.SetMaxOpenConns(1)
-		db.SetMaxIdleConns(1)
+		// Performance Tuning: SQLite handles concurrent readers efficiently in WAL mode.
+		// A pool of up to 10 connections allows UI and stats reads without blocking write batches.
+		db.SetMaxOpenConns(10)
+		db.SetMaxIdleConns(5)
 		db.SetConnMaxLifetime(1 * time.Hour)
 
 		_, err = db.Exec(`
@@ -256,6 +257,8 @@ func initDB() {
 			CREATE INDEX IF NOT EXISTS idx_queries_ts_client ON queries(timestamp, client_ip);
 			CREATE INDEX IF NOT EXISTS idx_queries_domain_ts ON queries(domain, timestamp);
 			CREATE INDEX IF NOT EXISTS idx_queries_hourly_agg ON queries(timestamp, status, is_cache_hit);
+			CREATE INDEX IF NOT EXISTS idx_queries_ts_type ON queries(timestamp, type);
+			CREATE INDEX IF NOT EXISTS idx_queries_ts_country ON queries(timestamp, country_code);
 			CREATE TABLE IF NOT EXISTS clients (
 				ip TEXT PRIMARY KEY,
 				user_agent TEXT,
@@ -281,132 +284,6 @@ func initDB() {
 		addColumnIfNotExists("queries", "country_code", "TEXT")
 		addColumnIfNotExists("queries", "node_name", "TEXT DEFAULT ''")
 	}
-}
-
-func autoMigrateFromSQLite(sqlitePath string, targetDB *sql.DB) error {
-	srcDB, err := sql.Open("sqlite", sqlitePath+"?mode=ro")
-	if err != nil {
-		return fmt.Errorf("failed to open source sqlite db: %w", err)
-	}
-	defer srcDB.Close()
-
-	// 1. Migrate clients table
-	cRows, err := srcDB.Query("SELECT ip, user_agent, last_seen FROM clients")
-	if err == nil {
-		defer cRows.Close()
-		cTx, err := targetDB.Begin()
-		if err == nil {
-			cStmt, err := cTx.Prepare(`
-				INSERT INTO clients (ip, user_agent, last_seen) VALUES ($1, $2, $3)
-				ON CONFLICT(ip) DO UPDATE SET user_agent = EXCLUDED.user_agent, last_seen = EXCLUDED.last_seen
-			`)
-			if err == nil {
-				var count int
-				for cRows.Next() {
-					var ip, ua, lastSeen string
-					if err := cRows.Scan(&ip, &ua, &lastSeen); err == nil {
-						t, _ := ParseFlexibleTime(lastSeen)
-						cStmt.Exec(ip, ua, t)
-						count++
-					}
-				}
-				cStmt.Close()
-				cTx.Commit()
-				slog.Info("Migrated clients table to PostgreSQL", "count", count)
-			} else {
-				cTx.Rollback()
-			}
-		}
-	}
-
-	// 2. Migrate hourly_stats table
-	hRows, err := srcDB.Query("SELECT timestamp, total, blocked, cache_hits FROM hourly_stats")
-	if err == nil {
-		defer hRows.Close()
-		hTx, err := targetDB.Begin()
-		if err == nil {
-			hStmt, err := hTx.Prepare(`
-				INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits) VALUES ($1, $2, $3, $4)
-				ON CONFLICT(timestamp) DO UPDATE SET total = EXCLUDED.total, blocked = EXCLUDED.blocked, cache_hits = EXCLUDED.cache_hits
-			`)
-			if err == nil {
-				var count int
-				for hRows.Next() {
-					var ts string
-					var total, blocked, cacheHits int64
-					if err := hRows.Scan(&ts, &total, &blocked, &cacheHits); err == nil {
-						t, _ := ParseFlexibleTime(ts)
-						hStmt.Exec(t, total, blocked, cacheHits)
-						count++
-					}
-				}
-				hStmt.Close()
-				hTx.Commit()
-				slog.Info("Migrated hourly_stats table to PostgreSQL", "count", count)
-			} else {
-				hTx.Rollback()
-			}
-		}
-	}
-
-	// 3. Migrate queries table using PostgreSQL COPY protocol
-	qRows, err := srcDB.Query("SELECT timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name FROM queries ORDER BY id ASC")
-	if err != nil {
-		return fmt.Errorf("failed to query source queries: %w", err)
-	}
-	defer qRows.Close()
-
-	qTx, err := targetDB.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	stmt, err := qTx.Prepare(pq.CopyIn("queries", "timestamp", "domain", "type", "status", "client_ip", "is_cache_hit", "duration_ms", "country_code", "node_name"))
-	if err != nil {
-		qTx.Rollback()
-		return fmt.Errorf("failed to prepare pq.CopyIn: %w", err)
-	}
-
-	var totalMigrated int64
-	for qRows.Next() {
-		var ts string
-		var domain, qType, status, clientIP string
-		var isCacheHit bool
-		var durationMs float64
-		var countryCode, nodeName *string
-
-		if err := qRows.Scan(&ts, &domain, &qType, &status, &clientIP, &isCacheHit, &durationMs, &countryCode, &nodeName); err != nil {
-			continue
-		}
-		t, _ := ParseFlexibleTime(ts)
-		cc := ""
-		if countryCode != nil {
-			cc = *countryCode
-		}
-		nn := ""
-		if nodeName != nil {
-			nn = *nodeName
-		}
-		if _, err := stmt.Exec(t, domain, qType, status, clientIP, isCacheHit, durationMs, cc, nn); err != nil {
-			continue
-		}
-		totalMigrated++
-	}
-
-	if _, err := stmt.Exec(); err != nil {
-		qTx.Rollback()
-		return fmt.Errorf("failed to finalize pq.CopyIn: %w", err)
-	}
-	if err := stmt.Close(); err != nil {
-		qTx.Rollback()
-		return fmt.Errorf("failed to close stmt: %w", err)
-	}
-	if err := qTx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit pq.CopyIn transaction: %w", err)
-	}
-
-	slog.Info("Migrated queries table to PostgreSQL", "total_rows", totalMigrated)
-	return nil
 }
 
 // isValidSQLName checks if a string is a valid SQL table or column name.
@@ -493,18 +370,32 @@ func startDBWorker(ctx context.Context) {
 				}
 			}
 
-			// 2. Resource Safety: Hard cap on total queries (max 500k rows)
+			// 2. Resource Safety: Hard cap on total queries (max 500k rows) in non-blocking chunks
 			var totalRows int
 			err = dbQueryRowContext(ctx, "SELECT COUNT(*) FROM queries").Scan(&totalRows)
 			if err == nil && totalRows > 500000 {
 				overage := totalRows - 500000 + 50000
-				res, err = dbExecContext(ctx, "DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", overage)
-				if err != nil {
-					slog.Error("Database maintenance: Error during row prune", "error", err)
-				} else {
-					deleted, _ := res.RowsAffected()
-					slog.Info("Database maintenance: Row cap prune complete", "total_before", totalRows, "deleted", deleted)
+				deletedTotal := 0
+				for remaining := overage; remaining > 0; remaining -= 5000 {
+					batchLimit := remaining
+					if batchLimit > 5000 {
+						batchLimit = 5000
+					}
+					delCtx, delCancel := context.WithTimeout(ctx, 10*time.Second)
+					res, delErr := dbExecContext(delCtx, "DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", batchLimit)
+					delCancel()
+					if delErr != nil {
+						slog.Error("Database maintenance: Error during row prune batch", "error", delErr)
+						break
+					}
+					rows, _ := res.RowsAffected()
+					deletedTotal += int(rows)
+					if rows == 0 {
+						break
+					}
+					time.Sleep(50 * time.Millisecond) // Yield lock to allow flushes and queries
 				}
+				slog.Info("Database maintenance: Row cap prune complete", "total_before", totalRows, "deleted", deletedTotal)
 			}
 
 			// 3. Reclaim space incrementally (SQLite only)
@@ -631,160 +522,3 @@ func flushLogs(queries []Query) {
 	}
 }
 
-func aggregateHourlyStats(ctx context.Context, targetHour string) {
-	_, err := dbExecContext(ctx, `
-		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
-		SELECT 
-			strftime('%Y-%m-%d %H:00:00', timestamp) as hr,
-			COUNT(*),
-			COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN is_cache_hit IS TRUE THEN 1 ELSE 0 END), 0)
-		FROM queries
-		WHERE timestamp >= datetime(?, '-1 hour') AND timestamp < datetime(?, '+1 hour')
-		GROUP BY hr
-		ON CONFLICT(timestamp) DO UPDATE SET
-			total = excluded.total,
-			blocked = excluded.blocked,
-			cache_hits = excluded.cache_hits
-	`, targetHour, targetHour)
-
-	if err != nil {
-		slog.Error("Aggregation error", "hour", targetHour, "error", err)
-	} else {
-		slog.Debug("Successfully aggregated hourly stats", "hour", targetHour)
-	}
-}
-
-func initializeStatsFromDB() {
-	if db == nil {
-		return
-	}
-
-	initCtx, initCancel := context.WithTimeout(context.Background(), 15*time.Second)
-	aggregateHourlyStats(initCtx, time.Now().UTC().Add(-1*time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05"))
-	initCancel()
-
-	// Run full catch-up in background
-	slog.Info("Starting initial stats catch-up...")
-	for i := 1; i <= 24; i++ {
-		targetHour := time.Now().UTC().Add(time.Duration(-i) * time.Hour).Truncate(time.Hour).Format("2006-01-02 15:04:05")
-		hCtx, hCancel := context.WithTimeout(context.Background(), 15*time.Second)
-		aggregateHourlyStats(hCtx, targetHour)
-		hCancel()
-	}
-
-	total, blocked, cacheHits, err := Get24hStats()
-	if err != nil {
-		slog.Error("Failed to initialize stats from DB", "error", err)
-		return
-	}
-
-	// 2. Query Types (last 24h)
-	tCtx, tCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer tCancel()
-
-	queryTypes := make(map[string]int64)
-	tRows, err := dbQueryContext(tCtx, `
-		SELECT type, COUNT(*) 
-		FROM queries 
-		WHERE timestamp > datetime('now', '-24 hours')
-		GROUP BY type
-	`)
-	if err == nil {
-		defer tRows.Close()
-		for tRows.Next() {
-			var qt string
-			var count int64
-			if err = tRows.Scan(&qt, &count); err == nil {
-				queryTypes[qt] = count
-			}
-		}
-	} else {
-		slog.Error("Error initializing query types from DB", "error", err)
-	}
-
-	// 3. Top Countries (last 24h)
-	cCtx, cCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cCancel()
-
-	topCountries := make(map[string]int64)
-	cRows, err := dbQueryContext(cCtx, `
-		SELECT country_code, COUNT(*) 
-		FROM queries 
-		WHERE timestamp > datetime('now', '-24 hours')
-		  AND country_code IS NOT NULL
-		  AND country_code != ''
-		  AND country_code != '-'
-		  AND country_code != 'geo'
-		GROUP BY country_code
-		ORDER BY COUNT(*) DESC
-		LIMIT 10
-	`)
-	if err == nil {
-		defer cRows.Close()
-		for cRows.Next() {
-			var cc string
-			var count int64
-			if err = cRows.Scan(&cc, &count); err == nil {
-				topCountries[cc] = count
-			}
-		}
-	} else {
-		slog.Error("Error initializing country stats from DB", "error", err)
-	}
-
-	statsLock.Lock()
-	defer statsLock.Unlock()
-
-	atomic.StoreInt64(&stats.TotalQueries, total)
-	atomic.StoreInt64(&stats.BlockedQueries, blocked)
-	atomic.StoreInt64(&stats.CacheHits, cacheHits)
-	stats.QueryTypes = queryTypes
-	stats.TopCountries = topCountries
-
-	slog.Info("Statistics initialized from database", "total", total, "blocked", blocked, "cache_hits", cacheHits)
-}
-
-func refreshStats() {
-	if db == nil {
-		return
-	}
-
-	total, blocked, cacheHits, err := Get24hStats()
-	if err != nil {
-		return
-	}
-
-	// Update Query Types quietly before acquiring statsLock
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	queryTypes := make(map[string]int64)
-	if err := db.PingContext(ctx); err == nil {
-		tRows, err := dbQueryContext(ctx, `
-			SELECT type, COUNT(*) 
-			FROM queries 
-			WHERE timestamp > datetime('now', '-24 hours')
-			GROUP BY type
-		`)
-		if err == nil {
-			defer tRows.Close()
-			for tRows.Next() {
-				var qt string
-				var count int64
-				if err = tRows.Scan(&qt, &count); err == nil {
-					queryTypes[qt] = count
-				}
-			}
-		}
-	}
-
-	statsLock.Lock()
-	defer statsLock.Unlock()
-
-	atomic.StoreInt64(&stats.TotalQueries, total)
-	atomic.StoreInt64(&stats.BlockedQueries, blocked)
-	atomic.StoreInt64(&stats.CacheHits, cacheHits)
-	if len(queryTypes) > 0 {
-		stats.QueryTypes = queryTypes
-	}
-}
