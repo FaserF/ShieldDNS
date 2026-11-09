@@ -1,23 +1,23 @@
 {
-  "version": "1.12.9",
-  "commit_id": "cee1cf3",
-  "generated_at": "2026-11-09T10:54:15Z",
+  "version": "1.12.10",
+  "commit_id": "bb3fa89",
+  "generated_at": "2026-11-09T20:49:14Z",
   "code": {
     "backend": {
       "files": 87,
-      "lines": 22663
+      "lines": 22958
     },
     "frontend": {
       "files": 68,
-      "lines": 13753
+      "lines": 13806
     },
     "other": {
       "files": 30,
-      "lines": 3255
+      "lines": 3257
     },
     "total": {
       "files": 185,
-      "lines": 39671
+      "lines": 40021
     }
   },
   "tests": {
