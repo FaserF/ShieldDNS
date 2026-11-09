@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	defaultYouTubeGeoDomains = []string{"youtube.com", "youtu.be", "googlevideo.com", "youtubei.googleapis.com", "youtube-nocookie.com", "ytimg.com", "ggpht.com", "gvt1.com", "video.google.com"}
+	defaultYouTubeGeoDomains = []string{"youtube.com", "youtu.be", "googlevideo.com", "youtubei.googleapis.com", "youtube.googleapis.com", "youtube-nocookie.com", "ytimg.com", "ggpht.com", "gvt1.com", "video.google.com", "yt.be"}
 	defaultTwitchGeoDomains  = []string{"usher.ttvnw.net", "gql.twitch.tv", "hls.ttvnw.net", "video-weaver.fra02.hls.ttvnw.net", "edge.ads.twitch.tv", "spade.twitch.tv"}
 	defaultRedditGeoDomains  = []string{"gql.reddit.com", "oauth.reddit.com", "gateway.reddit.com", "alb.reddit.com", "w3-reporting.reddit.com"}
 	defaultSpotifyGeoDomains = []string{"spclient.wg.spotify.com", "audio-fa.scdn.co", "heads-fa.scdn.co", "api-v2.soundcloud.com", "cf-hls-media.sndcdn.com"}
