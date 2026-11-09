@@ -1,15 +1,12 @@
 {
   "project": "ShieldDNS",
   "description": "Component connections map linking UI views, JS events, and Go controllers.",
-  "timestamp": "2026-09-05T22:50:36.549143",
+  "timestamp": "2026-11-09T07:20:16.515480",
   "connections": {
     "dns_core": {
       "purpose": "Core DNS engine, Corefile updating, DoH internal proxies, query logging, and dashboard statistics.",
       "backend_files": [
         "admin/dns.go",
-        "admin/dns_corefile.go",
-        "admin/sni_proxy.go",
-        "admin/api_routing.go",
         "admin/metrics.go",
         "admin/presets_list.go",
         "admin/api_stats.go"
