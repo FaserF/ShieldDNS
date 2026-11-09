@@ -1,15 +1,15 @@
 {
-  "version": "1.12.8",
-  "commit_id": "fab3006",
-  "generated_at": "2026-11-09T10:04:21Z",
+  "version": "1.12.9",
+  "commit_id": "cee1cf3",
+  "generated_at": "2026-11-09T10:54:15Z",
   "code": {
     "backend": {
       "files": 87,
-      "lines": 22535
+      "lines": 22663
     },
     "frontend": {
       "files": 68,
-      "lines": 13697
+      "lines": 13753
     },
     "other": {
       "files": 30,
@@ -17,7 +17,7 @@
     },
     "total": {
       "files": 185,
-      "lines": 39487
+      "lines": 39671
     }
   },
   "tests": {
