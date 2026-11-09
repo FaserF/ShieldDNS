@@ -38,7 +38,7 @@ func initializeStatsFromDB() {
 
 	// 1. Run full 24h catch-up in a single efficient batch query
 	slog.Info("Starting initial stats catch-up...")
-	catchCtx, catchCancel := context.WithTimeout(context.Background(), 20*time.Second)
+	catchCtx, catchCancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	_, catchErr := dbExecContext(catchCtx, `
 		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
 		SELECT 
@@ -66,7 +66,7 @@ func initializeStatsFromDB() {
 	}
 
 	// 2. Query Types (last 24h)
-	tCtx, tCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	tCtx, tCancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer tCancel()
 
 	queryTypes := make(map[string]int64)
@@ -90,7 +90,7 @@ func initializeStatsFromDB() {
 	}
 
 	// 3. Top Countries (last 24h)
-	cCtx, cCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	cCtx, cCancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cCancel()
 
 	topCountries := make(map[string]int64)

@@ -215,7 +215,7 @@ func initDB() {
 	} else {
 		dbDriver = "sqlite"
 		os.MkdirAll(filepath.Dir(DBPath), 0755)
-		db, err = sql.Open("sqlite", DBPath+"?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=temp_store(MEMORY)")
+		db, err = sql.Open("sqlite", DBPath+"?_pragma=busy_timeout(60000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=temp_store(MEMORY)")
 		if err != nil {
 			slog.Error("Could not open database", "path", DBPath, "error", err)
 			os.Exit(1)
@@ -228,7 +228,7 @@ func initDB() {
 		db.SetConnMaxLifetime(1 * time.Hour)
 
 		_, err = db.Exec(`
-			PRAGMA busy_timeout=10000;
+			PRAGMA busy_timeout=60000;
 			PRAGMA journal_mode=WAL;
 			PRAGMA synchronous=NORMAL;
 			PRAGMA auto_vacuum=INCREMENTAL;
@@ -369,18 +369,18 @@ func startDBWorker(ctx context.Context) {
 				}
 			}
 
-			// 2. Resource Safety: Hard cap on total queries (max 500k rows) in non-blocking chunks
+			// 2. Resource Safety: Hard cap on total queries (max 5M rows) in non-blocking chunks
 			var totalRows int
 			err = dbQueryRowContext(ctx, "SELECT COUNT(*) FROM queries").Scan(&totalRows)
-			if err == nil && totalRows > 500000 {
-				overage := totalRows - 500000 + 50000
+			if err == nil && totalRows > 5000000 {
+				overage := totalRows - 5000000 + 50000
 				deletedTotal := 0
 				for remaining := overage; remaining > 0; remaining -= 5000 {
 					batchLimit := remaining
 					if batchLimit > 5000 {
 						batchLimit = 5000
 					}
-					delCtx, delCancel := context.WithTimeout(ctx, 10*time.Second)
+					delCtx, delCancel := context.WithTimeout(ctx, 30*time.Second)
 					res, delErr := dbExecContext(delCtx, "DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", batchLimit)
 					delCancel()
 					if delErr != nil {
@@ -392,7 +392,7 @@ func startDBWorker(ctx context.Context) {
 					if rows == 0 {
 						break
 					}
-					time.Sleep(50 * time.Millisecond) // Yield lock to allow flushes and queries
+					time.Sleep(100 * time.Millisecond) // Yield lock to allow flushes and queries
 				}
 				slog.Info("Database maintenance: Row cap prune complete", "total_before", totalRows, "deleted", deletedTotal)
 			}
@@ -407,16 +407,24 @@ func startDBWorker(ctx context.Context) {
 		}
 	}
 
-	go cleanup() // Initial cleanup
-
-	for {
+	go func() {
+		// Delay initial cleanup by 3 minutes to avoid boot lock contention with stats hydration and log batches
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-time.After(3 * time.Minute):
 			cleanup()
 		}
-	}
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				cleanup()
+			}
+		}
+	}()
 }
 
 func startLogWorker(ctx context.Context) {
