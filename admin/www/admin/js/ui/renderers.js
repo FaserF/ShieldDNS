@@ -3,6 +3,7 @@
  * Core dashboard, queries, config, analytics, and MFA lists
  */
 import { state, uiRefs, getEl } from '../core/state.js';
+import * as api from '../services/api.js';
 import * as helpers from './helpers.js';
 import { getFlagHTML } from './helpers.js';
 import { VirtualScroller } from './scroller.js';
