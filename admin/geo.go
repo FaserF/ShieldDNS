@@ -6,8 +6,10 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -15,6 +17,11 @@ import (
 var (
 	geoCacheDir = filepath.Join(DataDir, "geo")
 	geoMu       sync.Mutex
+)
+
+const (
+	maxCountryRulesPerCountry = 250
+	maxTotalCountryRules      = 2000
 )
 
 func initGeo() {
@@ -69,10 +76,14 @@ func getGeoACLRules(cfg *Config) string {
 	countries := cfg.BlockedCountries
 	blockedClients := cfg.BlockedClients
 
-	var rules []string
+	var countryRules []string
+	var activeBroaderPrefixes []netip.Prefix
 
 	// Add country-based CIDRs
 	for _, cc := range countries {
+		if len(countryRules) >= maxTotalCountryRules {
+			break
+		}
 		cc = strings.ToLower(cc)
 		// Security: Explicit check to satisfy CodeQL go/path-injection rule
 		if strings.Contains(cc, "/") || strings.Contains(cc, "\\") || strings.Contains(cc, "..") {
@@ -106,15 +117,49 @@ func getGeoACLRules(cfg *Config) string {
 			continue
 		}
 
+		var parsedPrefixes []netip.Prefix
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			cidr := strings.TrimSpace(scanner.Text())
-			if cidr != "" && !strings.HasPrefix(cidr, "#") {
-				rules = append(rules, cidr)
+			if cidr == "" || strings.HasPrefix(cidr, "#") {
+				continue
+			}
+			p, err := netip.ParsePrefix(cidr)
+			if err == nil {
+				parsedPrefixes = append(parsedPrefixes, p)
 			}
 		}
 		file.Close()
+
+		// Sort by prefix length ascending (broadest CIDRs first: /8, /12, /16, ...)
+		sort.Slice(parsedPrefixes, func(i, j int) bool {
+			return parsedPrefixes[i].Bits() < parsedPrefixes[j].Bits()
+		})
+
+		countryCount := 0
+		for _, p := range parsedPrefixes {
+			if countryCount >= maxCountryRulesPerCountry || len(countryRules) >= maxTotalCountryRules {
+				break
+			}
+			// Check if already covered by an earlier broader prefix
+			covered := false
+			for _, broader := range activeBroaderPrefixes {
+				if broader.Bits() <= p.Bits() && broader.Contains(p.Addr()) {
+					covered = true
+					break
+				}
+			}
+			if covered {
+				continue
+			}
+			activeBroaderPrefixes = append(activeBroaderPrefixes, p)
+			countryRules = append(countryRules, p.String())
+			countryCount++
+		}
 	}
+
+	var rules []string
+	rules = append(rules, countryRules...)
 
 	// Add manually blocked client IPs
 	for _, ip := range blockedClients {

@@ -120,7 +120,6 @@ https://.:{{.InternalDOHPort}} {
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
-    {{.GeoACLRules}}
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
 }

@@ -304,7 +304,7 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 
 	filteringBlock := ""
 	if cfg.FilteringEnabled {
-		filteringBlock = fmt.Sprintf("    hosts %s {\n        reload 5s\n        fallthrough\n    }\n", CombinedHostsPath)
+		filteringBlock = fmt.Sprintf("    hosts %s {\n        reload 300s\n        fallthrough\n    }\n", CombinedHostsPath)
 	}
 
 	for _, matchDomain := range sortedDomains {
@@ -322,7 +322,7 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 			if cfg.DNSSECEnabled {
 				sb.WriteString("    dnssec\n")
 			}
-			sb.WriteString("    metadata\n    reload 5s\n")
+			sb.WriteString("    metadata\n    reload 10s\n")
 			sb.WriteString(filteringBlock)
 			sb.WriteString("    cache 3600\n")
 			sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n", upstreamStr))
@@ -330,7 +330,6 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 				sb.WriteString(fmt.Sprintf("        tls_servername %s\n", target.tlsServerName))
 			}
 			sb.WriteString("    }\n")
-			sb.WriteString(fmt.Sprintf("%s\n", getGeoACLRules(cfg)))
 			sb.WriteString("    errors\n}\n\n")
 		}
 
