@@ -68,6 +68,11 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 
 func csrfMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// RFC 8484 DNS-over-HTTPS queries must never be gated by CSRF tokens
+		if r.URL.Path == "/dns-query" || strings.HasPrefix(r.URL.Path, "/dns-query/") {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch {
 			hasApiKey := r.Header.Get("X-API-Key") != "" || strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") || r.URL.Query().Get("token") != "" || strings.HasPrefix(r.URL.Path, "/api/mcp")
 			if !hasApiKey && r.Header.Get("X-Shield-Request") != "true" {

@@ -13,6 +13,7 @@ var DefaultPresets = []List{
 	{Name: "HaGeZi Multi (Pro)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
 	{Name: "HaGeZi Multi (Pro++)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.plus.txt", Enabled: false, Category: "General Blocking"},
 	{Name: "HaGeZi Multi (Ultimate)", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/ultimate.txt", Enabled: false, Category: "General Blocking"},
+	{Name: "HaGeZi Pop-Up Ads", URL: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/popupads.txt", Enabled: false, Category: "General Blocking", IsRecommended: true},
 	{Name: "OISD Basic", URL: "https://small.oisd.nl", Enabled: false, Category: "General Blocking", IsRecommended: true},
 	{Name: "OISD Full", URL: "https://big.oisd.nl", Enabled: false, Category: "General Blocking"},
 	{Name: "Steven Black Unified", URL: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", Enabled: false, Category: "General Blocking"},
@@ -23,6 +24,8 @@ var DefaultPresets = []List{
 
 	// --- Privacy & Tracking ---
 	{Name: "AdGuard Tracking Protection", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_3.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
+	{Name: "AdGuard CNAME Disguised Ads", URL: "https://raw.githubusercontent.com/AdguardTeam/cname-trackers/master/data/combined_disguised_ads.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
+	{Name: "AdGuard CNAME Disguised Trackers", URL: "https://raw.githubusercontent.com/AdguardTeam/cname-trackers/master/data/combined_disguised_trackers.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
 	{Name: "AdGuard Annoyances Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: false},
 	{Name: "EasyPrivacy (Domains)", URL: "https://justdomains.github.io/blocklists/lists/easyprivacy-justdomains.txt", Enabled: false, Category: "Privacy & Tracking", IsRecommended: true},
 	{Name: "AdGuard URL Tracking Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_17.txt", Enabled: false, Category: "Privacy & Tracking"},
