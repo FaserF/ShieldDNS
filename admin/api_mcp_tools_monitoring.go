@@ -328,5 +328,29 @@ var mcpMonitoringTools = []mcpToolDefinition{
 			return clients, nil
 		},
 	},
+	{
+		tool: mcpTool{
+			Name:        "identify_device",
+			Description: "Fingerprint a client IP address using domain traffic signatures, hostname/UA signals, and optional Omniroute AI inference.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"client_ip": map[string]interface{}{"type": "string", "description": "The client IP address to identify"},
+					"ask_ai":    map[string]interface{}{"type": "boolean", "description": "Use Omniroute AI fallback if deterministic heuristics are inconclusive"},
+				},
+				"required": []string{"client_ip"},
+			},
+		},
+		requiredPerm: "read:stats",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			clientIP, _ := args["client_ip"].(string)
+			clientIP = strings.TrimSpace(clientIP)
+			if clientIP == "" {
+				return nil, fmt.Errorf("client_ip is required")
+			}
+			askAI, _ := args["ask_ai"].(bool)
+			return IdentifyDevice(clientIP, askAI), nil
+		},
+	},
 
 }

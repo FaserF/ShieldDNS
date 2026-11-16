@@ -47,6 +47,8 @@ func setupRouter() *http.ServeMux {
 	mux.Handle("/api/system/high-risk-countries", authMiddleware(http.HandlerFunc(handleHighRiskCountries)))
 	mux.Handle("/api/system/server-country", authMiddleware(http.HandlerFunc(handleServerCountry)))
 	mux.Handle("/api/clients", authMiddleware(http.HandlerFunc(handleGetAllClients)))
+	mux.Handle("/api/clients/identities", authMiddleware(http.HandlerFunc(handleAllClientIdentities)))
+	mux.Handle("/api/client/identity", authMiddleware(http.HandlerFunc(handleClientIdentity)))
 	mux.Handle("/api/metrics", authMiddleware(http.HandlerFunc(handleMetrics)))
 
 	mux.Handle("/api/config", authMiddleware(http.HandlerFunc(handleConfig)))
