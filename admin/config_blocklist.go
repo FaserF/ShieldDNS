@@ -347,6 +347,15 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		defer file.Close()
 		reader = file
 	} else {
+func openLocalOfficialFile(relPath string) (*os.File, error) {
+	for _, base := range []string{"official", "/official", "/app/official"} {
+		if f, err := os.Open(filepath.Join(base, relPath)); err == nil {
+			return f, nil
+		}
+	}
+	return nil, os.ErrNotExist
+}
+
 		useLocal := false
 		var file *os.File
 		var err error
@@ -354,15 +363,11 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			parts := strings.Split(list.URL, "/official/")
 			if len(parts) == 2 {
 				switch parts[1] {
-				case "allowlists/default.txt":
-					file, err = os.Open("official/allowlists/default.txt")
-					useLocal = true
-				case "blocklists/default.txt":
-					file, err = os.Open("official/blocklists/default.txt")
-					useLocal = true
-				case "blocklists/search-ads-hybrid.txt":
-					file, err = os.Open("official/blocklists/search-ads-hybrid.txt")
-					useLocal = true
+				case "allowlists/default.txt", "blocklists/default.txt", "blocklists/search-ads-hybrid.txt":
+					file, err = openLocalOfficialFile(parts[1])
+					if err == nil {
+						useLocal = true
+					}
 				}
 			}
 		}
@@ -375,8 +380,8 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			}
 			reader = file
 		} else {
-			if useLocal && err != nil {
-				slog.Warn("Could not open local official list fallback file, falling back to remote", "name", list.Name, "error", err)
+			if !useLocal && err != nil {
+				slog.Debug("Local official list fallback not present, downloading remote", "name", list.Name)
 			}
 			if !testMode && !isValidListURL(list.URL) {
 				// Give a specific message when the URL uses plain HTTP
@@ -388,7 +393,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 				return
 			}
 			ua := fmt.Sprintf("ShieldDNS/%s (https://github.com/FaserF/ShieldDNS)", FullVersion)
-			resp, err := fetchBlocklistURL(list.URL, ua, map[string]string{"Accept": "text/plain, */*"}, 30)
+			resp, err := fetchBlocklistURL(list.URL, ua, map[string]string{"Accept": "text/plain, */*"}, 60)
 			if err != nil {
 				slog.Warn("Could not fetch remote list", "name", list.Name, "url", list.URL, "error", err)
 				return

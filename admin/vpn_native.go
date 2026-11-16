@@ -150,6 +150,11 @@ func syncNativeVPN(cfg *Config) {
 	stopLocked()
 
 	if mode == "native_openvpn" {
+		if _, err := exec.LookPath("openvpn"); err != nil {
+			nativeVPNLastError = "openvpn binary not found in PATH"
+			slog.Info("Native OpenVPN skipped: openvpn executable not found in PATH")
+			return
+		}
 		iface := strings.TrimSpace(cfg.VPNInterface)
 		if iface == "" {
 			iface = "tun_shield"
@@ -204,6 +209,11 @@ func syncNativeVPN(cfg *Config) {
 	}
 
 	if mode == "native_wireguard" {
+		if _, err := exec.LookPath("wg-quick"); err != nil {
+			nativeVPNLastError = "wg-quick binary not found in PATH"
+			slog.Info("Native WireGuard skipped: wg-quick executable not found in PATH")
+			return
+		}
 		iface := strings.TrimSpace(cfg.VPNInterface)
 		if iface == "" {
 			iface = "wg_shield"
