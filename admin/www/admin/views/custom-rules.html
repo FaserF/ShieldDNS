@@ -2,13 +2,41 @@
             <section id="custom-rules" class="view hidden">
                 <header>
                     <h1>Custom Rules</h1>
-                    <p>Immediately allow or block individual domains.</p>
+                    <p>Immediately allow or block individual domains, inspect decisions, and manage parental services.</p>
                 </header>
                 <div class="analytics-grid">
+                    <!-- Explain / Test a Name -->
+                    <div class="stat-card card full-width" id="explain-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <h3><i class="fas fa-search-location"></i> Test a Name / Explain Decision</h3>
+                            <button type="button" class="help-topic-btn" data-help-topic="explain" title="How Decision Attribution works">?</button>
+                        </div>
+                        <p class="help">See exactly why a domain is allowed, blocked, rewritten, or routed for any device.</p>
+                        <div class="mapping-input-group" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+                            <input type="text" id="explain-domain-input" placeholder="Domain (e.g. api.tiktok.com or www.google.com)" style="flex:2; min-width:200px;">
+                            <input type="text" id="explain-client-input" placeholder="Optional Client IP (e.g. 192.168.1.50)" style="flex:1; min-width:160px;">
+                            <select id="explain-qtype-select" class="select-filter" style="width:100px;">
+                                <option value="A">A</option>
+                                <option value="AAAA">AAAA</option>
+                                <option value="HTTPS">HTTPS</option>
+                                <option value="TXT">TXT</option>
+                            </select>
+                            <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer;" title="Also ask Omniroute AI Guardian">
+                                <input type="checkbox" id="explain-ask-ai-check"> Ask AI
+                            </label>
+                            <button type="button" id="explain-run-btn" class="btn primary" onclick="runExplainQuery()">Explain</button>
+                        </div>
+                        <div id="explain-result-box" class="explain-result-box hidden" style="margin-top:14px;"></div>
+                    </div>
+
                     <div class="stat-card card">
-                        <h3>Custom Blocklist</h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3>Custom Blocklist</h3>
+                            <button type="button" class="help-topic-btn" data-help-topic="simulate" title="What-If 24h Simulation">?</button>
+                        </div>
                         <div class="form-group row">
                             <input type="text" id="custom-block-input" placeholder="e.g. tiktok.com">
+                            <button type="button" class="btn secondary" onclick="runRuleSimulation('block_domain', 'custom-block-input', this)" title="Simulate 24h impact before blocking"><i class="fas fa-vial"></i> Simulate</button>
                             <button class="btn secondary" onclick="addCustomRule('blocked', null, event)">Block</button>
                         </div>
                         <div id="custom-blocked-list" class="minimal-list"></div>
@@ -17,9 +45,42 @@
                         <h3>Custom Allowlist</h3>
                         <div class="form-group row">
                             <input type="text" id="custom-allow-input" placeholder="e.g. myvpn.com">
+                            <button type="button" class="btn secondary" onclick="runRuleSimulation('allow_domain', 'custom-allow-input', this)" title="Simulate 24h impact before allowing"><i class="fas fa-vial"></i> Simulate</button>
                             <button class="btn secondary" onclick="addCustomRule('allowed', null, event)">Allow</button>
                         </div>
                         <div id="custom-allowed-list" class="minimal-list"></div>
+                    </div>
+
+                    <div id="rule-simulation-preview" class="stat-card card full-width simulation-preview-box hidden"></div>
+
+                    <!-- Parental Controls: SafeSearch & Blocked Services -->
+                    <div class="stat-card card full-width" id="services-catalog-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <h3><i class="fas fa-child"></i> Parental Controls: SafeSearch & Blocked Services</h3>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <button type="button" class="help-topic-btn" data-help-topic="safesearch" title="SafeSearch Help">?</button>
+                                <button type="button" class="help-topic-btn" data-help-topic="blocked-services" title="Blocked Services Help">?</button>
+                            </div>
+                        </div>
+                        <p class="help">Enforce SafeSearch across search engines & YouTube, or block entire apps in one click.</p>
+                        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin:12px 0; padding:12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border);">
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                <input type="checkbox" id="safesearch-enabled-check">
+                                <span><strong>SafeSearch Enforcement</strong> (Google, Bing, DuckDuckGo, Yandex, Pixabay)</span>
+                            </label>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <label for="youtube-restriction-select"><strong>YouTube Restricted:</strong></label>
+                                <select id="youtube-restriction-select" class="select-filter" style="width:140px;">
+                                    <option value="none">Off</option>
+                                    <option value="moderate">Moderate</option>
+                                    <option value="strict">Strict</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn primary btn-sm" style="margin-left:auto;" onclick="saveServicesSelection(this)">Apply Parental Controls</button>
+                        </div>
+                        <div id="services-catalog-grid" class="services-catalog-grid">
+                            <p class="help">Loading service catalog...</p>
+                        </div>
                     </div>
                     <div class="stat-card card full-width">
                         <h3>Local DNS Mappings</h3>
@@ -32,7 +93,7 @@
                         </div>
                         <div id="custom-mappings-list" class="minimal-list"></div>
                     </div>
-                    <div class="stat-card card full-width">
+                    <div class="stat-card card full-width advanced-only">
                         <h3>DNS Routing Rules 🔀</h3>
                         <p class="help">Configure selective routing rules for specific domains or client IPs across upstream targets: <strong>A) Normal upstream</strong>, <strong>B) Specific host (Master/Slave)</strong>, <strong>C) WireGuard VPN exit</strong>, or <strong>D) VPN / Country Geo-Proxy (SmartDNS)</strong>.</p>
                         <div class="mapping-input-group" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">

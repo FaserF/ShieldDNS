@@ -483,6 +483,7 @@ ShieldDNS has full first-class Home Assistant support:
 ShieldDNS stands on the shoulders of giants. We would like to express our profound gratitude to the following projects:
 
 - **[CoreDNS](https://coredns.io/)**: The incredibly fast, flexible, and robust CNCF-hosted DNS server that powers the core naming resolution engine of ShieldDNS.
+- **[TelltaleDNS](https://github.com/paimonsoror/telltaledns)**: Thank you for inspiring key feature concepts in ShieldDNS including explainable decision attribution, 24h what-if change simulation, deterministic device fingerprinting, periodic beaconing anomaly detection, SafeSearch/blocked-services presets, Simple vs. Advanced guided UI, and agent plan/apply workflows.
 - **[AdGuard Home](https://github.com/AdguardTeam/AdGuardHome)** & **[Pi-hole](https://pi-hole.net/)**: The trailblazers in network-wide ad-blocking. Their pioneering ideas, standard-setting filter list syntax, and community-driven approach deeply inspired the development and feature-set of ShieldDNS.
 
 ## 📄 License

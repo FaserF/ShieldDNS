@@ -7,6 +7,7 @@ import * as api from '../services/api.js';
 import * as helpers from './helpers.js';
 import { getFlagHTML } from './helpers.js';
 import { VirtualScroller } from './scroller.js';
+import { renderClientChipHTML } from './insights.js';
 
 // Re-export specialized renderers to maintain backward compatibility for existing callers
 export {
@@ -129,10 +130,10 @@ export function createQueryRow(q) {
     row.innerHTML = `
         <td>${time}</td>
         <td><span class="domain-link" onclick="showDomainDetails('${helpers.escapeHTML(q.domain)}')">${helpers.escapeHTML(q.domain)}</span>${nodeBadge}${aiBadge}</td>
-        <td><span class="ip-link" onclick="showIPDetails('${helpers.escapeHTML(q.client_ip)}')">${displayIp}</span></td>
+        <td>${renderClientChipHTML(q.client_ip, q.client_alias)}</td>
         <td class="hide-mobile">${helpers.escapeHTML(q.type) || 'A'}</td>
         <td><span class="badge ${statusClass}">${helpers.escapeHTML(q.status)}</span></td>
-        <td class="hide-mobile">${actionBtn}</td>
+        <td class="hide-mobile"><div style="display:flex; gap:4px;">${actionBtn}<button class="btn btn-sm secondary" onclick="explainDomainFromLog('${helpers.escapeHTML(q.domain)}', '${helpers.escapeHTML(q.client_ip)}', '${helpers.escapeHTML(q.type || 'A')}', event)" title="Explain why this query was allowed or blocked">Why?</button></div></td>
     `;
     return row;
 }

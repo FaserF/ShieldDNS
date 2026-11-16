@@ -93,6 +93,33 @@
                             <canvas id="latency-chart"></canvas>
                         </div>
                     </div>
+
+                    <!-- Behavioral Anomalies & Periodic Beaconing -->
+                    <div class="stat-card card" style="grid-column: 1 / -1" id="anomalies-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <h3><i class="fas fa-radar"></i> Behavioral Anomalies & Beaconing <button type="button" class="help-topic-btn" data-help-topic="beaconing" title="Learn about Beaconing & DGA Detection">?</button></h3>
+                            <button type="button" class="btn btn-sm secondary" onclick="window.refreshAnomalies && window.refreshAnomalies()"><i class="fas fa-sync-alt"></i> Scan</button>
+                        </div>
+                        <p class="help">Deterministic detection of periodic heartbeats, chatty loops, high-entropy DGA domains, and block storms (last 3 hours).</p>
+                        <div id="anomalies-list-container" style="margin-top:12px;">
+                            <p class="help">Run scan or open Diagnostics to view detected behavioral anomalies.</p>
+                        </div>
+                    </div>
+
+                    <!-- Sanitized Diagnostic Support Package -->
+                    <div class="stat-card card" style="grid-column: 1 / -1">
+                        <h3><i class="fas fa-file-archive"></i> Diagnostic Support Package</h3>
+                        <p class="help">Export a privacy-safe .zip bundle containing redacted config, system metrics, upstream health, annotations, and anomalies for troubleshooting.</p>
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px;">
+                            <select id="support-pkg-level" class="select-filter" style="width:240px;">
+                                <option value="strict">Strict (Secrets & IPs/Domains Pseudonymized)</option>
+                                <option value="standard">Standard (Secrets Redacted, IPs Readable)</option>
+                            </select>
+                            <button type="button" id="download-support-pkg-btn" class="btn primary" onclick="downloadSupportPackage()">
+                                <i class="fas fa-download"></i> Download Support Package (.zip)
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
 {{end}}

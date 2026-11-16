@@ -1,0 +1,49 @@
+{{define "help_drawer"}}
+    <div id="guided-help-drawer" class="help-drawer hidden" role="dialog" aria-label="Guided DNS Help">
+        <div id="guided-help-backdrop" class="help-drawer-backdrop"></div>
+        <div class="help-drawer-panel">
+            <div class="help-drawer-header">
+                <div>
+                    <span id="help-drawer-term" class="badge official">DNS Resolution</span>
+                    <h2 id="help-drawer-title">How ShieldDNS works</h2>
+                </div>
+                <button type="button" id="help-drawer-close" class="btn secondary btn-sm" aria-label="Close help">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="help-drawer-body">
+                <p id="help-drawer-summary" class="help-lead"></p>
+
+                <div id="help-drawer-diagram" class="help-diagram-box"></div>
+
+                <div class="help-block">
+                    <h4><i class="fas fa-lightbulb"></i> When to use this</h4>
+                    <p id="help-drawer-when"></p>
+                </div>
+
+                <div class="help-block">
+                    <h4><i class="fas fa-home"></i> Home Network Example</h4>
+                    <p id="help-drawer-example"></p>
+                </div>
+
+                <div class="help-block caution">
+                    <h4><i class="fas fa-exclamation-triangle"></i> What to watch out for</h4>
+                    <p id="help-drawer-caution"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="agent-plans-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 680px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-robot"></i> Pending AI Agent Changes</h2>
+                <button type="button" class="btn secondary btn-sm" onclick="closeAgentPlansModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="help" style="margin-bottom: 12px;">Review staged configuration plans proposed by autonomous MCP agents before applying them to CoreDNS.</p>
+                <div id="agent-plans-list"></div>
+            </div>
+        </div>
+    </div>
+{{end}}

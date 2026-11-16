@@ -17,6 +17,41 @@ const isChartAvailable = () => {
     return true;
 };
 
+export const updateChartAnnotations = (annotations) => {
+    state.chartAnnotations = annotations || [];
+    if (trafficChart) {
+        trafficChart.update();
+    }
+};
+
+const changeMarkersPlugin = {
+    id: 'shieldChangeMarkers',
+    afterDraw(chart) {
+        const markers = state.chartAnnotations || [];
+        if (!markers.length || !chart.scales || !chart.scales.x || !chart.scales.y) return;
+        const { ctx, chartArea, scales: { x } } = chart;
+        const now = Date.now();
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.55)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        markers.forEach((m) => {
+            if (!m.timestamp) return;
+            const ageHours = (now - new Date(m.timestamp).getTime()) / 3600000;
+            if (ageHours < 0 || ageHours > 23.9) return;
+            const idx = Math.round(23 - ageHours);
+            if (idx >= 0 && idx < chart.data.labels.length) {
+                const px = x.getPixelForValue(idx);
+                ctx.beginPath();
+                ctx.moveTo(px, chartArea.top);
+                ctx.lineTo(px, chartArea.bottom);
+                ctx.stroke();
+            }
+        });
+        ctx.restore();
+    }
+};
+
 export const renderTrafficChart = (data, onClickHour) => {
     if (!isChartAvailable()) return;
     const ctx = document.getElementById('traffic-chart').getContext('2d');
@@ -124,6 +159,19 @@ export const renderTrafficChart = (data, onClickHour) => {
                                 label += context.parsed.y.toLocaleString();
                             }
                             return label;
+                        },
+                        afterBody: function(items) {
+                            if (!items || !items.length) return [];
+                            const idx = items[0].dataIndex;
+                            const now = Date.now();
+                            const notes = [];
+                            (state.chartAnnotations || []).forEach((m) => {
+                                const ageHours = (now - new Date(m.timestamp).getTime()) / 3600000;
+                                if (ageHours >= 0 && ageHours <= 24 && Math.round(23 - ageHours) === idx) {
+                                    notes.push(`Marker (${m.kind}): ${m.summary}`);
+                                }
+                            });
+                            return notes.slice(0, 3);
                         }
                     }
                 }
@@ -150,7 +198,8 @@ export const renderTrafficChart = (data, onClickHour) => {
                 axis: 'x',
                 intersect: false
             }
-        }
+        },
+        plugins: [changeMarkersPlugin]
     });
 };
 

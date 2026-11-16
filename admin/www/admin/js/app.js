@@ -13,6 +13,18 @@ import * as helpers from './ui/helpers.js';
 import { showActivityOverlay, hideActivityOverlay } from './ui/activity.js';
 import { initClusterUI } from './ui/cluster.js';
 import { initModalsUI } from './ui/modals.js';
+import { initUIMode } from './core/mode.js';
+import { initHelpDrawer } from './core/help.js';
+import { updateChartAnnotations } from './ui/charts.js';
+import {
+    refreshDeviceIdentities,
+    loadServicesCatalog,
+    loadAnomalies,
+    loadAgentPlans,
+    startWallMode,
+    stopWallMode,
+    runExplainQuery
+} from './ui/insights.js';
 
 /**
  * Global Initialization
@@ -67,18 +79,34 @@ function initializeApp() {
     updateUIRefs();
     initModalsUI();
     initClusterUI();
+    initUIMode();
+    initHelpDrawer();
+    window.refreshAnomalies = loadAnomalies;
+    window.explainDomainFromLog = (domain, clientIP, qtype, event) => {
+        if (event) event.stopPropagation();
+        nav.navigateTo('custom-rules');
+        const di = getEl('explain-domain-input');
+        const ci = getEl('explain-client-input');
+        const qi = getEl('explain-qtype-select');
+        if (di) di.value = domain || '';
+        if (ci) ci.value = clientIP || '';
+        if (qi && qtype) qi.value = qtype;
+        runExplainQuery();
+    };
     
     // 1. Init Navigation with view-specific handlers
     nav.initNavigation({
-        'queries': () => fetchService.fetchQueries(),
-        'analytics': () => fetchService.fetchAnalytics(),
-        'system-logs': () => nav.startSystemLogStream(),
-        'diagnostics': () => { fetchService.fetchDiagnostics(); nav.startDiagTimer(() => fetchService.fetchDiagnostics()); },
-        'lists': () => { fetchService.fetchPresets(); fetchService.fetchAllowlistPresets(); },
-        'settings': () => { fetchService.fetchConfig(); fetchService.fetchAPIKeys(); },
-        'dashboard': () => fetchService.fetchStats(),
-        'about': () => loadAboutData(),
-        'privacy': () => loadPrivacyStatus()
+        'queries': () => { stopWallMode(); fetchService.fetchQueries(); },
+        'analytics': () => { stopWallMode(); fetchService.fetchAnalytics(); },
+        'system-logs': () => { stopWallMode(); nav.startSystemLogStream(); },
+        'diagnostics': () => { stopWallMode(); fetchService.fetchDiagnostics(); loadAnomalies(); nav.startDiagTimer(() => { fetchService.fetchDiagnostics(); loadAnomalies(); }); },
+        'custom-rules': () => { stopWallMode(); loadServicesCatalog(); },
+        'lists': () => { stopWallMode(); fetchService.fetchPresets(); fetchService.fetchAllowlistPresets(); },
+        'settings': () => { stopWallMode(); fetchService.fetchConfig(); fetchService.fetchAPIKeys(); },
+        'dashboard': () => { stopWallMode(); fetchService.fetchStats(); },
+        'wall': () => startWallMode(),
+        'about': () => { stopWallMode(); loadAboutData(); },
+        'privacy': () => { stopWallMode(); loadPrivacyStatus(); }
     });
 
     // 2. Init global event listeners
@@ -106,7 +134,10 @@ async function refreshAll() {
         fetchService.fetchQueries(true),
         fetchService.fetchHistory(),
         fetchService.fetchAPIKeys(),
-        fetchService.fetchCountries()
+        fetchService.fetchCountries(),
+        refreshDeviceIdentities(),
+        loadAgentPlans(),
+        api.apiFetch(api.endpoints.annotations).then(r => updateChartAnnotations(r.annotations)).catch(() => {})
     ]);
     events.detectServerLocation();
 }

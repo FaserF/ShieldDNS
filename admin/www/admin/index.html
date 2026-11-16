@@ -51,9 +51,19 @@
                 <a href="#" class="nav-item" data-view="lists">Filtering Lists</a>
                 <a href="#" class="nav-item" data-view="settings">Settings</a>
                 <a href="#" class="nav-item" data-view="privacy"><i class="fas fa-user-shield"></i> Privacy</a>
+                <a href="#" class="nav-item advanced-only" data-view="wall"><i class="fas fa-tv"></i> Wall Display</a>
                 <a href="#" class="nav-item" data-view="about">About</a>
                 <a href="#" id="nav-logout-btn" class="nav-item nav-logout">Logout</a>
             </nav>
+            <div style="display:flex; gap:6px; margin: 10px 0;">
+                <button type="button" id="ui-mode-toggle" class="btn secondary btn-sm" style="flex:1; justify-content:center;" title="Switch between Simple and Advanced UI Mode">
+                    <i class="fas fa-magic"></i> <span>Simple Mode</span>
+                </button>
+                <button type="button" id="agent-plans-btn" class="btn secondary btn-sm" onclick="openAgentPlansModal()" title="Pending AI Agent Changes">
+                    <i class="fas fa-robot"></i>
+                    <span id="agent-plans-badge" class="badge warning hidden" style="margin-left:4px;">0</span>
+                </button>
+            </div>
             <div class="status-indicator">
                 <div class="pulse"></div>
                 <span>CoreDNS Online</span>
@@ -77,12 +87,14 @@
             {{template "lists" .}}
             {{template "settings" .}}
             {{template "privacy" .}}
+            {{template "wall" .}}
             {{template "about" .}}
         </main>
     </div>
 
     {{template "auth-overlay" .}}
     {{template "modals" .}}
+    {{template "help_drawer" .}}
 
     <script>
         if ('serviceWorker' in navigator) {

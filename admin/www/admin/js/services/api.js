@@ -155,5 +155,19 @@ export const endpoints = {
     clusterSettings: basePath + '/api/cluster/settings',
     clusterRevokeReplica: basePath + '/api/cluster/replicas/revoke',
     clusterWorkerScript: basePath + '/api/cluster/worker-script',
-    routingRules: basePath + '/api/routing/rules'
+    routingRules: basePath + '/api/routing/rules',
+    explain: basePath + '/api/explain',
+    simulateRule: basePath + '/api/rules/simulate',
+    servicesCatalog: basePath + '/api/services/catalog',
+    servicesUpdate: basePath + '/api/services/update',
+    clientIdentities: basePath + '/api/clients/identities',
+    clientIdentity: basePath + '/api/client/identity',
+    anomalies: basePath + '/api/anomalies',
+    acknowledgeAnomaly: basePath + '/api/anomalies/acknowledge',
+    muteAnomaly: basePath + '/api/anomalies/mute',
+    annotations: basePath + '/api/annotations',
+    supportPackage: basePath + '/api/system/support-package',
+    agentPlans: basePath + '/api/agent/plans',
+    applyAgentPlan: basePath + '/api/agent/plans/apply',
+    discardAgentPlan: basePath + '/api/agent/plans/discard'
 };

@@ -1,0 +1,62 @@
+{{define "wall"}}
+            <section id="wall" class="view hidden wall-view">
+                <div class="wall-header">
+                    <div class="wall-brand">
+                        <img src="../logo.png?v=2" alt="ShieldDNS" style="height:36px;">
+                        <h1>ShieldDNS Live NOC Wall</h1>
+                    </div>
+                    <div class="wall-controls">
+                        <span id="wall-clock" class="wall-clock">--:--:--</span>
+                        <button type="button" class="btn secondary" onclick="navigateTo('dashboard')">
+                            <i class="fas fa-compress-alt"></i> Exit Wall
+                        </button>
+                    </div>
+                </div>
+
+                <div class="wall-kpi-grid">
+                    <div class="wall-kpi-card">
+                        <span class="wall-kpi-label">Live QPS</span>
+                        <span id="wall-qps" class="wall-kpi-val">0.0</span>
+                    </div>
+                    <div class="wall-kpi-card">
+                        <span class="wall-kpi-label">24h Queries</span>
+                        <span id="wall-total" class="wall-kpi-val">0</span>
+                    </div>
+                    <div class="wall-kpi-card danger">
+                        <span class="wall-kpi-label">Blocked Ratio</span>
+                        <span id="wall-blocked-pct" class="wall-kpi-val">0.0%</span>
+                    </div>
+                    <div class="wall-kpi-card success">
+                        <span class="wall-kpi-label">Cache Hits</span>
+                        <span id="wall-cache-pct" class="wall-kpi-val">0.0%</span>
+                    </div>
+                    <div class="wall-kpi-card">
+                        <span class="wall-kpi-label">Avg Latency</span>
+                        <span id="wall-latency" class="wall-kpi-val">0 ms</span>
+                    </div>
+                    <div class="wall-kpi-card">
+                        <span class="wall-kpi-label">Active Clients</span>
+                        <span id="wall-clients" class="wall-kpi-val">0</span>
+                    </div>
+                </div>
+
+                <div class="stat-card card wall-ticker-card">
+                    <h3><i class="fas fa-stream"></i> Real-Time DNS Query Ticker</h3>
+                    <div class="overflow-x">
+                        <table class="query-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Domain</th>
+                                    <th>Client</th>
+                                    <th>Decision</th>
+                                </tr>
+                            </thead>
+                            <tbody id="wall-ticker-body">
+                                <tr><td colspan="4" class="help">Loading live DNS telemetry...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+{{end}}
