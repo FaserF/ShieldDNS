@@ -11,12 +11,14 @@ async function testPage(url, pageName) {
 
     console.log(`Navigating to ${pageName}...`);
     
+    const consoleErrors = [];
     let consoleError = null;
     page.on('pageerror', exception => {
         consoleError = exception.message;
     });
     page.on('console', msg => {
         if (msg.type() === 'error') {
+            consoleErrors.push(msg.text());
             console.error(`PAGE ERROR: ${msg.text()}`);
         } else {
             console.log(`PAGE LOG: ${msg.text()}`);
@@ -24,14 +26,41 @@ async function testPage(url, pageName) {
     });
 
     try {
-        // Mock Auth Status to bypass login in tests
-        await page.route('**/api/auth-status', async route => {
-            await route.fulfill({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify({ logged_in: true, need_setup: false })
+        if (url.includes('/admin/')) {
+            const originUrl = new URL('/', url).toString();
+            await page.goto(originUrl, { waitUntil: 'load', timeout: 60000 });
+            await page.evaluate(async () => {
+                const statusRes = await fetch('/api/auth-status');
+                const statusData = await statusRes.json();
+                if (statusData.need_setup) {
+                    const setupRes = await fetch('/api/setup', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Shield-Request': 'true'
+                        },
+                        body: JSON.stringify({
+                            mode: 'standalone',
+                            password: 'TestPassword123!'
+                        })
+                    });
+                    if (!setupRes.ok && setupRes.status !== 409) {
+                        throw new Error(`Setup failed with HTTP ${setupRes.status}`);
+                    }
+                }
+                const loginRes = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Shield-Request': 'true'
+                    },
+                    body: JSON.stringify({ password: 'TestPassword123!' })
+                });
+                if (!loginRes.ok) {
+                    throw new Error(`Login failed with HTTP ${loginRes.status}`);
+                }
             });
-        });
+        }
 
         await page.goto(url, { waitUntil: 'load', timeout: 60000 });
     } catch (err) {
@@ -211,6 +240,16 @@ async function testPage(url, pageName) {
         } else {
             console.log(`  ✅ No overflow at ${vp.width}px.`);
         }
+    }
+
+    if (consoleError) {
+        console.error(`❌ ${pageName} failed with uncaught pageerror:`, consoleError);
+        failed = true;
+    }
+
+    if (consoleErrors.length > 0) {
+        console.error(`❌ ${pageName} failed with ${consoleErrors.length} console error(s).`);
+        failed = true;
     }
 
     await browser.close();

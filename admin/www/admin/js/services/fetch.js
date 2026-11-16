@@ -7,6 +7,10 @@ import * as render from '../ui/renderers.js';
 import * as charts from '../ui/charts.js';
 import * as helpers from '../ui/helpers.js';
 
+function isSetupRequiredError(e) {
+    return Boolean(e && e.message === 'SETUP_REQUIRED');
+}
+
 export async function fetchStats() {
     try {
         const data = await api.apiFetch(api.endpoints.stats);
@@ -36,7 +40,10 @@ export async function fetchStats() {
                 }
             });
         }
-    } catch (e) { console.error('Stats fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('Stats fetch failed', e);
+    }
 }
 
 export async function fetchHistory() {
@@ -50,7 +57,10 @@ export async function fetchHistory() {
                  getEl('nav-queries')?.click();
              }
         });
-    } catch (e) { console.error('History fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('History fetch failed', e);
+    }
 }
 
 export async function fetchQueries(immediate = false) {
@@ -69,7 +79,10 @@ export async function fetchQueries(immediate = false) {
         if (fetchId === state.activeFetchId) {
             render.renderQueries(queries);
         }
-    } catch (e) { console.error('Queries fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('Queries fetch failed', e);
+    }
 }
 
 export async function fetchAnalytics() {
@@ -79,14 +92,20 @@ export async function fetchAnalytics() {
             api.apiFetch(api.endpoints.topClients)
         ]);
         render.renderAnalytics(blocked, clients);
-    } catch (e) { console.error('Analytics fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('Analytics fetch failed', e);
+    }
 }
 
 export async function fetchDiagnostics() {
     try {
         const d = await api.apiFetch(api.endpoints.diagnostics);
         render.renderDiagnostics(d);
-    } catch (e) { console.error('Diagnostics fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('Diagnostics fetch failed', e);
+    }
 }
 
 export async function fetchPresets() {
@@ -141,7 +160,10 @@ export async function fetchPresets() {
                 container.appendChild(card);
             });
         });
-    } catch (e) { console.error('Presets fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('Presets fetch failed', e);
+    }
 }
 
 export async function fetchAllowlistPresets() {
@@ -196,7 +218,10 @@ export async function fetchAllowlistPresets() {
                 container.appendChild(card);
             });
         });
-    } catch (e) { console.error('Allowlist presets fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('Allowlist presets fetch failed', e);
+    }
 }
 
 export async function fetchConfig() {
@@ -204,7 +229,10 @@ export async function fetchConfig() {
         state.currentConfig = await api.apiFetch(api.endpoints.config);
         render.renderConfig(state.currentConfig);
         await fetchClusterStatus();
-    } catch(e) { console.error('Config fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('Config fetch failed', e);
+    }
 }
 
 export async function fetchClusterStatus() {
@@ -212,7 +240,10 @@ export async function fetchClusterStatus() {
         const cluster = await api.apiFetch(api.endpoints.clusterStatus);
         state.clusterStatus = cluster;
         render.renderClusterStatus(cluster);
-    } catch(e) { console.error('Cluster status fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('Cluster status fetch failed', e);
+    }
 }
 
 export async function fetchAPIKeys() {
@@ -220,13 +251,19 @@ export async function fetchAPIKeys() {
         const keys = await api.apiFetch(api.endpoints.tokens);
         state.allTokens = keys;
         render.renderAPIKeys(keys);
-    } catch(e) { console.error('API Keys fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('API Keys fetch failed', e);
+    }
 }
 
 export async function fetchCountries() {
     try {
         state.allCountries = await api.apiFetch(api.endpoints.countries);
-    } catch(e) { console.error('Countries fetch failed', e); }
+    } catch (e) {
+        if (isSetupRequiredError(e)) return;
+        console.error('Countries fetch failed', e);
+    }
 }
 
 export async function fetchIPDetails(ip) {
@@ -243,6 +280,7 @@ export async function fetchIPDetails(ip) {
         const mergedStats = { ...stats, ...ipInfo };
         render.renderIPDetails(ip, mergedStats, topDomains, topBlocked, history || []);
     } catch (e) {
+        if (isSetupRequiredError(e)) return;
         console.error('IP details fetch failed', e);
         helpers.showAlert('Failed to fetch IP details: ' + e.message);
     }
@@ -258,6 +296,7 @@ export async function fetchDomainDetails(domain) {
         ]);
         render.renderDomainDetails(domain, stats, clients, blockInfo, queries || []);
     } catch (e) {
+        if (isSetupRequiredError(e)) return;
         console.error('Domain details fetch failed', e);
         helpers.showAlert('Failed to fetch domain details: ' + e.message);
     }

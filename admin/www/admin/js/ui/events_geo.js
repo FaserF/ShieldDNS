@@ -55,6 +55,7 @@ export async function detectServerLocation() {
             if (manualBox) manualBox.classList.remove('hidden');
         }
     } catch (e) {
+        if (e && e.message === 'SETUP_REQUIRED') return;
         console.warn('Failed to detect server location:', e);
         getEl('manual-server-country-box')?.classList.remove('hidden');
     }

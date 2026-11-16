@@ -25,9 +25,12 @@ export async function apiFetch(endpoint, options = {}) {
         });
         clearTimeout(timeoutId);
         
+        const text = await response.text();
+
         if (response.status === 403) {
-            const text = await response.text();
             if (text.includes('Setup required') || text.includes('SETUP_REQUIRED')) {
+                document.getElementById('auth-overlay')?.classList.remove('hidden');
+                document.getElementById('setup-view')?.classList.remove('hidden');
                 throw new Error('SETUP_REQUIRED');
             }
         }
@@ -38,7 +41,6 @@ export async function apiFetch(endpoint, options = {}) {
             throw new Error('UNAUTHORIZED');
         }
         
-        const text = await response.text();
         let data = {};
         if (text) {
             try {
