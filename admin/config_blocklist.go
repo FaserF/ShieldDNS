@@ -108,10 +108,21 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 		}
 	}
 
+	// Add Blocked Services Catalog Rules
+	for domain, attr := range GetBlockedServiceDomains(cfg) {
+		newBlockAttribution[domain] = append(newBlockAttribution[domain], attr)
+	}
+
+	// Merge SafeSearch VIP mappings with explicit CustomMappings (explicit mappings win)
+	effectiveMappings := GetSafeSearchMappings(cfg)
+	for k, v := range customMappings {
+		effectiveMappings[k] = v
+	}
+
 	if err := saveConfig(); err != nil {
 		slog.Error("Failed to save config in updateBlocklist", "error", err)
 	}
-	applyCurrentRules(newBlockAttribution, newAllowAttribution, allowDomains, importantBlocks, customAllowedSet, customMappings, blockPageIP, restartCore)
+	applyCurrentRules(newBlockAttribution, newAllowAttribution, allowDomains, importantBlocks, customAllowedSet, effectiveMappings, blockPageIP, restartCore)
 }
 
 func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]string, allowSet map[string]struct{}, importantSet map[string]struct{}, customAllowedSet map[string]struct{}, mappings map[string]string, blockIP string, restartCore bool) {
@@ -293,7 +304,7 @@ func reloadRulesFastNoLock(cfg *Config) {
 			if _, isSuspended := suspendedListNames[l]; isSuspended {
 				continue
 			}
-			if l != "Custom Blocklist" && l != "ShieldDNS Built-in Test Domain" {
+			if l != "Custom Blocklist" && l != "ShieldDNS Built-in Test Domain" && !strings.HasPrefix(l, "Blocked Service: ") {
 				filtered = append(filtered, l)
 			}
 		}
@@ -329,6 +340,11 @@ func reloadRulesFastNoLock(cfg *Config) {
 		}
 	}
 
+	// RE-APPLY BLOCKED SERVICES CATALOG
+	for domain, attr := range GetBlockedServiceDomains(cfg) {
+		newAttribution[domain] = append(newAttribution[domain], attr)
+	}
+
 	importantAttributionLock.RLock()
 	importantCopy := make(map[string]struct{}, len(importantAttribution))
 	for k := range importantAttribution {
@@ -336,7 +352,12 @@ func reloadRulesFastNoLock(cfg *Config) {
 	}
 	importantAttributionLock.RUnlock()
 
-	applyCurrentRules(newAttribution, newAllowAttribution, allowDomains, importantCopy, customAllowedSet, cfg.CustomMappings, cfg.BlockPageIP, true)
+	effectiveMappings := GetSafeSearchMappings(cfg)
+	for k, v := range cfg.CustomMappings {
+		effectiveMappings[k] = v
+	}
+
+	applyCurrentRules(newAttribution, newAllowAttribution, allowDomains, importantCopy, customAllowedSet, effectiveMappings, cfg.BlockPageIP, true)
 }
 
 func processList(list *List, blockMap map[string][]string, allowMap map[string]struct{}, allowAttr map[string][]string, importantMap map[string]struct{}) {

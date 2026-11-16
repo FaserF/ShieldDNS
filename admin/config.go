@@ -85,8 +85,12 @@ func loadConfig() {
 		ClusterSyncInterval:        0,
 		ClusterFailoverMode:        false,
 		ClusterReplicas:            []ClusterReplica{},
+		ClusterPeerOffloadEnabled:  true,
 		RoutingRules:               []RoutingRule{},
 		WireGuardGateway:           "",
+		BlockedServices:            []string{},
+		SafeSearchEnabled:          false,
+		YouTubeRestriction:         "none",
 		YouTubeAdblockEnabled:      false,
 		VPNProvider:                "gluetun",
 		VPNDefaultCountry:          "AL",
@@ -148,6 +152,12 @@ func loadConfig() {
 		}
 		if config.ClusterReplicas == nil {
 			config.ClusterReplicas = []ClusterReplica{}
+		}
+		if config.BlockedServices == nil {
+			config.BlockedServices = []string{}
+		}
+		if config.YouTubeRestriction == "" {
+			config.YouTubeRestriction = "none"
 		}
 		if config.AIRules == nil {
 			config.AIRules = make(map[string]AIRuleMetadata)
@@ -458,6 +468,8 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 
 	exp := ClusterConfigExport{
 		PrimaryURL:                 primaryURL,
+		PrimaryEmergencyShedding:   config.EmergencySheddingActive,
+		PrimaryDNSTarget:           resolvePeerDNSTarget(primaryURL),
 		AdminPasswordHashed:        config.AdminPasswordHashed,
 		ClusterWorkerDomain:        config.ClusterWorkerDomain,
 		ClusterLogSharingMode:      config.ClusterLogSharingMode,
@@ -496,6 +508,9 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 		SpotifyAdblockEnabled:      config.SpotifyAdblockEnabled,
 		SocialAdblockEnabled:       config.SocialAdblockEnabled,
 		SmartTVAdblockEnabled:      config.SmartTVAdblockEnabled,
+		BlockedServices:            append([]string{}, config.BlockedServices...),
+		SafeSearchEnabled:          config.SafeSearchEnabled,
+		YouTubeRestriction:         config.YouTubeRestriction,
 		VPNProvider:                config.VPNProvider,
 		VPNMode:                    config.VPNMode,
 		VPNDefaultCountry:          config.VPNDefaultCountry,

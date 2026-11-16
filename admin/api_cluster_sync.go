@@ -71,10 +71,16 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 	configLock.RLock()
 	verifyTLS := config.VerifyUpstreamTLS
 	localNodeName := config.ClusterNodeName
+	localShedding := config.EmergencySheddingActive
 	configLock.RUnlock()
 
 	if strings.TrimSpace(localNodeName) != "" {
 		req.Header.Set("X-Cluster-Node-Name", strings.TrimSpace(localNodeName))
+	}
+	if localShedding {
+		req.Header.Set("X-Cluster-Shedding", "true")
+	} else {
+		req.Header.Set("X-Cluster-Shedding", "false")
 	}
 
 	client := newClusterHTTPClient(7*time.Second, verifyTLS)
@@ -98,6 +104,9 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 	if err := applyClusterExport(exp, primaryURL, apiToken, instType, failover); err != nil {
 		return err
 	}
+
+	setPrimaryPeerStatus(exp.PrimaryEmergencyShedding, exp.PrimaryDNSTarget)
+	go evaluatePeerOffload()
 
 	// Trigger log synchronization exclusively during regular cluster sync
 	go func() {
@@ -132,6 +141,9 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	customRulesChanged := config.FilteringEnabled != exp.FilteringEnabled ||
 		!slices.Equal(config.CustomBlocked, exp.CustomBlocked) ||
 		!slices.Equal(config.CustomAllowed, exp.CustomAllowed) ||
+		!slices.Equal(config.BlockedServices, exp.BlockedServices) ||
+		config.SafeSearchEnabled != exp.SafeSearchEnabled ||
+		config.YouTubeRestriction != exp.YouTubeRestriction ||
 		!maps.Equal(config.CustomMappings, mergedMappings)
 	maliciousNewlyEnabled := exp.MaliciousIPBlockingEnabled && !config.MaliciousIPBlockingEnabled
 
@@ -203,6 +215,13 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	config.SpotifyAdblockEnabled = exp.SpotifyAdblockEnabled
 	config.SocialAdblockEnabled = exp.SocialAdblockEnabled
 	config.SmartTVAdblockEnabled = exp.SmartTVAdblockEnabled
+	if exp.BlockedServices != nil {
+		config.BlockedServices = exp.BlockedServices
+	}
+	config.SafeSearchEnabled = exp.SafeSearchEnabled
+	if exp.YouTubeRestriction != "" {
+		config.YouTubeRestriction = exp.YouTubeRestriction
+	}
 	if exp.VPNCountryProxies != nil {
 		config.VPNCountryProxies = exp.VPNCountryProxies
 	}

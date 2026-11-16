@@ -319,6 +319,15 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.ClientRules == nil {
 			newConfig.ClientRules = config.ClientRules
 		}
+		if newConfig.BlockedServices == nil {
+			newConfig.BlockedServices = config.BlockedServices
+		}
+		if newConfig.YouTubeRestriction == "" {
+			newConfig.YouTubeRestriction = config.YouTubeRestriction
+		}
+		if newConfig.AIRules == nil {
+			newConfig.AIRules = config.AIRules
+		}
 
 		// Security: Prevent blocking the server's host country
 		if detectedServerCountry != "" || newConfig.ServerCountry != "" {
@@ -457,6 +466,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			newConfig.ECHOptimizationEnabled, newConfig.DNSRebindingProtection, newConfig.StripECS = config.ECHOptimizationEnabled, config.DNSRebindingProtection, config.StripECS
 			newConfig.RoutingRules, newConfig.WireGuardGateway = config.RoutingRules, config.WireGuardGateway
 			newConfig.YouTubeAdblockEnabled, newConfig.VPNProvider, newConfig.VPNDefaultCountry = config.YouTubeAdblockEnabled, config.VPNProvider, config.VPNDefaultCountry
+			newConfig.BlockedServices, newConfig.SafeSearchEnabled, newConfig.YouTubeRestriction = config.BlockedServices, config.SafeSearchEnabled, config.YouTubeRestriction
 			newConfig.VPNProxyURL, newConfig.VPNDNSUpstream, newConfig.GeoProxyIP, newConfig.SNIProxyPort = config.VPNProxyURL, config.VPNDNSUpstream, config.GeoProxyIP, config.SNIProxyPort
 			newConfig.NextDNSProfileID, newConfig.NextDNSAPIKey, newConfig.NextDNSMonthlyLimit = config.NextDNSProfileID, config.NextDNSAPIKey, config.NextDNSMonthlyLimit
 			newConfig.NextDNSYouTube, newConfig.NextDNSReddit = config.NextDNSYouTube, config.NextDNSReddit

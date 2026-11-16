@@ -81,6 +81,8 @@ type Config struct {
 	ClusterReplicas            []ClusterReplica             `json:"cluster_replicas"`
 	ClusterLocalMappings       map[string]string            `json:"cluster_local_mappings,omitempty"`
 	ClusterExcludedMappings    []string                     `json:"cluster_excluded_mappings,omitempty"`
+	ClusterPeerOffloadEnabled  bool                         `json:"cluster_peer_offload_enabled"`
+	ClusterPeerDNSTarget       string                       `json:"cluster_peer_dns_target,omitempty"`
 	RoutingRules               []RoutingRule                `json:"routing_rules"`
 	WireGuardGateway           string                       `json:"wireguard_gateway"`
 	YouTubeAdblockEnabled      bool                         `json:"youtube_adblock_enabled"`
@@ -89,6 +91,9 @@ type Config struct {
 	SpotifyAdblockEnabled      bool                         `json:"spotify_adblock_enabled"`
 	SocialAdblockEnabled       bool                         `json:"social_adblock_enabled"`
 	SmartTVAdblockEnabled      bool                         `json:"smarttv_adblock_enabled"`
+	BlockedServices            []string                     `json:"blocked_services"`
+	SafeSearchEnabled          bool                         `json:"safesearch_enabled"`
+	YouTubeRestriction         string                       `json:"youtube_restriction"`
 	VPNProvider                string                       `json:"vpn_provider,omitempty"`
 	VPNMode                    string                       `json:"vpn_mode,omitempty"` // "proxy", "native_openvpn", "native_wireguard", "interface", "tailscale"
 	VPNDefaultCountry          string                       `json:"vpn_default_country,omitempty"`
@@ -162,18 +167,22 @@ type RoutingRule struct {
 }
 
 type ClusterReplica struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	URL          string    `json:"url"`
-	TokenHash    string    `json:"token_hash"`
-	InstanceType string    `json:"instance_type"` // "private" or "public"
-	CreatedAt    time.Time `json:"created_at"`
-	LastSeen     time.Time `json:"last_seen"`
-	LastSync     time.Time `json:"last_sync"`
+	ID                string    `json:"id"`
+	Name              string    `json:"name"`
+	URL               string    `json:"url"`
+	TokenHash         string    `json:"token_hash"`
+	InstanceType      string    `json:"instance_type"` // "private" or "public"
+	EmergencyShedding bool      `json:"emergency_shedding,omitempty"`
+	DNSTarget         string    `json:"dns_target,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	LastSeen          time.Time `json:"last_seen"`
+	LastSync          time.Time `json:"last_sync"`
 }
 
 type ClusterConfigExport struct {
 	PrimaryURL                 string            `json:"primary_url"`
+	PrimaryEmergencyShedding   bool              `json:"primary_emergency_shedding,omitempty"`
+	PrimaryDNSTarget           string            `json:"primary_dns_target,omitempty"`
 	AdminPasswordHashed        string            `json:"admin_password_hashed,omitempty"`
 	ClusterWorkerDomain        string            `json:"cluster_worker_domain,omitempty"`
 	ClusterLogSharingMode      string            `json:"cluster_log_sharing_mode,omitempty"`
@@ -212,6 +221,9 @@ type ClusterConfigExport struct {
 	SpotifyAdblockEnabled      bool                         `json:"spotify_adblock_enabled"`
 	SocialAdblockEnabled       bool                         `json:"social_adblock_enabled"`
 	SmartTVAdblockEnabled      bool                         `json:"smarttv_adblock_enabled"`
+	BlockedServices            []string                     `json:"blocked_services"`
+	SafeSearchEnabled          bool                         `json:"safesearch_enabled"`
+	YouTubeRestriction         string                       `json:"youtube_restriction"`
 	VPNProvider                string                       `json:"vpn_provider,omitempty"`
 	VPNMode                    string                       `json:"vpn_mode,omitempty"` // "proxy", "native_openvpn", "native_wireguard", "interface", "tailscale"
 	VPNDefaultCountry          string                       `json:"vpn_default_country,omitempty"`
@@ -326,6 +338,7 @@ type Stats struct {
 	RAMPressureLevel        string           `json:"ram_pressure_level,omitempty"`
 	EmergencySheddingActive bool             `json:"emergency_shedding_active"`
 	EmergencyShedLists      []string         `json:"emergency_shed_lists,omitempty"`
+	PeerOffloadTarget       string           `json:"peer_offload_target,omitempty"`
 	RAMWarning              string           `json:"ram_warning,omitempty"`
 	CPUUsage                float64          `json:"cpu_usage"`
 	NumAutoBlocked          int              `json:"num_auto_blocked"`
@@ -491,6 +504,10 @@ func (c *Config) Clone() *Config {
 	if c.BlockedClients != nil {
 		newCfg.BlockedClients = make([]string, len(c.BlockedClients))
 		copy(newCfg.BlockedClients, c.BlockedClients)
+	}
+	if c.BlockedServices != nil {
+		newCfg.BlockedServices = make([]string, len(c.BlockedServices))
+		copy(newCfg.BlockedServices, c.BlockedServices)
 	}
 
 	// Deep copy maps
