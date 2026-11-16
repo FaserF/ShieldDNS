@@ -109,6 +109,7 @@ func setupRouter() *http.ServeMux {
 
 	mux.Handle("/api/domain/stats", authMiddleware(http.HandlerFunc(handleDomainStats)))
 	mux.Handle("/api/domain/clients", authMiddleware(http.HandlerFunc(handleDomainClients)))
+	mux.Handle("/api/explain", authMiddleware(http.HandlerFunc(handleExplainDecision)))
 
 	mux.Handle("/api/filtering/toggle", authMiddleware(http.HandlerFunc(handleToggleFiltering)))
 	mux.Handle("/api/filtering/status", authMiddleware(http.HandlerFunc(handleFilteringStatus)))

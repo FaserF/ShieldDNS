@@ -8,6 +8,30 @@ import (
 var mcpFilteringTools = []mcpToolDefinition{
 	{
 		tool: mcpTool{
+			Name:        "explain_decision",
+			Description: "Explain the full DNS decision pipeline for a domain and client IP: shows matching allow/block rules, SafeSearch rewrites, blocked services, routing, upstream, and optional Omniroute AI verdict.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"domain":    map[string]interface{}{"type": "string", "description": "The domain name to explain"},
+					"client_ip": map[string]interface{}{"type": "string", "description": "Optional client IP address"},
+					"qtype":     map[string]interface{}{"type": "string", "description": "Query type (e.g. A, AAAA, HTTPS; default A)"},
+					"ask_ai":    map[string]interface{}{"type": "boolean", "description": "Whether to also ask Omniroute AI Guardian for semantic threat/safety evaluation"},
+				},
+				"required": []string{"domain"},
+			},
+		},
+		requiredPerm: "read:logs",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			domain, _ := args["domain"].(string)
+			clientIP, _ := args["client_ip"].(string)
+			qtype, _ := args["qtype"].(string)
+			askAI, _ := args["ask_ai"].(bool)
+			return ExplainResolution(domain, clientIP, qtype, askAI)
+		},
+	},
+	{
+		tool: mcpTool{
 			Name:        "search_domain_status",
 			Description: "Check whether a domain is currently blocked, whitelisted, or resolved normally by any active lists, custom rules, or client-specific rules.",
 			InputSchema: map[string]interface{}{
