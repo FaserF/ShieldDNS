@@ -306,6 +306,9 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 	if config.CustomMappings != nil {
 		delete(config.CustomMappings, domain)
 	}
+	if config.AIRules != nil {
+		delete(config.AIRules, domain)
+	}
 
 	if err := saveConfigNoLock(); err != nil {
 		slog.Error("Failed to save config in handleRuleRemove", "error", err)

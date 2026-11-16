@@ -24,6 +24,48 @@
                     <!-- Result will be shown here -->
                 </div>
 
+                <!-- Emergency Shedding Alert Banner -->
+                <div id="ram-emergency-banner" class="hidden" style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <i class="fas fa-exclamation-triangle" style="color: #ef4444; font-size: 1.4rem;"></i>
+                        <div>
+                            <strong style="color: #ef4444; font-size: 0.95rem;">Emergency RAM Shedding Active</strong>
+                            <p id="ram-emergency-desc" style="margin: 2px 0 0; font-size: 0.85rem; opacity: 0.9;">One or more heavy blocklists were temporarily paused to protect host from freezing / OOM.</p>
+                        </div>
+                    </div>
+                    <button class="btn btn-sm primary" id="restore-shed-lists-btn" onclick="restoreShedLists()">Restore All Lists</button>
+                </div>
+
+                <!-- RAM Capacity & Freeze Prevention Meter -->
+                <div class="card mb-4" id="ram-capacity-widget" style="padding: 16px 20px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-memory" style="color: var(--accent);"></i>
+                            <strong style="font-size: 0.95rem;">RAM Capacity & Freeze Prevention</strong>
+                            <span id="ram-status-badge" class="badge success" style="font-size: 0.75rem;">Optimal</span>
+                        </div>
+                        <div id="ram-metrics-text" style="font-size: 0.82rem; font-family: monospace; opacity: 0.85;">
+                            ShieldDNS: <span id="ram-shielddns-val">~0 MB</span> | Safe Budget: <span id="ram-budget-val">0 MB</span> | Free: <span id="ram-free-val">0 MB</span>
+                        </div>
+                    </div>
+                    
+                    <div style="height: 12px; background: var(--bg-secondary, rgba(255,255,255,0.08)); border-radius: 6px; overflow: hidden; position: relative; display: flex;">
+                        <div id="ram-bar-used" style="height: 100%; width: 0%; background: #3b82f6; transition: width 0.3s ease;" title="Current ShieldDNS RAM"></div>
+                        <div id="ram-bar-projected" style="height: 100%; width: 0%; background: repeating-linear-gradient(45deg, #f59e0b, #f59e0b 8px, #d97706 8px, #d97706 16px); transition: width 0.3s ease;" title="Projected Change"></div>
+                        <div id="ram-bar-safety" style="position: absolute; right: 0; top: 0; bottom: 0; width: 20%; background: rgba(239, 68, 68, 0.25); border-left: 2px dashed #ef4444;" title="Host Safety Buffer (Reserved)"></div>
+                    </div>
+
+                    <div id="ram-projected-callout" class="hidden" style="margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between;">
+                        <span id="ram-projected-text"></span>
+                        <span id="ram-projected-status" class="badge"></span>
+                    </div>
+
+                    <div id="ram-warning-banner" class="hidden" style="margin-top: 10px; padding: 10px 14px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 6px; color: #ef4444; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span id="ram-warning-text"></span>
+                    </div>
+                </div>
+
                 <div class="list-section">
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">

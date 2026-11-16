@@ -112,6 +112,33 @@ type Config struct {
 	WebhookURL                 string                       `json:"webhook_url"`
 	WebhookToken               string                       `json:"webhook_token"`
 	DatabaseURL                string                       `json:"database_url,omitempty"`
+	RAMProtectionEnabled       bool                         `json:"ram_protection_enabled"`
+	MaxRAMBudgetMB             int                          `json:"max_ram_budget_mb"`
+	RAMSafetyBufferMB          int                          `json:"ram_safety_buffer_mb"`
+	EmergencySheddingActive    bool                         `json:"emergency_shedding_active"`
+	EmergencyShedLists         []string                     `json:"emergency_shed_lists"`
+	AIEnabled                  bool                         `json:"ai_enabled"`
+	AIBaseURL                  string                       `json:"ai_base_url"`
+	AIAPIKey                   string                       `json:"ai_api_key"`
+	AIModel                    string                       `json:"ai_model"`
+	AITimeoutSeconds           int                          `json:"ai_timeout_seconds"`
+	AIAutoBlockThreats         bool                         `json:"ai_auto_block_threats"`
+	AIAutoBlockAds             bool                         `json:"ai_auto_block_ads"`
+	AIAutoFlagFalsePositives   bool                         `json:"ai_auto_flag_false_positives"`
+	AIConfidenceThreshold      float64                      `json:"ai_confidence_threshold"`
+	AIAuditIntervalMinutes     int                          `json:"ai_audit_interval_minutes"`
+	AIRules                    map[string]AIRuleMetadata    `json:"ai_rules"`
+}
+
+type AIRuleMetadata struct {
+	Domain     string    `json:"domain"`
+	Action     string    `json:"action"` // "block" or "allow"
+	ThreatType string    `json:"threat_type"` // "phishing", "malware_c2", "dga", "ad_tracker", "telemetry", "false_positive"
+	Confidence float64   `json:"confidence"`
+	Reason     string    `json:"reason"`
+	Model      string    `json:"model"`
+	CreatedAt  time.Time `json:"created_at"`
+	Source     string    `json:"source"` // "ai_autonomous", "ai_manual", "hermes_mcp"
 }
 
 type ClientRule struct {
@@ -202,11 +229,18 @@ type ClusterConfigExport struct {
 	NextDNSMonthlyLimit        int                          `json:"nextdns_monthly_limit,omitempty"`
 	NextDNSYouTube             bool                         `json:"nextdns_youtube,omitempty"`
 	NextDNSReddit              bool                         `json:"nextdns_reddit,omitempty"`
+	RAMProtectionEnabled       bool                         `json:"ram_protection_enabled,omitempty"`
+	MaxRAMBudgetMB             int                          `json:"max_ram_budget_mb,omitempty"`
+	RAMSafetyBufferMB          int                          `json:"ram_safety_buffer_mb,omitempty"`
 	BlockedClients             []string                     `json:"blocked_clients,omitempty"`
 	BlockedClientsInfo         map[string]BlockedClientInfo `json:"blocked_clients_info,omitempty"`
 	ClientRules                []ClientRule                 `json:"client_rules,omitempty"`
 	ClientAliases              map[string]string            `json:"client_aliases,omitempty"`
 	MCPServerEnabled           bool                         `json:"mcp_server_enabled"`
+	AIEnabled                  bool                         `json:"ai_enabled,omitempty"`
+	AIBaseURL                  string                       `json:"ai_base_url,omitempty"`
+	AIModel                    string                       `json:"ai_model,omitempty"`
+	AIRules                    map[string]AIRuleMetadata    `json:"ai_rules,omitempty"`
 	APIKeys                    []APIKey                     `json:"api_keys,omitempty"`
 	Timestamp                  time.Time                    `json:"timestamp"`
 }
@@ -255,14 +289,16 @@ type Authenticator struct {
 }
 
 type List struct {
-	Name            string    `json:"name"`
-	URL             string    `json:"url"`
-	Enabled         bool      `json:"enabled"`
-	Category        string    `json:"category,omitempty"`
-	IsRecommended   bool      `json:"is_recommended"`
-	Entries         int       `json:"entries"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	RemoteUpdatedAt time.Time `json:"remote_updated_at"`
+	Name               string    `json:"name"`
+	URL                string    `json:"url"`
+	Enabled            bool      `json:"enabled"`
+	Category           string    `json:"category,omitempty"`
+	IsRecommended      bool      `json:"is_recommended"`
+	Priority           string    `json:"priority,omitempty"` // "high", "normal", "low"
+	EmergencySuspended bool      `json:"emergency_suspended,omitempty"`
+	Entries            int       `json:"entries"`
+	UpdatedAt          time.Time `json:"updated_at"`
+	RemoteUpdatedAt    time.Time `json:"remote_updated_at"`
 }
 
 type Stats struct {
@@ -279,16 +315,24 @@ type Stats struct {
 	AlpineVersion        string           `json:"alpine_version"`
 	LatestAlpineVersion  string           `json:"latest_alpine_version,omitempty"`
 	// Enhanced Stats
-	UptimeSeconds  int64            `json:"uptime_seconds"`
-	DBSizeMB       float64          `json:"db_size_mb"`
-	RAMUsedMB      float64          `json:"ram_used_mb"`
-	RAMTotalMB     float64          `json:"ram_total_mb"`
-	CPUUsage       float64          `json:"cpu_usage"`
-	NumAutoBlocked int              `json:"num_auto_blocked"`
-	ActiveQPS      float64          `json:"active_qps"`
-	BlockedDomains int64            `json:"blocked_domains"`
-	CoreDNSAlive   bool             `json:"coredns_alive"`
-	TopCountries   map[string]int64 `json:"top_countries"`
+	UptimeSeconds           int64            `json:"uptime_seconds"`
+	DBSizeMB                float64          `json:"db_size_mb"`
+	RAMUsedMB               float64          `json:"ram_used_mb"`
+	RAMTotalMB              float64          `json:"ram_total_mb"`
+	RAMAvailableMB          float64          `json:"ram_available_mb"`
+	RAMBudgetMB             float64          `json:"ram_budget_mb"`
+	RAMSafetyBufferMB       float64          `json:"ram_safety_buffer_mb"`
+	CoreDNSEstimatedMB      float64          `json:"coredns_estimated_mb"`
+	RAMPressureLevel        string           `json:"ram_pressure_level,omitempty"`
+	EmergencySheddingActive bool             `json:"emergency_shedding_active"`
+	EmergencyShedLists      []string         `json:"emergency_shed_lists,omitempty"`
+	RAMWarning              string           `json:"ram_warning,omitempty"`
+	CPUUsage                float64          `json:"cpu_usage"`
+	NumAutoBlocked          int              `json:"num_auto_blocked"`
+	ActiveQPS               float64          `json:"active_qps"`
+	BlockedDomains          int64            `json:"blocked_domains"`
+	CoreDNSAlive            bool             `json:"coredns_alive"`
+	TopCountries            map[string]int64 `json:"top_countries"`
 
 	// Internal Cache Metadata
 	LastUpdate time.Time `json:"-"`
@@ -482,6 +526,12 @@ func (c *Config) Clone() *Config {
 		newCfg.VPNCountryProxies = make(map[string]string)
 		for k, v := range c.VPNCountryProxies {
 			newCfg.VPNCountryProxies[k] = v
+		}
+	}
+	if c.AIRules != nil {
+		newCfg.AIRules = make(map[string]AIRuleMetadata)
+		for k, v := range c.AIRules {
+			newCfg.AIRules[k] = v
 		}
 	}
 

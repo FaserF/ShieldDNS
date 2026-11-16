@@ -102,6 +102,8 @@ func getStatsData() Stats {
 					s.RAMUsedMB = float64(v) / 1024.0
 				case uint64:
 					s.RAMUsedMB = float64(v) / 1024.0
+				case float64:
+					s.RAMUsedMB = v / 1024.0
 				}
 			}
 			if total, ok := ramMap["total"]; ok {
@@ -110,8 +112,64 @@ func getStatsData() Stats {
 					s.RAMTotalMB = float64(v) / 1024.0
 				case uint64:
 					s.RAMTotalMB = float64(v) / 1024.0
+				case float64:
+					s.RAMTotalMB = v / 1024.0
 				}
 			}
+			if avail, ok := ramMap["available"]; ok {
+				switch v := avail.(type) {
+				case int64:
+					s.RAMAvailableMB = float64(v) / 1024.0
+				case uint64:
+					s.RAMAvailableMB = float64(v) / 1024.0
+				case float64:
+					s.RAMAvailableMB = v / 1024.0
+				}
+			}
+		}
+	}
+	if s.RAMAvailableMB == 0 && s.RAMTotalMB > s.RAMUsedMB {
+		s.RAMAvailableMB = s.RAMTotalMB - s.RAMUsedMB
+	}
+
+	// Calculate CoreDNS & Filter Rules Estimated RAM (~1.3 KB per unique domain)
+	s.CoreDNSEstimatedMB = float64(s.BlockedDomains) * 1.3 / 1024.0
+
+	configLock.RLock()
+	safetyBuffer := float64(config.RAMSafetyBufferMB)
+	if safetyBuffer <= 0 {
+		safetyBuffer = s.RAMTotalMB * 0.20
+		if safetyBuffer < 256.0 {
+			safetyBuffer = 256.0
+		}
+	}
+	s.RAMSafetyBufferMB = safetyBuffer
+
+	budgetMB := float64(config.MaxRAMBudgetMB)
+	if budgetMB <= 0 {
+		budgetMB = s.RAMTotalMB - safetyBuffer
+		if budgetMB < 256.0 {
+			budgetMB = 256.0
+		}
+	}
+	s.RAMBudgetMB = budgetMB
+
+	s.EmergencySheddingActive = config.EmergencySheddingActive
+	s.EmergencyShedLists = append([]string{}, config.EmergencyShedLists...)
+	s.NumAutoBlocked = len(config.BlockedClientsInfo)
+	configLock.RUnlock()
+
+	// Determine RAM Pressure Level & Warnings
+	if s.RAMTotalMB > 0 {
+		usedRatio := s.RAMUsedMB / s.RAMTotalMB
+		if s.RAMAvailableMB < 250.0 || usedRatio >= 0.88 {
+			s.RAMPressureLevel = "critical"
+			s.RAMWarning = fmt.Sprintf("Critical RAM Pressure: only %.0f MB available (%.1f%% used). System freeze risk!", s.RAMAvailableMB, usedRatio*100)
+		} else if s.RAMAvailableMB < 500.0 || usedRatio >= 0.75 {
+			s.RAMPressureLevel = "caution"
+			s.RAMWarning = fmt.Sprintf("High RAM Usage: %.0f MB available (%.1f%% used). Monitor resource allocation.", s.RAMAvailableMB, usedRatio*100)
+		} else {
+			s.RAMPressureLevel = "optimal"
 		}
 	}
 	if val, ok := sysStats["uptime_seconds"]; ok {

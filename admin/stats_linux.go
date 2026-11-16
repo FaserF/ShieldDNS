@@ -51,10 +51,48 @@ func fillCPUStats(stats map[string]interface{}) {
 	}
 }
 
+func readCgroupMemory() (limitBytes int64, usageBytes int64) {
+	// Cgroup v2
+	if data, err := os.ReadFile("/sys/fs/cgroup/memory.max"); err == nil {
+		s := strings.TrimSpace(string(data))
+		if s != "" && s != "max" {
+			limitBytes, _ = strconv.ParseInt(s, 10, 64)
+		}
+	}
+	if data, err := os.ReadFile("/sys/fs/cgroup/memory.current"); err == nil {
+		s := strings.TrimSpace(string(data))
+		if s != "" {
+			usageBytes, _ = strconv.ParseInt(s, 10, 64)
+		}
+	}
+	// Fallback to Cgroup v1 if v2 wasn't set or was max
+	if limitBytes <= 0 {
+		if data, err := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes"); err == nil {
+			s := strings.TrimSpace(string(data))
+			if s != "" {
+				l, _ := strconv.ParseInt(s, 10, 64)
+				// Linux sets an astronomical number (~9e18) if no limit in v1
+				if l > 0 && l < 1<<60 {
+					limitBytes = l
+				}
+			}
+		}
+	}
+	if usageBytes <= 0 {
+		if data, err := os.ReadFile("/sys/fs/cgroup/memory/memory.usage_in_bytes"); err == nil {
+			s := strings.TrimSpace(string(data))
+			if s != "" {
+				usageBytes, _ = strconv.ParseInt(s, 10, 64)
+			}
+		}
+	}
+	return limitBytes, usageBytes
+}
+
 func fillRAMStats(stats map[string]interface{}) {
+	var hostTotal, hostAvailable int64
 	if data, err := os.ReadFile("/proc/meminfo"); err == nil {
 		lines := strings.Split(string(data), "\n")
-		var total, available int64
 		for _, line := range lines {
 			fields := strings.Fields(line)
 			if len(fields) < 2 {
@@ -62,17 +100,45 @@ func fillRAMStats(stats map[string]interface{}) {
 			}
 			val, _ := strconv.ParseInt(fields[1], 10, 64)
 			if fields[0] == "MemTotal:" {
-				total = val
+				hostTotal = val
 			} else if fields[0] == "MemAvailable:" {
-				available = val
+				hostAvailable = val
 			}
 		}
-		if total > 0 {
-			used := total - available
-			stats["ram"] = map[string]interface{}{
-				"total": total, // in KB
-				"used":  used,  // in KB
-			}
+	}
+
+	cgLimit, cgUsage := readCgroupMemory()
+	finalTotal := hostTotal
+	finalAvailable := hostAvailable
+
+	if cgLimit > 0 {
+		cgLimitKB := cgLimit / 1024
+		if hostTotal == 0 || cgLimitKB < hostTotal {
+			finalTotal = cgLimitKB
+		}
+	}
+
+	if cgUsage > 0 && cgLimit > 0 {
+		cgAvailKB := (cgLimit - cgUsage) / 1024
+		if cgAvailKB < 0 {
+			cgAvailKB = 0
+		}
+		if hostAvailable == 0 || cgAvailKB < hostAvailable {
+			finalAvailable = cgAvailKB
+		}
+	}
+
+	if finalTotal > 0 {
+		used := finalTotal - finalAvailable
+		if used < 0 {
+			used = 0
+		}
+		stats["ram"] = map[string]interface{}{
+			"total":          finalTotal,
+			"used":           used,
+			"available":      finalAvailable,
+			"host_total":     hostTotal,
+			"host_available": hostAvailable,
 		}
 	}
 }

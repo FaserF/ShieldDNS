@@ -154,8 +154,22 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 
 	// Overwrite filtering and rule settings from Primary (Always Primary Wins)
 	config.FilteringEnabled = exp.FilteringEnabled
+
+	// Preserve local emergency shedding state on replica to protect local node RAM
+	suspendedMap := make(map[string]bool)
+	for _, l := range config.Lists {
+		if l.EmergencySuspended {
+			suspendedMap[strings.ToLower(strings.TrimSpace(l.URL))] = true
+		}
+	}
 	config.Lists = exp.Lists
+	for i := range config.Lists {
+		if suspendedMap[strings.ToLower(strings.TrimSpace(config.Lists[i].URL))] {
+			config.Lists[i].EmergencySuspended = true
+		}
+	}
 	config.Allowlists = exp.Allowlists
+	normalizeListPriorities(&config)
 	config.CustomBlocked = exp.CustomBlocked
 	config.CustomAllowed = exp.CustomAllowed
 	config.CustomMappings = mergedMappings

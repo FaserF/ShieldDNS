@@ -17,6 +17,7 @@ func init() {
 	allMCPTools = append(allMCPTools, mcpAdminTools...)
 	allMCPTools = append(allMCPTools, mcpClusterTools...)
 	allMCPTools = append(allMCPTools, mcpVectorTools...)
+	allMCPTools = append(allMCPTools, mcpAITools...)
 }
 // getActiveAPIKey extracts and verifies the APIKey for MCP requests
 func getActiveAPIKey(r *http.Request) *APIKey {

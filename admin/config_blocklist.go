@@ -42,7 +42,10 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 
 	for i := range blocklists {
 		list := &blocklists[i]
-		if !list.Enabled {
+		if !list.Enabled || list.EmergencySuspended {
+			if list.EmergencySuspended {
+				slog.Info("Skipping blocklist due to emergency RAM shedding", "name", list.Name)
+			}
 			continue
 		}
 		slog.Info("Processing blocklist", "name", list.Name)
@@ -274,11 +277,22 @@ func reloadRulesFastNoLock(cfg *Config) {
 		return
 	}
 
-	// Filter out existing "Custom Blocklist" entries as we will re-apply them from current config
+	// Build set of suspended list names for emergency relief
+	suspendedListNames := make(map[string]struct{})
+	for _, l := range cfg.Lists {
+		if l.EmergencySuspended {
+			suspendedListNames[l.Name] = struct{}{}
+		}
+	}
+
+	// Filter out existing "Custom Blocklist" entries and any emergency suspended lists
 	newAttribution := make(map[string][]string)
 	for d, lists := range blockAttribution {
 		var filtered []string
 		for _, l := range lists {
+			if _, isSuspended := suspendedListNames[l]; isSuspended {
+				continue
+			}
 			if l != "Custom Blocklist" && l != "ShieldDNS Built-in Test Domain" {
 				filtered = append(filtered, l)
 			}

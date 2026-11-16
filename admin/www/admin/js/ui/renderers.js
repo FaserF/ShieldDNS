@@ -25,6 +25,10 @@ export {
 import { applyReplicaSyncedLocks as applyLocks } from './renderers_system.js';
 
 export function renderDashStats(data) {
+    if (data) {
+        state.latestStats = data;
+        renderRAMCapacity(data, state.currentConfig || {});
+    }
     const c = uiRefs.statsContainer;
     if (!c.total) return;
 
@@ -128,6 +132,7 @@ export function createQueryRow(q) {
 }
 
 export function renderConfig(cfg) {
+    renderRAMCapacity(state.latestStats || {}, cfg);
     const domain = cfg.admin_domain || window.location.hostname;
 
     const dotHost = getEl('guide-dot-host');
@@ -382,16 +387,42 @@ export function renderConfig(cfg) {
     const activeBlocks = getEl('active-blocklists-list');
     if (activeBlocks) {
         activeBlocks.innerHTML = (cfg.lists || []).map((list, i) => {
-            const ramMB = Math.round((list.entries || 0) * 1.1 / 1024);
-            const ramBadge = list.enabled ? `<span class="badge secondary" style="margin-left: 10px; font-weight: 500;">~${ramMB} MB RAM</span>` : '';
+            const ramMB = Math.round((list.entries || 0) * 1.3 / 1024);
+            const ramBadge = list.enabled ? `<span class="badge secondary" style="margin-left: 8px; font-weight: 500;">~${ramMB} MB RAM</span>` : '';
+            
+            // Priority Selector
+            const prio = (list.priority || 'normal').toLowerCase();
+            const prioPill = `
+                <select class="list-prio-select" onchange="event.stopPropagation(); window.setListPriority('${helpers.escapeHTML(list.url)}', this.value, event)" onclick="event.stopPropagation();" style="background: var(--bg-card, rgba(255,255,255,0.05)); border: 1px solid var(--border); border-radius: 4px; color: var(--text-color); font-size: 0.75rem; padding: 2px 6px; margin-left: 6px; cursor: pointer;">
+                    <option value="high" ${prio === 'high' ? 'selected' : ''}>🛡️ High (Protected)</option>
+                    <option value="normal" ${prio === 'normal' ? 'selected' : ''}>⚡ Normal</option>
+                    <option value="low" ${prio === 'low' ? 'selected' : ''}>📦 Low (Shed First)</option>
+                </select>
+            `;
+
+            let suspendedBadge = '';
+            let toggleBtnText = list.enabled ? 'Disable' : 'Enable';
+            if (list.emergency_suspended) {
+                suspendedBadge = `<span class="badge danger" style="margin-left: 8px; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444;"><i class="fas fa-pause-circle"></i> Suspended (RAM Relief)</span>`;
+                toggleBtnText = 'Paused (RAM Relief)';
+            }
+
             return `
-            <div class="list-item" onclick="window.openListDetailsModal(${i}, 'block')">
+            <div class="list-item ${list.emergency_suspended ? 'suspended' : ''}" onclick="window.openListDetailsModal(${i}, 'block')">
                 <div class="list-info">
-                    <h3 style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">${helpers.escapeHTML(list.name)}${ramBadge}</h3>
+                    <h3 style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        ${helpers.escapeHTML(list.name)}
+                        ${ramBadge}
+                        ${suspendedBadge}
+                        ${prioPill}
+                    </h3>
                     <p>${helpers.escapeHTML(list.url)}</p>
                 </div>
                 <div class="list-actions">
-                    <button class="btn btn-sm secondary" onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'block', event)">${list.enabled ? 'Disable' : 'Enable'}</button>
+                    <button class="btn btn-sm secondary" 
+                        onmouseenter="window.previewProjectedRAM(${list.entries || 0}, '${helpers.escapeHTML(list.name)}', ${!list.enabled})"
+                        onmouseleave="window.clearProjectedRAM()"
+                        onclick="event.stopPropagation(); window.toggleList(${i}, ${!list.enabled}, 'block', event)">${toggleBtnText}</button>
                     <button class="btn btn-sm secondary danger" onclick="event.stopPropagation(); window.removeList(${i}, 'block', event)" title="Remove List"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
@@ -597,4 +628,145 @@ export function renderPasskeys(cfg) {
             </div>
         `;
     }).join('');
+}
+
+export function renderRAMCapacity(stats, cfg) {
+    stats = stats || state.latestStats || {};
+    cfg = cfg || state.currentConfig || {};
+
+    const widget = getEl('ram-capacity-widget');
+    if (!widget) return;
+
+    const totalMB = Number(stats.ram_total_mb || 0);
+    const usedMB = Number(stats.ram_used_mb || 0);
+    const availMB = Number(stats.ram_available_mb || Math.max(0, totalMB - usedMB));
+    const budgetMB = Number(stats.ram_budget_mb || (cfg.max_ram_budget_mb > 0 ? cfg.max_ram_budget_mb : Math.max(256, totalMB * 0.8)));
+    const safetyMB = Number(stats.ram_safety_buffer_mb || (cfg.ram_safety_buffer_mb > 0 ? cfg.ram_safety_buffer_mb : Math.max(256, totalMB * 0.2)));
+    const domainCount = Number(stats.blocked_domains || 0);
+    const shieldMB = Number(stats.coredns_estimated_mb || (domainCount * 1.3 / 1024));
+
+    const shieldValEl = getEl('ram-shielddns-val');
+    const budgetValEl = getEl('ram-budget-val');
+    const freeValEl = getEl('ram-free-val');
+    const statusBadge = getEl('ram-status-badge');
+    const barUsed = getEl('ram-bar-used');
+    const barSafety = getEl('ram-bar-safety');
+    const warningBanner = getEl('ram-warning-banner');
+    const warningText = getEl('ram-warning-text');
+    const emBanner = getEl('ram-emergency-banner');
+    const emDesc = getEl('ram-emergency-desc');
+
+    if (shieldValEl) shieldValEl.textContent = `~${Math.round(shieldMB)} MB (${domainCount.toLocaleString()} domains)`;
+    if (budgetValEl) budgetValEl.textContent = `${Math.round(budgetMB)} MB`;
+    if (freeValEl) freeValEl.textContent = `${Math.round(availMB)} MB`;
+
+    if (totalMB > 0) {
+        if (barUsed) {
+            const usedPct = Math.min(100, Math.max(0, (shieldMB / totalMB) * 100));
+            barUsed.style.width = `${usedPct}%`;
+            barUsed.style.background = (shieldMB > budgetMB) ? '#ef4444' : (shieldMB > budgetMB * 0.8 ? '#f59e0b' : '#3b82f6');
+        }
+        if (barSafety) {
+            const safetyPct = Math.min(50, Math.max(10, (safetyMB / totalMB) * 100));
+            barSafety.style.width = `${safetyPct}%`;
+        }
+    }
+
+    // Status Level & Warnings
+    const pressureLevel = stats.ram_pressure_level || (availMB < 250 || (totalMB > 0 && usedMB / totalMB > 0.88) ? 'critical' : (availMB < 500 ? 'caution' : 'optimal'));
+    if (statusBadge) {
+        if (pressureLevel === 'critical') {
+            statusBadge.className = 'badge danger';
+            statusBadge.textContent = 'Critical Pressure';
+        } else if (pressureLevel === 'caution' || shieldMB > budgetMB * 0.85) {
+            statusBadge.className = 'badge warning';
+            statusBadge.textContent = 'High Load';
+        } else {
+            statusBadge.className = 'badge success';
+            statusBadge.textContent = 'Optimal';
+        }
+    }
+
+    if (warningBanner && warningText) {
+        if (stats.ram_warning) {
+            warningBanner.classList.remove('hidden');
+            warningText.textContent = stats.ram_warning;
+        } else if (shieldMB > budgetMB) {
+            warningBanner.classList.remove('hidden');
+            warningText.textContent = `ShieldDNS memory footprint (~${Math.round(shieldMB)} MB) exceeds safe budget (${Math.round(budgetMB)} MB)! High risk of freezing.`;
+        } else {
+            warningBanner.classList.add('hidden');
+        }
+    }
+
+    // Emergency Load Shedding Banner
+    const isShedding = !!(cfg.emergency_shedding_active || stats.emergency_shedding_active);
+    if (emBanner) {
+        if (isShedding) {
+            emBanner.classList.remove('hidden');
+            const count = (cfg.emergency_shed_lists || stats.emergency_shed_lists || []).length;
+            if (emDesc) {
+                emDesc.textContent = (count > 0) ?
+                    `${count} heavy blocklist${count > 1 ? 's were' : ' was'} temporarily suspended by autonomous watchdog to protect system from freezing / OOM.` :
+                    'Heavy blocklists were temporarily suspended to protect system from freezing / OOM.';
+            }
+        } else {
+            emBanner.classList.add('hidden');
+        }
+    }
+}
+
+export function previewProjectedRAM(entries, listName, isEnabling) {
+    const stats = state.latestStats || {};
+    const cfg = state.currentConfig || {};
+    const totalMB = Number(stats.ram_total_mb || 4096);
+    const domainCount = Number(stats.blocked_domains || 0);
+    const currentShieldMB = Number(stats.coredns_estimated_mb || (domainCount * 1.3 / 1024));
+    const budgetMB = Number(stats.ram_budget_mb || (cfg.max_ram_budget_mb > 0 ? cfg.max_ram_budget_mb : Math.max(256, totalMB * 0.8)));
+
+    const deltaMB = Math.round((Number(entries) || 0) * 1.3 / 1024);
+    const projectedShieldMB = isEnabling ? (currentShieldMB + deltaMB) : Math.max(0, currentShieldMB - deltaMB);
+
+    const callout = getEl('ram-projected-callout');
+    const calloutText = getEl('ram-projected-text');
+    const calloutBadge = getEl('ram-projected-status');
+    const barProjected = getEl('ram-bar-projected');
+
+    if (!callout) return;
+
+    const opSign = isEnabling ? '+' : '-';
+    callout.classList.remove('hidden');
+
+    if (totalMB > 0 && barProjected) {
+        const deltaPct = Math.min(100, (deltaMB / totalMB) * 100);
+        barProjected.style.width = `${deltaPct}%`;
+        barProjected.style.background = isEnabling ?
+            (projectedShieldMB > budgetMB ? '#ef4444' : 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 8px, #d97706 8px, #d97706 16px)') :
+            'repeating-linear-gradient(45deg, #10b981, #10b981 8px, #059669 8px, #059669 16px)';
+    }
+
+    if (isEnabling && projectedShieldMB > budgetMB) {
+        callout.style.background = 'rgba(239, 68, 68, 0.15)';
+        callout.style.border = '1px solid #ef4444';
+        calloutText.innerHTML = `<strong>⚠️ Warning:</strong> Enabling <em>${helpers.escapeHTML(listName)}</em> (${opSign}${Number(entries).toLocaleString()} domains, ${opSign}${deltaMB} MB) will exceed safe budget of ${Math.round(budgetMB)} MB!`;
+        if (calloutBadge) {
+            calloutBadge.className = 'badge danger';
+            calloutBadge.textContent = `Exceeds Budget (${Math.round(projectedShieldMB)} MB)`;
+        }
+    } else {
+        callout.style.background = 'var(--bg-secondary, rgba(255,255,255,0.05))';
+        callout.style.border = '1px solid var(--border)';
+        calloutText.innerHTML = `<strong>Projected:</strong> ${isEnabling ? 'Enabling' : 'Disabling'} <em>${helpers.escapeHTML(listName)}</em> will change RAM by <strong>${opSign}${deltaMB} MB</strong> (${Math.round(projectedShieldMB)} MB total).`;
+        if (calloutBadge) {
+            calloutBadge.className = isEnabling ? 'badge warning' : 'badge success';
+            calloutBadge.textContent = isEnabling ? `${opSign}${deltaMB} MB` : `Frees ${deltaMB} MB`;
+        }
+    }
+}
+
+export function clearProjectedRAM() {
+    const callout = getEl('ram-projected-callout');
+    const barProjected = getEl('ram-bar-projected');
+    if (callout) callout.classList.add('hidden');
+    if (barProjected) barProjected.style.width = '0%';
 }

@@ -150,12 +150,17 @@ export async function fetchPresets() {
                     btn.style.opacity = '0.7';
                 } else {
                     btn.textContent = 'Add';
+                    btn.onmouseenter = () => window.previewProjectedRAM?.(preset.entries || 0, preset.name, true);
+                    btn.onmouseleave = () => window.clearProjectedRAM?.();
                     btn.onclick = (e) => {
                         e.stopPropagation();
+                        window.clearProjectedRAM?.();
                         window.addPreset(preset.name, preset.url, e);
                     };
                 }
-                card.innerHTML = `<div class="preset-info"><h3>${preset.name}</h3></div>`;
+                const ramMB = Math.round((preset.entries || 0) * 1.3 / 1024);
+                const ramBadge = preset.entries ? `<span class="badge secondary" style="margin-left: 8px; font-size: 0.75rem; font-weight: normal;">~${ramMB} MB</span>` : '';
+                card.innerHTML = `<div class="preset-info"><h3>${preset.name}${ramBadge}</h3></div>`;
                 card.appendChild(btn);
                 container.appendChild(card);
             });

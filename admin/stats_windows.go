@@ -29,10 +29,14 @@ func fillRAMStats(stats map[string]interface{}) {
 
 	total := uint64(16 * 1024 * 1024 * 1024) // 16GB Mock
 	used := m.Sys
+	available := total - used
 
 	stats["ram"] = map[string]interface{}{
-		"total": total / 1024, // in KB
-		"used":  used / 1024,  // in KB
+		"total":          total / 1024,
+		"used":           used / 1024,
+		"available":      available / 1024,
+		"host_total":     total / 1024,
+		"host_available": available / 1024,
 	}
 }
 

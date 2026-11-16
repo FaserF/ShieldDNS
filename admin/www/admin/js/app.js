@@ -241,10 +241,60 @@ window.toggleLiveUpdate = () => {
     }
 };
 
+window.previewProjectedRAM = render.previewProjectedRAM;
+window.clearProjectedRAM = render.clearProjectedRAM;
+
+window.setListPriority = async (url, priority, event) => {
+    try {
+        await api.apiFetch(api.endpoints.setListPriority, {
+            method: 'POST',
+            body: JSON.stringify({ url, priority })
+        });
+        helpers.showToast(`Priority set to ${priority.toUpperCase()}`);
+        fetchService.fetchConfig();
+    } catch (e) {
+        helpers.showAlert(`Failed to set priority: ${e.message}`);
+    }
+};
+
+window.restoreShedLists = async (event) => {
+    const btn = event?.currentTarget || getEl('restore-shed-lists-btn');
+    helpers.setBtnLoading(btn, true, 'Restoring...');
+    try {
+        const res = await api.apiFetch(api.endpoints.restoreShedLists, { method: 'POST' });
+        helpers.showToast(res.message || 'Lists restored successfully');
+        fetchService.fetchConfig();
+        fetchService.fetchStats();
+    } catch (e) {
+        helpers.showAlert(`Failed to restore shed lists: ${e.message}`);
+    } finally {
+        helpers.setBtnLoading(btn, false);
+    }
+};
+
 window.addPreset = async (name, url, event) => {
     const listUrl = (url || '').toLowerCase().trim();
     if ((state.currentConfig.lists || []).some(l => (l.url || '').toLowerCase().trim() === listUrl)) {
         return helpers.showToast('List already added', 'info');
+    }
+
+    const presetObj = (state.blockPresets || []).find(p => (p.url || '').toLowerCase().trim() === listUrl);
+    const entries = presetObj?.entries || 0;
+    const deltaMB = Math.round(entries * 1.3 / 1024);
+    const stats = state.latestStats || {};
+    const totalMB = Number(stats.ram_total_mb || 4096);
+    const domainCount = Number(stats.blocked_domains || 0);
+    const currentShieldMB = Number(stats.coredns_estimated_mb || (domainCount * 1.3 / 1024));
+    const budgetMB = Number(stats.ram_budget_mb || (state.currentConfig.max_ram_budget_mb > 0 ? state.currentConfig.max_ram_budget_mb : Math.max(256, totalMB * 0.8)));
+
+    if (currentShieldMB + deltaMB > budgetMB) {
+        if (!await helpers.showConfirm(
+            `Adding "${name}" (+${entries.toLocaleString()} domains, +~${deltaMB} MB RAM) will exceed your safe RAM budget of ${Math.round(budgetMB)} MB. This could cause high latency or host lockups.\n\nDo you want to proceed anyway?`,
+            'RAM Budget Warning',
+            true
+        )) {
+            return;
+        }
     }
     
     const btn = event?.currentTarget;
@@ -330,11 +380,41 @@ window.removeCustomMapping = async (domain, event) => {
 };
 
 window.toggleList = async (idx, enabled, type, event) => {
+    const list = type === 'block' ? state.currentConfig.lists[idx] : state.currentConfig.allowlists[idx];
+    
+    // Clear any active projected preview on click
+    render.clearProjectedRAM();
+
+    if (enabled && type === 'block' && list) {
+        const entries = list.entries || 0;
+        const deltaMB = Math.round(entries * 1.3 / 1024);
+        const stats = state.latestStats || {};
+        const totalMB = Number(stats.ram_total_mb || 4096);
+        const domainCount = Number(stats.blocked_domains || 0);
+        const currentShieldMB = Number(stats.coredns_estimated_mb || (domainCount * 1.3 / 1024));
+        const budgetMB = Number(stats.ram_budget_mb || (state.currentConfig.max_ram_budget_mb > 0 ? state.currentConfig.max_ram_budget_mb : Math.max(256, totalMB * 0.8)));
+
+        if (currentShieldMB + deltaMB > budgetMB) {
+            if (!await helpers.showConfirm(
+                `Enabling "${list.name}" (+${entries.toLocaleString()} domains, +~${deltaMB} MB RAM) will exceed your safe RAM budget of ${Math.round(budgetMB)} MB.\n\nDo you want to proceed anyway?`,
+                'RAM Budget Warning',
+                true
+            )) {
+                return;
+            }
+        }
+    }
+
     const btn = event?.currentTarget;
     helpers.setBtnLoading(btn, true, 'Saving...');
 
-    if (type === 'block') state.currentConfig.lists[idx].enabled = enabled;
-    else state.currentConfig.allowlists[idx].enabled = enabled;
+    if (type === 'block') {
+        state.currentConfig.lists[idx].enabled = enabled;
+        // If enabling, clear emergency suspended flag
+        if (enabled) state.currentConfig.lists[idx].emergency_suspended = false;
+    } else {
+        state.currentConfig.allowlists[idx].enabled = enabled;
+    }
     
     try {
         await api.apiFetch(api.endpoints.config, { method: 'POST', body: JSON.stringify(state.currentConfig) });

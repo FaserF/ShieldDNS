@@ -14,7 +14,8 @@ export const state = {
     systemLogStream: null,
     isDirty: false,
     liveUpdatesEnabled: true,
-    filterDohProxy: false
+    filterDohProxy: false,
+    latestStats: null
 };
 
 export const getEl = (id) => document.getElementById(id);

@@ -468,6 +468,12 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		if newConfig.EmergencyShedLists == nil {
+			newConfig.EmergencyShedLists = config.EmergencyShedLists
+			newConfig.EmergencySheddingActive = config.EmergencySheddingActive
+		}
+		normalizeListPriorities(&newConfig)
+
 		configHold := config
 		config = newConfig
 		if err := saveConfigNoLock(); err != nil {

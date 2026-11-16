@@ -1,0 +1,137 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestNormalizeListPriorities(t *testing.T) {
+	cfg := &Config{
+		Lists: []List{
+			{Name: "ShieldDNS Official Blocklist", URL: "https://example.com/official", Category: "Official", Priority: ""},
+			{Name: "Huge Bloat List", URL: "https://example.com/huge", Category: "Other", Entries: 250000, Priority: ""},
+			{Name: "Normal List", URL: "https://example.com/normal", Category: "General Blocking", Entries: 15000, Priority: ""},
+		},
+		Allowlists: []List{
+			{Name: "Official Allowlist", URL: "https://example.com/allow", Priority: ""},
+		},
+	}
+
+	modified := normalizeListPriorities(cfg)
+	if !modified {
+		t.Fatalf("Expected normalizeListPriorities to modify config")
+	}
+
+	if cfg.Lists[0].Priority != "high" {
+		t.Errorf("Expected official list priority 'high', got '%s'", cfg.Lists[0].Priority)
+	}
+	if cfg.Lists[1].Priority != "low" {
+		t.Errorf("Expected >200k entries list priority 'low', got '%s'", cfg.Lists[1].Priority)
+	}
+	if cfg.Lists[2].Priority != "normal" {
+		t.Errorf("Expected normal list priority 'normal', got '%s'", cfg.Lists[2].Priority)
+	}
+	if cfg.Allowlists[0].Priority != "high" {
+		t.Errorf("Expected allowlist priority 'high', got '%s'", cfg.Allowlists[0].Priority)
+	}
+}
+
+func TestEmergencyLoadSheddingOrder(t *testing.T) {
+	configLock.Lock()
+	origLists := config.Lists
+	origActive := config.EmergencySheddingActive
+	origShed := config.EmergencyShedLists
+
+	config.Lists = []List{
+		{Name: "Core Security", URL: "https://sec.test/list", Enabled: true, Priority: "high", Entries: 50000},
+		{Name: "Normal Large", URL: "https://normal.test/list2", Enabled: true, Priority: "normal", Entries: 120000},
+		{Name: "Low Small", URL: "https://low.test/small", Enabled: true, Priority: "low", Entries: 10000},
+		{Name: "Low Monster", URL: "https://low.test/monster", Enabled: true, Priority: "low", Entries: 300000},
+	}
+	config.EmergencySheddingActive = false
+	config.EmergencyShedLists = nil
+	configLock.Unlock()
+
+	defer func() {
+		configLock.Lock()
+		config.Lists = origLists
+		config.EmergencySheddingActive = origActive
+		config.EmergencyShedLists = origShed
+		configLock.Unlock()
+	}()
+
+	// Trigger emergency load shedding
+	triggerEmergencyLoadShedding(150.0, 4096.0, 500.0, 3000.0)
+
+	configLock.RLock()
+	defer configLock.RUnlock()
+
+	if !config.EmergencySheddingActive {
+		t.Fatalf("Expected EmergencySheddingActive to be true")
+	}
+
+	// Verify "Low Monster" (low prio with 300k entries) was shed first
+	var lowMonster, lowSmall, normalLarge, coreSec *List
+	for i := range config.Lists {
+		switch config.Lists[i].Name {
+		case "Low Monster":
+			lowMonster = &config.Lists[i]
+		case "Low Small":
+			lowSmall = &config.Lists[i]
+		case "Normal Large":
+			normalLarge = &config.Lists[i]
+		case "Core Security":
+			coreSec = &config.Lists[i]
+		}
+	}
+
+	if lowMonster == nil || !lowMonster.EmergencySuspended {
+		t.Errorf("Expected 'Low Monster' to be EmergencySuspended first, got suspended=%v", lowMonster != nil && lowMonster.EmergencySuspended)
+	}
+	if lowSmall != nil && lowSmall.EmergencySuspended {
+		t.Errorf("Expected 'Low Small' not to be suspended before Monster")
+	}
+	if normalLarge != nil && normalLarge.EmergencySuspended {
+		t.Errorf("Expected 'Normal Large' not to be suspended while low priority list existed")
+	}
+	if coreSec != nil && coreSec.EmergencySuspended {
+		t.Errorf("Expected 'Core Security' not to be suspended")
+	}
+}
+
+func TestSetListPriorityAPI(t *testing.T) {
+	configLock.Lock()
+	origLists := config.Lists
+	config.Lists = []List{
+		{Name: "Test List", URL: "https://test.local/list.txt", Priority: "normal"},
+	}
+	configLock.Unlock()
+
+	defer func() {
+		configLock.Lock()
+		config.Lists = origLists
+		configLock.Unlock()
+	}()
+
+	body, _ := json.Marshal(map[string]string{
+		"url":      "https://test.local/list.txt",
+		"priority": "low",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/lists/priority", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handleSetListPriority(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected HTTP 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	configLock.RLock()
+	defer configLock.RUnlock()
+	if config.Lists[0].Priority != "low" {
+		t.Errorf("Expected priority 'low', got '%s'", config.Lists[0].Priority)
+	}
+}

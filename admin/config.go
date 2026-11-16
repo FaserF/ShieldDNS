@@ -97,6 +97,17 @@ func loadConfig() {
 		WebhookEnabled:             false,
 		WebhookURL:                 "",
 		WebhookToken:               "",
+		AIEnabled:                  false,
+		AIBaseURL:                  "http://127.0.0.1:20128/v1",
+		AIAPIKey:                   "",
+		AIModel:                    "security-threat-cascade",
+		AITimeoutSeconds:           15,
+		AIAutoBlockThreats:         true,
+		AIAutoBlockAds:             false,
+		AIAutoFlagFalsePositives:   true,
+		AIConfidenceThreshold:      0.80,
+		AIAuditIntervalMinutes:     5,
+		AIRules:                    make(map[string]AIRuleMetadata),
 	}
 
 	isNew := false
@@ -138,6 +149,24 @@ func loadConfig() {
 		if config.ClusterReplicas == nil {
 			config.ClusterReplicas = []ClusterReplica{}
 		}
+		if config.AIRules == nil {
+			config.AIRules = make(map[string]AIRuleMetadata)
+		}
+		if config.AIBaseURL == "" {
+			config.AIBaseURL = "http://127.0.0.1:20128/v1"
+		}
+		if config.AIModel == "" {
+			config.AIModel = "security-threat-cascade"
+		}
+		if config.AITimeoutSeconds <= 0 {
+			config.AITimeoutSeconds = 15
+		}
+		if config.AIConfidenceThreshold <= 0 {
+			config.AIConfidenceThreshold = 0.80
+		}
+		if config.AIAuditIntervalMinutes <= 0 {
+			config.AIAuditIntervalMinutes = 5
+		}
 	} else {
 		isNew = true
 		slog.Info("Creating default config", "path", ConfigPath)
@@ -175,6 +204,23 @@ func loadConfig() {
 		config.WebhookEnabled = strings.ToLower(envWebhookEnabled) == "true" || envWebhookEnabled == "1"
 	}
 
+	// Universal AI environment overrides
+	if envAIURL := os.Getenv("AI_BASE_URL"); envAIURL != "" {
+		config.AIBaseURL = strings.TrimSpace(envAIURL)
+	}
+	if envAIKey := os.Getenv("AI_API_KEY"); envAIKey != "" {
+		config.AIAPIKey = strings.TrimSpace(envAIKey)
+	}
+	if envAIModel := os.Getenv("AI_MODEL"); envAIModel != "" {
+		config.AIModel = strings.TrimSpace(envAIModel)
+	}
+	if envAIEnabled := os.Getenv("AI_ENABLED"); envAIEnabled != "" {
+		config.AIEnabled = strings.ToLower(envAIEnabled) == "true" || envAIEnabled == "1"
+	}
+	if envMCP := os.Getenv("MCP_SERVER_ENABLED"); envMCP != "" {
+		config.MCPServerEnabled = strings.ToLower(envMCP) == "true" || envMCP == "1"
+	}
+
 	// If it was newly created, save the config immediately after env overrides
 	if isNew {
 		if err := saveConfigNoLock(); err != nil {
@@ -184,6 +230,9 @@ func loadConfig() {
 
 	// 4. Prepend official lists if missing
 	ensureOfficialLists()
+
+	// 4b. Ensure intelligent list priorities
+	normalizeListPriorities(&config)
 
 	// 5. Final Sanitization & Constraints
 	if len(config.Upstreams) == 0 {

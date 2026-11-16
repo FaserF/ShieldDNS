@@ -40,6 +40,9 @@ func setupRouter() *http.ServeMux {
 	mux.Handle("/api/ip-info", authMiddleware(http.HandlerFunc(handleIPInfo)))
 	mux.HandleFunc("/api/presets", handlePresets)
 	mux.HandleFunc("/api/presets/allow", handlePresetAllowlists)
+	mux.Handle("/api/lists/priority", authMiddleware(http.HandlerFunc(handleSetListPriority)))
+	mux.Handle("/api/memory/capacity", authMiddleware(http.HandlerFunc(handleMemoryCapacity)))
+	mux.Handle("/api/memory/shedding/restore", authMiddleware(http.HandlerFunc(handleRestoreShedLists)))
 	mux.HandleFunc("/api/countries", handleGetCountries)
 	mux.Handle("/api/system/high-risk-countries", authMiddleware(http.HandlerFunc(handleHighRiskCountries)))
 	mux.Handle("/api/system/server-country", authMiddleware(http.HandlerFunc(handleServerCountry)))
@@ -98,6 +101,11 @@ func setupRouter() *http.ServeMux {
 
 	// MCP (Model Context Protocol) API
 	mux.HandleFunc("/api/mcp", handleMCP)
+
+	// AI Threat Intelligence & Guardian API
+	mux.Handle("/api/ai/triage", authMiddleware(http.HandlerFunc(handleAITriage)))
+	mux.Handle("/api/ai/audit", authMiddleware(http.HandlerFunc(handleAITriggerAudit)))
+	mux.Handle("/api/ai/rules", authMiddleware(http.HandlerFunc(handleAIGetRules)))
 
 	mux.Handle("/api/domain/stats", authMiddleware(http.HandlerFunc(handleDomainStats)))
 	mux.Handle("/api/domain/clients", authMiddleware(http.HandlerFunc(handleDomainClients)))

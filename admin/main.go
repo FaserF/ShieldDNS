@@ -277,6 +277,7 @@ func startWorkers() {
 	// Start health and monitoring
 	go startHealthChecker(appCtx)
 	go startDNSWatchdog(appCtx)
+	go startMemoryWatchdog(appCtx)
 	go startNextDNSQuotaWatchdog(appCtx)
 	go detectServerCountry()
 
@@ -286,6 +287,7 @@ func startWorkers() {
 	go startLogWorker(appCtx)
 	go startAbuseCleanup(appCtx)
 	go startAutoUpdateWorker(appCtx)
+	go startAIGuardianWorker(appCtx)
 }
 
 func startClusterReplicaSync(ctx context.Context) {
