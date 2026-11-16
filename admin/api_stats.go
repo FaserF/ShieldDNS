@@ -156,6 +156,7 @@ func getStatsData() Stats {
 
 	s.EmergencySheddingActive = config.EmergencySheddingActive
 	s.EmergencyShedLists = append([]string{}, config.EmergencyShedLists...)
+	s.PeerOffloadTarget = getActivePeerOffloadAddr()
 	s.NumAutoBlocked = len(config.BlockedClientsInfo)
 	configLock.RUnlock()
 

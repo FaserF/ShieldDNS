@@ -14,35 +14,37 @@ import (
 )
 
 type CorefileData struct {
-	DNSPort          string
-	DOTPort          string
-	InternalDOHPort  string
-	DNSSEC           bool
-	ServeStale       bool
-	Upstreams        string
-	TLSServerName    string
-	Policy           string
-	HostsPath        string
-	GeoACLRules      string
-	CertFile         string
-	KeyFile          string
-	FilteringEnabled bool
-	HasCerts         bool
-	RateLimitRate    int
-	RateLimitBurst   int
-	RoutingBlocks    string
-	TemplateBlocks   string
+	DNSPort            string
+	DOTPort            string
+	InternalDOHPort    string
+	InternalEnginePort string
+	DNSSEC             bool
+	ServeStale         bool
+	Upstreams          string
+	TLSServerName      string
+	Policy             string
+	HostsPath          string
+	GeoACLRules        string
+	CertFile           string
+	KeyFile            string
+	FilteringEnabled   bool
+	HasCerts           bool
+	RateLimitRate      int
+	RateLimitBurst     int
+	RoutingBlocks      string
+	TemplateBlocks     string
 }
 
 const CorefileTemplate = `{{.RoutingBlocks}}
-.:{{.DNSPort}} {
+.:{{.InternalEnginePort}} {
+    bind 127.0.0.1
     {{if .DNSSEC}}dnssec{{end}}
     metadata
     health 127.0.0.1:8082
     reload 10s
     {{if .FilteringEnabled}}
     hosts {{.HostsPath}} {
-        reload 300s
+        reload 0
         fallthrough
     }
     {{end}}
@@ -60,7 +62,16 @@ const CorefileTemplate = `{{.RoutingBlocks}}
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }
+    errors
+}
+
+.:{{.DNSPort}} {
+    metadata
+    reload 10s
     {{.GeoACLRules}}
+    forward . 127.0.0.1:{{.InternalEnginePort}} {
+        expire 10s
+    }
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
 }
@@ -68,58 +79,22 @@ const CorefileTemplate = `{{.RoutingBlocks}}
 {{if .HasCerts}}
 tls://.:{{.DOTPort}} {
     tls {{.CertFile}} {{.KeyFile}}
-    {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 10s
-    {{if .FilteringEnabled}}
-    hosts {{.HostsPath}} {
-        reload 300s
-        fallthrough
-    }
-    {{end}}
-{{.TemplateBlocks}}
-    cache 3600 {
-        success 50000
-        denial 30000
-        prefetch 5 1m 10%
-        serve_stale 1h
-    }
-    forward . {{.Upstreams}} {
-        health_check 5s
-        max_fails 2
-        expire 10s
-        {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
-        {{if .Policy}}policy {{.Policy}}{{end}}
-    }
     {{.GeoACLRules}}
+    forward . 127.0.0.1:{{.InternalEnginePort}} {
+        expire 10s
+    }
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
 }
 
 https://.:{{.InternalDOHPort}} {
     tls {{.CertFile}} {{.KeyFile}}
-    {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 10s
-    {{if .FilteringEnabled}}
-    hosts {{.HostsPath}} {
-        reload 300s
-        fallthrough
-    }
-    {{end}}
-{{.TemplateBlocks}}
-    cache 3600 {
-        success 50000
-        denial 30000
-        prefetch 5 1m 10%
-        serve_stale 1h
-    }
-    forward . {{.Upstreams}} {
-        health_check 5s
-        max_fails 2
+    forward . 127.0.0.1:{{.InternalEnginePort}} {
         expire 10s
-        {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
-        {{if .Policy}}policy {{.Policy}}{{end}}
     }
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
@@ -131,30 +106,12 @@ quic://.:{{.DOTPort}} {
         max_streams 50
         worker_pool_size 256
     }
-    {{if .DNSSEC}}dnssec{{end}}
     metadata
     reload 10s
-    {{if .FilteringEnabled}}
-    hosts {{.HostsPath}} {
-        reload 300s
-        fallthrough
-    }
-    {{end}}
-{{.TemplateBlocks}}
-    cache 3600 {
-        success 50000
-        denial 30000
-        prefetch 5 1m 10%
-        serve_stale 1h
-    }
-    forward . {{.Upstreams}} {
-        health_check 5s
-        max_fails 2
-        expire 10s
-        {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
-        {{if .Policy}}policy {{.Policy}}{{end}}
-    }
     {{.GeoACLRules}}
+    forward . 127.0.0.1:{{.InternalEnginePort}} {
+        expire 10s
+    }
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
     errors
 }

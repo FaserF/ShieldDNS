@@ -135,3 +135,51 @@ func TestSetListPriorityAPI(t *testing.T) {
 		t.Errorf("Expected priority 'low', got '%s'", config.Lists[0].Priority)
 	}
 }
+
+func TestPeerOffloadSelection(t *testing.T) {
+	// 1. Replica in shedding -> offloads to healthy Primary
+	replicaCfg := &Config{
+		ClusterRole:               "replica",
+		ClusterPrimaryURL:         "https://dns.fabiseitz.de",
+		ClusterPeerOffloadEnabled: true,
+		EmergencySheddingActive:   true,
+	}
+	if got := selectPeerOffloadCandidate(replicaCfg, false, "oracle-vm.tailnet.fabiseitz.de:53"); got != "oracle-vm.tailnet.fabiseitz.de:53" {
+		t.Errorf("Expected replica offload to primary 'oracle-vm.tailnet.fabiseitz.de:53', got '%s'", got)
+	}
+
+	// 2. Replica in shedding + Primary ALSO in shedding -> must NOT offload (loop prevention)
+	if got := selectPeerOffloadCandidate(replicaCfg, true, "oracle-vm.tailnet.fabiseitz.de:53"); got != "" {
+		t.Errorf("Expected no offload when primary is also shedding, got '%s'", got)
+	}
+
+	// 3. Primary in shedding -> offloads to healthy Replica
+	primaryCfg := &Config{
+		ClusterRole:               "primary",
+		ClusterPeerOffloadEnabled: true,
+		EmergencySheddingActive:   true,
+		ClusterReplicas: []ClusterReplica{
+			{
+				ID:                "ha-slave",
+				Name:              "Home Assistant",
+				URL:               "https://ha.tailnet.fabiseitz.de:8443",
+				EmergencyShedding: false,
+			},
+		},
+	}
+	if got := selectPeerOffloadCandidate(primaryCfg, false, ""); got != "ha.tailnet.fabiseitz.de:53" {
+		t.Errorf("Expected primary offload to replica 'ha.tailnet.fabiseitz.de:53', got '%s'", got)
+	}
+
+	// 4. Primary in shedding + Replica ALSO in shedding -> must NOT offload (loop prevention)
+	primaryCfg.ClusterReplicas[0].EmergencyShedding = true
+	if got := selectPeerOffloadCandidate(primaryCfg, false, ""); got != "" {
+		t.Errorf("Expected no offload when replica is also shedding, got '%s'", got)
+	}
+
+	// 5. Node NOT in shedding -> no offload
+	replicaCfg.EmergencySheddingActive = false
+	if got := selectPeerOffloadCandidate(replicaCfg, false, "oracle-vm.tailnet.fabiseitz.de:53"); got != "" {
+		t.Errorf("Expected no offload when node is healthy, got '%s'", got)
+	}
+}

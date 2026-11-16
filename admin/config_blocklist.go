@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -193,14 +194,8 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 		}
 	}
 
-	blockDomains := make(map[string]struct{})
-
 	// Always enforce blocking for the built-in test domain regardless of allowlists
 	attribution["shielddns-maleware.test"] = []string{"ShieldDNS Built-in Test Domain"}
-
-	for d := range attribution {
-		blockDomains[d] = struct{}{}
-	}
 
 	// Update global attribution map
 	blockAttributionLock.Lock()
@@ -218,19 +213,6 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 	allowAttribution = allowAttr
 	allowAttributionLock.Unlock()
 
-	// Write Combined Hosts File for CoreDNS
-	var combinedBuilder strings.Builder
-	combinedBuilder.WriteString("# ShieldDNS Combined Hosts File\n")
-	combinedBuilder.WriteString("# Generated at " + time.Now().Format(time.RFC3339) + "\n\n")
-
-	// 1. Custom Mappings (Highest Priority)
-	combinedBuilder.WriteString("# Custom Mappings\n")
-	for domain, ip := range mappings {
-		combinedBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
-	}
-
-	// 2. Blocklist
-	combinedBuilder.WriteString("\n# Blocked Domains\n")
 	if blockIP == "" {
 		blockIP = "0.0.0.0"
 	}
@@ -238,30 +220,32 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 	if parsed := net.ParseIP(blockIP); parsed != nil && parsed.To4() != nil {
 		isIPv4 = true
 	}
-	for domain := range blockDomains {
-		combinedBuilder.WriteString(fmt.Sprintf("%s %s\n", blockIP, domain))
-		if isIPv4 {
-			// Synthesize IPv6 unspecified address (::) for IPv4 block IPs so dual-stack clients
-			// querying AAAA records do not fall through to upstream public DNS.
-			combinedBuilder.WriteString(fmt.Sprintf(":: %s\n", domain))
+
+	// Stream Combined Hosts File for CoreDNS directly to disk without building a 100MB+ string in RAM
+	os.MkdirAll(filepath.Dir(CombinedHostsPath), 0755)
+	if err := writeCombinedHostsStreaming(CombinedHostsPath, mappings, attribution, blockIP, isIPv4); err != nil {
+		slog.Error("Failed to stream CombinedHostsPath", "error", err)
+	}
+	if BlocklistPath != "" && BlocklistPath != CombinedHostsPath {
+		if err := copyFileAtomic(CombinedHostsPath, BlocklistPath); err != nil {
+			slog.Error("Failed to copy CombinedHostsPath to BlocklistPath", "error", err)
 		}
 	}
 
-	os.MkdirAll(filepath.Dir(CombinedHostsPath), 0755)
-	atomicWriteFile(CombinedHostsPath, []byte(combinedBuilder.String()))
-	atomicWriteFile(BlocklistPath, []byte(combinedBuilder.String()))
-
-	// Write Allowlist for tracking
-	var allowBuilder strings.Builder
-	for domain := range allowSet {
-		allowBuilder.WriteString(fmt.Sprintf("127.0.0.1 %s\n", domain))
+	// Stream Allowlist for tracking
+	if AllowlistPath != "" {
+		if err := writeAllowlistStreaming(AllowlistPath, allowSet); err != nil {
+			slog.Error("Failed to stream AllowlistPath", "error", err)
+		}
 	}
-	atomicWriteFile(AllowlistPath, []byte(allowBuilder.String()))
 
 	// Write Custom Mappings separately too
 	var mappingsBuilder strings.Builder
 	for domain, ip := range mappings {
-		mappingsBuilder.WriteString(fmt.Sprintf("%s %s\n", ip, domain))
+		mappingsBuilder.WriteString(ip)
+		mappingsBuilder.WriteByte(' ')
+		mappingsBuilder.WriteString(domain)
+		mappingsBuilder.WriteByte('\n')
 	}
 	os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
 
@@ -269,6 +253,107 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 	if restartCore {
 		restartCoreDNS()
 	}
+
+	// Return dead temporary parsing/building heap pages back to the OS immediately
+	debug.FreeOSMemory()
+}
+
+func writeCombinedHostsStreaming(targetPath string, mappings map[string]string, attribution map[string][]string, blockIP string, isIPv4 bool) error {
+	tmpFile, err := os.CreateTemp(filepath.Dir(targetPath), ".shielddns_hosts_*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmpFile.Name()
+	bw := bufio.NewWriterSize(tmpFile, 64*1024)
+
+	_, _ = bw.WriteString("# ShieldDNS Combined Hosts File\n# Generated at ")
+	_, _ = bw.WriteString(time.Now().Format(time.RFC3339))
+	_, _ = bw.WriteString("\n\n# Custom Mappings\n")
+
+	for domain, ip := range mappings {
+		_, _ = bw.WriteString(ip)
+		_ = bw.WriteByte(' ')
+		_, _ = bw.WriteString(domain)
+		_ = bw.WriteByte('\n')
+	}
+
+	_, _ = bw.WriteString("\n# Blocked Domains\n")
+	for domain := range attribution {
+		_, _ = bw.WriteString(blockIP)
+		_ = bw.WriteByte(' ')
+		_, _ = bw.WriteString(domain)
+		_ = bw.WriteByte('\n')
+		if isIPv4 {
+			// Synthesize IPv6 unspecified address (::) for IPv4 block IPs so dual-stack clients
+			// querying AAAA records do not fall through to upstream public DNS.
+			_, _ = bw.WriteString(":: ")
+			_, _ = bw.WriteString(domain)
+			_ = bw.WriteByte('\n')
+		}
+	}
+
+	if err := bw.Flush(); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	_ = os.Chmod(tmpPath, 0644)
+	return os.Rename(tmpPath, targetPath)
+}
+
+func writeAllowlistStreaming(targetPath string, allowSet map[string]struct{}) error {
+	os.MkdirAll(filepath.Dir(targetPath), 0755)
+	tmpFile, err := os.CreateTemp(filepath.Dir(targetPath), ".shielddns_allow_*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmpFile.Name()
+	bw := bufio.NewWriterSize(tmpFile, 32*1024)
+	for domain := range allowSet {
+		_, _ = bw.WriteString("127.0.0.1 ")
+		_, _ = bw.WriteString(domain)
+		_ = bw.WriteByte('\n')
+	}
+	if err := bw.Flush(); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	_ = os.Chmod(tmpPath, 0644)
+	return os.Rename(tmpPath, targetPath)
+}
+
+func copyFileAtomic(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	os.MkdirAll(filepath.Dir(dst), 0755)
+	tmpFile, err := os.CreateTemp(filepath.Dir(dst), ".shielddns_copy_*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmpFile.Name()
+	if _, err := io.Copy(tmpFile, in); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	_ = os.Chmod(tmpPath, 0644)
+	return os.Rename(tmpPath, dst)
 }
 
 func reloadRulesFast() {

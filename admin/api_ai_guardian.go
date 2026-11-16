@@ -152,6 +152,26 @@ func CallOpenAIChatCompletion(ctx context.Context, messages []OpenAIChatMessage)
 	return strings.TrimSpace(chatResp.Choices[0].Message.Content), nil
 }
 
+// isTrustedInfrastructureDomain prevents autonomous AI blocking of major legitimate vendor/cloud domains.
+func isTrustedInfrastructureDomain(domain string) bool {
+	trustedRoots := []string{
+		"googleapis.com", "gstatic.com", "google.com", "googleusercontent.com", "gvt1.com", "gvt2.com",
+		"microsoft.com", "windowsupdate.com", "live.com", "office.com", "azure.com",
+		"apple.com", "icloud.com", "mzstatic.com",
+		"github.com", "githubusercontent.com", "ghcr.io",
+		"cloudflare.com", "cloudflare-dns.com",
+		"amazonaws.com", "cloudfront.net",
+		"tailscale.com", "fabiseitz.de",
+		"ubuntu.com", "debian.org", "docker.com", "docker.io",
+	}
+	for _, root := range trustedRoots {
+		if domain == root || strings.HasSuffix(domain, "."+root) {
+			return true
+		}
+	}
+	return false
+}
+
 // TriageDomainWithAI performs structured threat and category triage on a domain.
 func TriageDomainWithAI(ctx context.Context, domain string, clientIP string, isBlocked bool) (*AITriageVerdict, error) {
 	normDomain := NormalizeDomain(domain)
@@ -173,6 +193,12 @@ func TriageDomainWithAI(ctx context.Context, domain string, clientIP string, isB
 	// 3. Construct structured AI prompt
 	systemPrompt := `You are ShieldDNS AI Guardian, an autonomous DNS security and network telemetry analyzer.
 Analyze the target domain and output STRICTLY valid JSON with no conversational text or markdown fences.
+CRITICAL CLASSIFICATION RULES:
+1. Official vendor/cloud infrastructure subdomains (e.g., *.googleapis.com, *.gstatic.com, *.microsoft.com, *.amazonaws.com, *.github.com, *.cloudflare.com, *.apple.com) are LEGITIMATE ("clean"), NEVER classify them as phishing or DGA.
+2. Only classify as "phishing" or "typosquat" if the root domain itself is a deceptive lookalike (e.g., paypa1-login.xyz, g00gle-verify.com).
+3. Analytics, telemetry, and ad networks (e.g., posthog, sentry, doubleclick, app-measurement) are "ad_tracker" or "telemetry", NEVER "false_positive".
+4. Only use "false_positive" for clearly legitimate user-facing websites or essential APIs that appear mistakenly blocked.
+
 Output schema:
 {
   "is_threat": boolean,
@@ -262,10 +288,11 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 	}
 
 	// Fetch top 30 distinct domains from the last 30 minutes that need inspection
+	cutoff := time.Now().UTC().Add(-30 * time.Minute)
 	rows, err := dbQueryContext(ctx, `
 		SELECT domain, client_ip, status, COUNT(*) as query_count
 		FROM queries
-		WHERE timestamp > datetime('now', '-30 minutes')
+		WHERE timestamp > ?
 		  AND domain NOT LIKE '%.local'
 		  AND domain NOT LIKE '%.lan'
 		  AND domain NOT LIKE '%.internal'
@@ -273,7 +300,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 		GROUP BY domain, client_ip, status
 		ORDER BY query_count DESC
 		LIMIT 30
-	`)
+	`, cutoff)
 	if err != nil {
 		return nil, fmt.Errorf("database query failed for AI audit: %w", err)
 	}
@@ -302,7 +329,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 		var count int
 		if err := rows.Scan(&c.Domain, &c.ClientIP, &c.Status, &count); err == nil {
 			c.Domain = NormalizeDomain(c.Domain)
-			if c.Domain == "" {
+			if c.Domain == "" || isTrustedInfrastructureDomain(c.Domain) {
 				continue
 			}
 			// Skip domains that already have custom rules unless checking for false positives
@@ -338,7 +365,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 		// Autonomous Threat Blocking (phishing, malware_c2, dga)
 		if verdict.IsThreat && (verdict.ThreatType == "phishing" || verdict.ThreatType == "malware_c2" || verdict.ThreatType == "dga") {
 			report.ThreatsDetected++
-			if autoBlockThreats && verdict.Confidence >= threshold && !customBlockedMap[cand.Domain] {
+			if autoBlockThreats && verdict.RecommendedAction == "block" && verdict.Confidence >= threshold && !customBlockedMap[cand.Domain] {
 				domainsToBlock = append(domainsToBlock, cand.Domain)
 				aiRuleUpdates[cand.Domain] = AIRuleMetadata{
 					Domain:     cand.Domain,
@@ -357,7 +384,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 		// Autonomous Unblocked Ad / Tracker Blocking
 		if verdict.ThreatType == "ad_tracker" || verdict.ThreatType == "telemetry" {
 			report.AdsDetected++
-			if autoBlockAds && verdict.Confidence >= threshold && !customBlockedMap[cand.Domain] {
+			if autoBlockAds && verdict.RecommendedAction == "block" && verdict.Confidence >= threshold && !customBlockedMap[cand.Domain] {
 				domainsToBlock = append(domainsToBlock, cand.Domain)
 				aiRuleUpdates[cand.Domain] = AIRuleMetadata{
 					Domain:     cand.Domain,
@@ -376,7 +403,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 		// Autonomous False Positive Handling
 		if isBlocked && (verdict.ThreatType == "false_positive" || (verdict.ThreatType == "clean" && verdict.RecommendedAction == "allow")) {
 			report.FalsePositives++
-			if autoFlagFP && verdict.Confidence >= threshold && !customAllowedMap[cand.Domain] {
+			if autoFlagFP && verdict.RecommendedAction == "allow" && verdict.Confidence >= 0.95 && !customAllowedMap[cand.Domain] {
 				domainsToAllow = append(domainsToAllow, cand.Domain)
 				aiRuleUpdates[cand.Domain] = AIRuleMetadata{
 					Domain:     cand.Domain,

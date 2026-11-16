@@ -266,11 +266,16 @@ func handleClusterGetReplicaConfig(w http.ResponseWriter, r *http.Request) {
 	var repType = "private"
 	var found = false
 	reportedName := strings.TrimSpace(r.Header.Get("X-Cluster-Node-Name"))
+	reportedShedding := strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Cluster-Shedding")), "true")
 	now := time.Now().UTC()
 	for i, rep := range config.ClusterReplicas {
 		if rep.TokenHash == tokenHashed {
 			config.ClusterReplicas[i].LastSeen = now
 			config.ClusterReplicas[i].LastSync = now
+			config.ClusterReplicas[i].EmergencyShedding = reportedShedding
+			if config.ClusterReplicas[i].DNSTarget == "" && rep.URL != "" {
+				config.ClusterReplicas[i].DNSTarget = resolvePeerDNSTarget(rep.URL)
+			}
 			if reportedName != "" {
 				config.ClusterReplicas[i].Name = reportedName
 			}
@@ -287,11 +292,16 @@ func handleClusterGetReplicaConfig(w http.ResponseWriter, r *http.Request) {
 		primaryDomain = r.Host
 	}
 	primaryURL := "https://" + primaryDomain
+	primaryShedding := config.EmergencySheddingActive
 	configLock.Unlock()
 
 	if !found {
 		http.Error(w, "Replica not registered or token revoked", http.StatusForbidden)
 		return
+	}
+
+	if primaryShedding {
+		go evaluatePeerOffload()
 	}
 
 	exported := buildClusterConfigExport(repType, primaryURL, false)

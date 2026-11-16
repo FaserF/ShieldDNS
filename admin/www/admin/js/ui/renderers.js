@@ -724,9 +724,13 @@ export function renderRAMCapacity(stats, cfg) {
             emBanner.classList.remove('hidden');
             const count = (cfg.emergency_shed_lists || stats.emergency_shed_lists || []).length;
             if (emDesc) {
-                emDesc.textContent = (count > 0) ?
+                const baseMsg = (count > 0) ?
                     `${count} heavy blocklist${count > 1 ? 's were' : ' was'} temporarily suspended by autonomous watchdog to protect system from freezing / OOM.` :
                     'Heavy blocklists were temporarily suspended to protect system from freezing / OOM.';
+                const offloadMsg = stats.peer_offload_target
+                    ? ` Unblocked DNS queries are automatically forwarded to healthy cluster peer (${stats.peer_offload_target}) to preserve full filtering.`
+                    : '';
+                emDesc.textContent = baseMsg + offloadMsg;
             }
         } else {
             emBanner.classList.add('hidden');

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -14,7 +16,11 @@ import (
 
 var (
 	memoryWatchdogMu      sync.Mutex
-	consecutiveStableRAM int
+	consecutiveStableRAM  int
+	peerOffloadMu         sync.RWMutex
+	activePeerOffloadAddr string
+	primarySheddingActive bool
+	primaryDNSTarget      string
 )
 
 // normalizeListPriorities ensures every list has an intelligent priority assigned
@@ -159,8 +165,9 @@ func evaluateMemoryHealth() {
 		return
 	}
 
-	// Check if stable recovery is ongoing
+	// Check if stable recovery is ongoing & re-verify peer offload health
 	if sheddingActive {
+		go evaluatePeerOffload()
 		// If available RAM is now comfortably above safety margin (> 30% available and > 500 MB)
 		if availMB > 500.0 && (availMB/totalMB) > 0.25 && usedMB/totalMB < 0.75 {
 			consecutiveStableRAM++
@@ -264,6 +271,10 @@ func triggerEmergencyLoadShedding(availMB, totalMB, estimatedShieldMB, budgetMB 
 	cfgClone := config.Clone()
 	go func() {
 		reloadRulesFastNoLock(cfgClone)
+		evaluatePeerOffload()
+		if cfgClone.ClusterRole == "replica" && cfgClone.ClusterPrimaryURL != "" && cfgClone.ClusterPrimaryToken != "" {
+			_ = performReplicaSync(cfgClone.ClusterPrimaryURL, cfgClone.ClusterPrimaryToken, cfgClone.ClusterInstanceType, cfgClone.ClusterFailoverMode)
+		}
 	}()
 }
 
@@ -291,10 +302,17 @@ func handleRestoreShedLists(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
 		return
 	}
+	cfgClone := config.Clone()
 	configLock.Unlock()
 
 	slog.Info("All emergency shed lists restored by administrator", "count", countRestored)
-	go updateBlocklist(nil, true)
+	go func() {
+		evaluatePeerOffload()
+		updateBlocklist(nil, true)
+		if cfgClone.ClusterRole == "replica" && cfgClone.ClusterPrimaryURL != "" && cfgClone.ClusterPrimaryToken != "" {
+			_ = performReplicaSync(cfgClone.ClusterPrimaryURL, cfgClone.ClusterPrimaryToken, cfgClone.ClusterInstanceType, cfgClone.ClusterFailoverMode)
+		}
+	}()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -430,5 +448,130 @@ func handleMemoryCapacity(w http.ResponseWriter, r *http.Request) {
 		"domain_count":              domainCount,
 		"emergency_shedding_active": sheddingActive,
 		"emergency_shed_lists":      shedLists,
+		"peer_offload_target":       getActivePeerOffloadAddr(),
 	})
+}
+
+func getActivePeerOffloadAddr() string {
+	peerOffloadMu.RLock()
+	defer peerOffloadMu.RUnlock()
+	return activePeerOffloadAddr
+}
+
+func setPrimaryPeerStatus(shedding bool, dnsTarget string) {
+	peerOffloadMu.Lock()
+	primarySheddingActive = shedding
+	if dnsTarget != "" {
+		primaryDNSTarget = dnsTarget
+	}
+	peerOffloadMu.Unlock()
+}
+
+// resolvePeerDNSTarget extracts a host:53 target from a URL or host[:port] string.
+func resolvePeerDNSTarget(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if strings.Contains(raw, "://") {
+		if u, err := url.Parse(raw); err == nil && u.Hostname() != "" {
+			return net.JoinHostPort(u.Hostname(), "53")
+		}
+		return ""
+	}
+	if _, _, err := net.SplitHostPort(raw); err == nil {
+		return raw
+	}
+	return net.JoinHostPort(raw, "53")
+}
+
+// selectPeerOffloadCandidate returns a healthy, non-shedding peer DNS target when the local node
+// is in emergency RAM shedding, preventing forwarding loops by never offloading to a shedding peer.
+func selectPeerOffloadCandidate(cfg *Config, primShedding bool, primDNS string) string {
+	if cfg == nil || !cfg.EmergencySheddingActive || !cfg.ClusterPeerOffloadEnabled {
+		return ""
+	}
+	if cfg.ClusterRole == "replica" {
+		if primShedding {
+			return ""
+		}
+		if cfg.ClusterPeerDNSTarget != "" {
+			return resolvePeerDNSTarget(cfg.ClusterPeerDNSTarget)
+		}
+		if primDNS != "" {
+			return resolvePeerDNSTarget(primDNS)
+		}
+		return resolvePeerDNSTarget(cfg.ClusterPrimaryURL)
+	}
+	if cfg.ClusterRole == "primary" {
+		if cfg.ClusterPeerDNSTarget != "" {
+			return resolvePeerDNSTarget(cfg.ClusterPeerDNSTarget)
+		}
+		now := time.Now().UTC()
+		for _, rep := range cfg.ClusterReplicas {
+			if rep.EmergencyShedding {
+				continue
+			}
+			if !rep.LastSeen.IsZero() && now.Sub(rep.LastSeen) > 15*time.Minute {
+				continue
+			}
+			if rep.DNSTarget != "" {
+				return resolvePeerDNSTarget(rep.DNSTarget)
+			}
+			if t := resolvePeerDNSTarget(rep.URL); t != "" {
+				return t
+			}
+		}
+	}
+	return ""
+}
+
+// evaluatePeerOffload checks whether this node should offload DNS queries to a healthy cluster peer
+// and updates CoreDNS Corefile if the active offload target changes.
+func evaluatePeerOffload() {
+	configLock.RLock()
+	cfg := config.Clone()
+	configLock.RUnlock()
+
+	peerOffloadMu.RLock()
+	primShed := primarySheddingActive
+	primDNS := primaryDNSTarget
+	peerOffloadMu.RUnlock()
+
+	candidate := selectPeerOffloadCandidate(cfg, primShed, primDNS)
+	resolvedTarget := ""
+
+	if candidate != "" && !testMode {
+		host, port, err := net.SplitHostPort(candidate)
+		if err == nil {
+			conn, dialErr := net.DialTimeout("tcp", candidate, 2*time.Second)
+			if dialErr == nil {
+				_ = conn.Close()
+				ip := resolveHost(host)
+				resolvedTarget = net.JoinHostPort(ip, port)
+			} else {
+				slog.Warn("Cluster peer DNS target unreachable for offload; falling back to normal upstreams",
+					"target", candidate, "error", dialErr)
+			}
+		}
+	} else if candidate != "" && testMode {
+		resolvedTarget = candidate
+	}
+
+	peerOffloadMu.Lock()
+	prev := activePeerOffloadAddr
+	activePeerOffloadAddr = resolvedTarget
+	peerOffloadMu.Unlock()
+
+	if prev != resolvedTarget {
+		if resolvedTarget != "" {
+			slog.Warn("CLUSTER PEER OFFLOAD ACTIVATED: Forwarding unblocked DNS queries to healthy peer while local node is in emergency RAM shedding",
+				"peer", resolvedTarget, "role", cfg.ClusterRole)
+		} else if prev != "" {
+			slog.Info("Cluster peer offload deactivated; resuming normal upstreams", "previous_peer", prev)
+		}
+		if !testMode {
+			updateCorefile()
+		}
+	}
 }

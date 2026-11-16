@@ -93,6 +93,21 @@ func updateCorefile() bool {
 		}
 	}
 
+	if peerAddr := getActivePeerOffloadAddr(); peerAddr != "" && cfg.ClusterPeerOffloadEnabled {
+		peerUpstreams := []string{peerAddr}
+		for _, u := range hDNS {
+			host, port := splitAddr(u, "53")
+			ip := resolveHost(host)
+			peerUpstreams = append(peerUpstreams, fmt.Sprintf("%s:%s", ip, port))
+		}
+		if len(peerUpstreams) == 1 {
+			peerUpstreams = append(peerUpstreams, "1.1.1.1:53", "8.8.8.8:53")
+		}
+		upstreamStr = strings.Join(peerUpstreams, " ")
+		policyVal = "sequential"
+		dotServerName = ""
+	}
+
 	certFile := os.Getenv("CERT_FILE")
 	if certFile == "" {
 		certFile = "/ssl/fullchain.pem"
@@ -122,11 +137,16 @@ func updateCorefile() bool {
 	if internalDOHPort == "" {
 		internalDOHPort = "5553"
 	}
+	internalEnginePort := os.Getenv("INTERNAL_ENGINE_PORT")
+	if internalEnginePort == "" {
+		internalEnginePort = "11053"
+	}
 
 	data := CorefileData{
-		DNSPort:          dnsPort,
-		DOTPort:          dotPort,
-		InternalDOHPort:  internalDOHPort,
+		DNSPort:            dnsPort,
+		DOTPort:            dotPort,
+		InternalDOHPort:    internalDOHPort,
+		InternalEnginePort: internalEnginePort,
 		DNSSEC:           cfg.DNSSECEnabled,
 		ServeStale:       cfg.ServeStale,
 		Upstreams:        upstreamStr,
