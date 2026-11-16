@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -177,8 +178,9 @@ var (
 	sseChan           = make(chan Query, 1024)
 	logQueue          = make(chan string, 10000)
 
-	resolveCache     = make(map[string]cacheEntry)
-	resolveCacheLock sync.Mutex
+	resolveCache      = make(map[string]cacheEntry)
+	resolveCacheLock  sync.Mutex
+	coreDNSLoopActive atomic.Bool
 )
 
 func startDNSWorkers(ctx context.Context) {
@@ -310,6 +312,10 @@ func startCoreDNS(ctx context.Context) {
 	if testMode {
 		return
 	}
+	if !coreDNSLoopActive.CompareAndSwap(false, true) {
+		return
+	}
+	defer coreDNSLoopActive.Store(false)
 	for {
 		select {
 		case <-ctx.Done():

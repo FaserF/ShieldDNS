@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func updateCorefile() {
+func updateCorefile() bool {
 	configLock.RLock()
 	cfg := config.Clone()
 	configLock.RUnlock()
@@ -147,16 +147,25 @@ func updateCorefile() {
 	tmpl, err := template.New("corefile").Parse(CorefileTemplate)
 	if err != nil {
 		slog.Error("Error parsing Corefile template", "error", err)
-		return
+		return false
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
 		slog.Error("Error executing Corefile template", "error", err)
-		return
+		return false
 	}
 
-	atomicWriteFile(CorefilePath, buf.Bytes())
+	newBytes := buf.Bytes()
+	if existing, err := os.ReadFile(CorefilePath); err == nil && bytes.Equal(existing, newBytes) {
+		return false
+	}
+
+	if err := atomicWriteFile(CorefilePath, newBytes); err != nil {
+		slog.Error("Error writing Corefile", "error", err)
+		return false
+	}
+	return true
 }
 
 func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCerts bool, certFile, keyFile string) string {

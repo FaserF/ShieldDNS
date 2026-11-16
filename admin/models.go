@@ -79,6 +79,8 @@ type Config struct {
 	ClusterFailoverMode        bool                         `json:"cluster_failover_mode"`
 	ClusterLastSync            time.Time                    `json:"cluster_last_sync"`
 	ClusterReplicas            []ClusterReplica             `json:"cluster_replicas"`
+	ClusterLocalMappings       map[string]string            `json:"cluster_local_mappings,omitempty"`
+	ClusterExcludedMappings    []string                     `json:"cluster_excluded_mappings,omitempty"`
 	RoutingRules               []RoutingRule                `json:"routing_rules"`
 	WireGuardGateway           string                       `json:"wireguard_gateway"`
 	YouTubeAdblockEnabled      bool                         `json:"youtube_adblock_enabled"`
@@ -453,6 +455,16 @@ func (c *Config) Clone() *Config {
 		for k, v := range c.CustomMappings {
 			newCfg.CustomMappings[k] = v
 		}
+	}
+	if c.ClusterLocalMappings != nil {
+		newCfg.ClusterLocalMappings = make(map[string]string)
+		for k, v := range c.ClusterLocalMappings {
+			newCfg.ClusterLocalMappings[k] = v
+		}
+	}
+	if c.ClusterExcludedMappings != nil {
+		newCfg.ClusterExcludedMappings = make([]string, len(c.ClusterExcludedMappings))
+		copy(newCfg.ClusterExcludedMappings, c.ClusterExcludedMappings)
 	}
 	if c.BlockedClientsInfo != nil {
 		newCfg.BlockedClientsInfo = make(map[string]BlockedClientInfo)

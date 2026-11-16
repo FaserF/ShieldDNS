@@ -105,8 +105,10 @@ func handleClusterStatus(w http.ResponseWriter, r *http.Request) {
 		"worker_domain":    config.ClusterWorkerDomain,
 		"connection_lost":  connLost,
 		"last_sync_error":  clusterLastSyncError,
-		"replicas":         sanitizedReplicas,
-		"replica_count":    len(replicas),
+		"replicas":          sanitizedReplicas,
+		"replica_count":     len(replicas),
+		"local_mappings":    config.ClusterLocalMappings,
+		"excluded_mappings": config.ClusterExcludedMappings,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -547,13 +549,15 @@ func handleClusterUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Role           string `json:"role"`
-		InstanceType   string `json:"instance_type"`
-		NodeName       string `json:"node_name"`
-		LogSharingMode string  `json:"log_sharing_mode"`
-		WorkerDomain   *string `json:"worker_domain"`
-		FailoverMode   *bool   `json:"failover_mode"`
-		SyncInterval   *int    `json:"sync_interval"`
+		Role             string            `json:"role"`
+		InstanceType     string            `json:"instance_type"`
+		NodeName         string            `json:"node_name"`
+		LogSharingMode   string            `json:"log_sharing_mode"`
+		WorkerDomain     *string           `json:"worker_domain"`
+		FailoverMode     *bool             `json:"failover_mode"`
+		SyncInterval     *int              `json:"sync_interval"`
+		LocalMappings    map[string]string `json:"local_mappings"`
+		ExcludedMappings []string          `json:"excluded_mappings"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
@@ -581,6 +585,12 @@ func handleClusterUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.SyncInterval != nil && *req.SyncInterval >= 0 {
 		config.ClusterSyncInterval = *req.SyncInterval
+	}
+	if req.LocalMappings != nil {
+		config.ClusterLocalMappings = req.LocalMappings
+	}
+	if req.ExcludedMappings != nil {
+		config.ClusterExcludedMappings = req.ExcludedMappings
 	}
 	if err := saveConfigNoLock(); err != nil {
 		configLock.Unlock()

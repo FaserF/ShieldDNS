@@ -35,9 +35,23 @@ func startDNSWatchdog(ctx context.Context) {
 			// Try to resolve a known stable domain to verify connectivity.
 			// Using a malware domain for health checks is risky because a successful block
 			// (NXDOMAIN) would be interpreted as a failure by LookupHost.
-			checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			_, err := r.LookupHost(checkCtx, "google.com")
-			cancel()
+			checkOnce := func() error {
+				checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				_, err := r.LookupHost(checkCtx, "google.com")
+				return err
+			}
+
+			err := checkOnce()
+			if err != nil {
+				// Retry once after a brief pause to avoid false warnings during CoreDNS startup or reload
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(2 * time.Second):
+				}
+				err = checkOnce()
+			}
 
 			if err != nil {
 				failureCount++

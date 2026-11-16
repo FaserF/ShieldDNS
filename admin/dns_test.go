@@ -460,4 +460,8 @@ func TestUpdateCorefileWildcardTemplates(t *testing.T) {
 	if strings.Contains(sContent, "AAAA ::") {
 		t.Errorf("Did not expect Corefile to contain 'AAAA ::' blackhole records, but found it.\nContent:\n%s", sContent)
 	}
+
+	if changed := updateCorefile(); changed {
+		t.Errorf("Expected second updateCorefile() call with identical config to return false")
+	}
 }

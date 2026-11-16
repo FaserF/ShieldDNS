@@ -6,13 +6,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 )
+
+func listsEqual(a, b []List) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if strings.TrimSpace(a[i].URL) != strings.TrimSpace(b[i].URL) || a[i].Enabled != b[i].Enabled {
+			return false
+		}
+	}
+	return true
+}
 
 // performReplicaSync performs an HTTP GET to retrieve latest exported configuration from Primary
 func performReplicaSync(primaryURL, apiToken, instType string, failover bool) error {
@@ -94,7 +110,30 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 // applyClusterExport updates local configuration with exported values
 func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType string, failover bool) error {
 	configLock.Lock()
-	defer configLock.Unlock()
+
+	mergedMappings := make(map[string]string, len(exp.CustomMappings)+len(config.ClusterLocalMappings))
+	for k, v := range exp.CustomMappings {
+		mergedMappings[k] = v
+	}
+	for _, excluded := range config.ClusterExcludedMappings {
+		exNorm := strings.ToLower(strings.TrimSpace(excluded))
+		delete(mergedMappings, exNorm)
+		for k := range mergedMappings {
+			if strings.ToLower(strings.TrimSpace(k)) == exNorm {
+				delete(mergedMappings, k)
+			}
+		}
+	}
+	for k, v := range config.ClusterLocalMappings {
+		mergedMappings[k] = v
+	}
+
+	listsChanged := !listsEqual(config.Lists, exp.Lists) || !listsEqual(config.Allowlists, exp.Allowlists)
+	customRulesChanged := config.FilteringEnabled != exp.FilteringEnabled ||
+		!slices.Equal(config.CustomBlocked, exp.CustomBlocked) ||
+		!slices.Equal(config.CustomAllowed, exp.CustomAllowed) ||
+		!maps.Equal(config.CustomMappings, mergedMappings)
+	maliciousNewlyEnabled := exp.MaliciousIPBlockingEnabled && !config.MaliciousIPBlockingEnabled
 
 	config.ClusterRole = "replica"
 	config.ClusterPrimaryURL = primaryURL
@@ -119,7 +158,7 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	config.Allowlists = exp.Allowlists
 	config.CustomBlocked = exp.CustomBlocked
 	config.CustomAllowed = exp.CustomAllowed
-	config.CustomMappings = exp.CustomMappings
+	config.CustomMappings = mergedMappings
 	config.AutoblockWhitelist = exp.AutoblockWhitelist
 	config.BlockedCountries = exp.BlockedCountries
 	config.SmartSelectionPolicy = exp.SmartSelectionPolicy
@@ -234,21 +273,47 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	config.UpstreamDoT = exp.UpstreamDoT
 
 	if err := saveConfigNoLock(); err != nil {
+		configLock.Unlock()
 		return err
 	}
+	cfgClone := config.Clone()
+	configLock.Unlock()
 
-	go func(countries []string, maliciousEnabled bool) {
+	blockAttributionLock.RLock()
+	attributionEmpty := len(blockAttribution) == 0
+	blockAttributionLock.RUnlock()
+
+	go func(countries []string, maliciousEnabled, maliciousTrigger bool) {
 		for _, c := range countries {
-			_ = syncCountryIPs(c)
+			cc := strings.ToLower(strings.TrimSpace(c))
+			if len(cc) != 2 || cc[0] < 'a' || cc[0] > 'z' || cc[1] < 'a' || cc[1] > 'z' {
+				continue
+			}
+			zonePath := filepath.Join(geoCacheDir, cc+".zone")
+			if _, err := os.Stat(zonePath); os.IsNotExist(err) {
+				_ = syncCountryIPs(cc)
+			}
 		}
-		if maliciousEnabled {
+		maliciousMu.RLock()
+		maliciousEmpty := len(maliciousIPList) == 0
+		maliciousMu.RUnlock()
+		if maliciousEnabled && (maliciousTrigger || maliciousEmpty) {
 			_ = syncMaliciousIPs(false)
 		}
-		updateCorefile()
-		restartCoreDNS()
-	}(exp.BlockedCountries, exp.MaliciousIPBlockingEnabled)
+		corefileChanged := updateCorefile()
+		dnsCmdLock.Lock()
+		coreDNSRunning := dnsCmd != nil && dnsCmd.Process != nil
+		dnsCmdLock.Unlock()
+		if corefileChanged || !coreDNSRunning {
+			restartCoreDNS()
+		}
+	}(exp.BlockedCountries, exp.MaliciousIPBlockingEnabled, maliciousNewlyEnabled)
 
-	go updateBlocklist(nil, true)
+	if listsChanged || attributionEmpty {
+		go updateBlocklist(nil, true)
+	} else if customRulesChanged {
+		go reloadRulesFastNoLock(cfgClone)
+	}
 
 	return nil
 }

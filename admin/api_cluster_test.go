@@ -195,3 +195,90 @@ func TestClusterLogSharingModes(t *testing.T) {
 		t.Errorf("Expected log_sharing_mode to be 'full_sync', got %v", status["log_sharing_mode"])
 	}
 }
+
+func TestClusterInstanceSpecificMappings(t *testing.T) {
+	origConfig := config.Clone()
+	defer func() {
+		configLock.Lock()
+		config = *origConfig
+		configLock.Unlock()
+	}()
+
+	// 1. Primary export should strip private/Tailnet IPs for "public" replicas, keep for "private"/"hybrid"
+	configLock.Lock()
+	config.CustomMappings = map[string]string{
+		"internal.tailnet.fabiseitz.de": "100.64.0.1",
+		"router.lan":                    "192.168.1.1",
+		"public.fabiseitz.de":           "89.168.74.120",
+	}
+	configLock.Unlock()
+
+	pubExport := buildClusterConfigExport("public", "https://primary.example.com", false)
+	if _, exists := pubExport.CustomMappings["internal.tailnet.fabiseitz.de"]; exists {
+		t.Errorf("Expected public replica export to strip Tailnet CGNAT IP 100.64.0.1")
+	}
+	if _, exists := pubExport.CustomMappings["router.lan"]; exists {
+		t.Errorf("Expected public replica export to strip private LAN IP 192.168.1.1")
+	}
+	if pubExport.CustomMappings["public.fabiseitz.de"] != "89.168.74.120" {
+		t.Errorf("Expected public replica export to preserve public IP, got %q", pubExport.CustomMappings["public.fabiseitz.de"])
+	}
+
+	privExport := buildClusterConfigExport("private", "https://primary.example.com", false)
+	if privExport.CustomMappings["internal.tailnet.fabiseitz.de"] != "100.64.0.1" {
+		t.Errorf("Expected private replica export to preserve Tailnet IP")
+	}
+
+	// 2. Replica applyClusterExport should preserve local exclusions and local overrides
+	tmpDir := t.TempDir()
+	origDataDir := DataDir
+	origConfigPath := ConfigPath
+	DataDir = tmpDir
+	ConfigPath = tmpDir + "/config.json"
+	defer func() {
+		DataDir = origDataDir
+		ConfigPath = origConfigPath
+	}()
+
+	configLock.Lock()
+	config.ClusterLocalMappings = map[string]string{
+		"ha.fabiseitz.de": "192.168.1.2",
+	}
+	config.ClusterExcludedMappings = []string{"stream.fabiseitz.de"}
+	configLock.Unlock()
+
+	exp := ClusterConfigExport{
+		CustomMappings: map[string]string{
+			"ha.fabiseitz.de":     "100.64.0.2",
+			"stream.fabiseitz.de": "100.64.0.1",
+			"jarvis.fabiseitz.de": "100.64.0.1",
+		},
+	}
+	if err := applyClusterExport(exp, "https://dns.fabiseitz.de", "tok", "private", false); err != nil {
+		t.Fatalf("applyClusterExport failed: %v", err)
+	}
+
+	configLock.RLock()
+	defer configLock.RUnlock()
+	if _, excluded := config.CustomMappings["stream.fabiseitz.de"]; excluded {
+		t.Errorf("Expected stream.fabiseitz.de to remain excluded on replica after sync")
+	}
+	if config.CustomMappings["ha.fabiseitz.de"] != "192.168.1.2" {
+		t.Errorf("Expected local override 192.168.1.2 for ha.fabiseitz.de, got %q", config.CustomMappings["ha.fabiseitz.de"])
+	}
+	if config.CustomMappings["jarvis.fabiseitz.de"] != "100.64.0.1" {
+		t.Errorf("Expected non-overridden mapping jarvis.fabiseitz.de to sync from primary")
+	}
+}
+
+func TestListsEqual(t *testing.T) {
+	a := []List{{Name: "L1", URL: "https://example.com/1.txt", Enabled: true, Entries: 100}}
+	b := []List{{Name: "L1", URL: "https://example.com/1.txt", Enabled: true, Entries: 200}}
+	if !listsEqual(a, b) {
+		t.Errorf("expected listsEqual to ignore Entry counts when URL and Enabled match")
+	}
+	c := []List{{Name: "L1", URL: "https://example.com/1.txt", Enabled: false, Entries: 100}}
+	if listsEqual(a, c) {
+		t.Errorf("expected listsEqual to detect Enabled change")
+	}
+}

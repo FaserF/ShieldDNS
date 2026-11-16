@@ -135,7 +135,12 @@ func syncNativeVPN(cfg *Config) {
 			_ = nativeVPNCmd.Process.Kill()
 			nativeVPNCmd = nil
 		}
-		if nativeVPNActiveIf == "wg_shield" {
+		switch nativeVPNActiveIf {
+		case "wg0":
+			_ = exec.Command("wg-quick", "down", filepath.Join(DataDir, "wg0.conf")).Run()
+		case "wg1":
+			_ = exec.Command("wg-quick", "down", filepath.Join(DataDir, "wg1.conf")).Run()
+		case "wg_shield":
 			_ = exec.Command("wg-quick", "down", filepath.Join(DataDir, "wg_shield.conf")).Run()
 		}
 		nativeVPNActiveIf = ""
@@ -214,9 +219,17 @@ func syncNativeVPN(cfg *Config) {
 			slog.Info("Native WireGuard skipped: wg-quick executable not found in PATH")
 			return
 		}
-		iface := strings.TrimSpace(cfg.VPNInterface)
-		if iface == "" {
-			iface = "wg_shield"
+		var safeIface, safeConfFile string
+		switch strings.TrimSpace(cfg.VPNInterface) {
+		case "wg0":
+			safeIface = "wg0"
+			safeConfFile = "wg0.conf"
+		case "wg1":
+			safeIface = "wg1"
+			safeConfFile = "wg1.conf"
+		default:
+			safeIface = "wg_shield"
+			safeConfFile = "wg_shield.conf"
 		}
 		wgContent := strings.TrimSpace(cfg.VPNConfigContent)
 		if wgContent == "" {
@@ -226,7 +239,7 @@ func syncNativeVPN(cfg *Config) {
 		if !strings.Contains(wgContent, "Table") {
 			wgContent = strings.Replace(wgContent, "[Interface]", "[Interface]\nTable = off", 1)
 		}
-		wgPath := filepath.Join(DataDir, iface+".conf")
+		wgPath := filepath.Join(DataDir, safeConfFile)
 		if err := os.WriteFile(wgPath, []byte(wgContent), 0600); err != nil {
 			nativeVPNLastError = err.Error()
 			return
@@ -236,10 +249,10 @@ func syncNativeVPN(cfg *Config) {
 			slog.Warn("Native WireGuard failed to start", "error", nativeVPNLastError)
 			return
 		}
-		nativeVPNActiveIf = iface
+		nativeVPNActiveIf = safeIface
 		nativeVPNLastError = ""
 		nativeVPNStartedAt = time.Now()
-		slog.Info("Native WireGuard started in split-tunnel mode (Table = off)", "interface", iface)
+		slog.Info("Native WireGuard started in split-tunnel mode (Table = off)", "interface", safeIface)
 	}
 }
 

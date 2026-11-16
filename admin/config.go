@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -475,6 +476,9 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 	copy(exp.Lists, config.Lists)
 	copy(exp.Allowlists, config.Allowlists)
 	for k, v := range config.CustomMappings {
+		if replicaType == "public" && isPrivateOrTailnetIP(v) {
+			continue
+		}
 		exp.CustomMappings[k] = v
 	}
 	for k, v := range config.BlockedClientsInfo {
@@ -513,5 +517,22 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 	}
 
 	return exp
+}
+
+func isPrivateOrTailnetIP(ipStr string) bool {
+	ip := net.ParseIP(strings.TrimSpace(ipStr))
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+	// Check CGNAT / Tailscale range 100.64.0.0/10
+	if ip4 := ip.To4(); ip4 != nil {
+		if ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127 {
+			return true
+		}
+	}
+	return false
 }
 

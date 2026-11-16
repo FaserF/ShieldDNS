@@ -14,8 +14,22 @@ import (
 
 // openLocalOfficialFile attempts to open a bundled official blocklist/allowlist from local filesystem paths.
 func openLocalOfficialFile(relPath string) (*os.File, error) {
+	if strings.Contains(relPath, "..") || strings.Contains(relPath, "\\") {
+		return nil, os.ErrNotExist
+	}
+	var safeRel string
+	switch relPath {
+	case "allowlists/default.txt":
+		safeRel = "allowlists/default.txt"
+	case "blocklists/default.txt":
+		safeRel = "blocklists/default.txt"
+	case "blocklists/search-ads-hybrid.txt":
+		safeRel = "blocklists/search-ads-hybrid.txt"
+	default:
+		return nil, os.ErrNotExist
+	}
 	for _, base := range []string{"official", "/official", "/app/official"} {
-		if f, err := os.Open(filepath.Join(base, relPath)); err == nil {
+		if f, err := os.Open(filepath.Join(base, safeRel)); err == nil {
 			return f, nil
 		}
 	}
@@ -72,6 +86,19 @@ func createSafeBlocklistClient(timeout time.Duration) *http.Client {
 	}
 }
 
+func isTransientBlocklistFetchError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "context deadline exceeded") ||
+		strings.Contains(msg, "Timeout exceeded") ||
+		strings.Contains(msg, "awaiting headers") ||
+		strings.Contains(msg, "i/o timeout") ||
+		strings.Contains(msg, "EOF") ||
+		strings.Contains(msg, "connection reset")
+}
+
 // fetchBlocklistURL performs a safe HTTP GET for a blocklist URL with retry on timeout.
 // It enforces HTTPS, validates that the destination is not private/loopback,
 // and uses an SSRF-safe dialer.
@@ -80,8 +107,11 @@ func fetchBlocklistURL(rawURL, userAgent string, extraHeaders map[string]string,
 		timeoutSec = 60
 	}
 	resp, err := doFetchBlocklistURL(rawURL, userAgent, extraHeaders, timeoutSec)
-	if err != nil && (strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "Timeout exceeded") || strings.Contains(err.Error(), "connection reset")) {
-		// Retry once on transient network timeout with increased timeout
+	if isTransientBlocklistFetchError(err) || (resp != nil && (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500)) {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		// Retry once on transient network timeout or server 5xx/429 with increased timeout
 		time.Sleep(1 * time.Second)
 		return doFetchBlocklistURL(rawURL, userAgent, extraHeaders, timeoutSec+30)
 	}
@@ -89,6 +119,9 @@ func fetchBlocklistURL(rawURL, userAgent string, extraHeaders map[string]string,
 }
 
 func doFetchBlocklistURL(rawURL, userAgent string, extraHeaders map[string]string, timeoutSec int) (*http.Response, error) {
+	if !isValidRedirectUrl(rawURL) || !safeOutboundURLRegex.MatchString(rawURL) {
+		return nil, fmt.Errorf("invalid or forbidden blocklist URL: %s", rawURL)
+	}
 	if !isValidListURL(rawURL) && !testMode {
 		return nil, fmt.Errorf("invalid or forbidden blocklist URL: %s", rawURL)
 	}
@@ -132,10 +165,14 @@ func doFetchBlocklistURL(rawURL, userAgent string, extraHeaders map[string]strin
 		Path:     parsed.EscapedPath(),
 		RawQuery: parsed.RawQuery,
 	}
+	targetURL := cleanURL.String()
+	if !isValidRedirectUrl(targetURL) || !safeOutboundURLRegex.MatchString(targetURL) {
+		return nil, fmt.Errorf("invalid or forbidden blocklist target URL: %s", targetURL)
+	}
 
 	timeout := time.Duration(timeoutSec) * time.Second
 	client := createSafeBlocklistClient(timeout)
-	req, err := http.NewRequest(http.MethodGet, cleanURL.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, targetURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -150,6 +187,9 @@ func doFetchBlocklistURL(rawURL, userAgent string, extraHeaders map[string]strin
 
 // fetchBlocklistURLWithContext is like fetchBlocklistURL but accepts an existing context.
 func fetchBlocklistURLWithContext(ctx context.Context, rawURL, userAgent string, extraHeaders map[string]string) (*http.Response, error) {
+	if !isValidRedirectUrl(rawURL) || !safeOutboundURLRegex.MatchString(rawURL) {
+		return nil, fmt.Errorf("invalid or forbidden blocklist URL: %s", rawURL)
+	}
 	if !isValidListURL(rawURL) && !testMode {
 		return nil, fmt.Errorf("invalid or forbidden blocklist URL: %s", rawURL)
 	}
@@ -193,9 +233,13 @@ func fetchBlocklistURLWithContext(ctx context.Context, rawURL, userAgent string,
 		Path:     parsed.EscapedPath(),
 		RawQuery: parsed.RawQuery,
 	}
+	targetURL := cleanURL.String()
+	if !isValidRedirectUrl(targetURL) || !safeOutboundURLRegex.MatchString(targetURL) {
+		return nil, fmt.Errorf("invalid or forbidden blocklist target URL: %s", targetURL)
+	}
 
 	client := createSafeBlocklistClient(60 * time.Second)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cleanURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}

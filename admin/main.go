@@ -61,73 +61,6 @@ func main() {
 	updateCorefile()
 	initWebAuthn()
 
-	// If configured as replica with sync interval or on startup, trigger initial sync in background
-	go func() {
-		time.Sleep(3 * time.Second) // wait for local server to be ready
-		configLock.RLock()
-		role := config.ClusterRole
-		pURL := config.ClusterPrimaryURL
-		pTok := config.ClusterPrimaryToken
-		iType := config.ClusterInstanceType
-		failover := config.ClusterFailoverMode
-		interval := config.ClusterSyncInterval
-		configLock.RUnlock()
-
-		if role == "replica" && pURL != "" && pTok != "" {
-			slog.Info("Cluster replica: starting background sync with Primary", "primary", pURL)
-			if err := performReplicaSync(pURL, pTok, iType, failover); err != nil {
-				atomic.StoreInt32(&clusterConnLost, 1)
-				clusterLastSyncError = err.Error()
-				slog.Warn("Cluster replica initial sync failed: continuing with cached configuration", "error", err)
-			} else {
-				atomic.StoreInt32(&clusterConnLost, 0)
-				clusterLastSyncError = ""
-				slog.Info("Cluster replica initial sync succeeded")
-			}
-
-			// Periodic sync if interval configured (> 0 minutes, default 5m for replicas)
-			syncInterval := interval
-			if syncInterval <= 0 {
-				syncInterval = 5
-			}
-			ticker := time.NewTicker(time.Duration(syncInterval) * time.Minute)
-				for range ticker.C {
-					configLock.RLock()
-					currRole := config.ClusterRole
-					currPURL := config.ClusterPrimaryURL
-					currPTok := config.ClusterPrimaryToken
-					currIType := config.ClusterInstanceType
-					currFailover := config.ClusterFailoverMode
-					configLock.RUnlock()
-
-					if currRole != "replica" || currPURL == "" {
-						break
-					}
-					if err := performReplicaSync(currPURL, currPTok, currIType, currFailover); err != nil {
-						wasLost := atomic.SwapInt32(&clusterConnLost, 1)
-						clusterLastSyncError = err.Error()
-						slog.Warn("Cluster periodic sync failed", "error", err)
-						if wasLost == 0 {
-							SendSecurityWebhook("cluster_failover", "Cluster Primary unreachable: Operating in replica failover mode", map[string]interface{}{
-								"severity":    "warning",
-								"primary_url": currPURL,
-								"error":       err.Error(),
-							})
-						}
-					} else {
-						wasLost := atomic.SwapInt32(&clusterConnLost, 0)
-						clusterLastSyncError = ""
-						if wasLost == 1 {
-							SendSecurityWebhook("cluster_recovered", "Cluster Primary restored: Replica sync healthy", map[string]interface{}{
-								"severity":    "info",
-								"primary_url": currPURL,
-							})
-						}
-					}
-				}
-		}
-	}()
-
 	mux := setupRouter()
 
 	// Apply Ingress Middleware to strip X-Ingress-Path from HA
@@ -327,14 +260,18 @@ func startWorkers() {
 	go StartQPSWorker(appCtx)
 
 	// Trigger initial blocklist and malicious updates in background
-	// Sequential execution prevents multiple concurrent CoreDNS restarts
+	// Sequential execution prevents multiple concurrent CoreDNS restarts or duplicate blocklist runs
 	go func() {
 		updateBlocklist(nil, false)
-		syncMaliciousIPs(true)
+		syncMaliciousIPs(false)
+		updateCorefile()
 		slog.Info("ShieldDNS Ready: Blocklists and Threat Intelligence loaded")
 
 		// Initial CoreDNS start after everything is ready
 		go startCoreDNS(appCtx)
+
+		// Start cluster replica sync after initial blocklist & CoreDNS bootstrap to avoid startup races/OOM
+		go startClusterReplicaSync(appCtx)
 	}()
 
 	// Start health and monitoring
@@ -349,5 +286,85 @@ func startWorkers() {
 	go startLogWorker(appCtx)
 	go startAbuseCleanup(appCtx)
 	go startAutoUpdateWorker(appCtx)
+}
+
+func startClusterReplicaSync(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(3 * time.Second):
+	}
+
+	configLock.RLock()
+	role := config.ClusterRole
+	pURL := config.ClusterPrimaryURL
+	pTok := config.ClusterPrimaryToken
+	iType := config.ClusterInstanceType
+	failover := config.ClusterFailoverMode
+	interval := config.ClusterSyncInterval
+	configLock.RUnlock()
+
+	if role != "replica" || pURL == "" || pTok == "" {
+		return
+	}
+
+	slog.Info("Cluster replica: starting background sync with Primary", "primary", pURL)
+	if err := performReplicaSync(pURL, pTok, iType, failover); err != nil {
+		atomic.StoreInt32(&clusterConnLost, 1)
+		clusterLastSyncError = err.Error()
+		slog.Warn("Cluster replica initial sync failed: continuing with cached configuration", "error", err)
+	} else {
+		atomic.StoreInt32(&clusterConnLost, 0)
+		clusterLastSyncError = ""
+		slog.Info("Cluster replica initial sync succeeded")
+	}
+
+	// Periodic sync if interval configured (> 0 minutes, default 5m for replicas)
+	syncInterval := interval
+	if syncInterval <= 0 {
+		syncInterval = 5
+	}
+	ticker := time.NewTicker(time.Duration(syncInterval) * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			configLock.RLock()
+			currRole := config.ClusterRole
+			currPURL := config.ClusterPrimaryURL
+			currPTok := config.ClusterPrimaryToken
+			currIType := config.ClusterInstanceType
+			currFailover := config.ClusterFailoverMode
+			configLock.RUnlock()
+
+			if currRole != "replica" || currPURL == "" {
+				return
+			}
+			if err := performReplicaSync(currPURL, currPTok, currIType, currFailover); err != nil {
+				wasLost := atomic.SwapInt32(&clusterConnLost, 1)
+				clusterLastSyncError = err.Error()
+				slog.Warn("Cluster periodic sync failed", "error", err)
+				if wasLost == 0 {
+					SendSecurityWebhook("cluster_failover", "Cluster Primary unreachable: Operating in replica failover mode", map[string]interface{}{
+						"severity":    "warning",
+						"primary_url": currPURL,
+						"error":       err.Error(),
+					})
+				}
+			} else {
+				wasLost := atomic.SwapInt32(&clusterConnLost, 0)
+				clusterLastSyncError = ""
+				if wasLost == 1 {
+					SendSecurityWebhook("cluster_recovered", "Cluster Primary restored: Replica sync healthy", map[string]interface{}{
+						"severity":    "info",
+						"primary_url": currPURL,
+					})
+				}
+			}
+		}
+	}
 }
 

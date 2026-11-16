@@ -244,6 +244,18 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid ClusterPrimaryURL: must be a valid http or https URL", http.StatusBadRequest)
 			return
 		}
+		for _, l := range newConfig.Lists {
+			if l.URL != "" && !strings.HasPrefix(l.URL, "file://") && !isValidRedirectUrl(l.URL) {
+				http.Error(w, "Invalid blocklist URL: must be a valid http or https URL", http.StatusBadRequest)
+				return
+			}
+		}
+		for _, l := range newConfig.Allowlists {
+			if l.URL != "" && !strings.HasPrefix(l.URL, "file://") && !isValidRedirectUrl(l.URL) {
+				http.Error(w, "Invalid allowlist URL: must be a valid http or https URL", http.StatusBadRequest)
+				return
+			}
+		}
 		configLock.Lock()
 		// Preserve fields that might not be sent in a partial update
 		if len(newConfig.BlockedCountries) == 0 {
