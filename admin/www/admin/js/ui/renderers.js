@@ -393,7 +393,7 @@ export function renderConfig(cfg) {
             // Priority Selector
             const prio = (list.priority || 'normal').toLowerCase();
             const prioPill = `
-                <select class="list-prio-select" onchange="event.stopPropagation(); window.setListPriority('${helpers.escapeHTML(list.url)}', this.value, event)" onclick="event.stopPropagation();" style="background: var(--bg-card, rgba(255,255,255,0.05)); border: 1px solid var(--border); border-radius: 4px; color: var(--text-color); font-size: 0.75rem; padding: 2px 6px; margin-left: 6px; cursor: pointer;">
+                <select class="list-prio-select" onchange="event.stopPropagation(); window.setListPriority('${helpers.escapeHTML(list.url)}', this.value, event)" onclick="event.stopPropagation();" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text-color); font-size: 0.75rem; padding: 2px 6px; margin-left: 6px; cursor: pointer;">
                     <option value="high" ${prio === 'high' ? 'selected' : ''}>🛡️ High (Protected)</option>
                     <option value="normal" ${prio === 'normal' ? 'selected' : ''}>⚡ Normal</option>
                     <option value="low" ${prio === 'low' ? 'selected' : ''}>📦 Low (Shed First)</option>
