@@ -1,37 +1,37 @@
 {
-  "version": "1.12.11",
-  "commit_id": "75c6698",
-  "generated_at": "2026-11-16T16:38:27Z",
+  "version": "1.13.0",
+  "commit_id": "9b2c5fe",
+  "generated_at": "2026-11-16T21:25:15Z",
   "code": {
     "backend": {
-      "files": 89,
-      "lines": 23600
+      "files": 109,
+      "lines": 28891
     },
     "frontend": {
-      "files": 68,
-      "lines": 13855
+      "files": 73,
+      "lines": 15503
     },
     "other": {
       "files": 30,
-      "lines": 3312
+      "lines": 3418
     },
     "total": {
-      "files": 187,
-      "lines": 40767
+      "files": 212,
+      "lines": 47812
     }
   },
   "tests": {
     "backend": {
-      "files": 29,
-      "tests": 136
+      "files": 38,
+      "tests": 151
     },
     "frontend": {
       "files": 4,
       "tests": 5
     },
     "total": {
-      "files": 33,
-      "tests": 141
+      "files": 42,
+      "tests": 156
     }
   }
 }
