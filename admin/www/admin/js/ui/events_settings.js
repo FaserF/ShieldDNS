@@ -62,6 +62,15 @@ export async function saveConfig(fetchConfig) {
         malicious_ip_interval: parseInt(getEl('malicious-interval-input')?.value) || 8,
         verify_upstream_tls: getEl('verify-upstream-tls-check')?.checked,
         mcp_server_enabled: getEl('mcp-server-enabled-check')?.checked,
+        ai_enabled: !!getEl('ai-enabled-check')?.checked,
+        ai_base_url: getEl('ai-base-url-input')?.value.trim() || 'http://127.0.0.1:20128/v1',
+        ai_api_key: getEl('ai-api-key-input')?.value.trim() || '',
+        ai_model: getEl('ai-model-input')?.value.trim() || 'security-threat-cascade',
+        ai_auto_block_threats: !!getEl('ai-auto-block-threats-check')?.checked,
+        ai_auto_block_ads: !!getEl('ai-auto-block-ads-check')?.checked,
+        ai_auto_flag_false_positives: !!getEl('ai-auto-flag-fp-check')?.checked,
+        ai_confidence_threshold: (parseFloat(getEl('ai-confidence-input')?.value) || 80) / 100,
+        ai_audit_interval_minutes: parseInt(getEl('ai-audit-interval-input')?.value, 10) || 5,
         server_country: getEl('manual-server-country-select')?.value || '',
         update_channel: getEl('update-channel')?.value || 'stable',
         auto_update_enabled: getEl('auto-update-enabled')?.checked,
@@ -273,6 +282,27 @@ export function initSettingsEvents(fetchConfig) {
         saveBtn.addEventListener('click', (e) => {
             e.preventDefault();
             saveConfig(fetchConfig);
+        });
+    }
+
+    const aiAuditBtn = getEl('run-ai-audit-now-btn');
+    if (aiAuditBtn) {
+        aiAuditBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            aiAuditBtn.disabled = true;
+            aiAuditBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Auditing...';
+            try {
+                const res = await api.apiFetch('/api/ai/audit', { method: 'POST' });
+                if (res) {
+                    helpers.showToast(`AI Audit complete: Inspected ${res.domains_inspected || 0} domains, found ${res.threats_detected || 0} threats, auto-blocked ${res.auto_blocked_domains?.length || 0}.`);
+                    if (fetchConfig) fetchConfig();
+                }
+            } catch (err) {
+                helpers.showToast('AI Audit failed: ' + (err.message || err), 'error');
+            } finally {
+                aiAuditBtn.disabled = false;
+                aiAuditBtn.innerHTML = '<i class="fas fa-play"></i> Run AI Audit Now';
+            }
         });
     }
 

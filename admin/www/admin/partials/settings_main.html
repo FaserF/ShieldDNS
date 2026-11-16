@@ -471,6 +471,102 @@
                     </div>
                 </div>
 
+                <div class="settings-section" data-category="system">
+                    <h2>AI Threat Intelligence & Autonomous Guardian 🛡️🤖</h2>
+                    <p class="help">Autonomous background AI security engine connected via standard OpenAI-compatible gateway (Omniroute, Ollama, LM Studio, etc.) to detect phishing, DGA, unblocked telemetry/ads, and false positives.</p>
+
+                    <div class="form-group checkbox-group" style="margin-bottom: 15px;">
+                        <div class="checkbox-text">
+                            <div class="label-with-info">
+                                <label>Enable Autonomous AI Guardian</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Enables asynchronous background auditing and domain threat classification without slowing down live DNS queries."></i>
+                            </div>
+                            <p class="help">Continuously triages suspicious domains, unblocked trackers, and false positives.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="ai-enabled-check">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div id="ai-guardian-config-box" style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                            <div class="form-group">
+                                <label for="ai-base-url-input">API Endpoint Base URL (OpenAI-Compatible)</label>
+                                <input type="text" id="ai-base-url-input" class="form-control" placeholder="http://127.0.0.1:20128/v1" style="font-family:monospace; font-size:0.85rem;">
+                                <p class="help">URL to your Omniroute or local LLM gateway /v1 endpoint.</p>
+                            </div>
+                            <div class="form-group">
+                                <label for="ai-model-input">Model / Cascade Name</label>
+                                <input type="text" id="ai-model-input" class="form-control" placeholder="security-threat-cascade" style="font-family:monospace; font-size:0.85rem;">
+                                <p class="help">e.g. security-threat-cascade, auto/free, or any custom model.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ai-api-key-input">Bearer API Key (Optional)</label>
+                            <input type="password" id="ai-api-key-input" class="form-control" placeholder="sk-..." autocomplete="new-password" style="font-family:monospace; font-size:0.85rem;">
+                            <p class="help">API Key for Omniroute or OpenAI-compatible service (sent in Authorization header).</p>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-top:5px;">
+                            <div class="form-group checkbox-group">
+                                <div class="checkbox-text">
+                                    <label>Auto-Block Threats</label>
+                                    <p class="help">Phishing, Malware C2, DGA</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="ai-auto-block-threats-check">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="form-group checkbox-group">
+                                <div class="checkbox-text">
+                                    <label>Auto-Block Trackers</label>
+                                    <p class="help">Unblocked Ads & Telemetry</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="ai-auto-block-ads-check">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="form-group checkbox-group">
+                                <div class="checkbox-text">
+                                    <label>Auto-Flag False Positives</label>
+                                    <p class="help">Legitimate Sites Blocked</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="ai-auto-flag-fp-check">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                            <div class="form-group">
+                                <label for="ai-confidence-input">Confidence Threshold (%)</label>
+                                <input type="number" id="ai-confidence-input" class="form-control" min="50" max="100" step="5" value="80">
+                                <p class="help">Minimum AI certainty required before automatic blocking (default 80%).</p>
+                            </div>
+                            <div class="form-group">
+                                <label for="ai-audit-interval-input">Audit Interval (Minutes)</label>
+                                <input type="number" id="ai-audit-interval-input" class="form-control" min="1" max="1440" value="5">
+                                <p class="help">How frequently the autonomous scanner inspects recent queries.</p>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center; background: rgba(var(--accent-rgb), 0.05); padding:10px 15px; border-radius:8px; border:1px solid rgba(var(--accent-rgb), 0.15); margin-top:5px;">
+                            <div>
+                                <strong style="font-size:0.85rem;"><i class="fas fa-microchip"></i> On-Demand Autonomous Triage</strong>
+                                <p class="help" style="margin:2px 0 0 0;">Inspect current traffic and generate an AI security audit report now.</p>
+                            </div>
+                            <button type="button" class="btn btn-sm" id="run-ai-audit-now-btn" style="background:var(--accent); color:#fff; display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-play"></i> Run AI Audit Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="settings-section" data-category="access">
                     <h2>Model Context Protocol (MCP) 🤖</h2>
                     <p class="help">Enable native Model Context Protocol server for AI coding assistants and autonomous agents (e.g. Antigravity, Claude Desktop, Cursor).</p>

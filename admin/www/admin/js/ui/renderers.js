@@ -120,9 +120,15 @@ export function createQueryRow(q) {
         nodeBadge = `<span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.35); font-size: 0.72rem; padding: 2px 6px; margin-left: 6px; border-radius: 4px; vertical-align: middle;" title="Origin Node: ${helpers.escapeHTML(q.node_name)}"><i class="fas fa-server" style="font-size: 0.65rem; margin-right: 3px;"></i>${helpers.escapeHTML(q.node_name)}</span>`;
     }
 
+    let aiBadge = '';
+    const aiRule = state.currentConfig && state.currentConfig.ai_rules && state.currentConfig.ai_rules[q.domain];
+    if (aiRule) {
+        aiBadge = `<span class="badge" style="background: rgba(147, 51, 234, 0.15); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.35); font-size: 0.72rem; padding: 2px 6px; margin-left: 6px; border-radius: 4px; vertical-align: middle;" title="AI Guardian: ${helpers.escapeHTML(aiRule.reason || '')} (${Math.round((aiRule.confidence || 0) * 100)}%)"><i class="fas fa-robot"></i> AI ${helpers.escapeHTML(aiRule.threat_type || 'Guard')}</span>`;
+    }
+
     row.innerHTML = `
         <td>${time}</td>
-        <td><span class="domain-link" onclick="showDomainDetails('${helpers.escapeHTML(q.domain)}')">${helpers.escapeHTML(q.domain)}</span>${nodeBadge}</td>
+        <td><span class="domain-link" onclick="showDomainDetails('${helpers.escapeHTML(q.domain)}')">${helpers.escapeHTML(q.domain)}</span>${nodeBadge}${aiBadge}</td>
         <td><span class="ip-link" onclick="showIPDetails('${helpers.escapeHTML(q.client_ip)}')">${displayIp}</span></td>
         <td class="hide-mobile">${helpers.escapeHTML(q.type) || 'A'}</td>
         <td><span class="badge ${statusClass}">${helpers.escapeHTML(q.status)}</span></td>
@@ -240,6 +246,15 @@ export function renderConfig(cfg) {
 
     if (getEl('verify-upstream-tls-check')) getEl('verify-upstream-tls-check').checked = !!cfg.verify_upstream_tls;
     if (getEl('mcp-server-enabled-check')) getEl('mcp-server-enabled-check').checked = !!cfg.mcp_server_enabled;
+    if (getEl('ai-enabled-check')) getEl('ai-enabled-check').checked = !!cfg.ai_enabled;
+    if (getEl('ai-base-url-input')) getEl('ai-base-url-input').value = cfg.ai_base_url || 'http://127.0.0.1:20128/v1';
+    if (getEl('ai-model-input')) getEl('ai-model-input').value = cfg.ai_model || 'security-threat-cascade';
+    if (getEl('ai-api-key-input')) getEl('ai-api-key-input').value = cfg.ai_api_key || '';
+    if (getEl('ai-auto-block-threats-check')) getEl('ai-auto-block-threats-check').checked = cfg.ai_auto_block_threats !== false;
+    if (getEl('ai-auto-block-ads-check')) getEl('ai-auto-block-ads-check').checked = !!cfg.ai_auto_block_ads;
+    if (getEl('ai-auto-flag-fp-check')) getEl('ai-auto-flag-fp-check').checked = cfg.ai_auto_flag_false_positives !== false;
+    if (getEl('ai-confidence-input')) getEl('ai-confidence-input').value = Math.round((cfg.ai_confidence_threshold || 0.8) * 100);
+    if (getEl('ai-audit-interval-input')) getEl('ai-audit-interval-input').value = cfg.ai_audit_interval_minutes || 5;
     if (getEl('anonymize-client-ips-check')) getEl('anonymize-client-ips-check').checked = !!cfg.anonymize_client_ips;
     if (getEl('dns-rebinding-protection-check')) getEl('dns-rebinding-protection-check').checked = !!cfg.dns_rebinding_protection;
     if (getEl('strip-ecs-check')) getEl('strip-ecs-check').checked = !!cfg.strip_ecs;
@@ -322,12 +337,15 @@ export function renderConfig(cfg) {
     const renderCustomList = (id, items) => {
         const el = getEl(id);
         if (!el) return;
-        el.innerHTML = items?.map(domain => `
-            <div class="preset-selection-item">
-                <span>${helpers.escapeHTML(domain)}</span>
+        el.innerHTML = items?.map(domain => {
+            const aiMeta = cfg.ai_rules && cfg.ai_rules[domain];
+            const aiBadge = aiMeta ? `<span class="badge" style="background: rgba(147, 51, 234, 0.15); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.35); margin-left: 8px; font-size: 0.75rem; padding: 2px 7px; border-radius: 4px;" title="AI Guardian: ${helpers.escapeHTML(aiMeta.reason || '')} (Confidence: ${Math.round((aiMeta.confidence || 0) * 100)}%, Model: ${helpers.escapeHTML(aiMeta.model || '')})"><i class="fas fa-robot"></i> AI: ${helpers.escapeHTML(aiMeta.threat_type || 'flagged')} (${Math.round((aiMeta.confidence || 0) * 100)}%)</span>` : '';
+            return `
+            <div class="preset-selection-item" style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="display:flex; align-items:center; gap:6px;">${helpers.escapeHTML(domain)}${aiBadge}</span>
                 <button type="button" class="btn btn-sm secondary" onclick="removeCustomRule('${helpers.escapeHTML(domain)}', event)" title="Remove Rule"><i class="fas fa-trash"></i></button>
-            </div>
-        `).join('') || '';
+            </div>`;
+        }).join('') || '';
     };
 
     renderCustomList('custom-blocked-list', cfg.custom_blocked);
