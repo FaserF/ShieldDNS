@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -107,7 +108,23 @@ func CallOpenAIChatCompletion(ctx context.Context, messages []OpenAIChatMessage)
 	}
 
 	endpoint := baseURL + "/chat/completions"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
+	if !isValidRedirectUrl(endpoint) {
+		return "", fmt.Errorf("invalid or disallowed AI base URL")
+	}
+	parsedAI, err := url.Parse(endpoint)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse AI URL: %w", err)
+	}
+	if err := isSafeClusterTarget(parsedAI); err != nil {
+		return "", fmt.Errorf("unsafe AI target URL: %w", err)
+	}
+	safeEndpoint := (&url.URL{
+		Scheme: parsedAI.Scheme,
+		Host:   parsedAI.Host,
+		Path:   parsedAI.Path,
+	}).String()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, safeEndpoint, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}

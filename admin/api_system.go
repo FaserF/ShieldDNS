@@ -244,6 +244,10 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid ClusterPrimaryURL: must be a valid http or https URL", http.StatusBadRequest)
 			return
 		}
+		if newConfig.AIBaseURL != "" && !isValidRedirectUrl(newConfig.AIBaseURL) {
+			http.Error(w, "Invalid AIBaseURL: must be a valid http or https URL", http.StatusBadRequest)
+			return
+		}
 		for _, l := range newConfig.Lists {
 			if l.URL != "" && !strings.HasPrefix(l.URL, "file://") && !isValidRedirectUrl(l.URL) {
 				http.Error(w, "Invalid blocklist URL: must be a valid http or https URL", http.StatusBadRequest)
