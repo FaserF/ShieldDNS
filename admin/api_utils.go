@@ -523,7 +523,28 @@ func fetchBlocklistURLWithContext(ctx context.Context, rawURL, userAgent string,
 	return client.Do(req) //nolint:wrapcheck
 }
 
-// IsCriticalIP checks if an IP belongs to core infrastructure or private networks that should never be blocked.
+// IsPrivateOrTailnetIP checks if an IP belongs to private RFC1918 networks, link-local, or Tailscale CGNAT.
+func IsPrivateOrTailnetIP(ip string) bool {
+	parsed := net.ParseIP(strings.TrimSpace(ip))
+	if parsed == nil {
+		return false
+	}
+	if parsed.IsLoopback() || parsed.IsPrivate() || parsed.IsLinkLocalUnicast() || parsed.IsLinkLocalMulticast() {
+		return true
+	}
+	// Tailscale Carrier Grade NAT range: 100.64.0.0/10 and IPv6 fd7a:115c:a1e0::/48
+	_, tailnetSubnet, _ := net.ParseCIDR("100.64.0.0/10")
+	if tailnetSubnet != nil && tailnetSubnet.Contains(parsed) {
+		return true
+	}
+	_, tailnetIPv6Subnet, _ := net.ParseCIDR("fd7a:115c:a1e0::/48")
+	if tailnetIPv6Subnet != nil && tailnetIPv6Subnet.Contains(parsed) {
+		return true
+	}
+	return false
+}
+
+// IsCriticalIP checks if an IP belongs to core infrastructure or explicitly whitelisted subnets that should never be blocked.
 func IsCriticalIP(ip string, blockPageIP string, whitelist []string) bool {
 	ip = strings.TrimSpace(ip)
 	if ip == "" || ip == "DoH Proxy" || ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
@@ -541,19 +562,8 @@ func IsCriticalIP(ip string, blockPageIP string, whitelist []string) bool {
 	}
 
 	parsed := net.ParseIP(ip)
-	if parsed != nil {
-		if parsed.IsLoopback() || parsed.IsPrivate() || parsed.IsLinkLocalUnicast() || parsed.IsLinkLocalMulticast() {
-			return true
-		}
-		// Tailscale Carrier Grade NAT range: 100.64.0.0/10 and IPv6 fd7a:115c:a1e0::/48
-		_, tailnetSubnet, _ := net.ParseCIDR("100.64.0.0/10")
-		if tailnetSubnet != nil && tailnetSubnet.Contains(parsed) {
-			return true
-		}
-		_, tailnetIPv6Subnet, _ := net.ParseCIDR("fd7a:115c:a1e0::/48")
-		if tailnetIPv6Subnet != nil && tailnetIPv6Subnet.Contains(parsed) {
-			return true
-		}
+	if parsed != nil && parsed.IsLoopback() {
+		return true
 	}
 
 	for _, w := range whitelist {

@@ -69,7 +69,7 @@ func loadConfig() {
 		RateLimitRate:              100, // 100 queries/sec per client IP
 		RateLimitBurst:             250, // 250 burst allowance
 		ECHOptimizationEnabled:     true,
-		AutoblockWhitelist:         []string{"127.0.0.1", "::1"},
+		AutoblockWhitelist:         []string{"127.0.0.1", "::1", "100.64.0.0/10"},
 		AutoUpdateEnabled:          false,
 		AutoUpdateHour:             3,
 		UpdateChannel:              "stable",
@@ -120,7 +120,7 @@ func loadConfig() {
 			config.DoHRateLimit = 50
 		}
 		if config.AutoblockWhitelist == nil {
-			config.AutoblockWhitelist = []string{"127.0.0.1", "::1"}
+			config.AutoblockWhitelist = []string{"127.0.0.1", "::1", "100.64.0.0/10"}
 		}
 		if config.UpdateChannel == "" {
 			config.UpdateChannel = "stable"

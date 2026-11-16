@@ -210,8 +210,8 @@ func blockClientAuto(ip, reason string) {
 	whitelist := config.AutoblockWhitelist
 	configLock.RUnlock()
 
-	if IsCriticalIP(ip, bpIP, whitelist) {
-		slog.Info("Skipping auto-block for critical IP", "ip", ip, "reason", reason)
+	if IsPrivateOrTailnetIP(ip) || IsCriticalIP(ip, bpIP, whitelist) {
+		slog.Info("Skipping auto-block for critical/private IP", "ip", ip, "reason", reason)
 		return
 	}
 	if !testMode {
@@ -344,15 +344,17 @@ func startAbuseCleanup(ctx context.Context) {
 					if IsCriticalIP(ip, bpIP, wl) {
 						delete(config.BlockedClientsInfo, ip)
 						changed = true
-						slog.Info("Unblocked critical/private IP from blocklist during abuse cleanup", "ip", ip)
+						slog.Info("Unblocked critical IP from blocklist during abuse cleanup", "ip", ip)
 						continue
 					}
 					info, ok := config.BlockedClientsInfo[ip]
-					if ok && info.Auto && time.Since(info.BlockedAt) > autoTTL {
-						delete(config.BlockedClientsInfo, ip)
-						changed = true
-						slog.Info("Auto-blocked client IP expired (TTL)", "ip", ip, "duration", time.Since(info.BlockedAt))
-						continue
+					if ok && info.Auto {
+						if IsPrivateOrTailnetIP(ip) || time.Since(info.BlockedAt) > autoTTL {
+							delete(config.BlockedClientsInfo, ip)
+							changed = true
+							slog.Info("Auto-blocked client IP purged/expired", "ip", ip, "duration", time.Since(info.BlockedAt))
+							continue
+						}
 					}
 					newBlocked = append(newBlocked, ip)
 				}
