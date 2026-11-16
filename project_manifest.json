@@ -2,7 +2,7 @@
   "project": "ShieldDNS",
   "purpose": "High-performance DNS appliance and security gateway with integrated web administration panel.",
   "connections_map_reference": "project_connections.json (defines component linking for UI and backend files)",
-  "timestamp": "2026-11-16T20:26:47.829500",
+  "timestamp": "2026-11-16T21:10:36.966524",
   "stack": {
     "backend": "Go (embedded FS assets), SQLite (query database), CoreDNS (DNS server)",
     "frontend": "Vanilla HTML5, CSS3 (variables & flex/grid layout), Vanilla JS (ES6 modules)",
@@ -346,6 +346,62 @@
       {
         "name": "routingRules",
         "route": "/api/api/routing/rules"
+      },
+      {
+        "name": "explain",
+        "route": "/api/api/explain"
+      },
+      {
+        "name": "simulateRule",
+        "route": "/api/api/rules/simulate"
+      },
+      {
+        "name": "servicesCatalog",
+        "route": "/api/api/services/catalog"
+      },
+      {
+        "name": "servicesUpdate",
+        "route": "/api/api/services/update"
+      },
+      {
+        "name": "clientIdentities",
+        "route": "/api/api/clients/identities"
+      },
+      {
+        "name": "clientIdentity",
+        "route": "/api/api/client/identity"
+      },
+      {
+        "name": "anomalies",
+        "route": "/api/api/anomalies"
+      },
+      {
+        "name": "acknowledgeAnomaly",
+        "route": "/api/api/anomalies/acknowledge"
+      },
+      {
+        "name": "muteAnomaly",
+        "route": "/api/api/anomalies/mute"
+      },
+      {
+        "name": "annotations",
+        "route": "/api/api/annotations"
+      },
+      {
+        "name": "supportPackage",
+        "route": "/api/api/system/support-package"
+      },
+      {
+        "name": "agentPlans",
+        "route": "/api/api/agent/plans"
+      },
+      {
+        "name": "applyAgentPlan",
+        "route": "/api/api/agent/plans/apply"
+      },
+      {
+        "name": "discardAgentPlan",
+        "route": "/api/api/agent/plans/discard"
       }
     ]
   },
@@ -363,14 +419,21 @@
     "admin": [
       "abuse.go",
       "abuse_test.go",
+      "agent_plans.go",
+      "agent_plans_test.go",
+      "annotations.go",
+      "anomaly_beacon.go",
+      "anomaly_beacon_test.go",
       "api.go",
       "api_ai_guardian.go",
+      "api_ai_guardian_test.go",
       "api_client_handlers.go",
       "api_cluster.go",
       "api_cluster_sync.go",
       "api_cluster_test.go",
       "api_cluster_worker.go",
       "api_domain_handlers.go",
+      "api_explain.go",
       "api_export.go",
       "api_handlers_test.go",
       "api_mcp.go",
@@ -406,6 +469,8 @@
       "auth_middleware.go",
       "auth_test.go",
       "backup_restore_test.go",
+      "blocked_services.go",
+      "blocked_services_test.go",
       "blocklist_fetch.go",
       "client_api_test.go",
       "client_block_test.go",
@@ -422,11 +487,15 @@
       "db_queries.go",
       "db_stats.go",
       "db_test.go",
+      "device_identify.go",
+      "device_identify_test.go",
       "dns.go",
       "dns_corefile.go",
       "dns_parser.go",
       "dns_test.go",
       "dns_upstream.go",
+      "explain.go",
+      "explain_test.go",
       "feature_parity_test.go",
       "final_audit_test.go",
       "geo.go",
@@ -443,10 +512,14 @@
       "presets_test.go",
       "router.go",
       "session_test.go",
+      "simulate.go",
+      "simulate_test.go",
       "sni_proxy.go",
       "stats_linux.go",
       "stats_other.go",
       "stats_windows.go",
+      "support_package.go",
+      "support_package_test.go",
       "vector_threat.go",
       "vector_threat_test.go",
       "versions.go",
@@ -503,6 +576,8 @@
     ],
     "admin/www/admin/js/core": [
       "auth.js",
+      "help.js",
+      "mode.js",
       "navigation.js",
       "state.js"
     ],
@@ -521,6 +596,7 @@
       "events_mfa.js",
       "events_settings.js",
       "helpers.js",
+      "insights.js",
       "modals.js",
       "renderers.js",
       "renderers_details.js",
@@ -530,6 +606,7 @@
     ],
     "admin/www/admin/partials": [
       "auth.html",
+      "help_drawer.html",
       "modals.html",
       "modals_basic.html",
       "modals_details.html",
@@ -546,7 +623,8 @@
       "privacy.html",
       "queries.html",
       "settings.html",
-      "system-logs.html"
+      "system-logs.html",
+      "wall.html"
     ],
     "tools": [
       "cloudflare_worker_template.js"
