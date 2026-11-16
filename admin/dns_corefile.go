@@ -192,6 +192,12 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 					sb.WriteString("    cache 300\n")
 					sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
 					sb.WriteString("    errors\n}\n\n")
+
+					sb.WriteString(fmt.Sprintf("quic://%s:%s {\n    tls %s %s\n", zone, dotPort, certFile, keyFile))
+					sb.WriteString("    quic {\n        max_streams 50\n        worker_pool_size 256\n    }\n")
+					sb.WriteString("    cache 300\n")
+					sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n    }\n", upstreamStr))
+					sb.WriteString("    errors\n}\n\n")
 				}
 			}
 		}
@@ -313,12 +319,17 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 				sb.WriteString(fmt.Sprintf("tls://%s:%s {\n    tls %s %s\n", matchDomain, dotPort, certFile, keyFile))
 			} else if prefix == "https" {
 				sb.WriteString(fmt.Sprintf("https://%s:%s {\n    tls %s %s\n", matchDomain, dohPort, certFile, keyFile))
+			} else if prefix == "quic" {
+				sb.WriteString(fmt.Sprintf("quic://%s:%s {\n    tls %s %s\n", matchDomain, dotPort, certFile, keyFile))
+				sb.WriteString("    quic {\n        max_streams 50\n        worker_pool_size 256\n    }\n")
 			}
 			if cfg.DNSSECEnabled {
 				sb.WriteString("    dnssec\n")
 			}
 			sb.WriteString("    metadata\n    reload 10s\n")
-			sb.WriteString("    cache 3600\n")
+			sb.WriteString("    cache 60\n")
+			// Suppress HTTPS/SVCB (type 65) for geo/NextDNS zones to prevent HTTP/3 direct handshake bypass and NextDNS FORMERR
+			sb.WriteString(fmt.Sprintf("    template IN HTTPS %s {\n        rcode NOERROR\n    }\n", matchDomain))
 			sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n", upstreamStr))
 			if target.tlsServerName != "" {
 				sb.WriteString(fmt.Sprintf("        tls_servername %s\n", target.tlsServerName))
@@ -331,6 +342,7 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 		if hasCerts {
 			writeZone("tls")
 			writeZone("https")
+			writeZone("quic")
 		}
 	}
 

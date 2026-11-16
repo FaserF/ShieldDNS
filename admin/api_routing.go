@@ -269,10 +269,10 @@ var (
 	nextDNSCacheMu         sync.Mutex
 )
 
-// GetNextDNSMonthlyLimit returns the configured monthly limit, defaulting to 300,000 queries.
+// GetNextDNSMonthlyLimit returns the configured monthly limit, or 0 if unconstrained.
 func GetNextDNSMonthlyLimit(cfg *Config) int64 {
 	if cfg == nil || cfg.NextDNSMonthlyLimit <= 0 {
-		return 300000
+		return 0
 	}
 	return int64(cfg.NextDNSMonthlyLimit)
 }
@@ -386,8 +386,13 @@ func GetNextDNSMonthlyQueries(cfg *Config) int64 {
 }
 
 // isNextDNSQuotaExceeded checks whether NextDNS has exceeded its configured monthly limit.
+// If NextDNSMonthlyLimit <= 0, no artificial cutoff is applied.
 func isNextDNSQuotaExceeded(cfg *Config) bool {
 	if cfg == nil || strings.TrimSpace(cfg.NextDNSProfileID) == "" {
+		return false
+	}
+	if cfg.NextDNSMonthlyLimit <= 0 {
+		cachedNextDNSExceeded.Store(false)
 		return false
 	}
 	if !cfg.NextDNSYouTube && !cfg.NextDNSReddit {
@@ -404,7 +409,7 @@ func isNextDNSQuotaExceeded(cfg *Config) bool {
 	}
 	queries := GetNextDNSMonthlyQueries(cfg)
 	limit := GetNextDNSMonthlyLimit(cfg)
-	exceeded := queries >= limit
+	exceeded := limit > 0 && queries >= limit
 	cachedNextDNSExceeded.Store(exceeded)
 	return exceeded
 }

@@ -135,14 +135,27 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 			continue
 		}
 
-		// Wildcard match for subdomains (check parent domains)
-		// e.g., for "www.google.com", check "google.com" and "com"
+		// Subdomain match: only user custom allowed rules or explicit wildcard allow rules
+		// can unblock a subdomain that was explicitly flagged by a blocklist.
+		// Standard general allowlists (e.g. for apex domains like "google.com" or "spiegel.de")
+		// must NOT blanket-unblock ad/tracking subdomains (like "adservice.google.com" or "ad.spiegel.de").
 		parts := strings.Split(ad, ".")
 		for i := 1; i < len(parts); i++ {
 			parentDomain := strings.Join(parts[i:], ".")
-			if _, ok := allowSet[parentDomain]; ok {
+			if _, inCustom := customAllowedSet[parentDomain]; inCustom {
 				delete(attribution, ad)
 				break
+			}
+			if _, inCustomWild := customAllowedSet["*."+parentDomain]; inCustomWild {
+				delete(attribution, ad)
+				break
+			}
+			// Only allow www.<parentDomain> through general allowlist
+			if len(parts) == i+1 && parts[0] == "www" {
+				if _, inAllow := allowSet[parentDomain]; inAllow {
+					delete(attribution, ad)
+					break
+				}
 			}
 		}
 	}

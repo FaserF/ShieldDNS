@@ -66,11 +66,10 @@ var DefaultPresets = []List{
 	{Name: "Game Console Adblock (DandelionSprout)", URL: "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/GameConsoleAdblockList.txt", Enabled: false, Category: "Specialized & Content"},
 
 	// --- Regional & Languages ---
-	{Name: "AdGuard German Filter", URL: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_6.txt", Enabled: false, Category: "Regional & Languages", IsRecommended: true},
+	{Name: "EasyList Germany", URL: "https://easylist.to/easylistgermany/easylistgermany.txt", Enabled: false, Category: "Regional & Languages", IsRecommended: true},
 	{Name: "KADhost (German Blocklist)", URL: "https://raw.githubusercontent.com/FiltersHeroes/KADhosts/master/KADhosts.txt", Enabled: false, Category: "Regional & Languages", IsRecommended: true},
 	{Name: "hostsVN", URL: "https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts", Enabled: false, Category: "Regional & Languages"},
-	{Name: "German Websites Ad", URL: "https://raw.githubusercontent.com/deathbybandaid/piholeparser/master/Subscribable-Lists/CountryCodesLists/Germany.txt", Enabled: false, Category: "Regional & Languages"},
-	{Name: "AdGuard German Blocklist Optimized", URL: "https://filters.adtidy.org/extension/ublock/filters/6_optimized.txt", Enabled: false, Category: "Regional & Languages", IsRecommended: true},
+	{Name: "German Websites Ad", URL: "https://raw.githubusercontent.com/deathbybandaid/piholeparser/master/Subscribable-Lists/CountryCodesLists/Germany.txt", Enabled: false, Category: "Regional & Languages", IsRecommended: true},
 
 	// --- Misc & Extra ---
 	{Name: "FaserF Other", URL: "https://raw.githubusercontent.com/FaserF/piholeblockinglists/master/other.txt", Enabled: false, Category: "Misc & Extra"},

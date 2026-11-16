@@ -329,20 +329,61 @@ func startAbuseCleanup(ctx context.Context) {
 				}
 			}
 			abuseMu.Unlock()
+
+			// 5. Auto-expiration of automatically blocked clients (TTL: 2 hours)
+			// and retroactive purge of any critical/private/internal IPs from blocklist
+			configLock.Lock()
+			autoTTL := 2 * time.Hour
+			changed := false
+			if config.BlockedClientsInfo != nil && len(config.BlockedClients) > 0 {
+				newBlocked := make([]string, 0, len(config.BlockedClients))
+				bpIP := config.BlockPageIP
+				wl := config.AutoblockWhitelist
+
+				for _, ip := range config.BlockedClients {
+					if IsCriticalIP(ip, bpIP, wl) {
+						delete(config.BlockedClientsInfo, ip)
+						changed = true
+						slog.Info("Unblocked critical/private IP from blocklist during abuse cleanup", "ip", ip)
+						continue
+					}
+					info, ok := config.BlockedClientsInfo[ip]
+					if ok && info.Auto && time.Since(info.BlockedAt) > autoTTL {
+						delete(config.BlockedClientsInfo, ip)
+						changed = true
+						slog.Info("Auto-blocked client IP expired (TTL)", "ip", ip, "duration", time.Since(info.BlockedAt))
+						continue
+					}
+					newBlocked = append(newBlocked, ip)
+				}
+				if changed {
+					config.BlockedClients = newBlocked
+					if err := saveConfigNoLock(); err != nil {
+						slog.Error("Failed to save config after auto-block cleanup", "error", err)
+					}
+				}
+			}
+			configLock.Unlock()
+
+			if changed {
+				go updateCorefile()
+			}
 		}
 	}
 }
 
 func isInfrastructureDomain(domain string) bool {
 	infraSuffixes := []string{
-		"google.com", "googleapis.com", "gstatic.com", "googlevideo.com", "googleusercontent.com",
+		"google.com", "googleapis.com", "gstatic.com", "googlevideo.com", "googleusercontent.com", "gvt1.com",
 		"apple.com", "icloud.com", "mzstatic.com", "apple-dns.net",
 		"microsoft.com", "office.com", "office365.com", "windows.com", "live.com", "outlook.com", "msftncsi.com", "windows.net", "visualstudio.com",
-		"amazon.com", "amazonaws.com", "amzn.to",
+		"amazon.com", "amazonaws.com", "amzn.to", "cloudfront.net",
 		"cloudflare.com", "cloudflare.net",
-		"akamai.net", "akamaized.net",
+		"akamai.net", "akamaized.net", "akadns.net",
 		"fastly.net",
 		"github.com", "githubusercontent.com",
+		"spotify.com", "scdn.co",
+		"whatsapp.net",
 		"fabiseitz.de",
 	}
 	d := strings.ToLower(domain)

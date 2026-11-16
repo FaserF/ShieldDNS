@@ -1,12 +1,45 @@
 # ShieldDNS Official Blocklist
 # Format: AdBlock/AdGuard-style domain rules
+
+# Major Search & Web Ad Networks ($important guarantees retention)
 ||doubleclick.net^$important
-||google-analytics.com^
-||analytics.google.com^
+||ad.doubleclick.net^$important
+||googleadservices.com^$important
+||www.googleadservices.com^$important
+||pagead2.googleadservices.com^$important
+||googlesyndication.com^$important
+||safeframe.googlesyndication.com^$important
+||pagead2.googlesyndication.com^$important
+||tpc.googlesyndication.com^$important
+||adservice.google.com^$important
+||adservice.google.de^$important
+||google-analytics.com^$important
+||analytics.google.com^$important
+
+# Major Ad Exchanges, SSPs & Retargeting
+||criteo.com^$important
+||criteo.net^$important
+||taboola.com^$important
+||outbrain.com^$important
+||adnxs.com^$important
+||rubiconproject.com^$important
+||pubmatic.com^$important
+||openx.net^$important
+||smartadserver.com^$important
+||indexexchange.com^$important
+||casalemedia.com^$important
+||teads.tv^$important
+||yieldlab.net^$important
+||adalliance.io^$important
+||adalliance.de^$important
+||plista.com^$important
+||ligatus.com^$important
+||stroeerdigitalgroup.de^$important
+
+# Test & Example Malware Domains
 ||example-malware-site.com^
 ||get947615.host55s.cfd^
 ||go.tours-mbde-quiff.com^
-||safeframe.googlesyndication.com^
 
 # Essential Video Ad & Header Bidding Networks
 ||imasdk.googleapis.com^$important

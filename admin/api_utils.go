@@ -523,19 +523,52 @@ func fetchBlocklistURLWithContext(ctx context.Context, rawURL, userAgent string,
 	return client.Do(req) //nolint:wrapcheck
 }
 
-// IsCriticalIP checks if an IP belongs to core infrastructure that should never be blocked.
+// IsCriticalIP checks if an IP belongs to core infrastructure or private networks that should never be blocked.
 func IsCriticalIP(ip string, blockPageIP string, whitelist []string) bool {
-	if ip == "DoH Proxy" || ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
+	ip = strings.TrimSpace(ip)
+	if ip == "" || ip == "DoH Proxy" || ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
 		return true
 	}
 
-	if ip != "" && ip == blockPageIP {
+	if ip == blockPageIP {
 		return true
+	}
+
+	// Always protect well-known public upstream resolvers and local interfaces
+	switch ip {
+	case "1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4", "9.9.9.9", "149.112.112.112", "45.90.28.0", "45.90.30.0", "86.54.11.100":
+		return true
+	}
+
+	parsed := net.ParseIP(ip)
+	if parsed != nil {
+		if parsed.IsLoopback() || parsed.IsPrivate() || parsed.IsLinkLocalUnicast() || parsed.IsLinkLocalMulticast() {
+			return true
+		}
+		// Tailscale Carrier Grade NAT range: 100.64.0.0/10 and IPv6 fd7a:115c:a1e0::/48
+		_, tailnetSubnet, _ := net.ParseCIDR("100.64.0.0/10")
+		if tailnetSubnet != nil && tailnetSubnet.Contains(parsed) {
+			return true
+		}
+		_, tailnetIPv6Subnet, _ := net.ParseCIDR("fd7a:115c:a1e0::/48")
+		if tailnetIPv6Subnet != nil && tailnetIPv6Subnet.Contains(parsed) {
+			return true
+		}
 	}
 
 	for _, w := range whitelist {
+		w = strings.TrimSpace(w)
+		if w == "" {
+			continue
+		}
 		if w == ip {
 			return true
+		}
+		if strings.Contains(w, "/") {
+			_, ipNet, err := net.ParseCIDR(w)
+			if err == nil && parsed != nil && ipNet.Contains(parsed) {
+				return true
+			}
 		}
 	}
 

@@ -22,12 +22,6 @@
 @@||www.youtube.com^
 @@||stadt-bremerhaven.de^
 @@||cdn.jsdelivr.net^
-@@||chefkoch.de^
-@@||spiegel.de^
-@@||zeit.de^
-@@||t-online.de^
-@@||web.de^
-@@||gmx.net^
 @@||idealo.de^
 @@||geizhals.de^
 @@||paypal.com^
@@ -43,13 +37,4 @@
 @@||githubusercontent.com^
 @@||tailscale.com^
 @@||tailscale.io^
-# Deal, Shopping & Affiliate Redirects (MyDealz, Idealo, Shoop)
-@@||communicationads.net^
-@@||digidip.net^
-@@||awin1.com^
-@@||adcell.de^
-@@||belboon.com^
-@@||webgains.com^
-@@||tradedoubler.com^
-@@||financeads.net^
 @@||shoop.de^
