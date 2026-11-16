@@ -482,5 +482,65 @@ var mcpRulesTools = []mcpToolDefinition{
 			})
 		},
 	},
+	{
+		tool: mcpTool{
+			Name:        "plan_rule_change",
+			Description: "Stage a proposed DNS rule or blocked service change for human approval in the UI inbox, automatically attaching a 24h traffic simulation.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"action":    map[string]interface{}{"type": "string", "enum": []string{"block_domain", "allow_domain", "toggle_service"}, "description": "Action to stage"},
+					"target":    map[string]interface{}{"type": "string", "description": "Domain name or service ID"},
+					"client_ip": map[string]interface{}{"type": "string", "description": "Optional client IP scope"},
+					"reason":    map[string]interface{}{"type": "string", "description": "Human-readable reason why this change is proposed"},
+				},
+				"required": []string{"action", "target", "reason"},
+			},
+		},
+		requiredPerm: "write:rules",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			action, _ := args["action"].(string)
+			target, _ := args["target"].(string)
+			clientIP, _ := args["client_ip"].(string)
+			reason, _ := args["reason"].(string)
+			agentName := "mcp-agent"
+			if apiKey != nil && apiKey.Name != "" {
+				agentName = "agent:" + apiKey.Name
+			}
+			return CreateAgentPlan(agentName, action, target, clientIP, reason)
+		},
+	},
+	{
+		tool: mcpTool{
+			Name:        "apply_plan",
+			Description: "Apply a previously staged AgentPlan by plan_id.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"plan_id": map[string]interface{}{"type": "string", "description": "The ID of the pending plan to apply"},
+				},
+				"required": []string{"plan_id"},
+			},
+		},
+		requiredPerm: "write:rules",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			planID, _ := args["plan_id"].(string)
+			return ApplyAgentPlan(planID)
+		},
+	},
+	{
+		tool: mcpTool{
+			Name:        "list_pending_plans",
+			Description: "List staged AI agent rule change plans and their approval status.",
+			InputSchema: map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			},
+		},
+		requiredPerm: "read:rules",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			return ListAgentPlans(), nil
+		},
+	},
 
 }

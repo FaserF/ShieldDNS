@@ -103,6 +103,12 @@ func setupRouter() *http.ServeMux {
 	mux.HandleFunc("/api/cluster/logs/ingest", handleClusterIngestLogs)
 	mux.Handle("/api/cluster/worker-script", authMiddleware(http.HandlerFunc(handleClusterWorkerScript)))
 
+	// Agent Plan / Apply Workflow API
+	mux.Handle("/api/agent/plans", authMiddleware(http.HandlerFunc(handleListAgentPlans)))
+	mux.Handle("/api/agent/plans/create", authMiddleware(http.HandlerFunc(handleCreateAgentPlan)))
+	mux.Handle("/api/agent/plans/apply", authMiddleware(http.HandlerFunc(handleApplyAgentPlan)))
+	mux.Handle("/api/agent/plans/discard", authMiddleware(http.HandlerFunc(handleDiscardAgentPlan)))
+
 	// MCP (Model Context Protocol) API
 	mux.HandleFunc("/api/mcp", handleMCP)
 
