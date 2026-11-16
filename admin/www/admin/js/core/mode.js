@@ -21,12 +21,12 @@ export function applyUIMode(mode) {
     const btn = document.getElementById('ui-mode-toggle');
     if (btn) {
         const isAdv = normalized === 'advanced';
-        btn.innerHTML = isAdv
-            ? '<i class="fas fa-sliders-h"></i> <span>Advanced Mode</span>'
-            : '<i class="fas fa-magic"></i> <span>Simple Mode</span>';
-        btn.title = isAdv
-            ? 'Switch to Simple Mode (hides technical parameters)'
-            : 'Switch to Advanced Mode (unlocks full DNS/cluster/regex controls)';
+        btn.innerHTML = isAdv ?
+            '<i class="fas fa-sliders-h"></i> <span>Advanced Mode</span>' :
+            '<i class="fas fa-magic"></i> <span>Simple Mode</span>';
+        btn.title = isAdv ?
+            'Switch to Simple Mode (hides technical parameters)' :
+            'Switch to Advanced Mode (unlocks full DNS/cluster/regex controls)';
         btn.classList.toggle('active', isAdv);
     }
 }

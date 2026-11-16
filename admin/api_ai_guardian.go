@@ -463,6 +463,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 		}
 		reloadRulesFastNoLock(config.Clone())
 		configLock.Unlock()
+		RecordAnnotation("ai_audit", "ai-guardian", fmt.Sprintf("AI Guardian blocked %d, allowed %d domains", len(domainsToBlock), len(domainsToAllow)))
 	}
 
 	report.DurationMs = time.Since(startTime).Milliseconds()

@@ -516,7 +516,7 @@ export function renderAnalytics(blocked, clients) {
                     countryCell = '<span style="color:var(--text-secondary)">—</span>';
                 }
                 return `<tr>
-                    <td><span class="ip-link" onclick="showIPDetails('${helpers.escapeHTML(c.client_ip)}')">${display}</span></td>
+                    <td>${renderClientChipHTML(c.client_ip, c.client_alias)}</td>
                     <td>${countryCell}</td>
                     <td class="text-right">${helpers.escapeHTML(c.count?.toString() || '0')}</td>
                 </tr>`;
@@ -728,9 +728,9 @@ export function renderRAMCapacity(stats, cfg) {
                 const baseMsg = (count > 0) ?
                     `${count} heavy blocklist${count > 1 ? 's were' : ' was'} temporarily suspended by autonomous watchdog to protect system from freezing / OOM.` :
                     'Heavy blocklists were temporarily suspended to protect system from freezing / OOM.';
-                const offloadMsg = stats.peer_offload_target
-                    ? ` Unblocked DNS queries are automatically forwarded to healthy cluster peer (${stats.peer_offload_target}) to preserve full filtering.`
-                    : '';
+                const offloadMsg = stats.peer_offload_target ?
+                    ` Unblocked DNS queries are automatically forwarded to healthy cluster peer (${stats.peer_offload_target}) to preserve full filtering.` :
+                    '';
                 emDesc.textContent = baseMsg + offloadMsg;
             }
         } else {

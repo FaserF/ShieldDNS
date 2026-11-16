@@ -5,6 +5,7 @@ import { state, getEl } from '../core/state.js';
 import * as helpers from './helpers.js';
 import { getFlagHTML } from './helpers.js';
 import * as charts from './charts.js';
+import { deviceIdentityCache } from './insights.js';
 
 export function renderBlockedClientsModal(blockedClients, infoMap) {
     const list = getEl('blocked-clients-table-body');
@@ -128,7 +129,17 @@ export function renderIPDetails(ip, stats, topDomains, topBlocked, history) {
         const isMACUnavailable = !mac || mac.toLowerCase().includes('unavailable') || mac === '-';
 
         if (isManufacturerUnknown && isOSUnknown && isMACUnavailable) {
-            deviceCard.style.display = 'none';
+            const fp = deviceIdentityCache.get(ip);
+            if (fp && fp.product && fp.product !== 'Unknown Device') {
+                deviceCard.style.display = 'block';
+                getEl('ip-info-manufacturer').innerHTML = `${helpers.escapeHTML(fp.product)} (${helpers.escapeHTML(fp.confidence)})`;
+                toggleEl('ip-info-manufacturer', true);
+                getEl('ip-info-os').innerHTML = fp.class ? helpers.escapeHTML(fp.class) : '';
+                toggleEl('ip-info-os', !!fp.class);
+                toggleEl('ip-info-mac', false);
+            } else {
+                deviceCard.style.display = 'none';
+            }
         } else {
             deviceCard.style.display = 'block';
             getEl('ip-info-manufacturer').innerHTML = isManufacturerUnknown ? '' : manufacturer;

@@ -29,13 +29,13 @@ export function renderClientChipHTML(ip, alias) {
     const safeAlias = alias ? helpers.escapeHTML(alias) : '';
     const ident = deviceIdentityCache.get(ip);
     const icon = (ident && ident.icon) ? ident.icon : 'fas fa-network-wired';
-    const title = ident && ident.product && ident.product !== 'Unknown Device'
-        ? `${ident.product} (${ident.confidence}) — Click to inspect or rename`
-        : 'Click to inspect, fingerprint, or name this device';
+    const title = ident && ident.product && ident.product !== 'Unknown Device' ?
+        `${ident.product} (${ident.confidence}) — Click to inspect or rename` :
+        'Click to inspect, fingerprint, or name this device';
     const label = safeAlias ? `${safeAlias} <span class="chip-ip">(${safeIP})</span>` : safeIP;
-    const kindBadge = (ident && ident.product && ident.product !== 'Unknown Device')
-        ? `<span class="chip-kind-pill" title="${helpers.escapeHTML(ident.product)}">${helpers.escapeHTML(ident.product)}</span>`
-        : '';
+    const kindBadge = (ident && ident.product && ident.product !== 'Unknown Device') ?
+        `<span class="chip-kind-pill" title="${helpers.escapeHTML(ident.product)}">${helpers.escapeHTML(ident.product)}</span>` :
+        '';
 
     return `<span class="client-chip ip-link" onclick="showIPDetails('${safeIP}')" title="${helpers.escapeHTML(title)}"><i class="${helpers.escapeHTML(icon)} chip-icon"></i><span class="chip-label">${label}</span>${kindBadge}</span>`;
 }
@@ -146,13 +146,13 @@ export async function runRuleSimulation(action, inputId, btnEl) {
         });
 
         const clientsEntries = Object.entries(res.affected_clients || {});
-        const clientsHTML = clientsEntries.length > 0
-            ? clientsEntries.slice(0, 6).map(([c, cnt]) => `<span class="badge">${helpers.escapeHTML(c)}: ${cnt}</span>`).join(' ')
-            : '<span class="help">No devices impacted in the last 24h</span>';
+        const clientsHTML = clientsEntries.length > 0 ?
+            clientsEntries.slice(0, 6).map(([c, cnt]) => `<span class="badge">${helpers.escapeHTML(c)}: ${cnt}</span>`).join(' ') :
+            '<span class="help">No devices impacted in the last 24h</span>';
 
-        const aiNote = res.ai_blast_assessment
-            ? `<div class="sim-ai-note"><i class="fas fa-robot"></i> <strong>AI Blast Assessment:</strong> ${helpers.escapeHTML(res.ai_blast_assessment)}</div>`
-            : '';
+        const aiNote = res.ai_blast_assessment ?
+            `<div class="sim-ai-note"><i class="fas fa-robot"></i> <strong>AI Blast Assessment:</strong> ${helpers.escapeHTML(res.ai_blast_assessment)}</div>` :
+            '';
 
         previewBox.innerHTML = `
             <div class="sim-preview-header">
@@ -257,9 +257,9 @@ export async function loadAnomalies() {
         container.innerHTML = items.map((f) => {
             const sevCls = f.severity === 'high' ? 'danger' : (f.severity === 'medium' ? 'warning' : 'official');
             const clientLabel = f.client_alias ? `${f.client_alias} (${f.client_ip})` : f.client_ip;
-            const ackBtn = f.acknowledged
-                ? `<span class="badge success">Acknowledged</span>`
-                : `<button class="btn btn-sm secondary" onclick="acknowledgeAnomaly('${helpers.escapeHTML(f.id)}')">Acknowledge</button>`;
+            const ackBtn = f.acknowledged ?
+                `<span class="badge success">Acknowledged</span>` :
+                `<button class="btn btn-sm secondary" onclick="acknowledgeAnomaly('${helpers.escapeHTML(f.id)}')">Acknowledge</button>`;
             return `<div class="anomaly-row">
                 <div class="anomaly-main">
                     <div class="anomaly-title">
@@ -329,12 +329,12 @@ export async function loadAgentPlans() {
                 listEl.innerHTML = plans.map((p) => {
                     const stCls = p.status === 'pending' ? 'warning' : (p.status === 'applied' ? 'success' : 'secondary');
                     const simTxt = p.simulation ? `<div class="help" style="margin-top:4px;"><i class="fas fa-vial"></i> ${helpers.escapeHTML(p.simulation.summary_sentence || '')}</div>` : '';
-                    const actions = p.status === 'pending'
-                        ? `<div class="plan-actions">
+                    const actions = p.status === 'pending' ?
+                        `<div class="plan-actions">
                             <button class="btn btn-sm primary" onclick="applyAgentPlan('${helpers.escapeHTML(p.id)}')">Approve & Apply</button>
                             <button class="btn btn-sm danger" onclick="discardAgentPlan('${helpers.escapeHTML(p.id)}')">Reject</button>
-                           </div>`
-                        : '';
+                           </div>` :
+                        '';
                     return `<div class="agent-plan-card">
                         <div class="plan-head">
                             <span class="badge ${stCls}">${helpers.escapeHTML(p.status.toUpperCase())}</span>

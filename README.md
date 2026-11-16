@@ -233,6 +233,15 @@ In **Google Antigravity**, configure your ShieldDNS server in `antigravity.json`
 | `get_client_details` | `read:stats` | Client IP stats, aliases, top queries, and ban info |
 | `list_all_clients` | `read:stats` | List all discovered clients and their status |
 | `search_domain_status`| `read:logs` | Check domain blocking attribution across all lists |
+| `explain_decision` | `read:logs` | Full DNS pipeline explanation (rules, SafeSearch, services, routing, optional Omniroute AI verdict) |
+| `simulate_change` | `read:logs` | Dry-run 24h historical query log replay for rules or blocked services |
+| `identify_device` | `read:stats` | Fingerprint client IP via domain traffic signatures & optional Omniroute AI inference |
+| `find_anomalies` | `read:logs` | Detect periodic beaconing, chatty loops, DGA entropy, and block storms |
+| `acknowledge_anomaly` | `write:rules` | Acknowledge or unacknowledge a behavioral anomaly finding |
+| `plan_rule_change` | `write:rules` | Stage a rule/service change with 24h simulation for UI inbox approval |
+| `apply_plan` | `write:rules` | Execute a staged agent plan by ID |
+| `list_pending_plans` | `read:rules` | List staged AI agent plans and approval status |
+| `ai_triage_domain` | `read:logs` | Analyze a domain with AI Guardian (Omniroute/OpenAI) |
 | `add_custom_rule` | `write:rules` | Add domain to Custom Whitelist or Blacklist |
 | `remove_custom_rule` | `write:rules` | Remove domain from Custom Whitelist or Blacklist |
 | `set_custom_mapping` | `write:rules` | Create/update local DNS override record (`domain -> IP`) |
@@ -320,6 +329,12 @@ Immediately take control of your network without managing external lists:
 - **Custom Blocklist**: Instantly block any domain (e.g., `tiktok.com`). Paste a full URL — it's auto-sanitized to a clean domain.
 - **Custom Allowlist**: Ensure critical domains are never blocked.
 - **1-Click Allow/Block**: Act on any domain directly from the live Query Log without copy-pasting.
+- **Explain Decision ("Why?")**: Inspect any domain + client IP through the full rule, SafeSearch, service preset, and routing pipeline—with optional Omniroute AI Guardian semantic analysis.
+- **24h What-If Simulation (`?dryRun=true`)**: Replay proposed rules or blocked services against the last 24 hours of real queries before saving.
+- **Parental Controls (SafeSearch & Blocked Services)**: 1-click toggles for SafeSearch (Google, Bing, DuckDuckGo, Yandex, Pixabay, YouTube Restricted Moderate/Strict) and app bundles (TikTok, Facebook, Instagram, Steam, Roblox, Discord, Netflix, etc.) enforced natively via CoreDNS.
+- **Deterministic Device Fingerprinting**: Automatically identifies device class and product (Apple TV, Roku, PlayStation, Sonos, Smart TVs, IoT) from domain traffic signatures and user-agent signals, with interactive `ClientChip`s and Omniroute AI fallback.
+- **Behavioral Anomalies & Periodic Beaconing**: Detects fixed-interval C2/telemetry heartbeats, chatty loops, high-entropy DGA domains, and block storms with Acknowledge and Mute workflows.
+- **Simple vs. Advanced Mode & Guided Help Drawer**: Global UI mode toggle (`Simple` vs. `Advanced`), slide-out `?` help drawer with inline SVG packet-flow diagrams, chart change markers (annotations), a full-screen **Wall / Kiosk Display** (`#/wall`), an **Agent Plan/Apply Inbox**, and a **Redacted Support Package** (`.zip`) exporter.
 
 ### ⚡ Optimization & Health
 - **Intelligent Caching**: Large 10k entry cache reduces upstream lookups.
