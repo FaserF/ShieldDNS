@@ -109,6 +109,11 @@ func setupRouter() *http.ServeMux {
 	mux.Handle("/api/ai/audit", authMiddleware(http.HandlerFunc(handleAITriggerAudit)))
 	mux.Handle("/api/ai/rules", authMiddleware(http.HandlerFunc(handleAIGetRules)))
 
+	// Behavioral Anomalies & Beaconing API
+	mux.Handle("/api/anomalies", authMiddleware(http.HandlerFunc(handleGetAnomalies)))
+	mux.Handle("/api/anomalies/acknowledge", authMiddleware(http.HandlerFunc(handleAcknowledgeAnomaly)))
+	mux.Handle("/api/anomalies/mute", authMiddleware(http.HandlerFunc(handleMuteAnomaly)))
+
 	mux.Handle("/api/domain/stats", authMiddleware(http.HandlerFunc(handleDomainStats)))
 	mux.Handle("/api/domain/clients", authMiddleware(http.HandlerFunc(handleDomainClients)))
 	mux.Handle("/api/explain", authMiddleware(http.HandlerFunc(handleExplainDecision)))

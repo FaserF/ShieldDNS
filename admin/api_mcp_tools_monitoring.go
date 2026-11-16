@@ -352,5 +352,63 @@ var mcpMonitoringTools = []mcpToolDefinition{
 			return IdentifyDevice(clientIP, askAI), nil
 		},
 	},
+	{
+		tool: mcpTool{
+			Name:        "find_anomalies",
+			Description: "Detect deterministic behavioral anomalies over the last 3 hours: periodic beaconing, chatty loops, DGA high-entropy domains, and block storms.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"only_unacknowledged": map[string]interface{}{"type": "boolean", "description": "If true, exclude already acknowledged findings"},
+				},
+			},
+		},
+		requiredPerm: "read:logs",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			findings, err := DetectAnomalies()
+			if err != nil {
+				return nil, err
+			}
+			onlyUnacked, _ := args["only_unacknowledged"].(bool)
+			var out []AnomalyFinding
+			for _, f := range findings {
+				if f.Muted {
+					continue
+				}
+				if onlyUnacked && f.Acknowledged {
+					continue
+				}
+				out = append(out, f)
+			}
+			if out == nil {
+				out = []AnomalyFinding{}
+			}
+			return map[string]interface{}{"anomalies": out, "count": len(out)}, nil
+		},
+	},
+	{
+		tool: mcpTool{
+			Name:        "acknowledge_anomaly",
+			Description: "Acknowledge (or unacknowledge) a detected behavioral anomaly finding by ID.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id":   map[string]interface{}{"type": "string", "description": "Anomaly finding ID"},
+					"undo": map[string]interface{}{"type": "boolean", "description": "Set true to revoke acknowledgement"},
+				},
+				"required": []string{"id"},
+			},
+		},
+		requiredPerm: "write:rules",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			id, _ := args["id"].(string)
+			undo, _ := args["undo"].(bool)
+			if strings.TrimSpace(id) == "" {
+				return nil, fmt.Errorf("id is required")
+			}
+			SetAnomalyAcknowledge(id, undo)
+			return map[string]interface{}{"success": true, "id": id, "acknowledged": !undo}, nil
+		},
+	},
 
 }
