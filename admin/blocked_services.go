@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -304,6 +305,7 @@ func handleServicesUpdate(w http.ResponseWriter, r *http.Request) {
 	configLock.Unlock()
 
 	reloadRulesFastNoLock(cfgClone)
+	RecordAnnotation("rule", "admin", fmt.Sprintf("Updated services (%d blocked, SafeSearch=%t, YT=%s)", len(cfgClone.BlockedServices), cfgClone.SafeSearchEnabled, cfgClone.YouTubeRestriction))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

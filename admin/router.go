@@ -57,6 +57,8 @@ func setupRouter() *http.ServeMux {
 	mux.Handle("/api/system/full-reload", authMiddleware(http.HandlerFunc(handleFullReload)))
 	mux.Handle("/api/system/check-version", authMiddleware(http.HandlerFunc(handleCheckVersion)))
 	mux.Handle("/api/system/update", authMiddleware(http.HandlerFunc(handleSystemUpdate)))
+	mux.Handle("/api/system/support-package", authMiddleware(http.HandlerFunc(handleSupportPackage)))
+	mux.Handle("/api/annotations", authMiddleware(http.HandlerFunc(handleAnnotations)))
 	mux.Handle("/api/history", authMiddleware(http.HandlerFunc(handleHistory)))
 	mux.Handle("/api/search", authMiddleware(http.HandlerFunc(handleSearch)))
 	mux.Handle("/api/top-blocked", authMiddleware(http.HandlerFunc(handleTopBlocked)))

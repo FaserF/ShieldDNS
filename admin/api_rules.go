@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -43,6 +44,7 @@ func handleToggleFiltering(w http.ResponseWriter, r *http.Request) {
 	if req.Enabled {
 		status = "Enabled"
 	}
+	RecordAnnotation("filtering", "admin", "Global filtering "+status)
 	slog.Info("Global protection status changed", "status", status)
 
 	w.WriteHeader(http.StatusOK)
@@ -246,6 +248,7 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reloadRulesFastNoLock(config.Clone())
+	RecordAnnotation("rule", "admin", fmt.Sprintf("Added %s rule for %s", req.Type, domain))
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -339,6 +342,7 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reloadRulesFastNoLock(config.Clone())
+	RecordAnnotation("rule", "admin", fmt.Sprintf("Removed rule for %s", domain))
 
 	w.WriteHeader(http.StatusOK)
 }

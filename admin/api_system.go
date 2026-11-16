@@ -509,6 +509,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		updateCorefile()
 		restartCoreDNS() // Ensure Corefile changes (ACL) are applied
+		RecordAnnotation("config", "admin", "System configuration saved")
 		go syncNativeVPN(config.Clone())
 		initWebAuthn()   // Update WebAuthn RPID if domain changed
 
