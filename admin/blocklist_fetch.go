@@ -6,9 +6,21 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
+
+// openLocalOfficialFile attempts to open a bundled official blocklist/allowlist from local filesystem paths.
+func openLocalOfficialFile(relPath string) (*os.File, error) {
+	for _, base := range []string{"official", "/official", "/app/official"} {
+		if f, err := os.Open(filepath.Join(base, relPath)); err == nil {
+			return f, nil
+		}
+	}
+	return nil, os.ErrNotExist
+}
 
 // createSafeBlocklistClient returns an HTTP client with custom dialer that verifies
 // target IP addresses to prevent Server-Side Request Forgery (SSRF) and DNS rebinding attacks.

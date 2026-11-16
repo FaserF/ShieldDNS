@@ -347,15 +347,6 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 		defer file.Close()
 		reader = file
 	} else {
-func openLocalOfficialFile(relPath string) (*os.File, error) {
-	for _, base := range []string{"official", "/official", "/app/official"} {
-		if f, err := os.Open(filepath.Join(base, relPath)); err == nil {
-			return f, nil
-		}
-	}
-	return nil, os.ErrNotExist
-}
-
 		useLocal := false
 		var file *os.File
 		var err error
