@@ -103,6 +103,29 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Query().Get("dryRun") == "true" {
+		simAction := "block_domain"
+		if req.Type == "allow" {
+			simAction = "allow_domain"
+		}
+		res, err := SimulateChange(SimulationRequest{
+			Action:      simAction,
+			Domain:      domain,
+			ClientIP:    clientIP,
+			WindowHours: 24,
+		})
+		if err != nil {
+			sendJSONError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"dry_run":    true,
+			"simulation": res,
+		})
+		return
+	}
+
 	configLock.Lock()
 	defer configLock.Unlock()
 

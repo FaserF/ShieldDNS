@@ -444,5 +444,43 @@ var mcpRulesTools = []mcpToolDefinition{
 			}, nil
 		},
 	},
+	{
+		tool: mcpTool{
+			Name:        "simulate_change",
+			Description: "Dry-run a candidate rule or blocked service change against historical query logs over a time window (default 24h) to calculate newly blocked/allowed queries and affected devices.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"action":       map[string]interface{}{"type": "string", "enum": []string{"block_domain", "allow_domain", "toggle_service"}, "description": "Simulation action"},
+					"domain":       map[string]interface{}{"type": "string", "description": "Target domain for block_domain / allow_domain"},
+					"service_id":   map[string]interface{}{"type": "string", "description": "Service preset ID for toggle_service (e.g. 'tiktok', 'steam')"},
+					"client_ip":    map[string]interface{}{"type": "string", "description": "Optional client IP filter"},
+					"window_hours": map[string]interface{}{"type": "integer", "description": "Lookback window in hours (default 24)"},
+					"ask_ai":       map[string]interface{}{"type": "boolean", "description": "Whether to request an AI blast-radius assessment via Omniroute"},
+				},
+				"required": []string{"action"},
+			},
+		},
+		requiredPerm: "read:logs",
+		actionHandler: func(apiKey *APIKey, args map[string]interface{}) (interface{}, error) {
+			action, _ := args["action"].(string)
+			domain, _ := args["domain"].(string)
+			serviceID, _ := args["service_id"].(string)
+			clientIP, _ := args["client_ip"].(string)
+			askAI, _ := args["ask_ai"].(bool)
+			windowHours := 24
+			if wh, ok := args["window_hours"].(float64); ok && wh > 0 {
+				windowHours = int(wh)
+			}
+			return SimulateChange(SimulationRequest{
+				Action:      action,
+				Domain:      domain,
+				ServiceID:   serviceID,
+				ClientIP:    clientIP,
+				WindowHours: windowHours,
+				AskAI:       askAI,
+			})
+		},
+	},
 
 }
