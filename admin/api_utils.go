@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -11,7 +10,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 )
 
 var geoCache sync.Map    // Cache for GeoIP results (IP -> IPInfo snippet)
