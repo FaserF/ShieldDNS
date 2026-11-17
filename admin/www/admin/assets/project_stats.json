@@ -1,11 +1,11 @@
 {
-  "version": "1.13.0",
-  "commit_id": "9b2c5fe",
-  "generated_at": "2026-11-16T21:25:15Z",
+  "version": "1.13.1",
+  "commit_id": "716e896",
+  "generated_at": "2026-11-17T06:29:26Z",
   "code": {
     "backend": {
       "files": 109,
-      "lines": 28891
+      "lines": 28918
     },
     "frontend": {
       "files": 73,
@@ -13,11 +13,11 @@
     },
     "other": {
       "files": 30,
-      "lines": 3418
+      "lines": 3407
     },
     "total": {
       "files": 212,
-      "lines": 47812
+      "lines": 47828
     }
   },
   "tests": {
