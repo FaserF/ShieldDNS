@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -271,7 +272,7 @@ func startWorkers() {
 		go startCoreDNS(appCtx)
 
 		// Start cluster replica sync after initial blocklist & CoreDNS bootstrap to avoid startup races/OOM
-		go startClusterReplicaSync(appCtx)
+		restartClusterSyncLoop()
 	}()
 
 	// Start health and monitoring
@@ -288,6 +289,30 @@ func startWorkers() {
 	go startAbuseCleanup(appCtx)
 	go startAutoUpdateWorker(appCtx)
 	go startAIGuardianWorker(appCtx)
+}
+
+var (
+	clusterSyncCancelMu sync.Mutex
+	clusterSyncCancel   context.CancelFunc
+)
+
+func restartClusterSyncLoop() {
+	clusterSyncCancelMu.Lock()
+	defer clusterSyncCancelMu.Unlock()
+	if clusterSyncCancel != nil {
+		clusterSyncCancel()
+		clusterSyncCancel = nil
+	}
+	configLock.RLock()
+	role := config.ClusterRole
+	pURL := config.ClusterPrimaryURL
+	configLock.RUnlock()
+	if role != "replica" || pURL == "" {
+		return
+	}
+	ctx, cancel := context.WithCancel(appCtx)
+	clusterSyncCancel = cancel
+	go startClusterReplicaSync(ctx)
 }
 
 func startClusterReplicaSync(ctx context.Context) {
@@ -321,19 +346,19 @@ func startClusterReplicaSync(ctx context.Context) {
 		slog.Info("Cluster replica initial sync succeeded")
 	}
 
-	// Periodic sync if interval configured (> 0 minutes, default 5m for replicas)
+	// Periodic sync with adaptive retry backoff
 	syncInterval := interval
 	if syncInterval <= 0 {
 		syncInterval = 5
 	}
-	ticker := time.NewTicker(time.Duration(syncInterval) * time.Minute)
-	defer ticker.Stop()
+	baseInterval := time.Duration(syncInterval) * time.Minute
+	currentInterval := baseInterval
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-time.After(currentInterval):
 			configLock.RLock()
 			currRole := config.ClusterRole
 			currPURL := config.ClusterPrimaryURL
@@ -346,20 +371,40 @@ func startClusterReplicaSync(ctx context.Context) {
 				return
 			}
 			if err := performReplicaSync(currPURL, currPTok, currIType, currFailover); err != nil {
-				wasLost := atomic.SwapInt32(&clusterConnLost, 1)
-				clusterLastSyncError = err.Error()
-				slog.Warn("Cluster periodic sync failed", "error", err)
-				if wasLost == 0 {
-					SendSecurityWebhook("cluster_failover", "Cluster Primary unreachable: Operating in replica failover mode", map[string]interface{}{
-						"severity":    "warning",
-						"primary_url": currPURL,
-						"error":       err.Error(),
-					})
+				// Retry once after brief pause (10s) before alerting to absorb transient Primary restarts/deployments
+				time.Sleep(10 * time.Second)
+				if retryErr := performReplicaSync(currPURL, currPTok, currIType, currFailover); retryErr != nil {
+					wasLost := atomic.SwapInt32(&clusterConnLost, 1)
+					clusterLastSyncError = retryErr.Error()
+					slog.Warn("Cluster periodic sync failed", "error", retryErr, "retry_in", currentInterval*2)
+					if currentInterval < 10*time.Minute {
+						currentInterval *= 2
+					}
+					if wasLost == 0 {
+						SendSecurityWebhook("cluster_failover", "Cluster Primary unreachable: Operating in replica failover mode", map[string]interface{}{
+							"severity":    "warning",
+							"primary_url": currPURL,
+							"error":       retryErr.Error(),
+						})
+					}
+				} else {
+					wasLost := atomic.SwapInt32(&clusterConnLost, 0)
+					clusterLastSyncError = ""
+					currentInterval = baseInterval
+					if wasLost == 1 {
+						slog.Info("Cluster connection restored, interval reset to base", "interval", baseInterval)
+						SendSecurityWebhook("cluster_recovered", "Cluster Primary restored: Replica sync healthy", map[string]interface{}{
+							"severity":    "info",
+							"primary_url": currPURL,
+						})
+					}
 				}
 			} else {
 				wasLost := atomic.SwapInt32(&clusterConnLost, 0)
 				clusterLastSyncError = ""
+				currentInterval = baseInterval
 				if wasLost == 1 {
+					slog.Info("Cluster connection restored, interval reset to base", "interval", baseInterval)
 					SendSecurityWebhook("cluster_recovered", "Cluster Primary restored: Replica sync healthy", map[string]interface{}{
 						"severity":    "info",
 						"primary_url": currPURL,

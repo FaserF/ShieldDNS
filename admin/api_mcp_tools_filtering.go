@@ -163,6 +163,10 @@ var mcpFilteringTools = []mcpToolDefinition{
 				}, nil
 			}
 			if ruleType == "blocked" {
+				if isTrustedInfrastructureDomain(domain) {
+					configLock.Unlock()
+					return nil, fmt.Errorf("cannot block trusted infrastructure domain %q", domain)
+				}
 				for _, d := range config.CustomBlocked {
 					if strings.EqualFold(d, domain) {
 						configLock.Unlock()

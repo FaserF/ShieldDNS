@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"net"
 	"net/http"
@@ -387,11 +388,22 @@ func handleClusterIngestLogs(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	needPromote := authorized && config.ClusterRole != "primary"
 	configLock.RUnlock()
 
 	if !authorized {
 		http.Error(w, "Forbidden: Invalid token or missing 'cluster:sync' permission", http.StatusForbidden)
 		return
+	}
+
+	if needPromote {
+		configLock.Lock()
+		if config.ClusterRole != "primary" {
+			config.ClusterRole = "primary"
+			slog.Info("Auto-promoted node to primary on replica log ingest")
+			_ = saveConfigNoLock()
+		}
+		configLock.Unlock()
 	}
 
 	var payload struct {

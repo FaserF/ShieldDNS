@@ -133,3 +133,56 @@ func TestAIRuleMetadataInConfig(t *testing.T) {
 		t.Errorf("Expected Clone() to preserve AIRules")
 	}
 }
+
+func TestTrustedInfrastructureDomain(t *testing.T) {
+	cases := []struct {
+		domain  string
+		trusted bool
+	}{
+		{"geller-pa.googleapis.com", true},
+		{"*.geller-pa.googleapis.com", true},
+		{"cloudcode-pa.googleapis.com", true},
+		{"daily-cloudcode-pa.googleapis.com", true},
+		{"jules.googleapis.com", true},
+		{"cloudbilling.googleapis.com", true},
+		{"oauth2.googleapis.com", true},
+		{"accounts.google.com", true},
+		{"login.microsoft.com", true},
+		{"appleid.apple.com", true},
+		{"api.github.com", true},
+		{"one.one.one.one.cloudflare-dns.com", true},
+		{"s3.amazonaws.com", true},
+		{"tailscale.com", true},
+		{"login.tailnet.fabiseitz.de", true},
+		{"evil-phishing-site.xyz", false},
+		{"googleapis.com.malicious.net", false},
+		{"not-google.com", false},
+	}
+
+	for _, tc := range cases {
+		got := isTrustedInfrastructureDomain(tc.domain)
+		if got != tc.trusted {
+			t.Errorf("isTrustedInfrastructureDomain(%q) = %v; want %v", tc.domain, got, tc.trusted)
+		}
+	}
+}
+
+func TestApplyCurrentRulesDropsTrustedInfrastructure(t *testing.T) {
+	attribution := map[string][]string{
+		"ads.tracker.com":          {"AdBlock"},
+		"geller-pa.googleapis.com":   {"Custom Blocklist"},
+		"*.jules.googleapis.com":   {"Custom Blocklist"},
+	}
+
+	applyCurrentRules(attribution, nil, nil, nil, nil, nil, "127.0.0.1", false)
+
+	if _, exists := attribution["geller-pa.googleapis.com"]; exists {
+		t.Errorf("Expected geller-pa.googleapis.com to be removed from attribution")
+	}
+	if _, exists := attribution["*.jules.googleapis.com"]; exists {
+		t.Errorf("Expected *.jules.googleapis.com to be removed from attribution")
+	}
+	if _, exists := attribution["ads.tracker.com"]; !exists {
+		t.Errorf("Expected ads.tracker.com to remain in attribution")
+	}
+}

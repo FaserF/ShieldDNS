@@ -53,15 +53,22 @@ export async function saveConfig(fetchConfig) {
         latency_test_interval: parseInt(getEl('latency-interval-input')?.value) || 10,
         diagnostics_refresh_interval: parseInt(getEl('diagnostics-interval-input')?.value) || 600,
         retention_days: parseInt(getEl('retention-input')?.value) || 30,
-        doh_rate_limit: parseInt(getEl('doh-rate-limit-input')?.value) || 30,
-        rate_limit_rate: parseInt(getEl('rate-limit-rate-input')?.value) !== undefined ? parseInt(getEl('rate-limit-rate-input')?.value) : 100,
-        rate_limit_burst: parseInt(getEl('rate-limit-burst-input')?.value) !== undefined ? parseInt(getEl('rate-limit-burst-input')?.value) : 250,
+        doh_rate_limit: (parseInt(getEl('doh-rate-limit-input')?.value, 10) || 0) || state.currentConfig?.doh_rate_limit || 50,
+        rate_limit_rate: !isNaN(parseInt(getEl('rate-limit-rate-input')?.value, 10)) ? parseInt(getEl('rate-limit-rate-input')?.value, 10) : (state.currentConfig?.rate_limit_rate ?? 50),
+        rate_limit_burst: !isNaN(parseInt(getEl('rate-limit-burst-input')?.value, 10)) ? parseInt(getEl('rate-limit-burst-input')?.value, 10) : (state.currentConfig?.rate_limit_burst ?? 100),
         abuse_dga_threshold: parseFloat(getEl('abuse-dga-threshold-input')?.value) || 3.8,
         abuse_dga_min_len: parseInt(getEl('abuse-dga-min-len-input')?.value) || 8,
         malicious_ip_blocking_enabled: getEl('malicious-check')?.checked,
         malicious_ip_interval: parseInt(getEl('malicious-interval-input')?.value) || 8,
         verify_upstream_tls: getEl('verify-upstream-tls-check')?.checked,
         mcp_server_enabled: getEl('mcp-server-enabled-check')?.checked,
+        cluster_role: getEl('cluster-role-select')?.value || state.currentConfig?.cluster_role || 'standalone',
+        cluster_instance_type: getEl('cluster-inst-type-select')?.value || state.currentConfig?.cluster_instance_type || 'private',
+        cluster_node_name: getEl('cluster-node-name-input')?.value !== undefined ? getEl('cluster-node-name-input')?.value.trim() : (state.currentConfig?.cluster_node_name || ''),
+        cluster_log_sharing_mode: getEl('cluster-log-sharing-select')?.value || state.currentConfig?.cluster_log_sharing_mode || 'local_only',
+        cluster_worker_domain: getEl('cluster-worker-domain-input')?.value !== undefined ? getEl('cluster-worker-domain-input')?.value.trim() : (state.currentConfig?.cluster_worker_domain || ''),
+        cluster_failover_mode: getEl('cluster-failover-check') ? getEl('cluster-failover-check').checked : (state.currentConfig?.cluster_failover_mode || false),
+        cluster_sync_interval: parseInt(getEl('cluster-sync-interval')?.value || '0', 10) || state.currentConfig?.cluster_sync_interval || 0,
         ai_enabled: !!getEl('ai-enabled-check')?.checked,
         ai_base_url: getEl('ai-base-url-input')?.value.trim() || 'http://127.0.0.1:20128/v1',
         ai_api_key: getEl('ai-api-key-input')?.value.trim() || '',
@@ -109,6 +116,9 @@ export async function saveConfig(fetchConfig) {
         helpers.showToast('Configuration saved successfully!');
         setSettingsDirty(false);
         renderConfig(state.currentConfig);
+        if (typeof fetchConfig === 'function') {
+            await fetchConfig();
+        }
     } catch (e) {
         helpers.showAlert('Failed to save configuration: ' + e.message);
     } finally {

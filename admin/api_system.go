@@ -365,12 +365,23 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			// Restore masked token hashes
 			for i, newKey := range newConfig.APIKeys {
 				if newKey.TokenHash == "********" {
+					matched := false
 					for _, oldKey := range config.APIKeys {
-						if oldKey.ID == newKey.ID {
+						if oldKey.ID == newKey.ID || (oldKey.Name != "" && oldKey.Name == newKey.Name) {
 							newConfig.APIKeys[i].TokenHash = oldKey.TokenHash
+							matched = true
 							break
 						}
 					}
+					if !matched && i < len(config.APIKeys) && config.APIKeys[i].TokenHash != "********" {
+						newConfig.APIKeys[i].TokenHash = config.APIKeys[i].TokenHash
+					}
+				}
+			}
+			for _, k := range newConfig.APIKeys {
+				if k.TokenHash == "********" {
+					newConfig.APIKeys = config.APIKeys
+					break
 				}
 			}
 		}
@@ -412,6 +423,41 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		if newConfig.AutoUpdateHour < 0 || newConfig.AutoUpdateHour > 23 {
 			newConfig.AutoUpdateHour = config.AutoUpdateHour
+		}
+
+		// Preserve cluster configuration that is not part of standard settings form
+		if len(newConfig.ClusterReplicas) == 0 && len(config.ClusterReplicas) > 0 {
+			newConfig.ClusterReplicas = config.ClusterReplicas
+		}
+		if newConfig.ClusterPrimaryToken == "" && config.ClusterPrimaryToken != "" {
+			newConfig.ClusterPrimaryToken = config.ClusterPrimaryToken
+		}
+		if newConfig.ClusterPrimaryURL == "" && config.ClusterPrimaryURL != "" {
+			newConfig.ClusterPrimaryURL = config.ClusterPrimaryURL
+		}
+		if newConfig.ClusterRole == "" {
+			newConfig.ClusterRole = config.ClusterRole
+		}
+		if newConfig.ClusterInstanceType == "" {
+			newConfig.ClusterInstanceType = config.ClusterInstanceType
+		}
+		if newConfig.ClusterNodeName == "" && config.ClusterNodeName != "" {
+			newConfig.ClusterNodeName = config.ClusterNodeName
+		}
+		if newConfig.ClusterLogSharingMode == "" && config.ClusterLogSharingMode != "" {
+			newConfig.ClusterLogSharingMode = config.ClusterLogSharingMode
+		}
+		if newConfig.ClusterLocalMappings == nil && config.ClusterLocalMappings != nil {
+			newConfig.ClusterLocalMappings = config.ClusterLocalMappings
+		}
+		if newConfig.ClusterExcludedMappings == nil && config.ClusterExcludedMappings != nil {
+			newConfig.ClusterExcludedMappings = config.ClusterExcludedMappings
+		}
+		if newConfig.ClusterWorkerDomain == "" && config.ClusterWorkerDomain != "" {
+			newConfig.ClusterWorkerDomain = config.ClusterWorkerDomain
+		}
+		if newConfig.ClusterWorkerToken == "" && config.ClusterWorkerToken != "" {
+			newConfig.ClusterWorkerToken = config.ClusterWorkerToken
 		}
 
 		// Security: Validate Upstreams and UpstreamDoT for malicious injections

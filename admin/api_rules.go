@@ -136,6 +136,11 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Type == "block" && isTrustedInfrastructureDomain(domain) {
+		http.Error(w, fmt.Sprintf("Cannot block trusted infrastructure domain %q", domain), http.StatusBadRequest)
+		return
+	}
+
 	// If client-specific rule
 	if clientIP != "" {
 		// Clean existing matching rule for this domain + client

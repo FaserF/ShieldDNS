@@ -183,3 +183,46 @@ func TestPeerOffloadSelection(t *testing.T) {
 		t.Errorf("Expected no offload when node is healthy, got '%s'", got)
 	}
 }
+
+func TestRestoreShedListsInternal(t *testing.T) {
+	testMode = true
+	defer func() { testMode = false }()
+
+	configLock.Lock()
+	origLists := config.Lists
+	origShedding := config.EmergencySheddingActive
+	origShedLists := config.EmergencyShedLists
+
+	config.EmergencySheddingActive = true
+	config.EmergencyShedLists = []string{"https://test.local/list1.txt"}
+	config.Lists = []List{
+		{Name: "List 1", URL: "https://test.local/list1.txt", EmergencySuspended: true},
+		{Name: "List 2", URL: "https://test.local/list2.txt", EmergencySuspended: false},
+	}
+	configLock.Unlock()
+
+	defer func() {
+		configLock.Lock()
+		config.Lists = origLists
+		config.EmergencySheddingActive = origShedding
+		config.EmergencyShedLists = origShedLists
+		configLock.Unlock()
+	}()
+
+	restored := restoreShedListsInternal("test")
+	if restored != 1 {
+		t.Fatalf("Expected 1 restored list, got %d", restored)
+	}
+
+	configLock.RLock()
+	defer configLock.RUnlock()
+	if config.EmergencySheddingActive {
+		t.Errorf("Expected EmergencySheddingActive to be false")
+	}
+	if len(config.EmergencyShedLists) != 0 {
+		t.Errorf("Expected EmergencyShedLists to be empty")
+	}
+	if config.Lists[0].EmergencySuspended {
+		t.Errorf("Expected List 1 EmergencySuspended to be false")
+	}
+}

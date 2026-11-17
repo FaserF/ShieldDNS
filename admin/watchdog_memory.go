@@ -168,7 +168,7 @@ func evaluateMemoryHealth() {
 	// Check if stable recovery is ongoing & re-verify peer offload health
 	if sheddingActive {
 		go evaluatePeerOffload()
-		// If available RAM is now comfortably above safety margin (> 30% available and > 500 MB)
+		// If available RAM is now comfortably above safety margin (> 25% available and > 500 MB)
 		if availMB > 500.0 && (availMB/totalMB) > 0.25 && usedMB/totalMB < 0.75 {
 			consecutiveStableRAM++
 			if consecutiveStableRAM == 4 { // Log once after 60 seconds of stable RAM
@@ -176,6 +176,9 @@ func evaluateMemoryHealth() {
 					"available_mb", fmt.Sprintf("%.1f", availMB),
 					"used_mb", fmt.Sprintf("%.1f", usedMB),
 					"total_mb", fmt.Sprintf("%.1f", totalMB))
+			} else if consecutiveStableRAM >= 20 { // Automatically restore shed lists after 5 min (20 * 15s) of sustained healthy RAM
+				consecutiveStableRAM = 0
+				restoreShedListsInternal("automatic_watchdog")
 			}
 		} else {
 			consecutiveStableRAM = 0
@@ -278,13 +281,9 @@ func triggerEmergencyLoadShedding(availMB, totalMB, estimatedShieldMB, budgetMB 
 	}()
 }
 
-// handleRestoreShedLists manually or automatically restores all suspended lists
-func handleRestoreShedLists(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
+// restoreShedListsInternal restores all suspended lists and persists the configuration.
+// Trigger can be "manual_api" or "automatic_watchdog".
+func restoreShedListsInternal(trigger string) int {
 	configLock.Lock()
 	countRestored := 0
 	for i := range config.Lists {
@@ -298,14 +297,13 @@ func handleRestoreShedLists(w http.ResponseWriter, r *http.Request) {
 
 	if err := saveConfigNoLock(); err != nil {
 		configLock.Unlock()
-		slog.Error("Failed to save config during shed lists restoration", "error", err)
-		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
-		return
+		slog.Error("Failed to save config during shed lists restoration", "trigger", trigger, "error", err)
+		return 0
 	}
 	cfgClone := config.Clone()
 	configLock.Unlock()
 
-	slog.Info("All emergency shed lists restored by administrator", "count", countRestored)
+	slog.Info("Emergency shed lists restored", "trigger", trigger, "count", countRestored)
 	go func() {
 		evaluatePeerOffload()
 		updateBlocklist(nil, true)
@@ -313,6 +311,17 @@ func handleRestoreShedLists(w http.ResponseWriter, r *http.Request) {
 			_ = performReplicaSync(cfgClone.ClusterPrimaryURL, cfgClone.ClusterPrimaryToken, cfgClone.ClusterInstanceType, cfgClone.ClusterFailoverMode)
 		}
 	}()
+	return countRestored
+}
+
+// handleRestoreShedLists manually or automatically restores all suspended lists
+func handleRestoreShedLists(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	countRestored := restoreShedListsInternal("manual_api")
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -541,6 +550,10 @@ func evaluatePeerOffload() {
 	candidate := selectPeerOffloadCandidate(cfg, primShed, primDNS)
 	resolvedTarget := ""
 
+	peerOffloadMu.RLock()
+	hadPrev := activePeerOffloadAddr != ""
+	peerOffloadMu.RUnlock()
+
 	if candidate != "" && !testMode {
 		host, port, err := net.SplitHostPort(candidate)
 		if err == nil {
@@ -549,7 +562,8 @@ func evaluatePeerOffload() {
 				_ = conn.Close()
 				ip := resolveHost(host)
 				resolvedTarget = net.JoinHostPort(ip, port)
-			} else {
+			} else if hadPrev {
+				// Only log when transitioning from reachable to unreachable to prevent log spam every 15s
 				slog.Warn("Cluster peer DNS target unreachable for offload; falling back to normal upstreams",
 					"target", candidate, "error", dialErr)
 			}
@@ -565,7 +579,7 @@ func evaluatePeerOffload() {
 
 	if prev != resolvedTarget {
 		if resolvedTarget != "" {
-			slog.Warn("CLUSTER PEER OFFLOAD ACTIVATED: Forwarding unblocked DNS queries to healthy peer while local node is in emergency RAM shedding",
+			slog.Info("Cluster peer offload activated: Forwarding unblocked DNS queries to healthy peer while local node is in emergency RAM shedding",
 				"peer", resolvedTarget, "role", cfg.ClusterRole)
 		} else if prev != "" {
 			slog.Info("Cluster peer offload deactivated; resuming normal upstreams", "previous_peer", prev)

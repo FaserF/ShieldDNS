@@ -73,6 +73,15 @@ export function initClusterUI() {
                 })
             });
             helpers.showToast('Cluster settings saved');
+            if (state.currentConfig) {
+                if (role) state.currentConfig.cluster_role = role;
+                if (instType) state.currentConfig.cluster_instance_type = instType;
+                if (nodeName !== undefined) state.currentConfig.cluster_node_name = nodeName;
+                if (logSharing) state.currentConfig.cluster_log_sharing_mode = logSharing;
+                if (workerDomain !== undefined) state.currentConfig.cluster_worker_domain = workerDomain;
+                if (failover !== undefined) state.currentConfig.cluster_failover_mode = failover;
+                if (!isNaN(syncInt)) state.currentConfig.cluster_sync_interval = syncInt;
+            }
             fetchService.fetchClusterStatus();
         } catch (err) {
             helpers.showAlert('Failed to save cluster settings: ' + err.message);
@@ -81,6 +90,8 @@ export function initClusterUI() {
 
     getEl('cluster-role-select')?.addEventListener('change', saveClusterProfile);
     getEl('cluster-inst-type-select')?.addEventListener('change', saveClusterProfile);
+    getEl('cluster-log-sharing-select')?.addEventListener('change', saveClusterProfile);
+    getEl('cluster-failover-check')?.addEventListener('change', saveClusterProfile);
     getEl('cluster-node-name-input')?.addEventListener('blur', saveClusterProfile);
     getEl('cluster-worker-domain-input')?.addEventListener('blur', saveClusterProfile);
     getEl('cluster-sync-interval')?.addEventListener('change', saveClusterProfile);

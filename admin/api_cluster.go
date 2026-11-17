@@ -285,6 +285,10 @@ func handleClusterGetReplicaConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if found {
+		if config.ClusterRole != "primary" {
+			config.ClusterRole = "primary"
+			slog.Info("Auto-promoted node to primary on replica connection", "replica_type", repType, "reported_name", reportedName)
+		}
 		_ = saveConfigNoLock()
 	}
 	primaryDomain := config.AdminDomain
@@ -471,6 +475,7 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 
 	atomic.StoreInt32(&clusterConnLost, 0)
 	clusterLastSyncError = ""
+	restartClusterSyncLoop()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -517,6 +522,7 @@ func handleClusterSync(w http.ResponseWriter, r *http.Request) {
 
 	atomic.StoreInt32(&clusterConnLost, 0)
 	clusterLastSyncError = ""
+	restartClusterSyncLoop()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -546,6 +552,7 @@ func handleClusterLeave(w http.ResponseWriter, r *http.Request) {
 
 	atomic.StoreInt32(&clusterConnLost, 0)
 	clusterLastSyncError = ""
+	restartClusterSyncLoop()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
@@ -622,6 +629,7 @@ func handleClusterUpdateSettings(w http.ResponseWriter, r *http.Request) {
 			_ = performReplicaSync(currentPURL, currentPTok, currentIType, currentFailover)
 		}()
 	}
+	restartClusterSyncLoop()
 
 	go updateCorefile()
 

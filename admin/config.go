@@ -177,6 +177,25 @@ func loadConfig() {
 		if config.AIAuditIntervalMinutes <= 0 {
 			config.AIAuditIntervalMinutes = 5
 		}
+
+		// Self-healing: Strip any trusted infrastructure domains from CustomBlocked and AIRules (block action)
+		if len(config.CustomBlocked) > 0 {
+			sanitizedBlocked := make([]string, 0, len(config.CustomBlocked))
+			for _, d := range config.CustomBlocked {
+				if isTrustedInfrastructureDomain(d) {
+					slog.Warn("Removed trusted infrastructure domain from CustomBlocked", "domain", d)
+				} else {
+					sanitizedBlocked = append(sanitizedBlocked, d)
+				}
+			}
+			config.CustomBlocked = sanitizedBlocked
+		}
+		for d, meta := range config.AIRules {
+			if isTrustedInfrastructureDomain(d) && meta.Action == "block" {
+				delete(config.AIRules, d)
+				slog.Warn("Removed trusted infrastructure domain from AIRules", "domain", d)
+			}
+		}
 	} else {
 		isNew = true
 		slog.Info("Creating default config", "path", ConfigPath)

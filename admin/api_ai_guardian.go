@@ -169,8 +169,20 @@ func CallOpenAIChatCompletion(ctx context.Context, messages []OpenAIChatMessage)
 	return strings.TrimSpace(chatResp.Choices[0].Message.Content), nil
 }
 
-// isTrustedInfrastructureDomain prevents autonomous AI blocking of major legitimate vendor/cloud domains.
+// isTrustedInfrastructureDomain prevents autonomous AI or accidental blocking of major legitimate vendor/cloud infrastructure domains,
+// while still allowing deliberate ad/tracking subdomains (e.g. adservice.google.com) to be filtered.
 func isTrustedInfrastructureDomain(domain string) bool {
+	d := strings.TrimSuffix(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(domain)), "*."), ".")
+	if d == "" {
+		return false
+	}
+	// Exclude known ad/tracking subdomains from being protected
+	adPrefixes := []string{"adservice.", "googleads.", "pagead", "doubleclick.", "ads."}
+	for _, p := range adPrefixes {
+		if strings.HasPrefix(d, p) {
+			return false
+		}
+	}
 	trustedRoots := []string{
 		"googleapis.com", "gstatic.com", "google.com", "googleusercontent.com", "gvt1.com", "gvt2.com",
 		"microsoft.com", "windowsupdate.com", "live.com", "office.com", "azure.com",
@@ -182,7 +194,7 @@ func isTrustedInfrastructureDomain(domain string) bool {
 		"ubuntu.com", "debian.org", "docker.com", "docker.io",
 	}
 	for _, root := range trustedRoots {
-		if domain == root || strings.HasSuffix(domain, "."+root) {
+		if d == root || strings.HasSuffix(d, "."+root) {
 			return true
 		}
 	}

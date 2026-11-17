@@ -134,6 +134,13 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 		customAllowedSet = make(map[string]struct{})
 	}
 
+	// Defense-in-depth: Never allow trusted infrastructure domains to remain in blocked attribution
+	for ad := range attribution {
+		if isTrustedInfrastructureDomain(ad) {
+			delete(attribution, ad)
+		}
+	}
+
 	// Remove allowlisted domains (and their subdomains) from attribution in O(N) time
 	for ad := range attribution {
 		// If domain is marked $important, standard allowlists cannot unblock it.
