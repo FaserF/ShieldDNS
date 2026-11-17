@@ -31,6 +31,11 @@ on:
         required: false
         type: boolean
         default: false
+      run_ha_integration_test:
+        description: "Run Home Assistant integration test before releasing"
+        required: false
+        type: boolean
+        default: true
 
 env:
   REGISTRY: ghcr.io
@@ -46,11 +51,12 @@ permissions:
 jobs:
   ha-integration-test:
     name: HA Integration Test
+    if: ${{ inputs.run_ha_integration_test != false }}
     uses: ./.github/workflows/ha-integration-test.yml
 
   release:
     needs: ha-integration-test
-    if: always() && !cancelled()
+    if: ${{ !cancelled() && (needs.ha-integration-test.result == 'success' || needs.ha-integration-test.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
