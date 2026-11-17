@@ -271,14 +271,16 @@ func triggerEmergencyLoadShedding(availMB, totalMB, estimatedShieldMB, budgetMB 
 	}
 
 	// Immediately reload rules fast to dump memory in CoreDNS
-	cfgClone := config.Clone()
-	go func() {
-		reloadRulesFastNoLock(cfgClone)
-		evaluatePeerOffload()
-		if cfgClone.ClusterRole == "replica" && cfgClone.ClusterPrimaryURL != "" && cfgClone.ClusterPrimaryToken != "" {
-			_ = performReplicaSync(cfgClone.ClusterPrimaryURL, cfgClone.ClusterPrimaryToken, cfgClone.ClusterInstanceType, cfgClone.ClusterFailoverMode)
-		}
-	}()
+	if !testMode {
+		cfgClone := config.Clone()
+		go func() {
+			reloadRulesFastNoLock(cfgClone)
+			evaluatePeerOffload()
+			if cfgClone.ClusterRole == "replica" && cfgClone.ClusterPrimaryURL != "" && cfgClone.ClusterPrimaryToken != "" {
+				_ = performReplicaSync(cfgClone.ClusterPrimaryURL, cfgClone.ClusterPrimaryToken, cfgClone.ClusterInstanceType, cfgClone.ClusterFailoverMode)
+			}
+		}()
+	}
 }
 
 // restoreShedListsInternal restores all suspended lists and persists the configuration.
