@@ -304,13 +304,15 @@ func restoreShedListsInternal(trigger string) int {
 	configLock.Unlock()
 
 	slog.Info("Emergency shed lists restored", "trigger", trigger, "count", countRestored)
-	go func() {
-		evaluatePeerOffload()
-		updateBlocklist(nil, true)
-		if cfgClone.ClusterRole == "replica" && cfgClone.ClusterPrimaryURL != "" && cfgClone.ClusterPrimaryToken != "" {
-			_ = performReplicaSync(cfgClone.ClusterPrimaryURL, cfgClone.ClusterPrimaryToken, cfgClone.ClusterInstanceType, cfgClone.ClusterFailoverMode)
-		}
-	}()
+	if !testMode {
+		go func() {
+			evaluatePeerOffload()
+			updateBlocklist(nil, true)
+			if cfgClone.ClusterRole == "replica" && cfgClone.ClusterPrimaryURL != "" && cfgClone.ClusterPrimaryToken != "" {
+				_ = performReplicaSync(cfgClone.ClusterPrimaryURL, cfgClone.ClusterPrimaryToken, cfgClone.ClusterInstanceType, cfgClone.ClusterFailoverMode)
+			}
+		}()
+	}
 	return countRestored
 }
 
