@@ -48,6 +48,9 @@ type Config struct {
 	MaliciousIPInterval        int                          `json:"malicious_ip_interval"`
 	SignMobileConfig           bool                         `json:"sign_mobileconfig"`
 	VerifyUpstreamTLS          bool                         `json:"verify_upstream_tls"`
+	IntegrationHA              bool                         `json:"integration_ha"`
+	IntegrationOpenWrt         bool                         `json:"integration_openwrt"`
+	IntegrationFritzBox        bool                         `json:"integration_fritzbox"`
 	DoHRateLimit               int                          `json:"doh_rate_limit"`
 	DoH3Enabled                bool                         `json:"doh3_enabled"`
 	RateLimitRate              int                          `json:"rate_limit_rate"`  // queries per second per client IP (0 = disabled)

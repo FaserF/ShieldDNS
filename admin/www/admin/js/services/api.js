@@ -1,7 +1,19 @@
 /**
  * API Module - Handles all communication with the ShieldDNS backend
  */
+
+// Simple request queue/debounce management to avoid saturating backend
+const pendingRequests = new Map();
+
 export async function apiFetch(endpoint, options = {}) {
+    // Basic debouncing for frequent GET requests
+    if (options.method?.toUpperCase() !== 'POST') {
+        const cacheKey = `${options.method || 'GET'}:${endpoint}`;
+        if (pendingRequests.has(cacheKey)) {
+            return pendingRequests.get(cacheKey);
+        }
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -18,53 +30,62 @@ export async function apiFetch(endpoint, options = {}) {
         }
     }
 
-    try {
-        const response = await fetch(endpoint, {
-            ...options,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        const text = await response.text();
+    const requestPromise = (async () => {
+        try {
+            const response = await fetch(endpoint, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            
+            const text = await response.text();
 
-        if (response.status === 403) {
-            if (text.includes('Setup required') || text.includes('SETUP_REQUIRED')) {
-                document.getElementById('auth-overlay')?.classList.remove('hidden');
-                document.getElementById('setup-view')?.classList.remove('hidden');
-                throw new Error('SETUP_REQUIRED');
-            }
-        }
-        
-        if (response.status === 401) {
-            localStorage.removeItem('api_token');
-            window.location.reload();
-            throw new Error('UNAUTHORIZED');
-        }
-        
-        let data = {};
-        if (text) {
-            try {
-                data = JSON.parse(text);
-            } catch (e) {
-                // If it's not JSON, use the raw text if it's an error status
-                if (!response.ok) {
-                    throw new Error(text.substring(0, 100) || response.statusText);
+            if (response.status === 403) {
+                if (text.includes('Setup required') || text.includes('SETUP_REQUIRED')) {
+                    document.getElementById('auth-overlay')?.classList.remove('hidden');
+                    document.getElementById('setup-view')?.classList.remove('hidden');
+                    throw new Error('SETUP_REQUIRED');
                 }
             }
-        }
+            
+            if (response.status === 401) {
+                localStorage.removeItem('api_token');
+                window.location.reload();
+                throw new Error('UNAUTHORIZED');
+            }
+            
+            let data = {};
+            if (text) {
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    if (!response.ok) {
+                        throw new Error(text.substring(0, 100) || response.statusText);
+                    }
+                }
+            }
 
-        if (!response.ok) {
-            throw new Error(data.error || data.message || `Server error: ${response.status}`);
+            if (!response.ok) {
+                throw new Error(data.error || data.message || `Server error: ${response.status}`);
+            }
+            
+            return data;
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') {
+                throw new Error('Request timed out after 10 seconds');
+            }
+            throw err;
         }
-        
-        return data;
-    } catch (err) {
-        clearTimeout(timeoutId);
-        if (err.name === 'AbortError') {
-            throw new Error('Request timed out after 10 seconds');
-        }
-        throw err;
+    })();
+
+    if (options.method?.toUpperCase() !== 'POST') {
+        const cacheKey = `${options.method || 'GET'}:${endpoint}`;
+        pendingRequests.set(cacheKey, requestPromise);
+        requestPromise.finally(() => pendingRequests.delete(cacheKey));
     }
+    
+    return requestPromise;
 }
 
 // Determine API base path dynamically for Home Assistant Ingress
