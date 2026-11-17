@@ -171,7 +171,7 @@ func evaluateMemoryHealth() {
 		// If available RAM is now comfortably above safety margin (> 30% available and > 500 MB)
 		if availMB > 500.0 && (availMB/totalMB) > 0.25 && usedMB/totalMB < 0.75 {
 			consecutiveStableRAM++
-			if consecutiveStableRAM >= 4 { // 60 seconds of stable RAM
+			if consecutiveStableRAM == 4 { // Log once after 60 seconds of stable RAM
 				slog.Info("Memory pressure relieved stably; system ready for list recovery",
 					"available_mb", fmt.Sprintf("%.1f", availMB),
 					"used_mb", fmt.Sprintf("%.1f", usedMB),

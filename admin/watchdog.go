@@ -23,6 +23,12 @@ func startDNSWatchdog(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			// Do not run health checks before CoreDNS has started for the first time
+			// (e.g., while initial blocklists are still downloading).
+			if !coreDNSEverStarted.Load() {
+				continue
+			}
+
 			// Create a resolver that specifically targets the local DNS server
 			r := &net.Resolver{
 				PreferGo: true,

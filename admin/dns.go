@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+var coreDNSEverStarted atomic.Bool
+
 type CorefileData struct {
 	DNSPort            string
 	DOTPort            string
@@ -312,6 +314,7 @@ func startCoreDNS(ctx context.Context) {
 			}
 
 			dnsCmd = cmd
+			coreDNSEverStarted.Store(true)
 			dnsCmdLock.Unlock()
 
 			go func(reader io.Reader) {

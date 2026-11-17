@@ -20,13 +20,14 @@ echo "Starting ShieldDNS Initialization..."
 fix_permissions() {
     local TARGET_DIR=$1
     if [ -d "$TARGET_DIR" ]; then
+        if [ ! -w "$TARGET_DIR" ]; then
+            return 0
+        fi
         echo "Ensuring correct permissions for $TARGET_DIR..."
         # Try to fix permissions, but don't fail if the filesystem is read-only
         chown -R shielddns:shielddns "$TARGET_DIR" 2>/dev/null || echo "Note: Could not change ownership of $TARGET_DIR (likely a read-only mount). Continuing..."
     fi
 }
-
-echo "Starting ShieldDNS Initialization..."
 
 # ------------------------------------------------------------------------------
 # 1. Environment Detection & Configuration
