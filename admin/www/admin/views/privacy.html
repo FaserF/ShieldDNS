@@ -193,6 +193,48 @@
                         </div>
                     </div>
 
+                    <!-- Granular Privacy Level -->
+                    <div class="stat-card card full-width">
+                        <h3><i class="fas fa-user-secret" style="color: var(--accent); margin-right: 8px;"></i>Granular Query Logging Privacy Level</h3>
+                        <p class="help" style="margin-bottom: 12px;">Control how much detail is persisted in the query database.</p>
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                            <select id="privacy-level-select" style="flex:1;min-width:240px;padding:8px;background:var(--card-bg);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;">
+                                <option value="0">Level 0 — Full logging (Domains + Client IPs)</option>
+                                <option value="1">Level 1 — Keyed-hash domains (HMAC) + Anonymized IPs</option>
+                                <option value="2">Level 2 — Redact domains &amp; Client IPs (keep metadata)</option>
+                                <option value="3">Level 3 — Counters only (no per-query rows stored)</option>
+                            </select>
+                            <button type="button" class="btn primary" onclick="savePrivacyLevel()">Save Privacy Level</button>
+                        </div>
+                    </div>
+
+                    <!-- Tamper-Evident Security Audit Log -->
+                    <div class="stat-card card full-width">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                            <h3 style="margin:0;"><i class="fas fa-link" style="color: var(--accent); margin-right: 8px;"></i>Tamper-Evident Security Audit Log</h3>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <span id="audit-verify-badge" class="badge">Unverified</span>
+                                <button type="button" class="btn btn-sm secondary" onclick="verifyAuditChainUI()">Verify Hash Chain</button>
+                            </div>
+                        </div>
+                        <div class="card-body overflow-x">
+                            <table class="query-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Time</th>
+                                        <th>Actor</th>
+                                        <th>Action</th>
+                                        <th>Target / Detail</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-log-tbody">
+                                    <tr><td colspan="5" class="help">Loading audit log...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </section>
 {{end}}

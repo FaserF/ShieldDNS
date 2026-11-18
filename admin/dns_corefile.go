@@ -3,19 +3,30 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"text/template"
 	"log/slog"
 	"net"
 	"os"
 	"sort"
 	"strings"
+	"text/template"
 	"time"
 )
+
+func getInternalEnginePort() string {
+	p := os.Getenv("INTERNAL_ENGINE_PORT")
+	if p == "" {
+		return "11053"
+	}
+	return p
+}
+
+var corefileTmpl = template.Must(template.New("corefile").Parse(CorefileTemplate))
 
 func updateCorefile() bool {
 	configLock.RLock()
 	cfg := config.Clone()
 	configLock.RUnlock()
+	debugModeAtomic.Store(cfg.DebugMode)
 
 	healthLock.RLock()
 	hDNS := make([]string, len(healthyUpstreams))
@@ -38,8 +49,8 @@ func updateCorefile() bool {
 
 	var upstreams []string
 	var dotServerName string
+	var distinctDoTHosts []string
 	if cfg.PreferEncrypted {
-		var distinctDoTHosts []string
 		for _, u := range hDoT {
 			host, _ := splitAddr(u, "853")
 			if net.ParseIP(host) == nil {
@@ -87,8 +98,8 @@ func updateCorefile() bool {
 			policyVal = "random"
 		} else if cfg.SmartSelectionPolicy == "broadcast" {
 			policyVal = "broadcast"
-			if cfg.PreferEncrypted && len(hDoT) > 0 {
-				upstreamStr = "tls://" + strings.Join(hDoT, " tls://")
+			if len(distinctDoTHosts) > 1 {
+				dotServerName = ""
 			}
 		} else {
 			policyVal = "sequential"
@@ -139,9 +150,13 @@ func updateCorefile() bool {
 	if internalDOHPort == "" {
 		internalDOHPort = "5553"
 	}
-	internalEnginePort := os.Getenv("INTERNAL_ENGINE_PORT")
-	if internalEnginePort == "" {
-		internalEnginePort = "11053"
+	internalEnginePort := getInternalEnginePort()
+	internalPolicyPort := os.Getenv("INTERNAL_POLICY_PORT")
+	if internalPolicyPort == "" {
+		internalPolicyPort = policyProxyPort
+	}
+	if os.Getenv("DISABLE_POLICY_PROXY") == "true" {
+		internalPolicyPort = internalEnginePort
 	}
 
 	data := CorefileData{
@@ -149,31 +164,26 @@ func updateCorefile() bool {
 		DOTPort:            dotPort,
 		InternalDOHPort:    internalDOHPort,
 		InternalEnginePort: internalEnginePort,
-		DNSSEC:           cfg.DNSSECEnabled,
-		ServeStale:       cfg.ServeStale,
-		Upstreams:        upstreamStr,
-		TLSServerName:    dotServerName,
-		Policy:           policyVal,
-		HostsPath:        CombinedHostsPath,
-		GeoACLRules:      getGeoACLRules(cfg),
-		CertFile:         certFile,
-		KeyFile:          keyFile,
-		FilteringEnabled: cfg.FilteringEnabled,
-		HasCerts:         hasCerts,
-		RateLimitRate:    cfg.RateLimitRate,
-		RateLimitBurst:   cfg.RateLimitBurst,
-		RoutingBlocks:    getRoutingZoneBlocks(cfg, dnsPort, dotPort, internalDOHPort, hasCerts, certFile, keyFile),
-		TemplateBlocks:   getTemplateBlocks(cfg),
-	}
-
-	tmpl, err := template.New("corefile").Parse(CorefileTemplate)
-	if err != nil {
-		slog.Error("Error parsing Corefile template", "error", err)
-		return false
+		InternalPolicyPort: internalPolicyPort,
+		DNSSEC:             cfg.DNSSECEnabled,
+		ServeStale:         cfg.ServeStale,
+		Upstreams:          upstreamStr,
+		TLSServerName:      dotServerName,
+		Policy:             policyVal,
+		HostsPath:          CombinedHostsPath,
+		GeoACLRules:        getGeoACLRules(cfg),
+		CertFile:           certFile,
+		KeyFile:            keyFile,
+		FilteringEnabled:   cfg.FilteringEnabled,
+		HasCerts:           hasCerts,
+		RateLimitRate:      cfg.RateLimitRate,
+		RateLimitBurst:     cfg.RateLimitBurst,
+		RoutingBlocks:      getRoutingZoneBlocks(cfg, dnsPort, dotPort, internalDOHPort, hasCerts, certFile, keyFile),
+		TemplateBlocks:     getTemplateBlocks(cfg),
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
+	if err := corefileTmpl.Execute(&buf, data); err != nil {
 		slog.Error("Error executing Corefile template", "error", err)
 		return false
 	}
@@ -339,48 +349,54 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 	}
 	sort.Strings(sortedDomains)
 
+	// Group domains sharing the same upstream target into a single internal engine block
+	// so hosts/log/GeoACL run uniformly on external listeners without 60+ redundant TLS/QUIC blocks.
+	type targetGroupKey struct {
+		upstreamStr   string
+		tlsServerName string
+	}
+	groupedDomains := make(map[targetGroupKey][]string)
+	var groupKeys []targetGroupKey
 	for _, matchDomain := range sortedDomains {
 		target := zoneTargets[matchDomain]
-		upstreamStr := strings.Join(target.upstreams, " ")
+		k := targetGroupKey{
+			upstreamStr:   strings.Join(target.upstreams, " "),
+			tlsServerName: target.tlsServerName,
+		}
+		if _, exists := groupedDomains[k]; !exists {
+			groupKeys = append(groupKeys, k)
+		}
+		groupedDomains[k] = append(groupedDomains[k], matchDomain)
+	}
 
-		writeZone := func(prefix string) {
-			if prefix == "" {
-				sb.WriteString(fmt.Sprintf("%s:%s {\n", matchDomain, dnsPort))
-			} else if prefix == "tls" {
-				sb.WriteString(fmt.Sprintf("tls://%s:%s {\n    tls %s %s\n", matchDomain, dotPort, certFile, keyFile))
-			} else if prefix == "https" {
-				sb.WriteString(fmt.Sprintf("https://%s:%s {\n    tls %s %s\n", matchDomain, dohPort, certFile, keyFile))
-			} else if prefix == "quic" {
-				sb.WriteString(fmt.Sprintf("quic://%s:%s {\n    tls %s %s\n", matchDomain, dotPort, certFile, keyFile))
-				sb.WriteString("    quic {\n        max_streams 50\n        worker_pool_size 256\n    }\n")
-			}
-			if cfg.DNSSECEnabled {
-				sb.WriteString("    dnssec\n")
-			}
-			sb.WriteString("    metadata\n    reload 10s\n")
-			sb.WriteString("    cache 300 {\n        success 10000\n        denial 5000\n        prefetch 5 1m 10%\n        serve_stale 1h\n    }\n")
+	enginePort := getInternalEnginePort()
+	for _, k := range groupKeys {
+		domains := groupedDomains[k]
+		zoneHeaders := make([]string, 0, len(domains))
+		for _, d := range domains {
+			zoneHeaders = append(zoneHeaders, fmt.Sprintf("%s:%s", d, enginePort))
+		}
+		sb.WriteString(strings.Join(zoneHeaders, " ") + " {\n")
+		sb.WriteString("    bind 127.0.0.1\n")
+		if cfg.DNSSECEnabled {
+			sb.WriteString("    dnssec\n")
+		}
+		sb.WriteString("    metadata\n")
+		sb.WriteString("    cache 300 {\n        success 10000\n        denial 5000\n        prefetch 5 1m 10%\n        serve_stale 1h\n    }\n")
+		for _, d := range domains {
 			// Suppress HTTPS/SVCB (type 65) for geo/NextDNS zones to prevent HTTP/3 direct handshake bypass and NextDNS FORMERR
-			sb.WriteString(fmt.Sprintf("    template IN HTTPS %s {\n        rcode NOERROR\n    }\n", matchDomain))
-			sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n", upstreamStr))
-			if target.tlsServerName != "" {
-				sb.WriteString(fmt.Sprintf("        tls_servername %s\n", target.tlsServerName))
-			}
-			sb.WriteString("    }\n")
-			sb.WriteString("    errors\n}\n\n")
+			sb.WriteString(fmt.Sprintf("    template IN HTTPS %s {\n        rcode NOERROR\n    }\n", d))
 		}
-
-		writeZone("")
-		if hasCerts {
-			writeZone("tls")
-			writeZone("https")
-			writeZone("quic")
+		sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n", k.upstreamStr))
+		if k.tlsServerName != "" {
+			sb.WriteString(fmt.Sprintf("        tls_servername %s\n", k.tlsServerName))
 		}
+		sb.WriteString("    }\n")
+		sb.WriteString("    errors\n}\n\n")
 	}
 
 	return strings.TrimSpace(sb.String())
 }
-
-
 
 func getTemplateBlocks(cfg *Config) string {
 	if cfg == nil {
@@ -437,13 +453,22 @@ func getTemplateBlocks(cfg *Config) string {
 		}
 	}
 
-	if len(wildcards) == 0 {
-		return sb.String()
-	}
-
 	sort.Slice(wildcards, func(i, j int) bool {
 		return len(wildcards[i].apexZone) > len(wildcards[j].apexZone)
 	})
+
+	writeMappingTemplate := func(domain, ip string) {
+		parsed := net.ParseIP(ip)
+		if parsed != nil && parsed.To4() == nil {
+			sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", domain))
+			sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN AAAA %s\"\n", ip))
+			sb.WriteString("    }\n")
+		} else {
+			sb.WriteString(fmt.Sprintf("    template IN A %s {\n", domain))
+			sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN A %s\"\n", ip))
+			sb.WriteString("    }\n")
+		}
+	}
 
 	handledExact := make(map[string]bool)
 
@@ -468,28 +493,28 @@ func getTemplateBlocks(cfg *Config) string {
 		})
 
 		for _, ex := range exacts {
-			parsed := net.ParseIP(ex.ip)
-			if parsed != nil && parsed.To4() == nil {
-				sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", ex.domain))
-				sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN AAAA %s\"\n", ex.ip))
-				sb.WriteString("    }\n")
-			} else {
-				sb.WriteString(fmt.Sprintf("    template IN A %s {\n", ex.domain))
-				sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN A %s\"\n", ex.ip))
-				sb.WriteString("    }\n")
-			}
+			writeMappingTemplate(ex.domain, ex.ip)
 		}
+		writeMappingTemplate(wc.apexZone, wc.ip)
+	}
 
-		parsedWC := net.ParseIP(wc.ip)
-		if parsedWC != nil && parsedWC.To4() == nil {
-			sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", wc.apexZone))
-			sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN AAAA %s\"\n", wc.ip))
-			sb.WriteString("    }\n")
-		} else {
-			sb.WriteString(fmt.Sprintf("    template IN A %s {\n", wc.apexZone))
-			sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN A %s\"\n", wc.ip))
-			sb.WriteString("    }\n")
+	var remainingExacts []struct{ domain, ip string }
+	for domain, ip := range cfg.CustomMappings {
+		d := strings.ToLower(strings.TrimSpace(domain))
+		if strings.HasPrefix(d, "*") {
+			continue
 		}
+		d = strings.Trim(d, ".")
+		if d != "" && !handledExact[d] {
+			remainingExacts = append(remainingExacts, struct{ domain, ip string }{domain: d, ip: strings.TrimSpace(ip)})
+			handledExact[d] = true
+		}
+	}
+	sort.Slice(remainingExacts, func(i, j int) bool {
+		return remainingExacts[i].domain < remainingExacts[j].domain
+	})
+	for _, ex := range remainingExacts {
+		writeMappingTemplate(ex.domain, ex.ip)
 	}
 
 	return sb.String()

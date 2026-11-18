@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	Version        = "v1.13.2"
+	Version    = "v1.13.2"
 	Subversion = "0"
 	CommitID   = ""
 )
@@ -56,6 +56,10 @@ func main() {
 	slog.Info("ShieldDNS Backend starting", "version", FullVersion)
 
 	initServices()
+	initAuditLogTable()
+	StartPolicyProxy()
+	StartPassiveMDNSListener(appCtx)
+	StartSIEMSinks(appCtx)
 	startWorkers()
 
 	// Ensure Corefile is generated with correct settings before starting CoreDNS
@@ -414,4 +418,3 @@ func startClusterReplicaSync(ctx context.Context) {
 		}
 	}
 }
-

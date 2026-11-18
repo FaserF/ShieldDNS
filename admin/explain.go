@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/miekg/dns"
 )
 
 // ResolutionStage represents a single step evaluated in the DNS decision pipeline.
@@ -150,6 +152,48 @@ func ExplainResolution(domain, clientIP, qtype string, askAI bool) (*ResolutionE
 		})
 		return exp, nil
 	}
+
+	// Stage 1b: Policy Engine (Groups, Schedules, Local Records, Quick Rules, Regex)
+	if qt, ok := dns.StringToType[qtype]; ok {
+		probe := new(dns.Msg)
+		probe.SetQuestion(dns.Fqdn(norm), qt)
+		if pResp, pDec := EvaluateDNSQuery(probe, clientIP); pResp != nil {
+			exp.Stages = append(exp.Stages, ResolutionStage{
+				Stage:  "policy_engine",
+				Status: "matched",
+				Detail: fmt.Sprintf("Group=%s Action=%s (%s)", pDec.GroupName, pDec.Action, pDec.Reason),
+			})
+			switch pDec.Action {
+			case "local":
+				exp.Outcome = "rewritten"
+				exp.Action = "LOCAL_RECORD"
+				exp.WinningRule = pDec.Reason
+				exp.FlowHighlight = "local"
+				exp.Summary = fmt.Sprintf("Answered locally by %s.", pDec.Reason)
+				return exp, nil
+			case "block":
+				exp.Outcome = "blocked"
+				exp.Action = "NULL_IP"
+				exp.WinningRule = pDec.Reason
+				exp.FlowHighlight = "blocked"
+				exp.Summary = fmt.Sprintf("Blocked by policy: %s.", pDec.Reason)
+				return exp, nil
+			case "safesearch":
+				exp.Outcome = "rewritten"
+				exp.Action = "CUSTOM_IP"
+				exp.WinningRule = pDec.Reason
+				exp.FlowHighlight = "local"
+				exp.Summary = fmt.Sprintf("Rewritten by %s.", pDec.Reason)
+				return exp, nil
+			}
+		} else if pDec.GroupID != "" {
+			exp.Stages = append(exp.Stages, ResolutionStage{
+				Stage:  "policy_engine",
+				Status: "passed",
+				Detail: "Matched group " + pDec.GroupName,
+			})
+		}
+	}
 	exp.Stages = append(exp.Stages, ResolutionStage{
 		Stage:  "safesearch",
 		Status: "passed",
@@ -171,6 +215,48 @@ func ExplainResolution(domain, clientIP, qtype string, askAI bool) (*ResolutionE
 			Detail: exp.Summary,
 		})
 		return exp, nil
+	}
+
+	// Stage 1b: Policy Engine (Groups, Schedules, Local Records, Quick Rules, Regex)
+	if qt, ok := dns.StringToType[qtype]; ok {
+		probe := new(dns.Msg)
+		probe.SetQuestion(dns.Fqdn(norm), qt)
+		if pResp, pDec := EvaluateDNSQuery(probe, clientIP); pResp != nil {
+			exp.Stages = append(exp.Stages, ResolutionStage{
+				Stage:  "policy_engine",
+				Status: "matched",
+				Detail: fmt.Sprintf("Group=%s Action=%s (%s)", pDec.GroupName, pDec.Action, pDec.Reason),
+			})
+			switch pDec.Action {
+			case "local":
+				exp.Outcome = "rewritten"
+				exp.Action = "LOCAL_RECORD"
+				exp.WinningRule = pDec.Reason
+				exp.FlowHighlight = "local"
+				exp.Summary = fmt.Sprintf("Answered locally by %s.", pDec.Reason)
+				return exp, nil
+			case "block":
+				exp.Outcome = "blocked"
+				exp.Action = "NULL_IP"
+				exp.WinningRule = pDec.Reason
+				exp.FlowHighlight = "blocked"
+				exp.Summary = fmt.Sprintf("Blocked by policy: %s.", pDec.Reason)
+				return exp, nil
+			case "safesearch":
+				exp.Outcome = "rewritten"
+				exp.Action = "CUSTOM_IP"
+				exp.WinningRule = pDec.Reason
+				exp.FlowHighlight = "local"
+				exp.Summary = fmt.Sprintf("Rewritten by %s.", pDec.Reason)
+				return exp, nil
+			}
+		} else if pDec.GroupID != "" {
+			exp.Stages = append(exp.Stages, ResolutionStage{
+				Stage:  "policy_engine",
+				Status: "passed",
+				Detail: "Matched group " + pDec.GroupName,
+			})
+		}
 	}
 
 	// Stage 4: Global Filtering Check

@@ -368,4 +368,53 @@
                     </div>
                 </div>
 
+                <div class="settings-section" data-category="cluster">
+                    <h2>Cluster Maintenance &amp; Node Comparison 🛠️</h2>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="cluster-maintenance-toggle">
+                        <label for="cluster-maintenance-toggle">Enable Maintenance Mode (/api/health returns 503 while DNS keeps serving)</label>
+                    </div>
+                    <div class="form-group">
+                        <label>Maintenance Reason</label>
+                        <input type="text" id="cluster-maintenance-reason" placeholder="e.g. OS patching or kernel upgrade">
+                    </div>
+                    <button type="button" class="btn primary" onclick="saveClusterMaintenance()">Save Maintenance State</button>
+
+                    <div class="card-body overflow-x" style="margin-top: 20px;">
+                        <table class="query-table">
+                            <thead>
+                                <tr>
+                                    <th>Node</th>
+                                    <th>Role</th>
+                                    <th>Queries</th>
+                                    <th>Blocked %</th>
+                                    <th>Cache Hit %</th>
+                                    <th>Avg Latency</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cluster-compare-tbody">
+                                <tr><td colspan="7" class="help">Loading node comparison...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="settings-section" data-category="integrations">
+                    <h2>Webhooks, SIEM &amp; OpenTelemetry (OTLP) 📡</h2>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="webhook-enabled-check">
+                        <label for="webhook-enabled-check">Enable Security &amp; Abuse Webhook</label>
+                    </div>
+                    <div class="form-group">
+                        <label>Webhook Target URL</label>
+                        <input type="text" id="webhook-url-input" placeholder="https://siem.example.com/hook">
+                    </div>
+                    <div class="form-group">
+                        <label>OTLP/HTTP Metrics Endpoint</label>
+                        <input type="text" id="otlp-endpoint-input" placeholder="http://otel-collector:4318">
+                    </div>
+                    <button type="button" class="btn primary" onclick="saveWebhookAndOTLP()">Save Telemetry &amp; Webhook Settings</button>
+                </div>
+
 {{end}}

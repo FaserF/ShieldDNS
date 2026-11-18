@@ -17,6 +17,12 @@ import { initUIMode } from './core/mode.js';
 import { initHelpDrawer } from './core/help.js';
 import { updateChartAnnotations } from './ui/charts.js';
 import {
+    loadExtendedAnalytics,
+    loadPolicyExtensions,
+    loadPrivacyAndAudit,
+    loadClusterAndSIEM
+} from './ui/telltale_features.js';
+import {
     refreshDeviceIdentities,
     loadServicesCatalog,
     loadAnomalies,
@@ -97,16 +103,16 @@ function initializeApp() {
     // 1. Init Navigation with view-specific handlers
     nav.initNavigation({
         'queries': () => { stopWallMode(); fetchService.fetchQueries(); },
-        'analytics': () => { stopWallMode(); fetchService.fetchAnalytics(); },
+        'analytics': () => { stopWallMode(); fetchService.fetchAnalytics(); loadExtendedAnalytics(); },
         'system-logs': () => { stopWallMode(); nav.startSystemLogStream(); },
         'diagnostics': () => { stopWallMode(); fetchService.fetchDiagnostics(); loadAnomalies(); nav.startDiagTimer(() => { fetchService.fetchDiagnostics(); loadAnomalies(); }); },
-        'custom-rules': () => { stopWallMode(); loadServicesCatalog(); },
+        'custom-rules': () => { stopWallMode(); loadServicesCatalog(); loadPolicyExtensions(); },
         'lists': () => { stopWallMode(); fetchService.fetchPresets(); fetchService.fetchAllowlistPresets(); },
-        'settings': () => { stopWallMode(); fetchService.fetchConfig(); fetchService.fetchAPIKeys(); },
+        'settings': () => { stopWallMode(); fetchService.fetchConfig(); fetchService.fetchAPIKeys(); loadClusterAndSIEM(); },
         'dashboard': () => { stopWallMode(); fetchService.fetchStats(); },
         'wall': () => startWallMode(),
         'about': () => { stopWallMode(); loadAboutData(); },
-        'privacy': () => { stopWallMode(); loadPrivacyStatus(); }
+        'privacy': () => { stopWallMode(); loadPrivacyStatus(); loadPrivacyAndAudit(); }
     });
 
     // 2. Init global event listeners

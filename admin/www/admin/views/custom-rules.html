@@ -111,5 +111,70 @@
                         <div id="routing-rules-list" class="minimal-list"></div>
                     </div>
                 </div>
+
+                <div class="rules-grid" style="margin-top: 20px;">
+                    <div class="rule-card card">
+                        <h3>Client Groups &amp; VLANs</h3>
+                        <p class="help">Group clients by IP, CIDR/VLAN, or MAC for scoped rules, SafeSearch, and schedules.</p>
+                        <div class="input-group" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                            <input type="text" id="group-name-input" placeholder="Group Name (e.g. Kids VLAN)" style="flex:1;min-width:140px;">
+                            <input type="text" id="group-members-input" placeholder="IPs/CIDRs (e.g. 192.168.50.0/24)" style="flex:2;min-width:180px;">
+                            <input type="text" id="group-schedules-input" placeholder="Schedule IDs (optional)" style="flex:1;min-width:120px;">
+                            <button class="btn primary" onclick="addClientGroup()">Add Group</button>
+                        </div>
+                        <div id="groups-list" class="minimal-list"></div>
+                    </div>
+
+                    <div class="rule-card card">
+                        <h3>Time-Based Schedules</h3>
+                        <p class="help">Enforce bedtime or focus windows (supports overnight e.g. 22:00 to 07:00).</p>
+                        <div class="input-group" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                            <input type="text" id="sched-name-input" placeholder="Name (e.g. Bedtime)" style="flex:1;min-width:120px;">
+                            <input type="text" id="sched-start-input" placeholder="Start (22:00)" style="width:95px;">
+                            <input type="text" id="sched-end-input" placeholder="End (07:00)" style="width:95px;">
+                            <select id="sched-action-select" style="padding:6px;">
+                                <option value="block_all">Block All</option>
+                                <option value="blocked_services">Blocked Services</option>
+                            </select>
+                            <button class="btn primary" onclick="addScheduleRule()">Add Schedule</button>
+                        </div>
+                        <div id="schedules-list" class="minimal-list"></div>
+                    </div>
+
+                    <div class="rule-card card">
+                        <h3>Typed Local DNS Records</h3>
+                        <p class="help">Authoritative local A, AAAA, CNAME, TXT, MX, SRV, and PTR records.</p>
+                        <div class="input-group" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                            <select id="local-rec-type" style="width:90px;padding:6px;">
+                                <option value="A">A</option>
+                                <option value="AAAA">AAAA</option>
+                                <option value="CNAME">CNAME</option>
+                                <option value="TXT">TXT</option>
+                                <option value="MX">MX</option>
+                                <option value="SRV">SRV</option>
+                                <option value="PTR">PTR</option>
+                            </select>
+                            <input type="text" id="local-rec-domain" placeholder="Domain (e.g. nas.home.arpa)" style="flex:1;min-width:150px;">
+                            <input type="text" id="local-rec-value" placeholder="Value / Target" style="flex:1;min-width:150px;">
+                            <button class="btn primary" onclick="addLocalRecord()">Add Record</button>
+                        </div>
+                        <div id="local-records-list" class="minimal-list"></div>
+                    </div>
+
+                    <div class="rule-card card">
+                        <h3>Expiring &amp; Regex Quick Rules</h3>
+                        <p class="help">Temporary rules with TTL or <code>/regex/</code> patterns (evaluated in 0 ms).</p>
+                        <div class="input-group" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                            <input type="text" id="quick-rule-domain" placeholder="domain.com, *.sub.com, or /^ad.*\./" style="flex:2;min-width:180px;">
+                            <select id="quick-rule-allow" style="padding:6px;">
+                                <option value="false">Block</option>
+                                <option value="true">Allow</option>
+                            </select>
+                            <input type="number" id="quick-rule-ttl" placeholder="TTL min (0=perm)" style="width:120px;">
+                            <button class="btn primary" onclick="addQuickRule()">Add Quick Rule</button>
+                        </div>
+                        <div id="quick-rules-list" class="minimal-list"></div>
+                    </div>
+                </div>
             </section>
 {{end}}

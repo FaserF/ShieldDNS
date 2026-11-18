@@ -190,5 +190,18 @@ export const endpoints = {
     supportPackage: basePath + '/api/system/support-package',
     agentPlans: basePath + '/api/agent/plans',
     applyAgentPlan: basePath + '/api/agent/plans/apply',
-    discardAgentPlan: basePath + '/api/agent/plans/discard'
+    discardAgentPlan: basePath + '/api/agent/plans/discard',
+    groups: basePath + '/api/groups',
+    schedules: basePath + '/api/schedules',
+    localRecords: basePath + '/api/local-records',
+    quickRules: basePath + '/api/quick-rules',
+    statsFlow: basePath + '/api/stats/flow',
+    statsHeatmap: basePath + '/api/stats/heatmap',
+    statsLatencyHeatmap: basePath + '/api/stats/latency-heatmap',
+    statsSLO: basePath + '/api/stats/slo',
+    clientTimeline: basePath + '/api/client/timeline',
+    auditLog: basePath + '/api/audit',
+    auditVerify: basePath + '/api/audit/verify',
+    clusterMaintenance: basePath + '/api/cluster/maintenance',
+    clusterCompare: basePath + '/api/cluster/compare'
 };

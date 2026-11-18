@@ -20,6 +20,7 @@ type CorefileData struct {
 	DOTPort            string
 	InternalDOHPort    string
 	InternalEnginePort string
+	InternalPolicyPort string
 	DNSSEC             bool
 	ServeStale         bool
 	Upstreams          string
@@ -55,7 +56,7 @@ const CorefileTemplate = `{{.RoutingBlocks}}
         success 50000
         denial 30000
         prefetch 5 1m 10%
-        serve_stale 1h
+        {{if .ServeStale}}serve_stale 1h{{end}}
     }
     forward . {{.Upstreams}} {
         health_check 5s
@@ -71,7 +72,7 @@ const CorefileTemplate = `{{.RoutingBlocks}}
     metadata
     reload 10s
     {{.GeoACLRules}}
-    forward . 127.0.0.1:{{.InternalEnginePort}} {
+    forward . 127.0.0.1:{{.InternalPolicyPort}} {
         expire 10s
     }
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
@@ -84,7 +85,7 @@ tls://.:{{.DOTPort}} {
     metadata
     reload 10s
     {{.GeoACLRules}}
-    forward . 127.0.0.1:{{.InternalEnginePort}} {
+    forward . 127.0.0.1:{{.InternalPolicyPort}} {
         expire 10s
     }
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
@@ -94,8 +95,8 @@ tls://.:{{.DOTPort}} {
 https://.:{{.InternalDOHPort}} {
     tls {{.CertFile}} {{.KeyFile}}
     metadata
-    reload 10s
-    forward . 127.0.0.1:{{.InternalEnginePort}} {
+    {{.GeoACLRules}}
+    forward . 127.0.0.1:{{.InternalPolicyPort}} {
         expire 10s
     }
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
@@ -111,7 +112,7 @@ quic://.:{{.DOTPort}} {
     metadata
     reload 10s
     {{.GeoACLRules}}
-    forward . 127.0.0.1:{{.InternalEnginePort}} {
+    forward . 127.0.0.1:{{.InternalPolicyPort}} {
         expire 10s
     }
     log . "{remote} {type} {name} {rcode} {>rflags} {duration} \"{>User-Agent}\" \"{>X-Real-IP}\""
@@ -119,7 +120,6 @@ quic://.:{{.DOTPort}} {
 }
 {{end}}
 `
-
 
 type querySignature struct {
 	ip   string
@@ -139,8 +139,17 @@ var (
 
 	resolveCache      = make(map[string]cacheEntry)
 	resolveCacheLock  sync.Mutex
+	resolveInflight   = make(map[string]*resolveCall)
+	resolveInflightMu sync.Mutex
 	coreDNSLoopActive atomic.Bool
+	debugModeAtomic   atomic.Bool
+	logDropCount      atomic.Int64
 )
+
+type resolveCall struct {
+	wg  sync.WaitGroup
+	val string
+}
 
 func startDNSWorkers(ctx context.Context) {
 	// 1. Background cleanup for recent query signatures
@@ -194,18 +203,8 @@ func startLogParsers(ctx context.Context) {
 
 func broadcastSSE(query Query) {
 	sseLock.Lock()
-	if len(sseClients) == 0 {
-		sseLock.Unlock()
-		return
-	}
-	// Create a local copy of clients to broadcast outside the lock
-	clients := make([]chan Query, 0, len(sseClients))
+	defer sseLock.Unlock()
 	for ch := range sseClients {
-		clients = append(clients, ch)
-	}
-	sseLock.Unlock()
-
-	for _, ch := range clients {
 		select {
 		case ch <- query:
 		default:
@@ -232,17 +231,45 @@ func resolveHost(host string) string {
 		return host
 	}
 
+	now := time.Now()
 	resolveCacheLock.Lock()
 	if entry, ok := resolveCache[host]; ok {
-		if time.Now().Before(entry.expiresAt) {
+		if now.Before(entry.expiresAt) {
 			resolveCacheLock.Unlock()
 			return entry.ip
+		}
+		delete(resolveCache, host)
+	}
+	if len(resolveCache) > 2048 {
+		for k, v := range resolveCache {
+			if !now.Before(v.expiresAt) {
+				delete(resolveCache, k)
+			}
 		}
 	}
 	resolveCacheLock.Unlock()
 
+	resolveInflightMu.Lock()
+	if call, ok := resolveInflight[host]; ok {
+		resolveInflightMu.Unlock()
+		call.wg.Wait()
+		return call.val
+	}
+	call := &resolveCall{}
+	call.wg.Add(1)
+	resolveInflight[host] = call
+	resolveInflightMu.Unlock()
+
+	defer func() {
+		call.wg.Done()
+		resolveInflightMu.Lock()
+		delete(resolveInflight, host)
+		resolveInflightMu.Unlock()
+	}()
+
 	ips, err := net.LookupIP(host)
 	if err != nil || len(ips) == 0 {
+		call.val = host
 		return host
 	}
 
@@ -264,6 +291,7 @@ func resolveHost(host string) string {
 		expiresAt: time.Now().Add(1 * time.Hour), // 1 hour TTL
 	}
 	resolveCacheLock.Unlock()
+	call.val = ip
 	return ip
 }
 
@@ -299,8 +327,20 @@ func startCoreDNS(ctx context.Context) {
 
 			slog.Info("Starting CoreDNS")
 			cmd := exec.CommandContext(ctx, "coredns", "-conf", CorefilePath)
-			stdout, _ := cmd.StdoutPipe()
-			stderr, _ := cmd.StderrPipe()
+			stdout, err := cmd.StdoutPipe()
+			if err != nil {
+				slog.Error("Error creating CoreDNS stdout pipe", "error", err)
+				dnsCmdLock.Unlock()
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			stderr, err := cmd.StderrPipe()
+			if err != nil {
+				slog.Error("Error creating CoreDNS stderr pipe", "error", err)
+				dnsCmdLock.Unlock()
+				time.Sleep(1 * time.Second)
+				continue
+			}
 
 			if err := cmd.Start(); err != nil {
 				slog.Error("Error starting CoreDNS (executable missing or permission denied?)", "error", err)
@@ -317,13 +357,15 @@ func startCoreDNS(ctx context.Context) {
 			coreDNSEverStarted.Store(true)
 			dnsCmdLock.Unlock()
 
+			var pipeWG sync.WaitGroup
+			pipeWG.Add(2)
+
 			go func(reader io.Reader) {
+				defer pipeWG.Done()
 				scanner := bufio.NewScanner(reader)
 				for scanner.Scan() {
 					line := scanner.Text()
-					configLock.RLock()
-					debug := config.DebugMode
-					configLock.RUnlock()
+					debug := debugModeAtomic.Load()
 					if debug {
 						slog.Info(line, "source", "coredns")
 					}
@@ -331,14 +373,15 @@ func startCoreDNS(ctx context.Context) {
 					case logQueue <- line:
 					default:
 						// Queue full, drop log to avoid blocking CoreDNS under extreme load
-						if debug {
-							slog.Debug("Log queue full, dropping line", "source", "coredns")
+						if dropped := logDropCount.Add(1); dropped%1000 == 1 {
+							slog.Warn("CoreDNS log queue full, dropping lines", "total_dropped", dropped)
 						}
 					}
 				}
 			}(stdout)
 
 			go func(reader io.Reader) {
+				defer pipeWG.Done()
 				scanner := bufio.NewScanner(reader)
 				for scanner.Scan() {
 					line := scanner.Text()
@@ -347,7 +390,8 @@ func startCoreDNS(ctx context.Context) {
 				}
 			}(stderr)
 
-			cmd.Wait()
+			pipeWG.Wait()
+			_ = cmd.Wait()
 
 			dnsCmdLock.Lock()
 			dnsCmd = nil
@@ -390,15 +434,26 @@ func forceRestartCoreDNS() {
 
 	if cmd != nil && cmd.Process != nil {
 		slog.Info("Force restarting CoreDNS process...")
-		cmd.Process.Signal(os.Interrupt)
-		go func(p *os.Process) {
-			time.Sleep(2 * time.Second)
-			p.Kill()
-		}(cmd.Process)
-		time.Sleep(500 * time.Millisecond)
+		_ = cmd.Process.Signal(os.Interrupt)
+		go func(c *exec.Cmd) {
+			deadline := time.Now().Add(2 * time.Second)
+			for time.Now().Before(deadline) {
+				dnsCmdLock.Lock()
+				stillSame := dnsCmd == c
+				dnsCmdLock.Unlock()
+				if !stillSame {
+					return
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+			dnsCmdLock.Lock()
+			stillSame := dnsCmd == c
+			dnsCmdLock.Unlock()
+			if stillSame && c.Process != nil {
+				_ = c.Process.Kill()
+			}
+		}(cmd)
 	} else {
 		go startCoreDNS(appCtx)
 	}
 }
-
-

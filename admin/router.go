@@ -102,6 +102,25 @@ func setupRouter() *http.ServeMux {
 	mux.Handle("/api/cluster/replicas/revoke", authMiddleware(http.HandlerFunc(handleClusterRevokeReplica)))
 	mux.HandleFunc("/api/cluster/logs/ingest", handleClusterIngestLogs)
 	mux.Handle("/api/cluster/worker-script", authMiddleware(http.HandlerFunc(handleClusterWorkerScript)))
+	mux.Handle("/api/cluster/maintenance", authMiddleware(http.HandlerFunc(handleClusterMaintenance)))
+	mux.Handle("/api/cluster/compare", authMiddleware(http.HandlerFunc(handleClusterCompare)))
+
+	// Groups, Schedules, Local DNS Records & Quick Rules
+	mux.Handle("/api/groups", authMiddleware(http.HandlerFunc(handleGroups)))
+	mux.Handle("/api/schedules", authMiddleware(http.HandlerFunc(handleSchedules)))
+	mux.Handle("/api/local-records", authMiddleware(http.HandlerFunc(handleLocalRecords)))
+	mux.Handle("/api/quick-rules", authMiddleware(http.HandlerFunc(handleQuickRules)))
+
+	// Observability: Flow, Heatmaps, SLO & Client Timeline
+	mux.Handle("/api/stats/flow", authMiddleware(http.HandlerFunc(handleStatsFlow)))
+	mux.Handle("/api/stats/heatmap", authMiddleware(http.HandlerFunc(handleStatsHeatmap)))
+	mux.Handle("/api/stats/latency-heatmap", authMiddleware(http.HandlerFunc(handleStatsLatencyHeatmap)))
+	mux.Handle("/api/stats/slo", authMiddleware(http.HandlerFunc(handleStatsSLO)))
+	mux.Handle("/api/client/timeline", authMiddleware(http.HandlerFunc(handleClientTimeline)))
+
+	// Tamper-Evident Security Audit Log
+	mux.Handle("/api/audit", authMiddleware(http.HandlerFunc(handleAuditLog)))
+	mux.Handle("/api/audit/verify", authMiddleware(http.HandlerFunc(handleAuditVerify)))
 
 	// Agent Plan / Apply Workflow API
 	mux.Handle("/api/agent/plans", authMiddleware(http.HandlerFunc(handleListAgentPlans)))
@@ -252,7 +271,6 @@ func newDoHProxy() http.Handler {
 
 	return proxy
 }
-
 
 func setupStaticHandlers(mux *http.ServeMux) {
 	// Root filesystem for everything under www/
@@ -520,41 +538,41 @@ func setupStaticHandlers(mux *http.ServeMux) {
 
 			w.Header().Set("Content-Type", "text/html")
 			tmpl.Execute(w, struct {
-				Host              string
-				SignEnabled       bool
-				FullVersion       string
-				CacheVersion      string
-				RetentionDays     int
-				AnonymizeIPs      bool
-				PreferEncrypted   bool
-				StripECS          bool
-				DNSRebinding      bool
-				FilteringEnabled  bool
-				ClusterRole       string
-				InstanceType      string
-				IsPrivate         bool
-				IsHybrid          bool
-				IsReplica         bool
-				PrimaryURL        string
-				WorkerDomain      string
+				Host             string
+				SignEnabled      bool
+				FullVersion      string
+				CacheVersion     string
+				RetentionDays    int
+				AnonymizeIPs     bool
+				PreferEncrypted  bool
+				StripECS         bool
+				DNSRebinding     bool
+				FilteringEnabled bool
+				ClusterRole      string
+				InstanceType     string
+				IsPrivate        bool
+				IsHybrid         bool
+				IsReplica        bool
+				PrimaryURL       string
+				WorkerDomain     string
 			}{
-				Host:              effectiveHost,
-				SignEnabled:       signEnabled && !isPrivate,
-				FullVersion:       FullVersion,
-				CacheVersion:      CacheVersion,
-				RetentionDays:     retentionDays,
-				AnonymizeIPs:      anonymizeIPs,
-				PreferEncrypted:   preferEncrypted,
-				StripECS:          stripECS,
-				DNSRebinding:      dnsRebinding,
-				FilteringEnabled:  filteringEnabled,
-				ClusterRole:       clusterRole,
-				InstanceType:      clusterInstType,
-				IsPrivate:         isPrivate,
-				IsHybrid:          isHybrid,
-				IsReplica:         isReplica,
-				PrimaryURL:        clusterPrimaryURL,
-				WorkerDomain:      workerDomain,
+				Host:             effectiveHost,
+				SignEnabled:      signEnabled && !isPrivate,
+				FullVersion:      FullVersion,
+				CacheVersion:     CacheVersion,
+				RetentionDays:    retentionDays,
+				AnonymizeIPs:     anonymizeIPs,
+				PreferEncrypted:  preferEncrypted,
+				StripECS:         stripECS,
+				DNSRebinding:     dnsRebinding,
+				FilteringEnabled: filteringEnabled,
+				ClusterRole:      clusterRole,
+				InstanceType:     clusterInstType,
+				IsPrivate:        isPrivate,
+				IsHybrid:         isHybrid,
+				IsReplica:        isReplica,
+				PrimaryURL:       clusterPrimaryURL,
+				WorkerDomain:     workerDomain,
 			})
 			return
 		}

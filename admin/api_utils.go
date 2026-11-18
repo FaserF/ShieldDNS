@@ -51,6 +51,13 @@ func sendJSONError(w http.ResponseWriter, message string, code int) {
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
+// writeJSON serializes data as JSON with the given HTTP status code.
+func writeJSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(data)
+}
+
 // isValidUpstream checks if a string is a valid DNS upstream (IP or Hostname).
 func isValidUpstream(s string) bool {
 	s = strings.TrimSpace(s)

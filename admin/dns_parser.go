@@ -286,10 +286,20 @@ func parseLogLine(line string) {
 	configLock.RLock()
 	alias := config.ClientAliases[clientIP]
 	anonymizeIP := config.AnonymizeClientIPs
+	privacyLevel := config.PrivacyLevel
+	sloLatMs := config.SLOTargetLatencyMs
 	configLock.RUnlock()
+	if sloLatMs <= 0 {
+		sloLatMs = 50.0
+	}
+	if alias == "" {
+		if mdnsHost := GetMDNSHostname(clientIP); mdnsHost != "" {
+			alias = mdnsHost
+		}
+	}
 
 	loggedClientIP := clientIP
-	if anonymizeIP {
+	if anonymizeIP && privacyLevel == 0 {
 		loggedClientIP = AnonymizeIP(clientIP)
 	}
 
@@ -303,15 +313,29 @@ func parseLogLine(line string) {
 		IsCacheHit:  isCacheHit,
 		DurationMs:  duration,
 		CountryCode: GetCountryCodeCached(clientIP),
+		RCode:       rcode,
 	}
 
-	// Record real-time metrics and QPS
+	// Record real-time metrics, QPS, Flow, Latency Heatmap & SLO
 	RecordQuery(q)
 	TrackNextDNSQuery(qDomain)
+	decisionLabel := "allowed"
+	if isBlocked {
+		decisionLabel = "blocked"
+	} else if isCacheHit {
+		decisionLabel = "cached"
+	}
+	RecordFlowAndSLO("", decisionLabel, "coredns", rcode, duration)
+	if rcode == "SERVFAIL" || duration > sloLatMs {
+		RecordSLOOffender(loggedClientIP, qDomain)
+	}
+	EmitQueryToSIEM(q)
 
-	bufferLock.Lock()
-	logBuffer = append(logBuffer, q)
-	bufferLock.Unlock()
+	if ApplyPrivacyLevel(&q, privacyLevel, clientIP) {
+		bufferLock.Lock()
+		logBuffer = append(logBuffer, q)
+		bufferLock.Unlock()
+	}
 
 	// Feed query to Abuse Detection Engine via worker channel to avoid goroutine churn
 	select {

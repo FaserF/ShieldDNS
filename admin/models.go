@@ -53,8 +53,8 @@ type Config struct {
 	IntegrationFritzBox        bool                         `json:"integration_fritzbox"`
 	DoHRateLimit               int                          `json:"doh_rate_limit"`
 	DoH3Enabled                bool                         `json:"doh3_enabled"`
-	RateLimitRate              int                          `json:"rate_limit_rate"`  // queries per second per client IP (0 = disabled)
-	RateLimitBurst             int                          `json:"rate_limit_burst"` // burst allowance
+	RateLimitRate              int                          `json:"rate_limit_rate"`          // queries per second per client IP (0 = disabled)
+	RateLimitBurst             int                          `json:"rate_limit_burst"`         // burst allowance
 	ECHOptimizationEnabled     bool                         `json:"ech_optimization_enabled"` // optimize HTTPS/SVCB DNS records for ECH
 	DebugMode                  bool                         `json:"debug_mode"`
 	ServerCountry              string                       `json:"server_country"`
@@ -70,11 +70,11 @@ type Config struct {
 	AnonymizeClientIPs         bool                         `json:"anonymize_client_ips"`
 	DNSRebindingProtection     bool                         `json:"dns_rebinding_protection"`
 	StripECS                   bool                         `json:"strip_ecs"`
-	ClusterRole                string                       `json:"cluster_role"`          // "standalone", "primary", "replica"
-	ClusterInstanceType        string                       `json:"cluster_instance_type"` // "private", "public", "hybrid"
-	ClusterNodeName            string                       `json:"cluster_node_name"`     // human-readable node name
-	ClusterWorkerDomain        string                       `json:"cluster_worker_domain"` // e.g. "worker.domain.de" (Cloudflare worker frontend/dispatcher)
-	ClusterWorkerToken         string                       `json:"cluster_worker_token"`  // Dedicated least-privilege token for Cloudflare worker proxy
+	ClusterRole                string                       `json:"cluster_role"`             // "standalone", "primary", "replica"
+	ClusterInstanceType        string                       `json:"cluster_instance_type"`    // "private", "public", "hybrid"
+	ClusterNodeName            string                       `json:"cluster_node_name"`        // human-readable node name
+	ClusterWorkerDomain        string                       `json:"cluster_worker_domain"`    // e.g. "worker.domain.de" (Cloudflare worker frontend/dispatcher)
+	ClusterWorkerToken         string                       `json:"cluster_worker_token"`     // Dedicated least-privilege token for Cloudflare worker proxy
 	ClusterLogSharingMode      string                       `json:"cluster_log_sharing_mode"` // "local_only", "push_to_primary", "full_sync"
 	ClusterPrimaryURL          string                       `json:"cluster_primary_url"`
 	ClusterPrimaryToken        string                       `json:"cluster_primary_token"`
@@ -136,11 +136,91 @@ type Config struct {
 	AIConfidenceThreshold      float64                      `json:"ai_confidence_threshold"`
 	AIAuditIntervalMinutes     int                          `json:"ai_audit_interval_minutes"`
 	AIRules                    map[string]AIRuleMetadata    `json:"ai_rules"`
+	// TelltaleDNS-inspired Policy, Privacy, Observability, SIEM & Cluster Ops
+	Groups                []ClientGroup    `json:"groups,omitempty"`
+	Schedules             []ScheduleRule   `json:"schedules,omitempty"`
+	LocalRecords          []LocalRecord    `json:"local_records,omitempty"`
+	QuickRules            []QuickRule      `json:"quick_rules,omitempty"`
+	AutoPTR               bool             `json:"auto_ptr"`
+	CNAMECloakingEnabled  bool             `json:"cname_cloaking_enabled"`
+	PrivacyLevel          int              `json:"privacy_level"` // 0=full, 1=hash_domains+anon_ip, 2=hide_domains_ips, 3=counters_only
+	SIEMSinks             []SIEMSinkConfig `json:"siem_sinks,omitempty"`
+	OTLPEndpoint          string           `json:"otlp_endpoint,omitempty"`
+	OTLPIntervalSeconds   int              `json:"otlp_interval_seconds,omitempty"`
+	SLOTargetAvailability float64          `json:"slo_target_availability,omitempty"`
+	SLOTargetLatencyMs    float64          `json:"slo_target_latency_ms,omitempty"`
+	MaintenanceMode       bool             `json:"maintenance_mode"`
+	MaintenanceReason     string           `json:"maintenance_reason,omitempty"`
+}
+
+// ClientGroup defines a named policy group for clients matched by IP, CIDR/VLAN, or MAC.
+type ClientGroup struct {
+	ID                 string   `json:"id"`
+	Name               string   `json:"name"`
+	Members            []string `json:"members"` // IPs, CIDRs (VLANs), or MAC addresses
+	Lists              []string `json:"lists,omitempty"`
+	BlockedServices    []string `json:"blocked_services,omitempty"`
+	SafeSearchEnabled  *bool    `json:"safesearch_enabled,omitempty"`
+	YouTubeRestriction string   `json:"youtube_restriction,omitempty"`
+	CustomBlocked      []string `json:"custom_blocked,omitempty"`
+	CustomAllowed      []string `json:"custom_allowed,omitempty"`
+	FilterAAAA         bool     `json:"filter_aaaa,omitempty"`
+	Upstreams          []string `json:"upstreams,omitempty"`
+	ScheduleIDs        []string `json:"schedule_ids,omitempty"`
+}
+
+// ScheduleRule defines a time-based policy window.
+type ScheduleRule struct {
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	Days            []string `json:"days"`       // "mon","tue","wed","thu","fri","sat","sun" (empty = every day)
+	StartTime       string   `json:"start_time"` // "HH:MM" 24h
+	EndTime         string   `json:"end_time"`   // "HH:MM" 24h (supports overnight e.g. 22:00 -> 07:00)
+	Timezone        string   `json:"timezone"`   // IANA timezone, e.g. "Europe/Berlin" or "Local"
+	Action          string   `json:"action"`     // "block_all", "blocked_services", "lists"
+	BlockedServices []string `json:"blocked_services,omitempty"`
+	Lists           []string `json:"lists,omitempty"`
+	Enabled         bool     `json:"enabled"`
+}
+
+// LocalRecord defines a general authoritative local DNS record or rewrite.
+type LocalRecord struct {
+	ID       string `json:"id"`
+	Domain   string `json:"domain"`
+	Type     string `json:"type"` // A, AAAA, CNAME, TXT, MX, SRV, PTR
+	Value    string `json:"value"`
+	TTL      uint32 `json:"ttl,omitempty"`
+	Priority uint16 `json:"priority,omitempty"`
+	Weight   uint16 `json:"weight,omitempty"`
+	Port     uint16 `json:"port,omitempty"`
+}
+
+// QuickRule defines an optional expiring or regex-capable domain rule.
+type QuickRule struct {
+	ID          string     `json:"id"`
+	Domain      string     `json:"domain"` // exact, *.wildcard, or /regex/
+	IsAllowlist bool       `json:"is_allowlist"`
+	GroupID     string     `json:"group_id,omitempty"`
+	ClientIP    string     `json:"client_ip,omitempty"`
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
+	Reason      string     `json:"reason,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+// SIEMSinkConfig configures an external log/event sink (File, Syslog, Webhook).
+type SIEMSinkConfig struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Type     string `json:"type"` // "file", "syslog", "webhook"
+	Enabled  bool   `json:"enabled"`
+	Target   string `json:"target"`             // file path, host:port, or HTTP URL
+	Protocol string `json:"protocol,omitempty"` // syslog: "udp", "tcp", "tls"
+	Token    string `json:"token,omitempty"`    // bearer token for webhook
 }
 
 type AIRuleMetadata struct {
 	Domain     string    `json:"domain"`
-	Action     string    `json:"action"` // "block" or "allow"
+	Action     string    `json:"action"`      // "block" or "allow"
 	ThreatType string    `json:"threat_type"` // "phishing", "malware_c2", "dga", "ad_tracker", "telemetry", "false_positive"
 	Confidence float64   `json:"confidence"`
 	Reason     string    `json:"reason"`
@@ -183,36 +263,36 @@ type ClusterReplica struct {
 }
 
 type ClusterConfigExport struct {
-	PrimaryURL                 string            `json:"primary_url"`
-	PrimaryEmergencyShedding   bool              `json:"primary_emergency_shedding,omitempty"`
-	PrimaryDNSTarget           string            `json:"primary_dns_target,omitempty"`
-	AdminPasswordHashed        string            `json:"admin_password_hashed,omitempty"`
-	ClusterWorkerDomain        string            `json:"cluster_worker_domain,omitempty"`
-	ClusterLogSharingMode      string            `json:"cluster_log_sharing_mode,omitempty"`
-	FilteringEnabled           bool              `json:"filtering_enabled"`
-	Lists                      []List            `json:"lists"`
-	Allowlists                 []List            `json:"allowlists"`
-	CustomBlocked              []string          `json:"custom_blocked"`
-	CustomAllowed              []string          `json:"custom_allowed"`
-	CustomMappings             map[string]string `json:"custom_mappings"`
-	AutoblockWhitelist         []string          `json:"autoblock_whitelist"`
-	BlockedCountries           []string          `json:"blocked_countries"`
-	SmartSelectionPolicy       string            `json:"smart_selection_policy"`
-	ServeStale                 bool              `json:"serve_stale"`
-	DNSSECEnabled              bool              `json:"dnssec_enabled"`
-	AbuseDetectionEnabled      bool              `json:"abuse_detection_enabled"`
-	AbuseDGAThreshold          float64           `json:"abuse_dga_threshold"`
-	AbuseDGAMinLen             int               `json:"abuse_dga_min_len"`
-	MaliciousIPBlockingEnabled bool              `json:"malicious_ip_blocking_enabled"`
-	MaliciousIPInterval        int               `json:"malicious_ip_interval"`
-	VerifyUpstreamTLS          bool              `json:"verify_upstream_tls"`
-	PreferEncrypted            bool              `json:"prefer_encrypted"`
-	Upstreams                  []string          `json:"upstreams"`
-	UpstreamDoT                []string          `json:"upstream_dot"`
-	DoHRateLimit               int               `json:"doh_rate_limit"`
-	DoH3Enabled                bool              `json:"doh3_enabled"`
-	RateLimitRate              int               `json:"rate_limit_rate"`
-	RateLimitBurst             int               `json:"rate_limit_burst"`
+	PrimaryURL                 string                       `json:"primary_url"`
+	PrimaryEmergencyShedding   bool                         `json:"primary_emergency_shedding,omitempty"`
+	PrimaryDNSTarget           string                       `json:"primary_dns_target,omitempty"`
+	AdminPasswordHashed        string                       `json:"admin_password_hashed,omitempty"`
+	ClusterWorkerDomain        string                       `json:"cluster_worker_domain,omitempty"`
+	ClusterLogSharingMode      string                       `json:"cluster_log_sharing_mode,omitempty"`
+	FilteringEnabled           bool                         `json:"filtering_enabled"`
+	Lists                      []List                       `json:"lists"`
+	Allowlists                 []List                       `json:"allowlists"`
+	CustomBlocked              []string                     `json:"custom_blocked"`
+	CustomAllowed              []string                     `json:"custom_allowed"`
+	CustomMappings             map[string]string            `json:"custom_mappings"`
+	AutoblockWhitelist         []string                     `json:"autoblock_whitelist"`
+	BlockedCountries           []string                     `json:"blocked_countries"`
+	SmartSelectionPolicy       string                       `json:"smart_selection_policy"`
+	ServeStale                 bool                         `json:"serve_stale"`
+	DNSSECEnabled              bool                         `json:"dnssec_enabled"`
+	AbuseDetectionEnabled      bool                         `json:"abuse_detection_enabled"`
+	AbuseDGAThreshold          float64                      `json:"abuse_dga_threshold"`
+	AbuseDGAMinLen             int                          `json:"abuse_dga_min_len"`
+	MaliciousIPBlockingEnabled bool                         `json:"malicious_ip_blocking_enabled"`
+	MaliciousIPInterval        int                          `json:"malicious_ip_interval"`
+	VerifyUpstreamTLS          bool                         `json:"verify_upstream_tls"`
+	PreferEncrypted            bool                         `json:"prefer_encrypted"`
+	Upstreams                  []string                     `json:"upstreams"`
+	UpstreamDoT                []string                     `json:"upstream_dot"`
+	DoHRateLimit               int                          `json:"doh_rate_limit"`
+	DoH3Enabled                bool                         `json:"doh3_enabled"`
+	RateLimitRate              int                          `json:"rate_limit_rate"`
+	RateLimitBurst             int                          `json:"rate_limit_burst"`
 	ECHOptimizationEnabled     bool                         `json:"ech_optimization_enabled"`
 	DNSRebindingProtection     bool                         `json:"dns_rebinding_protection"`
 	StripECS                   bool                         `json:"strip_ecs"`
@@ -367,6 +447,9 @@ type Query struct {
 	DurationMs  float64   `json:"duration_ms"`
 	CountryCode string    `json:"country_code"`
 	NodeName    string    `json:"node_name,omitempty"`
+	GroupID     string    `json:"group_id,omitempty"`
+	RCode       string    `json:"rcode,omitempty"`
+	Upstream    string    `json:"upstream,omitempty"`
 }
 
 type HourStats struct {
@@ -604,6 +687,26 @@ func (c *Config) Clone() *Config {
 		newCfg.ClientRules = make([]ClientRule, len(c.ClientRules))
 		copy(newCfg.ClientRules, c.ClientRules)
 	}
+	if c.Groups != nil {
+		newCfg.Groups = make([]ClientGroup, len(c.Groups))
+		copy(newCfg.Groups, c.Groups)
+	}
+	if c.Schedules != nil {
+		newCfg.Schedules = make([]ScheduleRule, len(c.Schedules))
+		copy(newCfg.Schedules, c.Schedules)
+	}
+	if c.LocalRecords != nil {
+		newCfg.LocalRecords = make([]LocalRecord, len(c.LocalRecords))
+		copy(newCfg.LocalRecords, c.LocalRecords)
+	}
+	if c.QuickRules != nil {
+		newCfg.QuickRules = make([]QuickRule, len(c.QuickRules))
+		copy(newCfg.QuickRules, c.QuickRules)
+	}
+	if c.SIEMSinks != nil {
+		newCfg.SIEMSinks = make([]SIEMSinkConfig, len(c.SIEMSinks))
+		copy(newCfg.SIEMSinks, c.SIEMSinks)
+	}
 
 	return &newCfg
 }
@@ -633,6 +736,15 @@ func (c *Config) SanitizedCopy() Config {
 		for i, k := range c.APIKeys {
 			k.TokenHash = "********"
 			clone.APIKeys[i] = k
+		}
+	}
+	if clone.SIEMSinks != nil {
+		clone.SIEMSinks = make([]SIEMSinkConfig, len(c.SIEMSinks))
+		for i, s := range c.SIEMSinks {
+			if s.Token != "" {
+				s.Token = "********"
+			}
+			clone.SIEMSinks[i] = s
 		}
 	}
 	return clone
