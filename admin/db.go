@@ -253,7 +253,11 @@ func initDB() {
 		}
 
 		slog.Info("PostgreSQL database initialized successfully")
-		migrateExistingSQLite("PostgreSQL")
+		if testMode {
+			migrateExistingSQLite("PostgreSQL")
+		} else {
+			go migrateExistingSQLite("PostgreSQL")
+		}
 
 	} else if strings.HasPrefix(dbURL, "mariadb://") || strings.HasPrefix(dbURL, "mysql://") {
 		dbDriver = "mysql"
@@ -293,7 +297,11 @@ func initDB() {
 		}
 
 		slog.Info("MariaDB/MySQL database initialized successfully")
-		migrateExistingSQLite("MariaDB/MySQL")
+		if testMode {
+			migrateExistingSQLite("MariaDB/MySQL")
+		} else {
+			go migrateExistingSQLite("MariaDB/MySQL")
+		}
 
 	} else {
 		dbDriver = "sqlite"
@@ -675,21 +683,36 @@ func migrateExistingSQLite(targetName string) {
 	if _, statErr := os.Stat(DBPath); statErr != nil {
 		return
 	}
-	var maxTime sql.NullTime
-	_ = db.QueryRow("SELECT MAX(timestamp) FROM queries").Scan(&maxTime)
-	if !maxTime.Valid {
+	var rawMax sql.NullString
+	_ = db.QueryRow("SELECT MAX(timestamp) FROM queries").Scan(&rawMax)
+	var maxTime time.Time
+	hasExisting := false
+	if rawMax.Valid && strings.TrimSpace(rawMax.String) != "" {
+		if parsed, err := ParseFlexibleTime(strings.TrimSpace(rawMax.String)); err == nil && !parsed.IsZero() {
+			maxTime = parsed
+			hasExisting = true
+		}
+	}
+	if !hasExisting {
 		slog.Info("Target DB is empty; SQLite database detected. Starting seamless migration...", "target", targetName, "sqlite_path", DBPath)
 		if err := autoMigrateFromSQLite(DBPath, db, time.Time{}); err != nil {
 			slog.Error("Migration from SQLite failed", "target", targetName, "error", err)
-		} else {
-			slog.Info("Automatic migration from SQLite completed successfully! All records preserved.", "target", targetName)
+			return
 		}
-		return
-	}
-	slog.Info("Syncing missing newer records from SQLite...", "target", targetName, "since", maxTime.Time)
-	if err := autoMigrateFromSQLite(DBPath, db, maxTime.Time); err != nil {
-		slog.Error("Incremental migration from SQLite failed", "target", targetName, "error", err)
+		slog.Info("Automatic migration from SQLite completed successfully! All records preserved.", "target", targetName)
 	} else {
+		slog.Info("Syncing missing newer records from SQLite...", "target", targetName, "since", maxTime)
+		if err := autoMigrateFromSQLite(DBPath, db, maxTime); err != nil {
+			slog.Error("Incremental migration from SQLite failed", "target", targetName, "error", err)
+			return
+		}
 		slog.Info("Incremental migration from SQLite completed successfully.", "target", targetName)
+	}
+	if !testMode {
+		if err := os.Rename(DBPath, DBPath+".migrated"); err == nil {
+			_ = os.Remove(DBPath + "-wal")
+			_ = os.Remove(DBPath + "-shm")
+			slog.Info("Archived migrated SQLite database", "path", DBPath+".migrated")
+		}
 	}
 }
