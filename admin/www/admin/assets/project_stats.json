@@ -1,7 +1,7 @@
 {
-  "version": "1.13.3",
-  "commit_id": "d8ab70c",
-  "generated_at": "2026-11-18T12:31:34Z",
+  "version": "1.13.4",
+  "commit_id": "3fd7735",
+  "generated_at": "2026-11-18T12:47:52Z",
   "code": {
     "backend": {
       "files": 122,
@@ -13,11 +13,11 @@
     },
     "other": {
       "files": 30,
-      "lines": 3496
+      "lines": 3478
     },
     "total": {
       "files": 226,
-      "lines": 52216
+      "lines": 52198
     }
   },
   "tests": {
