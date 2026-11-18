@@ -211,7 +211,7 @@ func blockClientAuto(ip, reason string) {
 	configLock.RUnlock()
 
 	if IsPrivateOrTailnetIP(ip) || IsCriticalIP(ip, bpIP, whitelist) {
-		slog.Info("Skipping auto-block for critical/private IP", "ip", ip, "reason", reason)
+		slog.Debug("Skipping auto-block for critical/private IP", "ip", ip, "reason", reason)
 		return
 	}
 	if !testMode {

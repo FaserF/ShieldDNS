@@ -148,7 +148,16 @@ func initDB() {
 		db.SetMaxIdleConns(10)
 		db.SetConnMaxLifetime(10 * time.Minute)
 
-		if err = db.Ping(); err != nil {
+		for attempt := 1; attempt <= 15; attempt++ {
+			if err = db.Ping(); err == nil {
+				break
+			}
+			if attempt < 15 {
+				slog.Warn("Waiting for PostgreSQL database to become ready", "attempt", attempt, "error", err)
+				time.Sleep(2 * time.Second)
+			}
+		}
+		if err != nil {
 			slog.Error("Failed to connect to PostgreSQL database", "error", err)
 			os.Exit(1)
 		}

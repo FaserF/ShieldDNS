@@ -50,8 +50,8 @@ func checkAll() bool {
 	smart := config.UseFastestUpstream
 	configLock.RUnlock()
 
-	var newHealthyUpstreams []string
-	var newHealthyDoT []string
+	healthyUpstreamSet := make(map[string]bool)
+	healthyDoTSet := make(map[string]bool)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
@@ -71,7 +71,7 @@ func checkAll() bool {
 				latencyLock.Lock()
 				latencyMap[addr] = lat
 				latencyLock.Unlock()
-				newHealthyUpstreams = append(newHealthyUpstreams, addr)
+				healthyUpstreamSet[addr] = true
 				mu.Unlock()
 			}
 		}(u)
@@ -93,7 +93,7 @@ func checkAll() bool {
 				latencyLock.Lock()
 				latencyMap[addr] = lat
 				latencyLock.Unlock()
-				newHealthyDoT = append(newHealthyDoT, addr)
+				healthyDoTSet[addr] = true
 				mu.Unlock()
 			}
 		}(u)
@@ -101,13 +101,28 @@ func checkAll() bool {
 
 	wg.Wait()
 
+	// Preserve deterministic config order by default so Corefile never churns on goroutine race order.
+	var newHealthyUpstreams []string
+	for _, u := range upstreams {
+		if healthyUpstreamSet[u] {
+			newHealthyUpstreams = append(newHealthyUpstreams, u)
+		}
+	}
+	var newHealthyDoT []string
+	for _, u := range dots {
+		if healthyDoTSet[u] {
+			newHealthyDoT = append(newHealthyDoT, u)
+		}
+	}
+
 	if smart {
+		const latencyBucket = 15 * time.Millisecond
 		latencyLock.RLock()
-		sort.Slice(newHealthyUpstreams, func(i, j int) bool {
-			return latencyMap[newHealthyUpstreams[i]] < latencyMap[newHealthyUpstreams[j]]
+		sort.SliceStable(newHealthyUpstreams, func(i, j int) bool {
+			return latencyMap[newHealthyUpstreams[i]]/latencyBucket < latencyMap[newHealthyUpstreams[j]]/latencyBucket
 		})
-		sort.Slice(newHealthyDoT, func(i, j int) bool {
-			return latencyMap[newHealthyDoT[i]] < latencyMap[newHealthyDoT[j]]
+		sort.SliceStable(newHealthyDoT, func(i, j int) bool {
+			return latencyMap[newHealthyDoT[i]]/latencyBucket < latencyMap[newHealthyDoT[j]]/latencyBucket
 		})
 		latencyLock.RUnlock()
 	}

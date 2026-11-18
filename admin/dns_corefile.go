@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 func updateCorefile() bool {
@@ -24,12 +25,13 @@ func updateCorefile() bool {
 	healthLock.RUnlock()
 
 	if cfg.UseFastestUpstream {
+		const latencyBucket = 15 * time.Millisecond
 		latencyLock.RLock()
-		sort.Slice(hDNS, func(i, j int) bool {
-			return latencyMap[hDNS[i]] < latencyMap[hDNS[j]]
+		sort.SliceStable(hDNS, func(i, j int) bool {
+			return latencyMap[hDNS[i]]/latencyBucket < latencyMap[hDNS[j]]/latencyBucket
 		})
-		sort.Slice(hDoT, func(i, j int) bool {
-			return latencyMap[hDoT[i]] < latencyMap[hDoT[j]]
+		sort.SliceStable(hDoT, func(i, j int) bool {
+			return latencyMap[hDoT[i]]/latencyBucket < latencyMap[hDoT[j]]/latencyBucket
 		})
 		latencyLock.RUnlock()
 	}
@@ -356,7 +358,7 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 				sb.WriteString("    dnssec\n")
 			}
 			sb.WriteString("    metadata\n    reload 10s\n")
-			sb.WriteString("    cache 60\n")
+			sb.WriteString("    cache 300 {\n        success 10000\n        denial 5000\n        prefetch 5 1m 10%\n        serve_stale 1h\n    }\n")
 			// Suppress HTTPS/SVCB (type 65) for geo/NextDNS zones to prevent HTTP/3 direct handshake bypass and NextDNS FORMERR
 			sb.WriteString(fmt.Sprintf("    template IN HTTPS %s {\n        rcode NOERROR\n    }\n", matchDomain))
 			sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n", upstreamStr))
