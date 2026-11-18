@@ -82,6 +82,7 @@ if [ "$(id -u)" = "0" ]; then
     fix_permissions "/etc/shielddns"
     fix_permissions "/ssl"
     fix_permissions "/data"
+    chown shielddns:shielddns /etc/resolv.conf 2>/dev/null || true
 
     # Smart SSL handling: If certs exist but are not readable by the shielddns user
     # (common with Let's Encrypt / live mounts), copy them to internal storage.

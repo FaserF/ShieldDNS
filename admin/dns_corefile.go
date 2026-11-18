@@ -27,6 +27,7 @@ func updateCorefile() bool {
 	cfg := config.Clone()
 	configLock.RUnlock()
 	debugModeAtomic.Store(cfg.DebugMode)
+	syncContainerResolvConf(cfg)
 
 	healthLock.RLock()
 	hDNS := make([]string, len(healthyUpstreams))
@@ -198,6 +199,38 @@ func updateCorefile() bool {
 		return false
 	}
 	return true
+}
+
+// syncContainerResolvConf keeps the container's /etc/resolv.conf aligned with the UI-configured
+// plain DNS upstreams (excluding loopback/Tailnet self-IPs so CoreDNS never loops back into itself).
+func syncContainerResolvConf(cfg *Config) {
+	if testMode || cfg == nil {
+		return
+	}
+	if _, err := os.Stat("/.dockerenv"); err != nil {
+		return
+	}
+	var sb strings.Builder
+	sb.WriteString("# Automatically managed from ShieldDNS UI Upstreams\n")
+	count := 0
+	for _, u := range cfg.Upstreams {
+		host, _ := splitAddr(strings.TrimSpace(u), "53")
+		parsed := net.ParseIP(host)
+		if parsed == nil || parsed.IsLoopback() || parsed.IsUnspecified() || IsPrivateOrTailnetIP(host) {
+			continue
+		}
+		sb.WriteString("nameserver " + host + "\n")
+		count++
+	}
+	if count == 0 {
+		return
+	}
+	sb.WriteString("options timeout:2 attempts:2 rotate\n")
+	desired := []byte(sb.String())
+	if existing, err := os.ReadFile("/etc/resolv.conf"); err == nil && bytes.Equal(existing, desired) {
+		return
+	}
+	_ = os.WriteFile("/etc/resolv.conf", desired, 0644)
 }
 
 func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCerts bool, certFile, keyFile string) string {

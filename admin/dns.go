@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -267,8 +268,11 @@ func resolveHost(host string) string {
 		resolveInflightMu.Unlock()
 	}()
 
-	ips, err := net.LookupIP(host)
-	if err != nil || len(ips) == 0 {
+	ips := lookupHostViaConfiguredUpstreams(host)
+	if len(ips) == 0 {
+		ips, _ = net.LookupIP(host)
+	}
+	if len(ips) == 0 {
 		call.val = host
 		return host
 	}
@@ -293,6 +297,41 @@ func resolveHost(host string) string {
 	resolveCacheLock.Unlock()
 	call.val = ip
 	return ip
+}
+
+// lookupHostViaConfiguredUpstreams resolves host using the UI-configured plain DNS upstreams
+// (skipping loopback/local/Tailnet self-IPs to prevent DNS self-resolution loops).
+func lookupHostViaConfiguredUpstreams(host string) []net.IP {
+	configLock.RLock()
+	rawUpstreams := append([]string(nil), config.Upstreams...)
+	configLock.RUnlock()
+
+	for _, u := range rawUpstreams {
+		uHost, uPort := splitAddr(strings.TrimSpace(u), "53")
+		parsed := net.ParseIP(uHost)
+		if parsed == nil || parsed.IsLoopback() || parsed.IsUnspecified() || IsPrivateOrTailnetIP(uHost) {
+			continue
+		}
+		target := net.JoinHostPort(uHost, uPort)
+		resolver := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{Timeout: 2 * time.Second}
+				return d.DialContext(ctx, "udp", target)
+			},
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		addrs, err := resolver.LookupIPAddr(ctx, host)
+		cancel()
+		if err == nil && len(addrs) > 0 {
+			ips := make([]net.IP, 0, len(addrs))
+			for _, a := range addrs {
+				ips = append(ips, a.IP)
+			}
+			return ips
+		}
+	}
+	return nil
 }
 
 func startCoreDNS(ctx context.Context) {
