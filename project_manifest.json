@@ -2,7 +2,7 @@
   "project": "ShieldDNS",
   "purpose": "High-performance DNS appliance and security gateway with integrated web administration panel.",
   "connections_map_reference": "project_connections.json (defines component linking for UI and backend files)",
-  "timestamp": "2026-11-17T16:46:14.953477",
+  "timestamp": "2026-11-18T11:17:26.189587",
   "stack": {
     "backend": "Go (embedded FS assets), SQLite (query database), CoreDNS (DNS server)",
     "frontend": "Vanilla HTML5, CSS3 (variables & flex/grid layout), Vanilla JS (ES6 modules)",
@@ -402,6 +402,58 @@
       {
         "name": "discardAgentPlan",
         "route": "/api/api/agent/plans/discard"
+      },
+      {
+        "name": "groups",
+        "route": "/api/api/groups"
+      },
+      {
+        "name": "schedules",
+        "route": "/api/api/schedules"
+      },
+      {
+        "name": "localRecords",
+        "route": "/api/api/local-records"
+      },
+      {
+        "name": "quickRules",
+        "route": "/api/api/quick-rules"
+      },
+      {
+        "name": "statsFlow",
+        "route": "/api/api/stats/flow"
+      },
+      {
+        "name": "statsHeatmap",
+        "route": "/api/api/stats/heatmap"
+      },
+      {
+        "name": "statsLatencyHeatmap",
+        "route": "/api/api/stats/latency-heatmap"
+      },
+      {
+        "name": "statsSLO",
+        "route": "/api/api/stats/slo"
+      },
+      {
+        "name": "clientTimeline",
+        "route": "/api/api/client/timeline"
+      },
+      {
+        "name": "auditLog",
+        "route": "/api/api/audit"
+      },
+      {
+        "name": "auditVerify",
+        "route": "/api/api/audit/verify"
+      },
+      {
+        "name": "clusterMaintenance",
+        "route": "/api/api/cluster/maintenance"
+      },
+      {
+        "name": "clusterCompare",
+        "route": "/api/api/cluster/compare"
       }
     ]
   },
@@ -429,12 +481,14 @@
       "api_ai_guardian_test.go",
       "api_client_handlers.go",
       "api_cluster.go",
+      "api_cluster_ops.go",
       "api_cluster_sync.go",
       "api_cluster_test.go",
       "api_cluster_worker.go",
       "api_domain_handlers.go",
       "api_explain.go",
       "api_export.go",
+      "api_groups_schedules.go",
       "api_handlers_test.go",
       "api_integrations.go",
       "api_mcp.go",
@@ -447,6 +501,8 @@
       "api_mcp_tools_rules.go",
       "api_mcp_tools_system.go",
       "api_mfa.go",
+      "api_observability.go",
+      "api_observability_test.go",
       "api_routing.go",
       "api_routing_test.go",
       "api_rules.go",
@@ -466,6 +522,8 @@
       "api_utils_mobileconfig.go",
       "api_webauthn.go",
       "assets.go",
+      "audit_log.go",
+      "audit_log_test.go",
       "auth.go",
       "auth_middleware.go",
       "auth_test.go",
@@ -493,6 +551,8 @@
       "dns.go",
       "dns_corefile.go",
       "dns_parser.go",
+      "dns_policy_proxy.go",
+      "dns_policy_proxy_test.go",
       "dns_test.go",
       "dns_upstream.go",
       "explain.go",
@@ -506,15 +566,19 @@
       "main.go",
       "main_test.go",
       "malicious.go",
+      "mdns_discovery.go",
       "metrics.go",
       "mfa_test.go",
       "models.go",
       "presets_list.go",
       "presets_test.go",
+      "privacy_levels.go",
       "router.go",
       "session_test.go",
       "simulate.go",
       "simulate_test.go",
+      "sinks.go",
+      "sinks_test.go",
       "sni_proxy.go",
       "stats_linux.go",
       "stats_other.go",
@@ -603,6 +667,7 @@
       "renderers_details.js",
       "renderers_system.js",
       "scroller.js",
+      "telltale_features.js",
       "ui.js"
     ],
     "admin/www/admin/partials": [
