@@ -469,18 +469,26 @@ func atomicWriteFile(filename string, data []byte) error {
 		return err
 	}
 
+	// On Windows, rename fails if the target file already exists.
+	// Retry loop for Windows file locking issues.
+	var errRename error
+	for i := 0; i < 5; i++ {
+		errRename = os.Rename(tmpFile, filename)
+		if errRename == nil {
+			return nil
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	// If rename still fails, try forcing it or fallback
+	_ = os.Remove(filename)
 	if err := os.Rename(tmpFile, filename); err != nil {
-		// On Windows, rename fails if the target file already exists
-		_ = os.Remove(filename)
-		if errRetry := os.Rename(tmpFile, filename); errRetry != nil {
-			// Fallback: write directly to target file
-			if errWrite := os.WriteFile(filename, data, 0644); errWrite != nil {
-				os.Remove(tmpFile)
-				return errRetry
-			}
+		if errWrite := os.WriteFile(filename, data, 0644); errWrite != nil {
 			os.Remove(tmpFile)
+			return err
 		}
 	}
+	os.Remove(tmpFile)
 	return nil
 }
 
