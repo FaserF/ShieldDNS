@@ -205,6 +205,15 @@ func initDB() {
 	if strings.HasPrefix(dbURL, "postgres://") || strings.HasPrefix(dbURL, "postgresql://") {
 		dbDriver = "postgres"
 		slog.Info("Initializing PostgreSQL database backend", "driver", "postgres")
+		if strings.HasPrefix(dbURL, "postgres://") || strings.HasPrefix(dbURL, "postgresql://") {
+			if !strings.Contains(dbURL, "sslmode=") {
+				if strings.Contains(dbURL, "?") {
+					dbURL += "&sslmode=disable"
+				} else {
+					dbURL += "?sslmode=disable"
+				}
+			}
+		}
 		db, err = sql.Open("postgres", dbURL)
 		if err != nil {
 			slog.Error("Could not open PostgreSQL database", "error", err)
