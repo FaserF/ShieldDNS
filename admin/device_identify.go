@@ -248,6 +248,17 @@ func IdentifyDevice(clientIP string, askAI bool) DeviceIdentity {
 		}
 	}
 
+	// Fallback to OUI lookup if still "Unknown Device"
+	if res.Product == "Unknown Device" {
+		if mac := getMACByIP(clientIP); mac != "" {
+			if mfr := getManufacturerByMAC(mac); mfr != "" && mfr != "-" {
+				res.Product = mfr + " Device"
+				res.Confidence = "possibly"
+				res.Evidence = append(res.Evidence, "OUI manufacturer lookup")
+			}
+		}
+	}
+
 	return res
 }
 

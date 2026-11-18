@@ -88,6 +88,11 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 
 	resp, err := client.Do(req)
 	if err != nil {
+		if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "context deadline exceeded") {
+			slog.Debug("Network error contacting primary (cluster sync)", "error", err)
+		} else {
+			slog.Error("Network error contacting primary", "error", err)
+		}
 		return fmt.Errorf("network error contacting primary: %w", err)
 	}
 	defer resp.Body.Close()

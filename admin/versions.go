@@ -248,8 +248,10 @@ func fetchShieldDNSVersion(channel string) string {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusForbidden {
-			slog.Debug("GitHub API rate limit reached, using cached version", "endpoint", endpoint)
+		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
+			slog.Debug("GitHub API access issue (likely rate limit or missing repo)", "endpoint", endpoint, "status", resp.StatusCode)
+		} else {
+			slog.Warn("Unexpected status from GitHub API", "endpoint", endpoint, "status", resp.StatusCode)
 		}
 		return cachedVal
 	}
@@ -328,6 +330,11 @@ func fetchGitHubLatestTag(repo string) string {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
+			slog.Debug("GitHub API access issue (likely rate limit or missing repo)", "repo", repo, "status", resp.StatusCode)
+		} else {
+			slog.Warn("Unexpected status from GitHub API", "repo", repo, "status", resp.StatusCode)
+		}
 		return cachedVal
 	}
 
