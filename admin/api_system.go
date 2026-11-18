@@ -260,6 +260,15 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		// Validation for SIEM sinks to prevent path injection
+		for _, s := range newConfig.SIEMSinks {
+			if err := validateSinkTarget(s.Target, s.Type == "file"); err != nil {
+				http.Error(w, fmt.Sprintf("Invalid SIEM sink target: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+
 		if newConfig.WebhookURL != "" && !isValidRedirectUrl(newConfig.WebhookURL) {
 			http.Error(w, "Invalid WebhookURL: must be a valid http or https URL", http.StatusBadRequest)
 			return
