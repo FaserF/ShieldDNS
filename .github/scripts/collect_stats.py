@@ -145,9 +145,10 @@ def get_test_stats() -> dict:
             if f.endswith("_test.go"):
                 btf += 1
                 try:
-                    content = open(
+                    with open(
                         os.path.join(admin_dir, f), encoding="utf-8", errors="ignore"
-                    ).read()
+                    ) as f_handle:
+                        content = f_handle.read()
                     btc += len(
                         re.findall(r"^\s*func\s+Test[A-Z0-9_]", content, re.MULTILINE)
                     )
@@ -164,9 +165,10 @@ def get_test_stats() -> dict:
                 ):
                     ftf += 1
                     try:
-                        content = open(
+                        with open(
                             os.path.join(root, f), encoding="utf-8", errors="ignore"
-                        ).read()
+                        ) as f_handle:
+                            content = f_handle.read()
                         ftc += len(
                             re.findall(
                                 r"^\s*(?:test|it|describe)\(", content, re.MULTILINE
