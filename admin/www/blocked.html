@@ -101,30 +101,35 @@
                 const listEl = document.getElementById('filter-list');
                 const detectionEl = document.getElementById('detection-type');
 
-                if (data.lists && data.lists.length > 0) {
-                    listEl.innerHTML = data.lists.map(l => `<span class="list-tag">${escapeHTML(l)}</span>`).join('');
-                    
-                    const joined = data.lists.join(' ').toLowerCase();
-                    if (joined.includes('malware') || joined.includes('threat') || joined.includes('phishing') || joined.includes('ransomware') || joined.includes('c2')) {
-                        reasonEl.innerHTML = '<span class="badge badge-danger">🛡️ Malware / Security Threat</span>';
-                        detectionEl.textContent = 'High-Risk Threat Intelligence Feed';
-                    } else if (joined.includes('porn') || joined.includes('nsfw') || joined.includes('adult')) {
-                        reasonEl.innerHTML = '<span class="badge badge-warning">🔞 Adult / NSFW Content</span>';
-                        detectionEl.textContent = 'Parental / Content Filter';
-                    } else if (joined.includes('ad') || joined.includes('tracking') || joined.includes('telemetry')) {
-                        reasonEl.innerHTML = '<span class="badge badge-info">📊 Advertising & Tracker</span>';
-                        detectionEl.textContent = 'Privacy & Ad Filter';
-                    } else if (joined.includes('dga')) {
-                        reasonEl.innerHTML = '<span class="badge badge-danger">🤖 DGA Algorithm Detected</span>';
-                        detectionEl.textContent = 'Real-time Abuse Engine';
+                if (data.blocked) {
+                    if (data.lists && data.lists.length > 0) {
+                        listEl.innerHTML = data.lists.map(l => `<span class="list-tag">${escapeHTML(l)}</span>`).join('');
+                        
+                        const joined = data.lists.join(' ').toLowerCase();
+                        if (joined.includes('malware') || joined.includes('threat') || joined.includes('phishing') || joined.includes('ransomware') || joined.includes('c2')) {
+                            reasonEl.innerHTML = '<span class="badge badge-danger">🛡️ Malware / Security Threat</span>';
+                            detectionEl.textContent = 'High-Risk Threat Intelligence Feed';
+                        } else if (joined.includes('porn') || joined.includes('nsfw') || joined.includes('adult')) {
+                            reasonEl.innerHTML = '<span class="badge badge-warning">🔞 Adult / NSFW Content</span>';
+                            detectionEl.textContent = 'Parental / Content Filter';
+                        } else if (joined.includes('ad') || joined.includes('tracking') || joined.includes('telemetry')) {
+                            reasonEl.innerHTML = '<span class="badge badge-info">📊 Advertising & Tracker</span>';
+                            detectionEl.textContent = 'Privacy & Ad Filter';
+                        } else {
+                            reasonEl.innerHTML = '<span class="badge badge-warning">🚫 Filtered Domain</span>';
+                            detectionEl.textContent = 'DNS Blocklist Rule';
+                        }
                     } else {
-                        reasonEl.innerHTML = '<span class="badge badge-warning">🚫 Filtered Domain</span>';
-                        detectionEl.textContent = 'DNS Blocklist Rule';
+                        listEl.innerHTML = '<span class="list-tag">Custom Policy / Wildcard Ban</span>';
+                        reasonEl.innerHTML = '<span class="badge badge-warning">Administrator Rule</span>';
+                        detectionEl.textContent = 'Manual Custom Rule';
                     }
                 } else {
-                    listEl.innerHTML = '<span class="list-tag">Custom Policy / Wildcard Ban</span>';
-                    reasonEl.innerHTML = '<span class="badge badge-warning">Administrator Rule</span>';
-                    detectionEl.textContent = 'Manual Custom Rule';
+                    reasonEl.innerHTML = '<span class="badge badge-success">✅ Not Blocked</span>';
+                    listEl.innerHTML = '<span class="list-tag">None</span>';
+                    detectionEl.textContent = 'No active blocklist match found.';
+                    const p = document.querySelector('p');
+                    if (p) p.textContent = 'This domain is not currently blocked by ShieldDNS. If you are experiencing issues, check your local network or router settings.';
                 }
             })
             .catch(() => {
