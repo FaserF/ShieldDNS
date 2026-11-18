@@ -93,7 +93,7 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 		return fmt.Errorf("primary returned HTTP %d: %s", resp.StatusCode, string(b))
 	}
 
@@ -559,9 +559,10 @@ func SyncClusterLogs() error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 		return fmt.Errorf("primary returned HTTP %d on log ingest: %s", resp.StatusCode, string(b))
 	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 
 	lastSyncQueryMu.Lock()
 	if maxSeenID > lastSyncQueryID {

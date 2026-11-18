@@ -35,7 +35,11 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 	customMappings := cfg.CustomMappings
 	blockPageIP := cfg.BlockPageIP
 
-	newBlockAttribution := make(map[string][]string)
+	blockAttributionLock.RLock()
+	prevCap := len(blockAttribution)
+	blockAttributionLock.RUnlock()
+
+	newBlockAttribution := make(map[string][]string, prevCap)
 	newAllowAttribution := make(map[string][]string)
 	allowDomains := make(map[string]struct{})
 	importantBlocks := make(map[string]struct{})
@@ -120,9 +124,6 @@ func updateBlocklist(cfg *Config, restartCore bool) {
 		effectiveMappings[k] = v
 	}
 
-	if err := saveConfig(); err != nil {
-		slog.Error("Failed to save config in updateBlocklist", "error", err)
-	}
 	applyCurrentRules(newBlockAttribution, newAllowAttribution, allowDomains, importantBlocks, customAllowedSet, effectiveMappings, blockPageIP, restartCore)
 }
 
@@ -161,9 +162,16 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 		// can unblock a subdomain that was explicitly flagged by a blocklist.
 		// Standard general allowlists (e.g. for apex domains like "google.com" or "spiegel.de")
 		// must NOT blanket-unblock ad/tracking subdomains (like "adservice.google.com" or "ad.spiegel.de").
-		parts := strings.Split(ad, ".")
-		for i := 1; i < len(parts); i++ {
-			parentDomain := strings.Join(parts[i:], ".")
+		// Walk dot boundaries in-place to avoid allocating []string + joined strings for 3M+ domains.
+		isWWW := strings.HasPrefix(ad, "www.")
+		rest := ad
+		firstStep := true
+		for {
+			dot := strings.IndexByte(rest, '.')
+			if dot < 0 || dot+1 >= len(rest) {
+				break
+			}
+			parentDomain := rest[dot+1:]
 			if _, inCustom := customAllowedSet[parentDomain]; inCustom {
 				delete(attribution, ad)
 				break
@@ -172,13 +180,14 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 				delete(attribution, ad)
 				break
 			}
-			// Only allow www.<parentDomain> through general allowlist
-			if len(parts) == i+1 && parts[0] == "www" {
+			if firstStep && isWWW {
 				if _, inAllow := allowSet[parentDomain]; inAllow {
 					delete(attribution, ad)
 					break
 				}
 			}
+			firstStep = false
+			rest = parentDomain
 		}
 	}
 
@@ -188,16 +197,22 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 	// will match and block that subdomain in CoreDNS hosts plugin.
 	// We delete conflicting parent wildcards from attribution so the allowlisted subdomain can resolve.
 	for allowed := range allowSet {
-		clean := strings.TrimPrefix(allowed, "*.")
-		parts := strings.Split(clean, ".")
-		for i := 1; i < len(parts); i++ {
-			parentWildcard := "*." + strings.Join(parts[i:], ".")
+		rest := strings.TrimPrefix(allowed, "*.")
+		for {
+			dot := strings.IndexByte(rest, '.')
+			if dot < 0 || dot+1 >= len(rest) {
+				break
+			}
+			parent := rest[dot+1:]
+			parentWildcard := "*." + parent
 			if _, isImp := importantSet[parentWildcard]; isImp {
 				if _, inCustom := customAllowedSet[allowed]; !inCustom {
+					rest = parent
 					continue
 				}
 			}
 			delete(attribution, parentWildcard)
+			rest = parent
 		}
 	}
 

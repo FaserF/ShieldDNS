@@ -23,13 +23,17 @@ var (
 	clusterSyncMu        sync.Mutex
 )
 
-// newClusterHTTPClient returns an http.Client with transport controls restricting unsafe destinations
-func newClusterHTTPClient(timeout time.Duration, verifyTLS bool) *http.Client {
+var (
+	clusterTransportVerified   = buildClusterTransport(true)
+	clusterTransportUnverified = buildClusterTransport(false)
+)
+
+func buildClusterTransport(verifyTLS bool) *http.Transport {
 	dialer := &net.Dialer{
-		Timeout:   timeout,
+		Timeout:   10 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
-	transport := &http.Transport{
+	return &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			host, _, err := net.SplitHostPort(addr)
 			if err == nil {
@@ -45,9 +49,17 @@ func newClusterHTTPClient(timeout time.Duration, verifyTLS bool) *http.Client {
 		MaxIdleConns:    50,
 		IdleConnTimeout: 60 * time.Second,
 	}
+}
+
+// newClusterHTTPClient returns an http.Client reusing shared transports with SSRF protections.
+func newClusterHTTPClient(timeout time.Duration, verifyTLS bool) *http.Client {
+	tr := clusterTransportUnverified
+	if verifyTLS {
+		tr = clusterTransportVerified
+	}
 	return &http.Client{
 		Timeout:   timeout,
-		Transport: transport,
+		Transport: tr,
 	}
 }
 

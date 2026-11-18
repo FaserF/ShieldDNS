@@ -127,20 +127,20 @@ func TestGetRoutingZoneBlocks(t *testing.T) {
 
 	blocks := getRoutingZoneBlocks(cfg, "53", "853", "5553", true, "/ssl/cert.pem", "/ssl/key.pem")
 
-	if !strings.Contains(blocks, "corp.internal:53 {") {
+	if !strings.Contains(blocks, "corp.internal:11053 {") {
 		t.Errorf("Expected corp.internal zone block, got: %s", blocks)
 	}
 	if !strings.Contains(blocks, "forward . 192.168.10.1:53") {
 		t.Errorf("Expected host forward upstream in block, got: %s", blocks)
 	}
-	if !strings.Contains(blocks, "vpn.service:53 {") {
+	if !strings.Contains(blocks, "vpn.service:11053 {") {
 		t.Errorf("Expected vpn.service zone block, got: %s", blocks)
 	}
 	if !strings.Contains(blocks, "forward . 10.200.0.1:53") {
 		t.Errorf("Expected wireguard forward upstream in block, got: %s", blocks)
 	}
-	if !strings.Contains(blocks, "tls://corp.internal:853 {") {
-		t.Errorf("Expected DoT block for corp.internal, got: %s", blocks)
+	if !strings.Contains(blocks, "bind 127.0.0.1") {
+		t.Errorf("Expected internal engine bind in block, got: %s", blocks)
 	}
 }
 
@@ -354,14 +354,14 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	}
 
 	coreBlocks := getRoutingZoneBlocks(&config, "53", "853", "443", true, "/ssl/cert.pem", "/ssl/key.pem")
-	if !strings.Contains(coreBlocks, "youtube.com:53 {") {
-		t.Errorf("expected youtube.com:53 block in Corefile when NextDNSYouTube is true, got:\n%s", coreBlocks)
+	if !strings.Contains(coreBlocks, "youtube.com:11053") {
+		t.Errorf("expected youtube.com:11053 block in Corefile when NextDNSYouTube is true, got:\n%s", coreBlocks)
 	}
 	if !strings.Contains(coreBlocks, "tls_servername 2351bb.dns.nextdns.io") {
 		t.Errorf("expected tls_servername 2351bb.dns.nextdns.io in Corefile, got:\n%s", coreBlocks)
 	}
-	if !strings.Contains(coreBlocks, "reddit.com:53 {") {
-		t.Errorf("expected reddit.com:53 block in Corefile when NextDNSReddit is true, got:\n%s", coreBlocks)
+	if !strings.Contains(coreBlocks, "reddit.com:11053") {
+		t.Errorf("expected reddit.com:11053 block in Corefile when NextDNSReddit is true, got:\n%s", coreBlocks)
 	}
 
 	// Verify custom rule with target="nextdns"

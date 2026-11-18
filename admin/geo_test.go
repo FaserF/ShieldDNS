@@ -26,8 +26,8 @@ func TestGetRoutingZoneBlocks_NoACL(t *testing.T) {
 	if strings.Contains(blocks, "block net") {
 		t.Errorf("Routing zone blocks must NOT contain 'block net' rules! Found in output")
 	}
-	if !strings.Contains(blocks, "reddit.com:53 {") {
-		t.Errorf("Expected reddit.com:53 zone block in output")
+	if !strings.Contains(blocks, "reddit.com:11053") {
+		t.Errorf("Expected reddit.com:11053 zone block in output")
 	}
 }
 
