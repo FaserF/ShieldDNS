@@ -93,7 +93,8 @@ func autoMigrateFromSQLite(sqlitePath string, targetDB *sql.DB, since time.Time)
 	// 3. Migrate queries table
 	var qRows *sql.Rows
 	if !since.IsZero() {
-		qRows, err = srcDB.Query("SELECT timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name FROM queries WHERE timestamp > ? ORDER BY id ASC", since.Format(time.RFC3339))
+		sinceNorm := since.UTC().Format("2006-01-02 15:04:05")
+		qRows, err = srcDB.Query("SELECT timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name FROM queries WHERE replace(substr(timestamp, 1, 19), 'T', ' ') > ? ORDER BY id ASC", sinceNorm)
 	} else {
 		qRows, err = srcDB.Query("SELECT timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name FROM queries ORDER BY id ASC")
 	}
@@ -165,7 +166,7 @@ func autoMigrateFromSQLite(sqlitePath string, targetDB *sql.DB, since time.Time)
 }
 
 func migrateQueriesMySQL(targetDB *sql.DB, qRows *sql.Rows) (int64, error) {
-	const batchSize = 500
+	const batchSize = 2000
 	var totalMigrated int64
 
 	valueStrings := make([]string, 0, batchSize)
