@@ -31,6 +31,33 @@ func StartSIEMSinks(ctx context.Context) {
 	})
 }
 
+func validateSinkTarget(target string, isFile bool) error {
+	if isFile {
+		// Ensure file path is within a designated safe directory
+		// ShieldDNS default log directory or similar
+		safeDir := "/var/log/shielddns/"
+		// Ensure it's treated as absolute for security
+		absPath, err := filepath.Abs(target)
+		if err != nil {
+			return err
+		}
+		if !strings.HasPrefix(absPath, safeDir) {
+			return fmt.Errorf("file path outside of safe directory: %s", target)
+		}
+		return nil
+	}
+
+	// For URL-based targets (SSRF protection)
+	// Simple check, in production this should be a strict allowlist
+	if strings.Contains(target, "://") {
+		// Basic URL validation: ensure it's not a private IP or local host
+		if IsPrivateOrTailnetIP(target) {
+			return fmt.Errorf("target URL is a private IP")
+		}
+	}
+	return nil
+}
+
 // EmitQueryToSIEM non-blockingly enqueues a Query to configured SIEM sinks.
 func EmitQueryToSIEM(q Query) {
 	configLock.RLock()
@@ -98,6 +125,10 @@ func runSIEMDispatcher(ctx context.Context) {
 }
 
 func writeFileSink(path string, batch []Query) {
+	if err := validateSinkTarget(path, true); err != nil {
+		slog.Error("SIEM file sink target invalid", "path", path, "error", err)
+		return
+	}
 	_ = os.MkdirAll(filepath.Dir(path), 0o750)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640)
 	if err != nil {
@@ -138,6 +169,10 @@ func sendSyslogSink(target, proto string, batch []Query) {
 }
 
 func sendWebhookSink(targetURL, token string, batch []Query) {
+	if err := validateSinkTarget(targetURL, false); err != nil {
+		slog.Error("SIEM webhook sink target invalid", "url", targetURL, "error", err)
+		return
+	}
 	var buf bytes.Buffer
 	for _, q := range batch {
 		b, err := json.Marshal(q)
@@ -188,6 +223,10 @@ func runOTLPExporter(ctx context.Context) {
 }
 
 func pushOTLPMetrics(endpoint string) {
+	if err := validateSinkTarget(endpoint, false); err != nil {
+		slog.Error("OTLP exporter target invalid", "endpoint", endpoint, "error", err)
+		return
+	}
 	statsLock.RLock()
 	tot := stats.TotalQueries
 	blk := stats.BlockedQueries
