@@ -10,7 +10,7 @@ set -e
 
 # Define local paths
 COREFILE_PATH="/etc/shielddns/Corefile"
-DEFAULT_UPSTREAM="1.1.1.1"
+# DEFAULT_UPSTREAM="1.1.1.1" # appears unused
 
 echo "Starting ShieldDNS Initialization..."
 
@@ -165,7 +165,8 @@ export INTERNAL_DOH_PORT=${INTERNAL_DOH_PORT:-"5553"}
 export ADMIN_PORT=${DOH_PORT} # Listen directly on the public port
 export DNS_PORT
 export DOT_PORT
-export GOMAXPROCS=$(nproc 2>/dev/null || echo 1)
+GOMAXPROCS=$(nproc 2>/dev/null || echo 1)
+export GOMAXPROCS
 
 # Initial Corefile (if backend hasn't generated one yet)
 ACTUAL_COREDNS_PORT="${INTERNAL_DOH_PORT}"
@@ -200,6 +201,6 @@ ADMIN_PID=$!
 wait -n $ADMIN_PID
 echo "⏹️  Shutting down services..."
 # Kill all background jobs gracefully
-kill -TERM $(jobs -p) 2>/dev/null || true
+kill -TERM "$(jobs -p)" 2>/dev/null || true
 echo "ℹ️  ShieldDNS has stopped."
 exit 0
