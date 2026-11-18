@@ -58,7 +58,7 @@ var mcpMonitoringTools = []mcpToolDefinition{
 			if search != "" || clientIP != "" || fromTime != "" || toTime != "" {
 				baseQuery = "SELECT " + fields + " FROM queries WHERE 1=1"
 			} else {
-				baseQuery = "SELECT " + fields + " FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) WHERE 1=1"
+				baseQuery = "SELECT " + fields + " FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) AS recent WHERE 1=1"
 			}
 
 			query := baseQuery

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -84,8 +83,8 @@ func getStatsData() Stats {
 	s.LatestCoreDNSVersion = latest.CoreDNS
 	s.LatestAlpineVersion = latest.Alpine
 
-	if info, err := os.Stat(DBPath); err == nil {
-		s.DBSizeMB = float64(info.Size()) / (1024 * 1024)
+	if dbBytes := getDBSizeBytes(); dbBytes > 0 {
+		s.DBSizeMB = float64(dbBytes) / (1024 * 1024)
 	}
 
 	// 4. System Resource Usage
@@ -271,7 +270,7 @@ func handleQueries(w http.ResponseWriter, r *http.Request) {
 	if search != "" || clientIP != "" || fromTime != "" || toTime != "" {
 		baseQuery = "SELECT " + fields + " FROM queries WHERE 1=1"
 	} else {
-		baseQuery = "SELECT " + fields + " FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) WHERE 1=1"
+		baseQuery = "SELECT " + fields + " FROM (SELECT * FROM queries ORDER BY id DESC LIMIT 2000) AS recent WHERE 1=1"
 	}
 
 	query := baseQuery

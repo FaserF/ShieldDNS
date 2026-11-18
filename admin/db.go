@@ -29,6 +29,27 @@ func closeDB() {
 	}
 }
 
+func getDBSizeBytes() int64 {
+	if db != nil {
+		switch dbDriver {
+		case "mysql":
+			var size int64
+			if err := db.QueryRow("SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE()").Scan(&size); err == nil {
+				return size
+			}
+		case "postgres":
+			var size int64
+			if err := db.QueryRow("SELECT COALESCE(pg_database_size(current_database()), 0)").Scan(&size); err == nil {
+				return size
+			}
+		}
+	}
+	if fi, err := os.Stat(DBPath); err == nil {
+		return fi.Size()
+	}
+	return 0
+}
+
 // formatQuery transforms SQL queries into the target database dialect (SQLite, PostgreSQL, or MariaDB/MySQL).
 func formatQuery(query string) string {
 	switch dbDriver {

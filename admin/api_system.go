@@ -686,10 +686,7 @@ func handleReset(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 func fillShieldStats(stats map[string]interface{}) {
-	dbSize := int64(0)
-	if fi, err := os.Stat(DBPath); err == nil {
-		dbSize = fi.Size()
-	}
+	dbSize := getDBSizeBytes()
 
 	dataSize := int64(0)
 	filepath.Walk(DataDir, func(_ string, info os.FileInfo, err error) error {
