@@ -5,6 +5,7 @@ package main
 import (
 	"database/sql"
 	"os"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -94,5 +95,32 @@ func TestRebindAndFormatQuery(t *testing.T) {
 	expectedMulti := "SELECT id FROM queries WHERE domain = $1 AND status = $2 AND note = 'is it ?' AND duration > $3"
 	if qMultiPG != expectedMulti {
 		t.Errorf("rebind postgres literal handling mismatch:\n got:  %s\n want: %s", qMultiPG, expectedMulti)
+	}
+
+	// Test MariaDB/MySQL dialect translations
+	dbDriver = "mysql"
+	qMySQL := formatQuery(q1)
+	expectedMySQL := "SELECT * FROM queries WHERE client_ip = ? AND timestamp > (UTC_TIMESTAMP() - INTERVAL 24 HOUR)"
+	if qMySQL != expectedMySQL {
+		t.Errorf("formatQuery mysql mismatch:\n got:  %s\n want: %s", qMySQL, expectedMySQL)
+	}
+
+	qHr := "SELECT strftime('%Y-%m-%d %H:00:00', timestamp) as hr FROM queries WHERE timestamp >= datetime(?, '-1 hour') AND timestamp < datetime(?, '+1 hour')"
+	expectedHrMySQL := "SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') as hr FROM queries WHERE timestamp >= DATE_SUB(?, INTERVAL 1 HOUR) AND timestamp < DATE_ADD(?, INTERVAL 1 HOUR)"
+	if got := formatQuery(qHr); got != expectedHrMySQL {
+		t.Errorf("formatQuery mysql hr mismatch:\n got:  %s\n want: %s", got, expectedHrMySQL)
+	}
+}
+
+func TestParseMySQLDSN(t *testing.T) {
+	dsn, err := parseMySQLDSN("mariadb://shielduser:s3cr3t@core-mariadb:3306/shielddns")
+	if err != nil {
+		t.Fatalf("parseMySQLDSN failed: %v", err)
+	}
+	if !strings.HasPrefix(dsn, "shielduser:s3cr3t@tcp(core-mariadb:3306)/shielddns?") {
+		t.Errorf("unexpected DSN prefix: %s", dsn)
+	}
+	if !strings.Contains(dsn, "parseTime=true") || !strings.Contains(dsn, "loc=UTC") || !strings.Contains(dsn, "charset=utf8mb4") {
+		t.Errorf("missing expected DSN parameters: %s", dsn)
 	}
 }

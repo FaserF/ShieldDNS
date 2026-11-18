@@ -8,6 +8,19 @@ import (
 )
 
 func aggregateHourlyStats(ctx context.Context, targetHour string) {
+	conflictClause := `
+		ON CONFLICT(timestamp) DO UPDATE SET
+			total = excluded.total,
+			blocked = excluded.blocked,
+			cache_hits = excluded.cache_hits`
+	if dbDriver == "mysql" {
+		conflictClause = `
+		ON DUPLICATE KEY UPDATE
+			total = VALUES(total),
+			blocked = VALUES(blocked),
+			cache_hits = VALUES(cache_hits)`
+	}
+
 	_, err := dbExecContext(ctx, `
 		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
 		SELECT 
@@ -17,12 +30,7 @@ func aggregateHourlyStats(ctx context.Context, targetHour string) {
 			COALESCE(SUM(CASE WHEN is_cache_hit IS TRUE THEN 1 ELSE 0 END), 0)
 		FROM queries
 		WHERE timestamp >= datetime(?, '-1 hour') AND timestamp < datetime(?, '+1 hour')
-		GROUP BY hr
-		ON CONFLICT(timestamp) DO UPDATE SET
-			total = excluded.total,
-			blocked = excluded.blocked,
-			cache_hits = excluded.cache_hits
-	`, targetHour, targetHour)
+		GROUP BY hr`+conflictClause, targetHour, targetHour)
 
 	if err != nil {
 		slog.Error("Aggregation error", "hour", targetHour, "error", err)
@@ -39,6 +47,18 @@ func initializeStatsFromDB() {
 	// 1. Run full 24h catch-up in a single efficient batch query
 	slog.Info("Starting initial stats catch-up...")
 	catchCtx, catchCancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	conflictClause := `
+		ON CONFLICT(timestamp) DO UPDATE SET
+			total = excluded.total,
+			blocked = excluded.blocked,
+			cache_hits = excluded.cache_hits`
+	if dbDriver == "mysql" {
+		conflictClause = `
+		ON DUPLICATE KEY UPDATE
+			total = VALUES(total),
+			blocked = VALUES(blocked),
+			cache_hits = VALUES(cache_hits)`
+	}
 	_, catchErr := dbExecContext(catchCtx, `
 		INSERT INTO hourly_stats (timestamp, total, blocked, cache_hits)
 		SELECT 
@@ -48,12 +68,7 @@ func initializeStatsFromDB() {
 			COALESCE(SUM(CASE WHEN is_cache_hit IS TRUE THEN 1 ELSE 0 END), 0)
 		FROM queries
 		WHERE timestamp >= datetime('now', '-24 hours')
-		GROUP BY hr
-		ON CONFLICT(timestamp) DO UPDATE SET
-			total = excluded.total,
-			blocked = excluded.blocked,
-			cache_hits = excluded.cache_hits
-	`)
+		GROUP BY hr`+conflictClause)
 	catchCancel()
 	if catchErr != nil {
 		slog.Warn("Initial stats catch-up query notice", "error", catchErr)

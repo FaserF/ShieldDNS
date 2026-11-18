@@ -544,12 +544,13 @@ func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
 		days = 365
 	}
 
+	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format("2006-01-02 15:04:05")
 	rows, err := dbQuery(`
 		SELECT timestamp, total, blocked, cache_hits 
 		FROM hourly_stats 
-		WHERE timestamp > datetime('now', ?)
+		WHERE timestamp > ?
 		ORDER BY timestamp ASC
-	`, fmt.Sprintf("-%d days", days))
+	`, cutoff)
 
 	if err != nil {
 		slog.Error("Error querying historical stats", "error", err)

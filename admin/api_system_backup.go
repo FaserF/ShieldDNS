@@ -169,9 +169,9 @@ func GenerateBackupZIP(includeData bool) ([]byte, error) {
 				tmpDB = DBPath // fallback to live file
 				files = append(files, backupFile{Path: tmpDB, Target: "shielddns.db", WithLock: false})
 			}
-		} else if db != nil && dbDriver == "postgres" {
-			// In PostgreSQL mode, live database is centrally backed up via postgres containers
-			slog.Debug("PostgreSQL mode: skipping SQLite snapshot backup")
+		} else if db != nil && (dbDriver == "postgres" || dbDriver == "mysql") {
+			// In external DB mode, live database is centrally backed up via DB containers
+			slog.Debug("External DB mode: skipping SQLite snapshot backup", "driver", dbDriver)
 		} else {
 			files = append(files, backupFile{Path: DBPath, Target: "shielddns.db", WithLock: false})
 		}
@@ -552,4 +552,3 @@ func handleRestore(w http.ResponseWriter, r *http.Request) {
 
 	http.Error(w, "Invalid action", http.StatusBadRequest)
 }
-

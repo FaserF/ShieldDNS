@@ -25,14 +25,36 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	// Check DB connection and writability
 	if db != nil {
-		if _, err := db.Exec("CREATE TABLE IF NOT EXISTS _health_check (id INTEGER PRIMARY KEY); INSERT INTO _health_check (id) VALUES (1) ON CONFLICT(id) DO UPDATE SET id=1;"); err != nil {
-			health["status"], health["database"] = "unhealthy", "error: "+err.Error()
-			slog.Error("Health check: Database write test failed", "error", err)
+		var healthErr error
+		if _, healthErr = db.Exec("CREATE TABLE IF NOT EXISTS _health_check (id INTEGER PRIMARY KEY)"); healthErr == nil {
+			if dbDriver == "mysql" {
+				_, healthErr = db.Exec("INSERT INTO _health_check (id) VALUES (1) ON DUPLICATE KEY UPDATE id=1")
+			} else {
+				_, healthErr = db.Exec("INSERT INTO _health_check (id) VALUES (1) ON CONFLICT(id) DO UPDATE SET id=1")
+			}
+		}
+		if healthErr != nil {
+			health["status"], health["database"] = "unhealthy", "error: "+healthErr.Error()
+			slog.Error("Health check: Database write test failed", "error", healthErr)
 		} else {
 			health["database"] = "ok"
 		}
 	} else {
 		health["status"], health["database"] = "unhealthy", "not connected"
+	}
+
+	configLock.RLock()
+	maint := config.MaintenanceMode
+	maintReason := config.MaintenanceReason
+	configLock.RUnlock()
+
+	if maint {
+		health["status"] = "maintenance"
+		health["maintenance_reason"] = maintReason
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(health)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -53,7 +75,9 @@ func getSystemStats() map[string]interface{} {
 
 func handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	certFile := os.Getenv("CERT_FILE")
-	if certFile == "" { certFile = "/ssl/fullchain.pem" }
+	if certFile == "" {
+		certFile = "/ssl/fullchain.pem"
+	}
 
 	data, err := os.ReadFile(certFile)
 	if err != nil {
@@ -394,12 +418,24 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if newConfig.AdminPasswordHashed == "" || newConfig.AdminPasswordHashed == "********" {
 			newConfig.AdminPasswordHashed = config.AdminPasswordHashed
 		}
-		if newConfig.LastLogin.IsZero() { newConfig.LastLogin = config.LastLogin }
-		if newConfig.PreviousLogin.IsZero() { newConfig.PreviousLogin = config.PreviousLogin }
-		if !newConfig.SetupDone { newConfig.SetupDone = config.SetupDone }
-		if newConfig.DoHRateLimit == 0 { newConfig.DoHRateLimit = config.DoHRateLimit }
-		if newConfig.RetentionDays == 0 { newConfig.RetentionDays = config.RetentionDays }
-		if !newConfig.MFAEnabled { newConfig.MFAEnabled = config.MFAEnabled }
+		if newConfig.LastLogin.IsZero() {
+			newConfig.LastLogin = config.LastLogin
+		}
+		if newConfig.PreviousLogin.IsZero() {
+			newConfig.PreviousLogin = config.PreviousLogin
+		}
+		if !newConfig.SetupDone {
+			newConfig.SetupDone = config.SetupDone
+		}
+		if newConfig.DoHRateLimit == 0 {
+			newConfig.DoHRateLimit = config.DoHRateLimit
+		}
+		if newConfig.RetentionDays == 0 {
+			newConfig.RetentionDays = config.RetentionDays
+		}
+		if !newConfig.MFAEnabled {
+			newConfig.MFAEnabled = config.MFAEnabled
+		}
 		if len(newConfig.TOTPConfigs) > 0 {
 			for i, nt := range newConfig.TOTPConfigs {
 				if nt.Secret == "********" {
@@ -561,7 +597,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		restartCoreDNS() // Ensure Corefile changes (ACL) are applied
 		RecordAnnotation("config", "admin", "System configuration saved")
 		go syncNativeVPN(config.Clone())
-		initWebAuthn()   // Update WebAuthn RPID if domain changed
+		initWebAuthn() // Update WebAuthn RPID if domain changed
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(config.SanitizedCopy())

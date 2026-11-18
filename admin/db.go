@@ -5,19 +5,21 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )
 
 var (
 	db       *sql.DB
-	dbDriver = "sqlite" // "sqlite" or "postgres"
+	dbDriver = "sqlite" // "sqlite", "postgres", or "mysql"
 )
 
 func closeDB() {
@@ -27,19 +29,63 @@ func closeDB() {
 	}
 }
 
-// formatQuery transforms SQL queries into the target database dialect (SQLite or PostgreSQL).
+// formatQuery transforms SQL queries into the target database dialect (SQLite, PostgreSQL, or MariaDB/MySQL).
 func formatQuery(query string) string {
-	if dbDriver != "postgres" {
+	switch dbDriver {
+	case "postgres":
+		query = strings.ReplaceAll(query, "datetime('now', '-24 hours')", "(NOW() - INTERVAL '24 hours')")
+		query = strings.ReplaceAll(query, "datetime('now')", "NOW()")
+		query = strings.ReplaceAll(query, "strftime('%Y-%m-%d %H:00:00', timestamp) as hr", "date_trunc('hour', timestamp) as hr")
+		query = strings.ReplaceAll(query, "strftime('%Y-%m-%d %H:00:00', timestamp)", "to_char(timestamp, 'YYYY-MM-DD HH24:00:00')")
+		query = strings.ReplaceAll(query, "datetime(?, '-1 hour')", "(?::TIMESTAMP - INTERVAL '1 hour')")
+		query = strings.ReplaceAll(query, "datetime(?, '+1 hour')", "(?::TIMESTAMP + INTERVAL '1 hour')")
+		query = strings.ReplaceAll(query, "datetime('now', ?)", "(NOW() + (?)::INTERVAL)")
+		return rebind(query)
+	case "mysql":
+		query = strings.ReplaceAll(query, "datetime('now', '-24 hours')", "(UTC_TIMESTAMP() - INTERVAL 24 HOUR)")
+		query = strings.ReplaceAll(query, "datetime('now')", "UTC_TIMESTAMP()")
+		query = strings.ReplaceAll(query, "strftime('%Y-%m-%d %H:00:00', timestamp) as hr", "DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') as hr")
+		query = strings.ReplaceAll(query, "strftime('%Y-%m-%d %H:00:00', timestamp)", "DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00')")
+		query = strings.ReplaceAll(query, "datetime(?, '-1 hour')", "DATE_SUB(?, INTERVAL 1 HOUR)")
+		query = strings.ReplaceAll(query, "datetime(?, '+1 hour')", "DATE_ADD(?, INTERVAL 1 HOUR)")
+		return query
+	default:
 		return query
 	}
-	query = strings.ReplaceAll(query, "datetime('now', '-24 hours')", "(NOW() - INTERVAL '24 hours')")
-	query = strings.ReplaceAll(query, "datetime('now')", "NOW()")
-	query = strings.ReplaceAll(query, "strftime('%Y-%m-%d %H:00:00', timestamp) as hr", "date_trunc('hour', timestamp) as hr")
-	query = strings.ReplaceAll(query, "strftime('%Y-%m-%d %H:00:00', timestamp)", "to_char(timestamp, 'YYYY-MM-DD HH24:00:00')")
-	query = strings.ReplaceAll(query, "datetime(?, '-1 hour')", "(?::TIMESTAMP - INTERVAL '1 hour')")
-	query = strings.ReplaceAll(query, "datetime(?, '+1 hour')", "(?::TIMESTAMP + INTERVAL '1 hour')")
-	query = strings.ReplaceAll(query, "datetime('now', ?)", "(NOW() + (?)::INTERVAL)")
-	return rebind(query)
+}
+
+// parseMySQLDSN converts a mariadb:// or mysql:// URL into a go-sql-driver/mysql DSN.
+func parseMySQLDSN(rawURL string) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+	user := u.User.Username()
+	pass, hasPass := u.User.Password()
+	auth := user
+	if hasPass {
+		auth += ":" + pass
+	}
+	host := u.Hostname()
+	port := u.Port()
+	if port == "" {
+		port = "3306"
+	}
+	dbName := strings.TrimPrefix(u.Path, "/")
+	q := u.Query()
+	if !q.Has("parseTime") {
+		q.Set("parseTime", "true")
+	}
+	if !q.Has("loc") {
+		q.Set("loc", "UTC")
+	}
+	if !q.Has("charset") {
+		q.Set("charset", "utf8mb4")
+	}
+	if !q.Has("time_zone") {
+		q.Set("time_zone", "'+00:00'")
+	}
+	return fmt.Sprintf("%s@tcp(%s:%s)/%s?%s", auth, host, port, dbName, q.Encode()), nil
 }
 
 // rebind replaces '?' parameter placeholders with PostgreSQL '$1', '$2', ... placeholders.
@@ -207,27 +253,47 @@ func initDB() {
 		}
 
 		slog.Info("PostgreSQL database initialized successfully")
+		migrateExistingSQLite("PostgreSQL")
 
-		// Automatic zero-downtime migration if SQLite database exists
-		if _, statErr := os.Stat(DBPath); statErr == nil {
-			var pgMaxTime sql.NullTime
-			_ = db.QueryRow("SELECT MAX(timestamp) FROM queries").Scan(&pgMaxTime)
-			if !pgMaxTime.Valid {
-				slog.Info("PostgreSQL is empty; SQLite database detected. Starting seamless migration...", "sqlite_path", DBPath)
-				if err := autoMigrateFromSQLite(DBPath, db, time.Time{}); err != nil {
-					slog.Error("Migration from SQLite to PostgreSQL failed", "error", err)
-				} else {
-					slog.Info("Automatic migration from SQLite to PostgreSQL completed successfully! All records preserved.")
-				}
-			} else {
-				slog.Info("Syncing missing newer records from SQLite to PostgreSQL...", "since", pgMaxTime.Time)
-				if err := autoMigrateFromSQLite(DBPath, db, pgMaxTime.Time); err != nil {
-					slog.Error("Incremental migration from SQLite to PostgreSQL failed", "error", err)
-				} else {
-					slog.Info("Incremental migration from SQLite to PostgreSQL completed successfully.")
-				}
+	} else if strings.HasPrefix(dbURL, "mariadb://") || strings.HasPrefix(dbURL, "mysql://") {
+		dbDriver = "mysql"
+		slog.Info("Initializing MariaDB/MySQL database backend", "driver", "mysql")
+		dsn, dsnErr := parseMySQLDSN(dbURL)
+		if dsnErr != nil {
+			slog.Error("Could not parse MariaDB/MySQL database URL", "error", dsnErr)
+			os.Exit(1)
+		}
+		db, err = sql.Open("mysql", dsn)
+		if err != nil {
+			slog.Error("Could not open MariaDB/MySQL database", "error", err)
+			os.Exit(1)
+		}
+
+		db.SetMaxOpenConns(25)
+		db.SetMaxIdleConns(10)
+		db.SetConnMaxLifetime(10 * time.Minute)
+
+		for attempt := 1; attempt <= 15; attempt++ {
+			if err = db.Ping(); err == nil {
+				break
+			}
+			if attempt < 15 {
+				slog.Warn("Waiting for MariaDB/MySQL database to become ready", "attempt", attempt, "error", err)
+				time.Sleep(2 * time.Second)
 			}
 		}
+		if err != nil {
+			slog.Error("Failed to connect to MariaDB/MySQL database", "error", err)
+			os.Exit(1)
+		}
+
+		if err = initMySQLSchema(db); err != nil {
+			slog.Error("Could not initialize MariaDB/MySQL schema", "error", err)
+			os.Exit(1)
+		}
+
+		slog.Info("MariaDB/MySQL database initialized successfully")
+		migrateExistingSQLite("MariaDB/MySQL")
 
 	} else {
 		dbDriver = "sqlite"
@@ -328,6 +394,14 @@ func addColumnIfNotExists(table, column, definition string) {
 			slog.Error("Error checking table column in postgres", "table", table, "column", column, "error", err)
 			return
 		}
+	} else if dbDriver == "mysql" {
+		var count int
+		query := "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?"
+		if err := db.QueryRow(query, table, column).Scan(&count); err != nil {
+			slog.Error("Error checking table column in mysql", "table", table, "column", column, "error", err)
+			return
+		}
+		exists = count > 0
 	} else {
 		query := fmt.Sprintf("PRAGMA table_info(%s)", table)
 		rows, err := db.Query(query)
@@ -376,7 +450,8 @@ func startDBWorker(ctx context.Context) {
 
 		if db != nil {
 			// 1. Regular TTL purge based on RetentionDays
-			res, err := dbExecContext(ctx, "DELETE FROM queries WHERE timestamp < datetime('now', ?)", fmt.Sprintf("-%d days", days))
+			cutoff := time.Now().UTC().AddDate(0, 0, -days).Format("2006-01-02 15:04:05")
+			res, err := dbExecContext(ctx, "DELETE FROM queries WHERE timestamp < ?", cutoff)
 			if err != nil {
 				slog.Error("Error purging old queries", "error", err)
 			} else {
@@ -392,13 +467,17 @@ func startDBWorker(ctx context.Context) {
 			if err == nil && totalRows > 5000000 {
 				overage := totalRows - 5000000 + 50000
 				deletedTotal := 0
+				pruneQuery := "DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)"
+				if dbDriver == "mysql" {
+					pruneQuery = "DELETE FROM queries ORDER BY timestamp ASC LIMIT ?"
+				}
 				for remaining := overage; remaining > 0; remaining -= 5000 {
 					batchLimit := remaining
 					if batchLimit > 5000 {
 						batchLimit = 5000
 					}
 					delCtx, delCancel := context.WithTimeout(ctx, 30*time.Second)
-					res, delErr := dbExecContext(delCtx, "DELETE FROM queries WHERE id IN (SELECT id FROM queries ORDER BY timestamp ASC LIMIT ?)", batchLimit)
+					res, delErr := dbExecContext(delCtx, pruneQuery, batchLimit)
 					delCancel()
 					if delErr != nil {
 						slog.Error("Database maintenance: Error during row prune batch", "error", delErr)
@@ -546,3 +625,71 @@ func flushLogs(queries []Query) {
 	}
 }
 
+func initMySQLSchema(targetDB *sql.DB) error {
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS queries (
+			id BIGINT AUTO_INCREMENT PRIMARY KEY,
+			timestamp DATETIME,
+			domain VARCHAR(255),
+			type VARCHAR(16),
+			status VARCHAR(64),
+			client_ip VARCHAR(64),
+			is_cache_hit BOOLEAN DEFAULT FALSE,
+			duration_ms DOUBLE DEFAULT 0,
+			country_code VARCHAR(16),
+			node_name VARCHAR(128) DEFAULT ''
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE INDEX IF NOT EXISTS idx_timestamp ON queries(timestamp)`,
+		`CREATE INDEX IF NOT EXISTS idx_status ON queries(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_client ON queries(client_ip)`,
+		`CREATE INDEX IF NOT EXISTS idx_domain ON queries(domain)`,
+		`CREATE INDEX IF NOT EXISTS idx_timestamp_status ON queries(timestamp, status)`,
+		`CREATE INDEX IF NOT EXISTS idx_queries_client_ts ON queries(client_ip, timestamp)`,
+		`CREATE INDEX IF NOT EXISTS idx_queries_ts_client ON queries(timestamp, client_ip)`,
+		`CREATE INDEX IF NOT EXISTS idx_queries_domain_ts ON queries(domain, timestamp)`,
+		`CREATE INDEX IF NOT EXISTS idx_queries_hourly_agg ON queries(timestamp, status, is_cache_hit)`,
+		`CREATE INDEX IF NOT EXISTS idx_queries_ts_type ON queries(timestamp, type)`,
+		`CREATE INDEX IF NOT EXISTS idx_queries_ts_country ON queries(timestamp, country_code)`,
+		`CREATE TABLE IF NOT EXISTS clients (
+			ip VARCHAR(64) PRIMARY KEY,
+			user_agent TEXT,
+			last_seen DATETIME
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE INDEX IF NOT EXISTS idx_clients_ip ON clients(ip)`,
+		`CREATE TABLE IF NOT EXISTS hourly_stats (
+			timestamp DATETIME PRIMARY KEY,
+			total BIGINT DEFAULT 0,
+			blocked BIGINT DEFAULT 0,
+			cache_hits BIGINT DEFAULT 0
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	}
+	for _, stmt := range stmts {
+		if _, err := targetDB.Exec(stmt); err != nil {
+			return fmt.Errorf("failed executing schema statement (%s): %w", stmt[:min(48, len(stmt))], err)
+		}
+	}
+	return nil
+}
+
+func migrateExistingSQLite(targetName string) {
+	if _, statErr := os.Stat(DBPath); statErr != nil {
+		return
+	}
+	var maxTime sql.NullTime
+	_ = db.QueryRow("SELECT MAX(timestamp) FROM queries").Scan(&maxTime)
+	if !maxTime.Valid {
+		slog.Info("Target DB is empty; SQLite database detected. Starting seamless migration...", "target", targetName, "sqlite_path", DBPath)
+		if err := autoMigrateFromSQLite(DBPath, db, time.Time{}); err != nil {
+			slog.Error("Migration from SQLite failed", "target", targetName, "error", err)
+		} else {
+			slog.Info("Automatic migration from SQLite completed successfully! All records preserved.", "target", targetName)
+		}
+		return
+	}
+	slog.Info("Syncing missing newer records from SQLite...", "target", targetName, "since", maxTime.Time)
+	if err := autoMigrateFromSQLite(DBPath, db, maxTime.Time); err != nil {
+		slog.Error("Incremental migration from SQLite failed", "target", targetName, "error", err)
+	} else {
+		slog.Info("Incremental migration from SQLite completed successfully.", "target", targetName)
+	}
+}
