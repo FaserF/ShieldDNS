@@ -379,6 +379,7 @@ func ensureOfficialLists() {
 			Enabled: true,
 		}}, config.Allowlists...)
 	}
+	setAtomicAdminDomain(config.AdminDomain)
 }
 
 func saveConfig() error {
@@ -405,6 +406,7 @@ func saveConfigNoLock() error {
 	}
 
 	debugModeEnabled.Store(config.DebugMode)
+	setAtomicAdminDomain(config.AdminDomain)
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)

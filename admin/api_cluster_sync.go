@@ -316,6 +316,37 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	config.CNAMECloakingEnabled = exp.CNAMECloakingEnabled
 	if exp.AdminDomain != "" {
 		config.AdminDomain = exp.AdminDomain
+		setAtomicAdminDomain(config.AdminDomain)
+	}
+	if exp.AIRules != nil {
+		if config.AIRules == nil {
+			config.AIRules = make(map[string]AIRuleMetadata, len(exp.AIRules))
+		}
+		for k, v := range exp.AIRules {
+			config.AIRules[k] = v
+		}
+	}
+	config.AIEnabled = exp.AIEnabled
+	if exp.AIBaseURL != "" {
+		config.AIBaseURL = exp.AIBaseURL
+	}
+	if exp.AIModel != "" {
+		config.AIModel = exp.AIModel
+	}
+	if exp.AIAPIKey != "" {
+		config.AIAPIKey = exp.AIAPIKey
+	}
+	if exp.AITimeoutSeconds > 0 {
+		config.AITimeoutSeconds = exp.AITimeoutSeconds
+	}
+	config.AIAutoBlockThreats = exp.AIAutoBlockThreats
+	config.AIAutoBlockAds = exp.AIAutoBlockAds
+	config.AIAutoFlagFalsePositives = exp.AIAutoFlagFalsePositives
+	if exp.AIConfidenceThreshold > 0 {
+		config.AIConfidenceThreshold = exp.AIConfidenceThreshold
+	}
+	if exp.AIAuditIntervalMinutes > 0 {
+		config.AIAuditIntervalMinutes = exp.AIAuditIntervalMinutes
 	}
 
 	// Configure DNS Upstream: if failover mode is set, use Primary as first upstream!

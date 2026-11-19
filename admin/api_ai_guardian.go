@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -169,6 +170,20 @@ func CallOpenAIChatCompletion(ctx context.Context, messages []OpenAIChatMessage)
 	return strings.TrimSpace(chatResp.Choices[0].Message.Content), nil
 }
 
+var atomicAdminDomain atomic.Pointer[string]
+
+func setAtomicAdminDomain(domain string) {
+	d := strings.ToLower(strings.TrimSpace(domain))
+	atomicAdminDomain.Store(&d)
+}
+
+func getAtomicAdminDomain() string {
+	if p := atomicAdminDomain.Load(); p != nil {
+		return *p
+	}
+	return ""
+}
+
 // isTrustedInfrastructureDomainLocked checks trusted infrastructure domains when configLock is already held by the caller.
 func isTrustedInfrastructureDomainLocked(domain string, adminDom string) bool {
 	d := strings.TrimSuffix(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(domain)), "*."), ".")
@@ -206,10 +221,12 @@ func isTrustedInfrastructureDomainLocked(domain string, adminDom string) bool {
 
 // isTrustedInfrastructureDomain prevents autonomous AI or accidental blocking of major legitimate vendor/cloud infrastructure domains,
 // while still allowing deliberate ad/tracking subdomains (e.g. adservice.google.com) to be filtered.
+// It is completely lock-free and safe to call with or without configLock held.
 func isTrustedInfrastructureDomain(domain string) bool {
-	configLock.RLock()
-	adminDom := config.AdminDomain
-	configLock.RUnlock()
+	adminDom := getAtomicAdminDomain()
+	if adminDom == "" {
+		adminDom = strings.ToLower(strings.TrimSpace(config.AdminDomain))
+	}
 	return isTrustedInfrastructureDomainLocked(domain, adminDom)
 }
 
@@ -283,9 +300,18 @@ Respond with JSON only.`, normDomain, vectorAssessment.IsThreat, vectorAssessmen
 
 	var verdict AITriageVerdict
 	if err := json.Unmarshal([]byte(cleaned), &verdict); err != nil {
-		slog.Warn("Failed to unmarshal AI response JSON, attempting fallback extraction", "raw", cleaned, "error", err)
+		firstBrace := strings.Index(cleaned, "{")
+		lastBrace := strings.LastIndex(cleaned, "}")
+		if firstBrace != -1 && lastBrace > firstBrace {
+			jsonSlice := cleaned[firstBrace : lastBrace+1]
+			if subErr := json.Unmarshal([]byte(jsonSlice), &verdict); subErr == nil {
+				goto parsedOK
+			}
+		}
+		slog.Warn("Failed to unmarshal AI response JSON", "raw", cleaned, "error", err)
 		return nil, fmt.Errorf("failed to parse AI triage JSON: %w (raw: %s)", err, cleaned)
 	}
+parsedOK:
 
 	verdict.Domain = normDomain
 	verdict.EvaluatedAt = time.Now().UTC()
@@ -316,13 +342,15 @@ func startAIGuardianWorker(ctx context.Context) {
 		configLock.RLock()
 		intervalMin := config.AIAuditIntervalMinutes
 		enabled := config.AIEnabled
+		isReplica := config.ClusterRole == "replica"
 		configLock.RUnlock()
 
 		if intervalMin <= 0 {
 			intervalMin = 5
 		}
 
-		if enabled {
+		// Replicas receive synced AI rules and policies from Primary; only Primary runs autonomous triage audit
+		if enabled && !isReplica {
 			if _, err := RunAIGuardianAuditCycle(ctx); err != nil {
 				slog.Debug("AI Guardian cycle error", "error", err)
 			}

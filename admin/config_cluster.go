@@ -90,12 +90,23 @@ func buildClusterConfigExport(replicaType string, primaryURL string, failoverMod
 		AIEnabled:                  config.AIEnabled,
 		AIBaseURL:                  config.AIBaseURL,
 		AIModel:                    config.AIModel,
+		AIRules:                    make(map[string]AIRuleMetadata),
+		AIAutoBlockThreats:         config.AIAutoBlockThreats,
+		AIAutoBlockAds:             config.AIAutoBlockAds,
+		AIAutoFlagFalsePositives:   config.AIAutoFlagFalsePositives,
+		AIConfidenceThreshold:      config.AIConfidenceThreshold,
+		AIAuditIntervalMinutes:     config.AIAuditIntervalMinutes,
+		AIAPIKey:                   config.AIAPIKey,
+		AITimeoutSeconds:           config.AITimeoutSeconds,
 		APIKeys:                    append([]APIKey{}, config.APIKeys...),
 		Timestamp:                  time.Now().UTC(),
 	}
 
 	copy(exp.Lists, config.Lists)
 	copy(exp.Allowlists, config.Allowlists)
+	for k, v := range config.AIRules {
+		exp.AIRules[k] = v
+	}
 	for k, v := range config.CustomMappings {
 		if replicaType == "public" && isPrivateOrTailnetIP(v) {
 			continue

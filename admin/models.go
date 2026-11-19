@@ -344,6 +344,13 @@ type ClusterConfigExport struct {
 	AIBaseURL                  string                       `json:"ai_base_url,omitempty"`
 	AIModel                    string                       `json:"ai_model,omitempty"`
 	AIRules                    map[string]AIRuleMetadata    `json:"ai_rules,omitempty"`
+	AIAutoBlockThreats         bool                         `json:"ai_auto_block_threats,omitempty"`
+	AIAutoBlockAds             bool                         `json:"ai_auto_block_ads,omitempty"`
+	AIAutoFlagFalsePositives   bool                         `json:"ai_auto_flag_false_positives,omitempty"`
+	AIConfidenceThreshold      float64                      `json:"ai_confidence_threshold,omitempty"`
+	AIAuditIntervalMinutes     int                          `json:"ai_audit_interval_minutes,omitempty"`
+	AIAPIKey                   string                       `json:"ai_api_key,omitempty"`
+	AITimeoutSeconds           int                          `json:"ai_timeout_seconds,omitempty"`
 	APIKeys                    []APIKey                     `json:"api_keys,omitempty"`
 	Timestamp                  time.Time                    `json:"timestamp"`
 }

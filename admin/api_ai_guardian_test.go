@@ -138,10 +138,12 @@ func TestTrustedInfrastructureDomain(t *testing.T) {
 	configLock.Lock()
 	oldDom := config.AdminDomain
 	config.AdminDomain = "tailnet.fabiseitz.de"
+	setAtomicAdminDomain(config.AdminDomain)
 	configLock.Unlock()
 	defer func() {
 		configLock.Lock()
 		config.AdminDomain = oldDom
+		setAtomicAdminDomain(oldDom)
 		configLock.Unlock()
 	}()
 
@@ -174,6 +176,17 @@ func TestTrustedInfrastructureDomain(t *testing.T) {
 		if got != tc.trusted {
 			t.Errorf("isTrustedInfrastructureDomain(%q) = %v; want %v", tc.domain, got, tc.trusted)
 		}
+	}
+}
+
+func TestTrustedInfrastructureDomainNoDeadlockUnderConfigLock(t *testing.T) {
+	configLock.Lock()
+	defer configLock.Unlock()
+
+	// Calling isTrustedInfrastructureDomain while holding configLock.Lock() MUST NOT deadlock
+	trusted := isTrustedInfrastructureDomain("cloudcode-pa.googleapis.com")
+	if !trusted {
+		t.Errorf("Expected cloudcode-pa.googleapis.com to be trusted")
 	}
 }
 

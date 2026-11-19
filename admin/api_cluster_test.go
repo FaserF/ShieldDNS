@@ -58,12 +58,22 @@ func TestBuildClusterConfigExport_Profiles(t *testing.T) {
 	}
 
 	// 3. Hybrid profile test
+	configLock.Lock()
+	config.AIRules = map[string]AIRuleMetadata{
+		"threat.test": {Domain: "threat.test", Action: "block", ThreatType: "dga", Confidence: 0.95},
+	}
+	config.AIEnabled = true
+	configLock.Unlock()
+
 	hybExport := buildClusterConfigExport("hybrid", "https://primary.example.com", true)
 	if hybExport.DoHRateLimit < 120 {
 		t.Errorf("Expected DoHRateLimit >= 120 for hybrid profile, got %d", hybExport.DoHRateLimit)
 	}
 	if !hybExport.MaliciousIPBlockingEnabled {
 		t.Errorf("Expected MaliciousIPBlockingEnabled to be true for hybrid profile")
+	}
+	if !hybExport.AIEnabled || hybExport.AIRules == nil || hybExport.AIRules["threat.test"].ThreatType != "dga" {
+		t.Errorf("Expected AIRules and AIEnabled to be exported in ClusterConfigExport")
 	}
 }
 
