@@ -211,6 +211,7 @@ func isTrustedInfrastructureDomainLocked(domain string, adminDom string) bool {
 		"npmjs.com", "npmjs.org", "yarnpkg.com", "crates.io", "rust-lang.org",
 		"jetbrains.com", "visualstudio.com", "vscode.dev",
 		"anthropic.com", "openai.com",
+		"reddit.com", "redd.it", "redditstatic.com", "redditmedia.com",
 	}
 	normAdmin := strings.ToLower(strings.TrimSpace(adminDom))
 	if normAdmin != "" && (d == normAdmin || strings.HasSuffix(d, "."+normAdmin)) {

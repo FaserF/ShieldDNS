@@ -165,13 +165,15 @@ func TestPolicyProxy_GroupsSchedulesLocalRecordsAndCNAMECloaking(t *testing.T) {
 	}
 
 	// 8. Built-in and domain FilterAAAA suppression (mitigates IPv6 PMTU stalls)
-	reqCloudCode := new(dns.Msg)
-	reqCloudCode.SetQuestion("daily-cloudcode-pa.googleapis.com.", dns.TypeAAAA)
-	resp, dec = EvaluateDNSQuery(reqCloudCode, "192.168.1.10")
-	if resp == nil || dec.Action != "block" || dec.Reason != "FilterAAAA enabled" {
-		t.Fatalf("expected daily-cloudcode-pa.googleapis.com FilterAAAA suppression, got resp=%v dec=%+v", resp, dec)
-	}
-	if len(resp.Answer) != 0 || resp.Rcode != dns.RcodeSuccess {
-		t.Fatalf("expected empty NOERROR for FilterAAAA suppression, got rcode=%d ancount=%d", resp.Rcode, len(resp.Answer))
+	for _, aaaaDom := range []string{"daily-cloudcode-pa.googleapis.com.", "preview.redd.it.", "i.redd.it.", "www.reddit.com."} {
+		reqTest := new(dns.Msg)
+		reqTest.SetQuestion(aaaaDom, dns.TypeAAAA)
+		resp, dec = EvaluateDNSQuery(reqTest, "192.168.1.10")
+		if resp == nil || dec.Action != "block" || dec.Reason != "FilterAAAA enabled" {
+			t.Fatalf("expected %s FilterAAAA suppression, got resp=%v dec=%+v", aaaaDom, resp, dec)
+		}
+		if len(resp.Answer) != 0 || resp.Rcode != dns.RcodeSuccess {
+			t.Fatalf("expected empty NOERROR for %s FilterAAAA suppression, got rcode=%d ancount=%d", aaaaDom, resp.Rcode, len(resp.Answer))
+		}
 	}
 }

@@ -38,3 +38,12 @@
 @@||tailscale.com^
 @@||tailscale.io^
 @@||shoop.de^
+@@||reddit.com^
+@@||www.reddit.com^
+@@||preview.redd.it^
+@@||i.redd.it^
+@@||external-preview.redd.it^
+@@||redditstatic.com^
+@@||redditmedia.com^
+@@||oauth.reddit.com^
+@@||gql.reddit.com^

@@ -223,8 +223,11 @@ func loadConfig() {
 			config.TrustedHostDomains = append(config.TrustedHostDomains, "fabiseitz.de")
 		}
 
-		// Ensure default FilterAAAADomains include Google Cloud Code endpoints to prevent IPv6 PMTU stalls
-		defaultAAAADomains := []string{"daily-cloudcode-pa.googleapis.com", "cloudcode-pa.googleapis.com"}
+		// Ensure default FilterAAAADomains include Google Cloud Code endpoints and Reddit CDN domains to prevent IPv6 PMTU stalls
+		defaultAAAADomains := []string{
+			"daily-cloudcode-pa.googleapis.com", "cloudcode-pa.googleapis.com",
+			"reddit.com", "redd.it", "preview.redd.it", "i.redd.it", "redditmedia.com", "redditstatic.com",
+		}
 		for _, defDom := range defaultAAAADomains {
 			hasDom := false
 			for _, d := range config.FilterAAAADomains {
