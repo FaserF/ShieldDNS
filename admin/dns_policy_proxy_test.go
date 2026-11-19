@@ -163,4 +163,15 @@ func TestPolicyProxy_GroupsSchedulesLocalRecordsAndCNAMECloaking(t *testing.T) {
 	if !blocked || target != "sub.cloaked.tracker.example" {
 		t.Fatalf("expected CNAME cloaking detection, got blocked=%v target=%q", blocked, target)
 	}
+
+	// 8. Built-in and domain FilterAAAA suppression (mitigates IPv6 PMTU stalls)
+	reqCloudCode := new(dns.Msg)
+	reqCloudCode.SetQuestion("daily-cloudcode-pa.googleapis.com.", dns.TypeAAAA)
+	resp, dec = EvaluateDNSQuery(reqCloudCode, "192.168.1.10")
+	if resp == nil || dec.Action != "block" || dec.Reason != "FilterAAAA enabled" {
+		t.Fatalf("expected daily-cloudcode-pa.googleapis.com FilterAAAA suppression, got resp=%v dec=%+v", resp, dec)
+	}
+	if len(resp.Answer) != 0 || resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected empty NOERROR for FilterAAAA suppression, got rcode=%d ancount=%d", resp.Rcode, len(resp.Answer))
+	}
 }

@@ -314,6 +314,13 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	}
 	config.AutoPTR = exp.AutoPTR
 	config.CNAMECloakingEnabled = exp.CNAMECloakingEnabled
+	config.FilterAAAA = exp.FilterAAAA
+	if exp.FilterAAAADomains != nil {
+		config.FilterAAAADomains = exp.FilterAAAADomains
+	}
+	if exp.TrustedHostDomains != nil {
+		config.TrustedHostDomains = exp.TrustedHostDomains
+	}
 	if exp.AdminDomain != "" {
 		config.AdminDomain = exp.AdminDomain
 		setAtomicAdminDomain(config.AdminDomain)

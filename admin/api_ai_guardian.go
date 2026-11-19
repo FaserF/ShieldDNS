@@ -198,6 +198,7 @@ func isTrustedInfrastructureDomainLocked(domain string, adminDom string) bool {
 		}
 	}
 	trustedRoots := []string{
+		"fabiseitz.de",
 		"googleapis.com", "gstatic.com", "google.com", "googleusercontent.com", "gvt1.com", "gvt2.com",
 		"microsoft.com", "windowsupdate.com", "live.com", "office.com", "azure.com",
 		"apple.com", "icloud.com", "mzstatic.com",
@@ -206,6 +207,10 @@ func isTrustedInfrastructureDomainLocked(domain string, adminDom string) bool {
 		"amazonaws.com", "cloudfront.net",
 		"tailscale.com",
 		"ubuntu.com", "debian.org", "docker.com", "docker.io",
+		"golang.org", "python.org", "pypi.org", "pythonhosted.org",
+		"npmjs.com", "npmjs.org", "yarnpkg.com", "crates.io", "rust-lang.org",
+		"jetbrains.com", "visualstudio.com", "vscode.dev",
+		"anthropic.com", "openai.com",
 	}
 	normAdmin := strings.ToLower(strings.TrimSpace(adminDom))
 	if normAdmin != "" && (d == normAdmin || strings.HasSuffix(d, "."+normAdmin)) {
@@ -221,6 +226,9 @@ func isTrustedInfrastructureDomainLocked(domain string, adminDom string) bool {
 		if clean != "" && (d == clean || strings.HasSuffix(d, "."+clean)) {
 			return true
 		}
+	}
+	if strings.HasSuffix(d, ".edu") || strings.HasSuffix(d, ".gov") {
+		return true
 	}
 	return false
 }

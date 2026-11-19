@@ -143,6 +143,8 @@ type Config struct {
 	LocalRecords          []LocalRecord    `json:"local_records,omitempty"`
 	QuickRules            []QuickRule      `json:"quick_rules,omitempty"`
 	AutoPTR               bool             `json:"auto_ptr"`
+	FilterAAAA            bool             `json:"filter_aaaa,omitempty"`
+	FilterAAAADomains     []string         `json:"filter_aaaa_domains,omitempty"`
 	CNAMECloakingEnabled  bool             `json:"cname_cloaking_enabled"`
 	PrivacyLevel          int              `json:"privacy_level"` // 0=full, 1=hash_domains+anon_ip, 2=hide_domains_ips, 3=counters_only
 	SIEMSinks             []SIEMSinkConfig `json:"siem_sinks,omitempty"`
@@ -340,6 +342,9 @@ type ClusterConfigExport struct {
 	AutoPTR                    bool                         `json:"auto_ptr,omitempty"`
 	CNAMECloakingEnabled       bool                         `json:"cname_cloaking_enabled,omitempty"`
 	AdminDomain                string                       `json:"admin_domain,omitempty"`
+	TrustedHostDomains         []string                     `json:"trusted_host_domains,omitempty"`
+	FilterAAAA                 bool                         `json:"filter_aaaa,omitempty"`
+	FilterAAAADomains          []string                     `json:"filter_aaaa_domains,omitempty"`
 	MCPServerEnabled           bool                         `json:"mcp_server_enabled"`
 	AIEnabled                  bool                         `json:"ai_enabled,omitempty"`
 	AIBaseURL                  string                       `json:"ai_base_url,omitempty"`

@@ -72,9 +72,11 @@ type PolicySnapshot struct {
 	clientAllow      map[string]map[string]struct{} // clientIP -> domains
 	clientUpstreams  map[string]string              // clientIP/CIDR -> upstream
 	blockedClients   map[string]struct{}            // clientIP -> blocked
-	cnameCloaking    bool
-	filteringEnabled bool
-	blockPageIP      string
+	cnameCloaking     bool
+	filteringEnabled  bool
+	filterAAAA        bool
+	filterAAAADomains []string
+	blockPageIP       string
 	globalSafeSearch bool
 	globalYTMode     string
 	engineAddr       string
@@ -110,9 +112,11 @@ func compilePolicySnapshot(cfg *Config, now time.Time) *PolicySnapshot {
 		clientAllow:      make(map[string]map[string]struct{}),
 		clientUpstreams:  make(map[string]string),
 		blockedClients:   make(map[string]struct{}),
-		cnameCloaking:    cfg.CNAMECloakingEnabled,
-		filteringEnabled: cfg.FilteringEnabled,
-		blockPageIP:      cfg.BlockPageIP,
+		cnameCloaking:     cfg.CNAMECloakingEnabled,
+		filteringEnabled:  cfg.FilteringEnabled,
+		filterAAAA:        cfg.FilterAAAA,
+		filterAAAADomains: append([]string(nil), cfg.FilterAAAADomains...),
+		blockPageIP:       cfg.BlockPageIP,
 		globalSafeSearch: cfg.SafeSearchEnabled,
 		globalYTMode:     cfg.YouTubeRestriction,
 		engineAddr:       "127.0.0.1:" + enginePort,
@@ -376,6 +380,28 @@ func (s *PolicySnapshot) matchGroup(clientIP string) *compiledGroup {
 	return nil
 }
 
+func (s *PolicySnapshot) matchFilterAAAADomain(qName string) bool {
+	if s == nil {
+		return false
+	}
+	clean := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(qName)), ".")
+	if clean == "" {
+		return false
+	}
+	// Built-in mitigation for Google Cloud Code / Antigravity / Gemini Code Assist endpoints
+	// which suffer from IPv6 PMTU stalls on German residential WAN connections
+	if clean == "daily-cloudcode-pa.googleapis.com" || clean == "cloudcode-pa.googleapis.com" {
+		return true
+	}
+	for _, d := range s.filterAAAADomains {
+		cd := strings.TrimSuffix(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(d)), "*."), ".")
+		if cd != "" && (clean == cd || strings.HasSuffix(clean, "."+cd)) {
+			return true
+		}
+	}
+	return false
+}
+
 // EvaluateDNSQuery evaluates policy rules (groups, schedules, local records, client rules, regex, SafeSearch)
 // for a given DNS request and client IP. Returns a direct DNS response if handled locally, or nil to forward.
 func EvaluateDNSQuery(req *dns.Msg, clientIP string) (*dns.Msg, PolicyDecision) {
@@ -419,13 +445,13 @@ func EvaluateDNSQuery(req *dns.Msg, clientIP string) (*dns.Msg, PolicyDecision) 
 		return resp, dec
 	}
 
-	// 2. FilterAAAA for group
-	if dec.FilterAAAA && q.Qtype == dns.TypeAAAA {
+	// 2. FilterAAAA for group, global config, or domain match
+	if q.Qtype == dns.TypeAAAA && (dec.FilterAAAA || snap.filterAAAA || snap.matchFilterAAAADomain(qName)) {
 		resp := new(dns.Msg)
 		resp.SetReply(req)
 		dec.Action = "block"
 		dec.Status = StatusBlockedPolicy
-		dec.Reason = "Group FilterAAAA enabled"
+		dec.Reason = "FilterAAAA enabled"
 		return resp, dec
 	}
 

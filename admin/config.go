@@ -210,6 +210,33 @@ func loadConfig() {
 				slog.Warn("Removed trusted infrastructure domain from AIRules", "domain", d)
 			}
 		}
+
+		// Ensure trusted domain fabiseitz.de is included
+		hasFabi := false
+		for _, td := range config.TrustedHostDomains {
+			if strings.EqualFold(strings.TrimSpace(td), "fabiseitz.de") {
+				hasFabi = true
+				break
+			}
+		}
+		if !hasFabi {
+			config.TrustedHostDomains = append(config.TrustedHostDomains, "fabiseitz.de")
+		}
+
+		// Ensure default FilterAAAADomains include Google Cloud Code endpoints to prevent IPv6 PMTU stalls
+		defaultAAAADomains := []string{"daily-cloudcode-pa.googleapis.com", "cloudcode-pa.googleapis.com"}
+		for _, defDom := range defaultAAAADomains {
+			hasDom := false
+			for _, d := range config.FilterAAAADomains {
+				if strings.EqualFold(strings.TrimSpace(d), defDom) {
+					hasDom = true
+					break
+				}
+			}
+			if !hasDom {
+				config.FilterAAAADomains = append(config.FilterAAAADomains, defDom)
+			}
+		}
 	} else {
 		isNew = true
 		slog.Info("Creating default config", "path", ConfigPath)
