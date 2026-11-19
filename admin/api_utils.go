@@ -395,13 +395,6 @@ func IsCriticalIP(ip string, blockPageIP string, whitelist []string) bool {
 		return true
 	}
 
-	// Protect 1&1 Mobilfunk / cellular CGNAT subnets from automated blocking
-	if parsed != nil {
-		if _, mobilfunk, err := net.ParseCIDR("61.8.128.0/19"); err == nil && mobilfunk.Contains(parsed) {
-			return true
-		}
-	}
-
 	for _, w := range whitelist {
 		w = strings.TrimSpace(w)
 		if w == "" {

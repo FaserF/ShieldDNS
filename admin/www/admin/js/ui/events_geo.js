@@ -141,6 +141,18 @@ export function initGeoEvents(fetchConfig) {
         setSettingsDirty(true);
     };
 
+    window.addAutoblockPreset = (cidr, name) => {
+        if (!state.currentConfig.autoblock_whitelist) state.currentConfig.autoblock_whitelist = [];
+        if (state.currentConfig.autoblock_whitelist.includes(cidr)) {
+            helpers.showToast((name || cidr) + ' already in whitelist', 'info');
+            return;
+        }
+        state.currentConfig.autoblock_whitelist.push(cidr);
+        import('./renderers.js').then(m => m.renderAutoblockWhitelist(state.currentConfig.autoblock_whitelist));
+        setSettingsDirty(true);
+        helpers.showToast('Added ' + (name || cidr) + ' (' + cidr + ') to whitelist', 'success');
+    };
+
     // Geo-Blocking Search Setup
     const countrySearch = getEl('country-search');
     const countryDropdown = getEl('country-dropdown');

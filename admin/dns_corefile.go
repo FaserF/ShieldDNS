@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
@@ -507,17 +508,21 @@ func getTemplateBlocks(cfg *Config) string {
 		return len(wildcards[i].apexZone) > len(wildcards[j].apexZone)
 	})
 
-	writeMappingTemplate := func(domain, ip string) {
+	writeMappingTemplate := func(domain, ip string, isWildcardApex bool) {
 		parsed := net.ParseIP(ip)
-		if parsed != nil && parsed.To4() == nil {
-			sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", domain))
-			sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN AAAA %s\"\n", ip))
-			sb.WriteString("    }\n")
-		} else {
-			sb.WriteString(fmt.Sprintf("    template IN A %s {\n", domain))
-			sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN A %s\"\n", ip))
-			sb.WriteString("    }\n")
+		escaped := regexp.QuoteMeta(strings.ToLower(strings.Trim(domain, ".")))
+		isIPv6 := (parsed != nil && parsed.To4() == nil)
+		typeStr := "A"
+		if isIPv6 {
+			typeStr = "AAAA"
 		}
+		sb.WriteString(fmt.Sprintf("    template IN %s %s {\n", typeStr, domain))
+		if !isWildcardApex {
+			sb.WriteString(fmt.Sprintf("        match ^%s\\.$\n", escaped))
+			sb.WriteString("        fallthrough\n")
+		}
+		sb.WriteString(fmt.Sprintf("        answer \"{{ .Name }} 60 IN %s %s\"\n", typeStr, ip))
+		sb.WriteString("    }\n")
 	}
 
 	handledExact := make(map[string]bool)
@@ -543,9 +548,9 @@ func getTemplateBlocks(cfg *Config) string {
 		})
 
 		for _, ex := range exacts {
-			writeMappingTemplate(ex.domain, ex.ip)
+			writeMappingTemplate(ex.domain, ex.ip, false)
 		}
-		writeMappingTemplate(wc.apexZone, wc.ip)
+		writeMappingTemplate(wc.apexZone, wc.ip, true)
 	}
 
 	var remainingExacts []struct{ domain, ip string }
@@ -564,7 +569,7 @@ func getTemplateBlocks(cfg *Config) string {
 		return remainingExacts[i].domain < remainingExacts[j].domain
 	})
 	for _, ex := range remainingExacts {
-		writeMappingTemplate(ex.domain, ex.ip)
+		writeMappingTemplate(ex.domain, ex.ip, false)
 	}
 
 	return sb.String()

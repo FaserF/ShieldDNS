@@ -457,6 +457,13 @@ func TestUpdateCorefileWildcardTemplates(t *testing.T) {
 		}
 	}
 
+	if !strings.Contains(sContent, `match ^ha\.tailnet\.fabiseitz\.de\.$`) {
+		t.Errorf("Expected exact mapping ha.tailnet.fabiseitz.de to contain match regex to prevent hijacking subdomains")
+	}
+	if !strings.Contains(sContent, "fallthrough") {
+		t.Errorf("Expected exact mapping to contain fallthrough")
+	}
+
 	if strings.Contains(sContent, "AAAA ::") {
 		t.Errorf("Did not expect Corefile to contain 'AAAA ::' blackhole records, but found it.\nContent:\n%s", sContent)
 	}

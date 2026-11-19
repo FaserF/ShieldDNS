@@ -211,3 +211,23 @@ func TestAbuseCountersCleanup(t *testing.T) {
 	}
 }
 
+func TestIsCriticalIP_CellularSubnets(t *testing.T) {
+	whitelist := DefaultAutoblockWhitelist
+	// 1&1 Mobilfunk IP in 61.8.128.0/19
+	if !IsCriticalIP("61.8.140.25", "0.0.0.0", whitelist) {
+		t.Errorf("Expected 61.8.140.25 (1&1 Mobilfunk) to be protected by whitelist")
+	}
+	// Vodafone Mobile IP in 109.40.0.0/14
+	if !IsCriticalIP("109.42.5.10", "0.0.0.0", whitelist) {
+		t.Errorf("Expected 109.42.5.10 (Vodafone) to be protected by whitelist")
+	}
+	// Vodafone Mobile IP in 94.31.0.0/16
+	if !IsCriticalIP("94.31.75.77", "0.0.0.0", whitelist) {
+		t.Errorf("Expected 94.31.75.77 (Vodafone) to be protected by whitelist")
+	}
+	// Random unwhitelisted IP should NOT be critical
+	if IsCriticalIP("203.0.113.195", "0.0.0.0", whitelist) {
+		t.Errorf("Expected 203.0.113.195 to NOT be critical")
+	}
+}
+

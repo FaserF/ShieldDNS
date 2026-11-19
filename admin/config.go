@@ -38,6 +38,11 @@ func initPaths() {
 	}
 }
 
+var DefaultAutoblockWhitelist = []string{
+	"127.0.0.1", "::1", "100.64.0.0/10",
+	"61.8.128.0/19", "109.40.0.0/14", "94.31.0.0/16", "178.24.0.0/14", "80.187.0.0/16",
+}
+
 func loadConfig() {
 	configLock.Lock()
 	defer configLock.Unlock()
@@ -73,7 +78,7 @@ func loadConfig() {
 		RateLimitRate:              100, // 100 queries/sec per client IP
 		RateLimitBurst:             250, // 250 burst allowance
 		ECHOptimizationEnabled:     true,
-		AutoblockWhitelist:         []string{"127.0.0.1", "::1", "100.64.0.0/10"},
+		AutoblockWhitelist:         append([]string{}, DefaultAutoblockWhitelist...),
 		AutoUpdateEnabled:          false,
 		AutoUpdateHour:             3,
 		UpdateChannel:              "stable",
@@ -139,7 +144,7 @@ func loadConfig() {
 			config.DoHRateLimit = 50
 		}
 		if config.AutoblockWhitelist == nil {
-			config.AutoblockWhitelist = []string{"127.0.0.1", "::1", "100.64.0.0/10"}
+			config.AutoblockWhitelist = append([]string{}, DefaultAutoblockWhitelist...)
 		}
 		if config.UpdateChannel == "" {
 			config.UpdateChannel = "stable"

@@ -107,8 +107,15 @@
                         </div>
                         <p class="help">Prevent specific IPs from being banned by the automated security system.</p>
                         <div style="display:flex; gap:10px; margin-top: 10px;">
-                            <input type="text" id="autoblock-whitelist-input" placeholder="e.g. 1.2.3.4" style="flex:1;">
+                            <input type="text" id="autoblock-whitelist-input" placeholder="e.g. 1.2.3.4 or 61.8.128.0/19" style="flex:1;">
                             <button type="button" class="btn secondary" id="add-whitelist-ip-btn">Add to Whitelist</button>
+                        </div>
+                        <div class="mt-2" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                            <span style="font-size:0.8rem; opacity:0.75;">Mobile Provider Presets:</span>
+                            <button type="button" class="btn btn-sm secondary" onclick="window.addAutoblockPreset && window.addAutoblockPreset('61.8.128.0/19', '1&amp;1 Mobilfunk')">+ 1&amp;1 Mobilfunk</button>
+                            <button type="button" class="btn btn-sm secondary" onclick="window.addAutoblockPreset && window.addAutoblockPreset('109.40.0.0/14', 'Vodafone')">+ Vodafone</button>
+                            <button type="button" class="btn btn-sm secondary" onclick="window.addAutoblockPreset && window.addAutoblockPreset('94.31.0.0/16', 'Vodafone')">+ Vodafone (94.31)</button>
+                            <button type="button" class="btn btn-sm secondary" onclick="window.addAutoblockPreset && window.addAutoblockPreset('80.187.0.0/16', 'Telekom')">+ Telekom</button>
                         </div>
                         <div id="autoblock-whitelist-tags" class="tag-container mt-3">
                             <!-- Whitelist tags will be rendered here -->
