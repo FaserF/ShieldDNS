@@ -56,6 +56,7 @@ func EvaluateDNSQuery(req *dns.Msg, clientIP string) (*dns.Msg, PolicyDecision) 
 	if q.Qtype == dns.TypeAAAA && (dec.FilterAAAA || snap.filterAAAA || snap.matchFilterAAAADomain(qName)) {
 		resp := new(dns.Msg)
 		resp.SetReply(req)
+		resp.RecursionAvailable = req.RecursionDesired
 		dec.Action = "block"
 		dec.Status = StatusBlockedPolicy
 		dec.Reason = "FilterAAAA enabled"
@@ -289,6 +290,7 @@ func (s *PolicySnapshot) matchLocalRecord(req *dns.Msg, qName string, qType uint
 			resp := new(dns.Msg)
 			resp.SetReply(req)
 			resp.Authoritative = true
+			resp.RecursionAvailable = req.RecursionDesired
 			resp.Answer = append(resp.Answer, &dns.PTR{
 				Hdr: dns.RR_Header{Name: req.Question[0].Name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 300},
 				Ptr: target,
@@ -315,6 +317,7 @@ func (s *PolicySnapshot) matchLocalRecord(req *dns.Msg, qName string, qType uint
 	resp := new(dns.Msg)
 	resp.SetReply(req)
 	resp.Authoritative = true
+	resp.RecursionAvailable = req.RecursionDesired
 	qFqdn := req.Question[0].Name
 
 	for _, rec := range matched {
@@ -395,6 +398,7 @@ func (s *PolicySnapshot) matchLocalRecord(req *dns.Msg, qName string, qType uint
 func buildBlockedReply(req *dns.Msg, blockPageIP string) *dns.Msg {
 	resp := new(dns.Msg)
 	resp.SetReply(req)
+	resp.RecursionAvailable = req.RecursionDesired
 	if len(req.Question) == 0 {
 		return resp
 	}
@@ -427,6 +431,7 @@ func buildBlockedReply(req *dns.Msg, blockPageIP string) *dns.Msg {
 func buildIPReply(req *dns.Msg, ipStr string) *dns.Msg {
 	resp := new(dns.Msg)
 	resp.SetReply(req)
+	resp.RecursionAvailable = req.RecursionDesired
 	if len(req.Question) == 0 {
 		return resp
 	}

@@ -388,9 +388,11 @@ func (s *PolicySnapshot) matchFilterAAAADomain(qName string) bool {
 	if clean == "" {
 		return false
 	}
-	// Built-in mitigation for Google Cloud Code / Antigravity / Gemini Code Assist endpoints
-	// and Reddit CDN / Fastly endpoints which suffer from IPv6 PMTU stalls on German residential WAN connections
-	if clean == "daily-cloudcode-pa.googleapis.com" || clean == "cloudcode-pa.googleapis.com" ||
+	// Built-in mitigation for Google Cloud Code / Antigravity / Gemini Code Assist endpoints,
+	// Google OAuth / APIs, and Reddit CDN / Fastly endpoints which suffer from IPv6 PMTU stalls on German residential WAN connections
+	if clean == "accounts.google.com" || clean == "googleapis.com" || strings.HasSuffix(clean, ".googleapis.com") ||
+		clean == "googleusercontent.com" || strings.HasSuffix(clean, ".googleusercontent.com") ||
+		clean == "gvt1.com" || strings.HasSuffix(clean, ".gvt1.com") ||
 		clean == "reddit.com" || strings.HasSuffix(clean, ".reddit.com") ||
 		clean == "redd.it" || strings.HasSuffix(clean, ".redd.it") ||
 		clean == "redditmedia.com" || strings.HasSuffix(clean, ".redditmedia.com") ||
@@ -458,6 +460,7 @@ func handlePolicyDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		if _, blocked := snap.blockedClients[clientIP]; blocked {
 			refused := new(dns.Msg)
 			refused.SetRcode(r, dns.RcodeRefused)
+			refused.RecursionAvailable = r.RecursionDesired
 			_ = w.WriteMsg(refused)
 			RecordFlowAndSLO("", "client_blocked", "local", "REFUSED", 0.05)
 			return
@@ -503,6 +506,7 @@ func handlePolicyDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	if err != nil || resp == nil {
 		fail := new(dns.Msg)
 		fail.SetRcode(r, dns.RcodeServerFailure)
+		fail.RecursionAvailable = r.RecursionDesired
 		_ = w.WriteMsg(fail)
 		RecordFlowAndSLO("", "error", upstream, "SERVFAIL", durMs)
 		return

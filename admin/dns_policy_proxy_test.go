@@ -165,15 +165,19 @@ func TestPolicyProxy_GroupsSchedulesLocalRecordsAndCNAMECloaking(t *testing.T) {
 	}
 
 	// 8. Built-in and domain FilterAAAA suppression (mitigates IPv6 PMTU stalls)
-	for _, aaaaDom := range []string{"daily-cloudcode-pa.googleapis.com.", "preview.redd.it.", "i.redd.it.", "www.reddit.com."} {
+	for _, aaaaDom := range []string{"daily-cloudcode-pa.googleapis.com.", "accounts.google.com.", "oauth2.googleapis.com.", "preview.redd.it.", "i.redd.it.", "www.reddit.com."} {
 		reqTest := new(dns.Msg)
 		reqTest.SetQuestion(aaaaDom, dns.TypeAAAA)
+		reqTest.RecursionDesired = true
 		resp, dec = EvaluateDNSQuery(reqTest, "192.168.1.10")
 		if resp == nil || dec.Action != "block" || dec.Reason != "FilterAAAA enabled" {
 			t.Fatalf("expected %s FilterAAAA suppression, got resp=%v dec=%+v", aaaaDom, resp, dec)
 		}
 		if len(resp.Answer) != 0 || resp.Rcode != dns.RcodeSuccess {
 			t.Fatalf("expected empty NOERROR for %s FilterAAAA suppression, got rcode=%d ancount=%d", aaaaDom, resp.Rcode, len(resp.Answer))
+		}
+		if !resp.RecursionAvailable {
+			t.Fatalf("expected RecursionAvailable to be true for %s FilterAAAA response", aaaaDom)
 		}
 	}
 }
