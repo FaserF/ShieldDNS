@@ -43,6 +43,8 @@ var DefaultAutoblockWhitelist = []string{
 	"61.8.128.0/19", "109.40.0.0/14", "94.31.0.0/16", "178.24.0.0/14", "80.187.0.0/16",
 }
 
+var DefaultTrustedHostDomains = []string{".ts.net"}
+
 func loadConfig() {
 	configLock.Lock()
 	defer configLock.Unlock()
@@ -79,6 +81,7 @@ func loadConfig() {
 		RateLimitBurst:             250, // 250 burst allowance
 		ECHOptimizationEnabled:     true,
 		AutoblockWhitelist:         append([]string{}, DefaultAutoblockWhitelist...),
+		TrustedHostDomains:         append([]string{}, DefaultTrustedHostDomains...),
 		AutoUpdateEnabled:          false,
 		AutoUpdateHour:             3,
 		UpdateChannel:              "stable",
@@ -145,6 +148,9 @@ func loadConfig() {
 		}
 		if config.AutoblockWhitelist == nil {
 			config.AutoblockWhitelist = append([]string{}, DefaultAutoblockWhitelist...)
+		}
+		if config.TrustedHostDomains == nil {
+			config.TrustedHostDomains = append([]string{}, DefaultTrustedHostDomains...)
 		}
 		if config.UpdateChannel == "" {
 			config.UpdateChannel = "stable"

@@ -84,6 +84,7 @@ const CorefileTemplate = `{{.RoutingBlocks}}
 tls://.:{{.DOTPort}} {
     tls {{.CertFile}} {{.KeyFile}}
     metadata
+    {{.GeoACLRules}}
     forward . 127.0.0.1:{{.InternalPolicyPort}} {
         expire 10s
     }
@@ -94,6 +95,7 @@ tls://.:{{.DOTPort}} {
 https://.:{{.InternalDOHPort}} {
     tls {{.CertFile}} {{.KeyFile}}
     metadata
+    {{.GeoACLRules}}
     forward . 127.0.0.1:{{.InternalPolicyPort}} {
         expire 10s
     }
@@ -108,6 +110,7 @@ quic://.:{{.DOTPort}} {
         worker_pool_size 256
     }
     metadata
+    {{.GeoACLRules}}
     forward . 127.0.0.1:{{.InternalPolicyPort}} {
         expire 10s
     }

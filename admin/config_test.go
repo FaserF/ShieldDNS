@@ -296,6 +296,16 @@ func TestProcessList_BrowserModifiersAndPathSkipped(t *testing.T) {
 }
 
 func TestIsLocalOrTailnetHost(t *testing.T) {
+	configLock.Lock()
+	origTrusted := config.TrustedHostDomains
+	config.TrustedHostDomains = []string{".ts.net", "fabiseitz.de"}
+	configLock.Unlock()
+	defer func() {
+		configLock.Lock()
+		config.TrustedHostDomains = origTrusted
+		configLock.Unlock()
+	}()
+
 	tests := []struct {
 		host     string
 		expected bool
@@ -307,6 +317,7 @@ func TestIsLocalOrTailnetHost(t *testing.T) {
 		{"::1", true},
 		{"shielddns.local", true},
 		{"router.local", true},
+		{"my-node.ts.net", true},
 		{"ha.tailnet.fabiseitz.de", true},
 		{"oracle-vm.tailnet.fabiseitz.de:9443", true},
 		{"100.64.0.1:9443", true},
@@ -317,6 +328,7 @@ func TestIsLocalOrTailnetHost(t *testing.T) {
 		{"172.16.0.1", true},
 		{"google.com", false},
 		{"attacker.com:9443", false},
+		{"evil-fabiseitz.de", false},
 		{"100.128.0.1", false},
 	}
 
@@ -325,6 +337,18 @@ func TestIsLocalOrTailnetHost(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("isLocalOrTailnetHost(%q) = %v; want %v", tt.host, got, tt.expected)
 		}
+	}
+
+	// Verify dynamic runtime configuration changes
+	configLock.Lock()
+	config.TrustedHostDomains = []string{"custom-company.net"}
+	configLock.Unlock()
+
+	if !isLocalOrTailnetHost("app.custom-company.net") {
+		t.Errorf("expected app.custom-company.net to be allowed after adding to TrustedHostDomains")
+	}
+	if isLocalOrTailnetHost("ha.tailnet.fabiseitz.de") {
+		t.Errorf("expected ha.tailnet.fabiseitz.de to be rejected after removing from TrustedHostDomains")
 	}
 }
 

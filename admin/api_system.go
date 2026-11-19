@@ -304,6 +304,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if len(newConfig.AutoblockWhitelist) == 0 {
 			newConfig.AutoblockWhitelist = config.AutoblockWhitelist
 		}
+		if newConfig.TrustedHostDomains == nil {
+			newConfig.TrustedHostDomains = config.TrustedHostDomains
+		}
 		if len(newConfig.CustomBlocked) == 0 {
 			newConfig.CustomBlocked = config.CustomBlocked
 		}

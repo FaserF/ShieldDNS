@@ -44,6 +44,14 @@
                         </div>
                         <div class="form-group">
                             <div class="label-with-info">
+                                <label>Trusted Host Domains / Suffixes</label>
+                                <i class="fas fa-info-circle info-icon" data-tooltip="Domains or suffixes (e.g. .ts.net, mydomain.com) permitted to access the admin UI and APIs directly without redirection to the stopped/block page."></i>
+                            </div>
+                            <p class="help">Comma-separated domains or suffixes allowed for Admin access (e.g., .ts.net, mydomain.com).</p>
+                            <input type="text" id="trusted-host-domains-input" placeholder=".ts.net, mydomain.com">
+                        </div>
+                        <div class="form-group">
+                            <div class="label-with-info">
                                 <label>Default IPv4 Block Page IP</label>
                                 <i class="fas fa-info-circle info-icon" data-tooltip="The IP address clients are sent to when a domain is blocked. Use 0.0.0.0 for null routing (recommended) or your server IP for a custom block page."></i>
                             </div>

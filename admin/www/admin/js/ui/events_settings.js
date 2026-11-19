@@ -42,6 +42,7 @@ export async function saveConfig(fetchConfig) {
         doh3_enabled: getEl('doh3-enabled-check')?.checked,
         ech_optimization_enabled: getEl('ech-optimization-check')?.checked,
         admin_domain: getEl('admin-domain-input')?.value.trim() || state.currentConfig.admin_domain,
+        trusted_host_domains: getEl('trusted-host-domains-input') ? getEl('trusted-host-domains-input').value.split(',').map(s => s.trim()).filter(Boolean) : (state.currentConfig?.trusted_host_domains || []),
         block_page_ip: getEl('block-ip-input')?.value.trim() || state.currentConfig.block_page_ip,
         debug_mode: getEl('debug-mode-check')?.checked,
         sign_mobileconfig: getEl('sign-mobileconfig-check')?.checked,
@@ -269,6 +270,7 @@ export function initSettingsEvents(fetchConfig) {
             state.currentConfig.malicious_ip_interval = 12;
             state.currentConfig.verify_upstream_tls = true;
             state.currentConfig.blocked_countries = ["CN", "RU", "IR", "KP", "VN", "BR", "BY", "IQ", "UA"];
+            state.currentConfig.trusted_host_domains = [".ts.net", ".fabiseitz.de", "fabiseitz.de"];
             state.currentConfig.youtube_adblock_enabled = true;
             state.currentConfig.twitch_adblock_enabled = true;
             state.currentConfig.reddit_adblock_enabled = true;

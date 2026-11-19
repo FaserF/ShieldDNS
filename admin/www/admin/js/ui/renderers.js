@@ -205,6 +205,8 @@ export function renderConfig(cfg) {
     if (dotInput) dotInput.value = (cfg.upstream_dot || []).join(', ');
     const adminDomainInput = getEl('admin-domain-input');
     if (adminDomainInput) adminDomainInput.value = cfg.admin_domain || '';
+    const trustedHostDomainsInput = getEl('trusted-host-domains-input');
+    if (trustedHostDomainsInput) trustedHostDomainsInput.value = (cfg.trusted_host_domains || []).join(', ');
     const blockIpInput = getEl('block-ip-input');
     if (blockIpInput) blockIpInput.value = cfg.block_page_ip || '';
 

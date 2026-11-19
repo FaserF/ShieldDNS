@@ -300,7 +300,7 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	cfg.SpotifyAdblockEnabled = true
 	cfg.SocialAdblockEnabled = true
 	cfg.SmartTVAdblockEnabled = true
-	for _, domain := range []string{"usher.ttvnw.net", "gql.reddit.com", "spclient.wg.spotify.com", "api16-normal-c-useast1a.tiktokv.com", "ads.samsung.com"} {
+	for _, domain := range []string{"usher.ttvnw.net", "alb.reddit.com", "spclient.wg.spotify.com", "api16-normal-c-useast1a.tiktokv.com", "ads.samsung.com"} {
 		if _, ok := MatchSNIGeoRoute(cfg, domain); !ok {
 			t.Errorf("expected %s to match SNI Geo-Route when service toggle is enabled", domain)
 		}
@@ -360,8 +360,11 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	if !strings.Contains(coreBlocks, "tls_servername 2351bb.dns.nextdns.io") {
 		t.Errorf("expected tls_servername 2351bb.dns.nextdns.io in Corefile, got:\n%s", coreBlocks)
 	}
-	if !strings.Contains(coreBlocks, "reddit.com:11053") {
-		t.Errorf("expected reddit.com:11053 block in Corefile when NextDNSReddit is true, got:\n%s", coreBlocks)
+	if !strings.Contains(coreBlocks, "alb.reddit.com:11053") {
+		t.Errorf("expected alb.reddit.com:11053 block in Corefile when NextDNSReddit is true, got:\n%s", coreBlocks)
+	}
+	if strings.Contains(coreBlocks, " reddit.com:11053") || strings.HasPrefix(coreBlocks, "reddit.com:11053") {
+		t.Errorf("did not expect apex reddit.com:11053 block in Corefile, got:\n%s", coreBlocks)
 	}
 
 	// Verify custom rule with target="nextdns"

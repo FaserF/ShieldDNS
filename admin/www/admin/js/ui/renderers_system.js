@@ -420,6 +420,7 @@ export function applyReplicaSyncedLocks(isReplica) {
         'settings-preset-selector',
         'upstreams-input',
         'dot-upstreams-input',
+        'trusted-host-domains-input',
         'prefer-encrypted-check',
         'doh3-enabled-check',
         'ech-optimization-check',

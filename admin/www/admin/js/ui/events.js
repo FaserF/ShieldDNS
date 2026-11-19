@@ -213,6 +213,7 @@ export function initEvents(fetchConfig) {
             state.currentConfig.malicious_ip_interval = 12;
             state.currentConfig.verify_upstream_tls = true;
             state.currentConfig.blocked_countries = ["CN", "RU", "IR", "KP", "VN", "BR", "BY", "IQ", "UA"];
+            state.currentConfig.trusted_host_domains = [".ts.net", ".fabiseitz.de", "fabiseitz.de"];
             state.currentConfig.youtube_adblock_enabled = true;
             state.currentConfig.vpn_provider = "privado";
             state.currentConfig.vpn_default_country = "AL";

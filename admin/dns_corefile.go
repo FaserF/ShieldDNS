@@ -379,9 +379,7 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 			}
 		}
 		if cfg.NextDNSReddit {
-			redditDomains := append([]string{}, defaultRedditGeoDomains...)
-			redditDomains = append(redditDomains, "reddit.com")
-			for _, d := range redditDomains {
+			for _, d := range defaultRedditGeoDomains {
 				dom := strings.ToLower(strings.Trim(strings.TrimPrefix(d, "*."), "."))
 				if _, exists := zoneTargets[dom]; !exists && isValidDomain(dom) {
 					zoneTargets[dom] = routingTarget{upstreams: nextUpstreams, tlsServerName: nextSNI}

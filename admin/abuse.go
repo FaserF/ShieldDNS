@@ -259,6 +259,7 @@ func blockClientAuto(ip, reason string) {
 	configLock.Unlock()
 
 	ReloadPolicySnapshot() // Instantly apply ACL update in-memory without restarting CoreDNS
+	go updateCorefile()    // Write blocked client to CoreDNS ACL to drop at edge socket
 
 	go SendSecurityWebhook("client_blocked", "Automatischer Client-Block", map[string]interface{}{
 		"client_ip": ip,

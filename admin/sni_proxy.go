@@ -20,7 +20,7 @@ import (
 var (
 	defaultYouTubeGeoDomains = []string{"youtube.com", "youtu.be", "googlevideo.com", "youtubei.googleapis.com", "youtube.googleapis.com", "youtube-nocookie.com", "yt.be"}
 	defaultTwitchGeoDomains  = []string{"usher.ttvnw.net", "gql.twitch.tv", "hls.ttvnw.net", "video-weaver.fra02.hls.ttvnw.net", "edge.ads.twitch.tv", "spade.twitch.tv"}
-	defaultRedditGeoDomains  = []string{"gql.reddit.com", "oauth.reddit.com", "gateway.reddit.com", "alb.reddit.com", "w3-reporting.reddit.com"}
+	defaultRedditGeoDomains  = []string{"alb.reddit.com", "w3-reporting.reddit.com", "pi.reddit.com", "e.reddit.com", "s.reddit.com", "ads.reddit.com", "events.redditmedia.com", "pixel.redditmedia.com", "telemetry.reddit.com", "creative.redditstatic.com"}
 	defaultSpotifyGeoDomains = []string{"spclient.wg.spotify.com", "audio-fa.scdn.co", "heads-fa.scdn.co", "api-v2.soundcloud.com", "cf-hls-media.sndcdn.com"}
 	defaultSocialGeoDomains  = []string{"tiktokv.com", "byteoversea.com", "i.instagram.com", "graph.instagram.com", "api.x.com", "api.twitter.com"}
 	defaultSmartTVGeoDomains = []string{"lgad.cjpowercast.com", "ad.lgappstv.com", "SmartClip.net", "ads.samsung.com", "samsungads.com", "gpm.samsungqbe.com", "mas-ext.amazon.com", "aax-eu.amazon-adsystem.com"}

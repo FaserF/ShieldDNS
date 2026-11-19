@@ -358,6 +358,7 @@ export async function finishSetup() {
         if (state.selectedSetupPreset === 'faserf') {
             Object.assign(extraParams, {
                 block_page_ip: "89.168.74.120",
+                trusted_host_domains: [".ts.net", ".fabiseitz.de", "fabiseitz.de"],
                 dnssec_enabled: false,
                 use_fastest_upstream: true,
                 smart_selection_policy: "fastest",

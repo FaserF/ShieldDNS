@@ -301,8 +301,6 @@ func getNextDNSDomainPatterns(cfg *Config) []string {
 		for _, d := range defaultRedditGeoDomains {
 			addDom(d)
 		}
-		addDom("reddit.com")
-		addDom("redd.it")
 	}
 	for _, r := range cfg.RoutingRules {
 		if r.Enabled && r.Target == "nextdns" && r.MatchType != "client_ip" {

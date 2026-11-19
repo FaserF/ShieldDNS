@@ -204,7 +204,7 @@ func isTrustedInfrastructureDomainLocked(domain string, adminDom string) bool {
 		"github.com", "githubusercontent.com", "ghcr.io",
 		"cloudflare.com", "cloudflare-dns.com",
 		"amazonaws.com", "cloudfront.net",
-		"tailscale.com", "fabiseitz.de",
+		"tailscale.com",
 		"ubuntu.com", "debian.org", "docker.com", "docker.io",
 	}
 	normAdmin := strings.ToLower(strings.TrimSpace(adminDom))
@@ -213,6 +213,12 @@ func isTrustedInfrastructureDomainLocked(domain string, adminDom string) bool {
 	}
 	for _, root := range trustedRoots {
 		if d == root || strings.HasSuffix(d, "."+root) {
+			return true
+		}
+	}
+	for _, td := range config.TrustedHostDomains {
+		clean := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(td)), ".")
+		if clean != "" && (d == clean || strings.HasSuffix(d, "."+clean)) {
 			return true
 		}
 	}

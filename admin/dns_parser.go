@@ -331,7 +331,13 @@ func parseLogLine(line string) {
 	}
 	EmitQueryToSIEM(q)
 
-	if ApplyPrivacyLevel(&q, privacyLevel, clientIP) {
+	shouldLog := ApplyPrivacyLevel(&q, privacyLevel, clientIP)
+	if shouldLog && status == "Blocked (Client IP)" {
+		if !allowBlockedIPLogSample(clientIP) {
+			shouldLog = false
+		}
+	}
+	if shouldLog {
 		bufferLock.Lock()
 		logBuffer = append(logBuffer, q)
 		bufferLock.Unlock()
@@ -381,8 +387,20 @@ type rateLimitEntry struct {
 }
 
 var (
-	dohRateLimits sync.Map // IP -> *rateLimitEntry
+	dohRateLimits          sync.Map // IP -> *rateLimitEntry
+	blockedClientLogSample sync.Map // clientIP -> int64 unix timestamp
 )
+
+func allowBlockedIPLogSample(ip string) bool {
+	now := time.Now().Unix()
+	if val, loaded := blockedClientLogSample.Load(ip); loaded {
+		if now-val.(int64) < 30 {
+			return false
+		}
+	}
+	blockedClientLogSample.Store(ip, now)
+	return true
+}
 
 // DoHRateLimitMiddleware prevents DoS on the DoH proxy endpoint
 func DoHRateLimitMiddleware(next http.Handler) http.Handler {

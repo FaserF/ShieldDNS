@@ -31,6 +31,7 @@ type Config struct {
 	APIKeys                    []APIKey                     `json:"api_keys"`
 	FilteringEnabled           bool                         `json:"filtering_enabled"`
 	AdminDomain                string                       `json:"admin_domain"`  // e.g. dns.example.org
+	TrustedHostDomains         []string                     `json:"trusted_host_domains"`
 	BlockPageIP                string                       `json:"block_page_ip"` // IP of the ShieldDNS server
 	LatencyTestInterval        int                          `json:"latency_test_interval"`
 	SmartSelectionPolicy       string                       `json:"smart_selection_policy"` // "fastest" or "random"
