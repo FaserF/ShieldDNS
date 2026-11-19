@@ -190,7 +190,7 @@ func loadConfig() {
 		if len(config.CustomBlocked) > 0 {
 			sanitizedBlocked := make([]string, 0, len(config.CustomBlocked))
 			for _, d := range config.CustomBlocked {
-				if isTrustedInfrastructureDomain(d) {
+				if isTrustedInfrastructureDomainLocked(d, config.AdminDomain) {
 					slog.Warn("Removed trusted infrastructure domain from CustomBlocked", "domain", d)
 				} else {
 					sanitizedBlocked = append(sanitizedBlocked, d)
@@ -199,7 +199,7 @@ func loadConfig() {
 			config.CustomBlocked = sanitizedBlocked
 		}
 		for d, meta := range config.AIRules {
-			if isTrustedInfrastructureDomain(d) && meta.Action == "block" {
+			if isTrustedInfrastructureDomainLocked(d, config.AdminDomain) && meta.Action == "block" {
 				delete(config.AIRules, d)
 				slog.Warn("Removed trusted infrastructure domain from AIRules", "domain", d)
 			}

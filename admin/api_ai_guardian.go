@@ -169,9 +169,8 @@ func CallOpenAIChatCompletion(ctx context.Context, messages []OpenAIChatMessage)
 	return strings.TrimSpace(chatResp.Choices[0].Message.Content), nil
 }
 
-// isTrustedInfrastructureDomain prevents autonomous AI or accidental blocking of major legitimate vendor/cloud infrastructure domains,
-// while still allowing deliberate ad/tracking subdomains (e.g. adservice.google.com) to be filtered.
-func isTrustedInfrastructureDomain(domain string) bool {
+// isTrustedInfrastructureDomainLocked checks trusted infrastructure domains when configLock is already held by the caller.
+func isTrustedInfrastructureDomainLocked(domain string, adminDom string) bool {
 	d := strings.TrimSuffix(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(domain)), "*."), ".")
 	if d == "" {
 		return false
@@ -193,10 +192,8 @@ func isTrustedInfrastructureDomain(domain string) bool {
 		"tailscale.com", "fabiseitz.de",
 		"ubuntu.com", "debian.org", "docker.com", "docker.io",
 	}
-	configLock.RLock()
-	adminDom := strings.ToLower(strings.TrimSpace(config.AdminDomain))
-	configLock.RUnlock()
-	if adminDom != "" && (d == adminDom || strings.HasSuffix(d, "."+adminDom)) {
+	normAdmin := strings.ToLower(strings.TrimSpace(adminDom))
+	if normAdmin != "" && (d == normAdmin || strings.HasSuffix(d, "."+normAdmin)) {
 		return true
 	}
 	for _, root := range trustedRoots {
@@ -205,6 +202,15 @@ func isTrustedInfrastructureDomain(domain string) bool {
 		}
 	}
 	return false
+}
+
+// isTrustedInfrastructureDomain prevents autonomous AI or accidental blocking of major legitimate vendor/cloud infrastructure domains,
+// while still allowing deliberate ad/tracking subdomains (e.g. adservice.google.com) to be filtered.
+func isTrustedInfrastructureDomain(domain string) bool {
+	configLock.RLock()
+	adminDom := config.AdminDomain
+	configLock.RUnlock()
+	return isTrustedInfrastructureDomainLocked(domain, adminDom)
 }
 
 // TriageDomainWithAI performs structured threat and category triage on a domain.
