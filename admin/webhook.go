@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -80,6 +81,20 @@ func deliverWebhookJob(job webhookJob) {
 	}
 
 	resp, err := webhookClient.Do(req)
+	if err != nil && strings.Contains(job.targetURL, "100.64.0.1") {
+		fallbackURL := strings.Replace(job.targetURL, "100.64.0.1", "127.0.0.1", 1)
+		if fallbackReq, fbErr := http.NewRequestWithContext(ctx, http.MethodPost, fallbackURL, bytes.NewReader(body)); fbErr == nil {
+			fallbackReq.Header.Set("Content-Type", "application/json")
+			if job.authToken != "" {
+				fallbackReq.Header.Set("Authorization", "Bearer "+job.authToken)
+			}
+			if fbResp, fbDoErr := webhookClient.Do(fallbackReq); fbDoErr == nil {
+				resp = fbResp
+				err = nil
+				job.targetURL = fallbackURL
+			}
+		}
+	}
 	if err != nil {
 		webhookCooldownMu.Lock()
 		webhookCooldowns[job.targetURL] = time.Now().Add(60 * time.Second)
@@ -181,9 +196,10 @@ func SendSecurityWebhook(event string, title string, details map[string]interfac
 
 		maxRetries := 3
 		backoff := 1 * time.Second
+		currentURL := targetURL
 		for i := 0; i <= maxRetries; i++ {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, currentURL, bytes.NewReader(body))
 			if err != nil {
 				cancel()
 				slog.Error("Failed to create webhook request", "error", err)
@@ -198,11 +214,18 @@ func SendSecurityWebhook(event string, title string, details map[string]interfac
 			resp, err := webhookClient.Do(req)
 			cancel()
 			if err != nil {
+				if strings.Contains(currentURL, "100.64.0.1") {
+					fallbackURL := strings.Replace(currentURL, "100.64.0.1", "127.0.0.1", 1)
+					if fallbackURL != currentURL {
+						currentURL = fallbackURL
+						continue
+					}
+				}
 				if i == maxRetries {
-					slog.Error("Failed to deliver security webhook after retries", "url", targetURL, "event", p.Event, "error", err)
+					slog.Error("Failed to deliver security webhook after retries", "url", currentURL, "event", p.Event, "error", err)
 					return
 				}
-				slog.Warn("Failed to deliver security webhook, retrying", "attempt", i+1, "delay", backoff, "url", targetURL, "error", err)
+				slog.Warn("Failed to deliver security webhook, retrying", "attempt", i+1, "delay", backoff, "url", currentURL, "error", err)
 				time.Sleep(backoff)
 				backoff *= 2
 				continue
@@ -210,7 +233,7 @@ func SendSecurityWebhook(event string, title string, details map[string]interfac
 			defer resp.Body.Close()
 
 			if resp.StatusCode >= 400 {
-				slog.Warn("Security webhook rejected", "url", targetURL, "status", resp.StatusCode)
+				slog.Warn("Security webhook rejected", "url", currentURL, "status", resp.StatusCode)
 			} else {
 				slog.Info("Delivered security webhook", "event", p.Event, "node", p.Node)
 			}

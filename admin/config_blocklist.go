@@ -262,14 +262,7 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 	}
 
 	// Write Custom Mappings separately too
-	var mappingsBuilder strings.Builder
-	for domain, ip := range mappings {
-		mappingsBuilder.WriteString(ip)
-		mappingsBuilder.WriteByte(' ')
-		mappingsBuilder.WriteString(domain)
-		mappingsBuilder.WriteByte('\n')
-	}
-	os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
+	writeMappingsFile(mappings)
 
 	slog.Info("Rules updated", "host_file", CombinedHostsPath, "count", len(attribution))
 	if restartCore {
@@ -278,6 +271,20 @@ func applyCurrentRules(attribution map[string][]string, allowAttr map[string][]s
 
 	// Return dead temporary parsing/building heap pages back to the OS immediately
 	debug.FreeOSMemory()
+}
+
+func writeMappingsFile(mappings map[string]string) {
+	if MappingsPath == "" {
+		return
+	}
+	var mappingsBuilder strings.Builder
+	for domain, ip := range mappings {
+		mappingsBuilder.WriteString(ip)
+		mappingsBuilder.WriteByte(' ')
+		mappingsBuilder.WriteString(domain)
+		mappingsBuilder.WriteByte('\n')
+	}
+	_ = os.WriteFile(MappingsPath, []byte(mappingsBuilder.String()), 0644)
 }
 
 func writeCombinedHostsStreaming(targetPath string, mappings map[string]string, attribution map[string][]string, blockIP string, isIPv4 bool) error {

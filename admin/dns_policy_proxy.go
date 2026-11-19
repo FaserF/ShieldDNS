@@ -71,6 +71,7 @@ type PolicySnapshot struct {
 	clientBlock      map[string]map[string]struct{} // clientIP -> domains
 	clientAllow      map[string]map[string]struct{} // clientIP -> domains
 	clientUpstreams  map[string]string              // clientIP/CIDR -> upstream
+	blockedClients   map[string]struct{}            // clientIP -> blocked
 	cnameCloaking    bool
 	filteringEnabled bool
 	blockPageIP      string
@@ -108,6 +109,7 @@ func compilePolicySnapshot(cfg *Config, now time.Time) *PolicySnapshot {
 		clientBlock:      make(map[string]map[string]struct{}),
 		clientAllow:      make(map[string]map[string]struct{}),
 		clientUpstreams:  make(map[string]string),
+		blockedClients:   make(map[string]struct{}),
 		cnameCloaking:    cfg.CNAMECloakingEnabled,
 		filteringEnabled: cfg.FilteringEnabled,
 		blockPageIP:      cfg.BlockPageIP,
@@ -115,6 +117,12 @@ func compilePolicySnapshot(cfg *Config, now time.Time) *PolicySnapshot {
 		globalYTMode:     cfg.YouTubeRestriction,
 		engineAddr:       "127.0.0.1:" + enginePort,
 		compiledAt:       now,
+	}
+
+	for _, bc := range cfg.BlockedClients {
+		if bc != "" {
+			snap.blockedClients[bc] = struct{}{}
+		}
 	}
 
 	for _, s := range cfg.Schedules {
@@ -853,6 +861,17 @@ func handlePolicyDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	}
 
+	snap := policySnapshotPtr.Load()
+	if snap != nil && len(snap.blockedClients) > 0 {
+		if _, blocked := snap.blockedClients[clientIP]; blocked {
+			refused := new(dns.Msg)
+			refused.SetRcode(r, dns.RcodeRefused)
+			_ = w.WriteMsg(refused)
+			RecordFlowAndSLO("", "client_blocked", "local", "REFUSED", 0.05)
+			return
+		}
+	}
+
 	if directResp, dec := EvaluateDNSQuery(r, clientIP); directResp != nil {
 		_ = w.WriteMsg(directResp)
 		if len(r.Question) > 0 {
@@ -861,7 +880,6 @@ func handlePolicyDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	snap := policySnapshotPtr.Load()
 	upstream := "127.0.0.1:" + getInternalEnginePort()
 	if snap != nil {
 		if grp := snap.matchGroup(clientIP); grp != nil && len(grp.raw.Upstreams) > 0 {
@@ -880,7 +898,15 @@ func handlePolicyDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	start := time.Now()
 	c := new(dns.Client)
 	c.Timeout = 4 * time.Second
+	isTCP := (w.RemoteAddr() != nil && w.RemoteAddr().Network() == "tcp")
+	if isTCP {
+		c.Net = "tcp"
+	}
 	resp, _, err := c.Exchange(r, upstream)
+	if err == nil && resp != nil && resp.Truncated && !isTCP {
+		c.Net = "tcp"
+		resp, _, err = c.Exchange(r, upstream)
+	}
 	durMs := float64(time.Since(start).Microseconds()) / 1000.0
 	if err != nil || resp == nil {
 		fail := new(dns.Msg)

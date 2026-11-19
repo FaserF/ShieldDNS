@@ -84,8 +84,6 @@ const CorefileTemplate = `{{.RoutingBlocks}}
 tls://.:{{.DOTPort}} {
     tls {{.CertFile}} {{.KeyFile}}
     metadata
-    reload 10s
-    {{.GeoACLRules}}
     forward . 127.0.0.1:{{.InternalPolicyPort}} {
         expire 10s
     }
@@ -96,7 +94,6 @@ tls://.:{{.DOTPort}} {
 https://.:{{.InternalDOHPort}} {
     tls {{.CertFile}} {{.KeyFile}}
     metadata
-    {{.GeoACLRules}}
     forward . 127.0.0.1:{{.InternalPolicyPort}} {
         expire 10s
     }
@@ -111,8 +108,6 @@ quic://.:{{.DOTPort}} {
         worker_pool_size 256
     }
     metadata
-    reload 10s
-    {{.GeoACLRules}}
     forward . 127.0.0.1:{{.InternalPolicyPort}} {
         expire 10s
     }
@@ -136,7 +131,7 @@ var (
 	recentQueries     = make(map[string]querySignature)
 	recentQueriesLock sync.Mutex
 	sseChan           = make(chan Query, 1024)
-	logQueue          = make(chan string, 10000)
+	logQueue          = make(chan string, 50000)
 
 	resolveCache      = make(map[string]cacheEntry)
 	resolveCacheLock  sync.Mutex

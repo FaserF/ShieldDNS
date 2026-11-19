@@ -58,35 +58,35 @@ func analyzeQuery(clientIP, domain, status string) {
 		return
 	}
 
-	// --- 1. Total Query Rate Limit (>= 1000 queries / 60s) ---
+	// --- 1. Total Query Rate Limit (>= 10000 queries / 60s) ---
 	counters.allQueryTimes = append(counters.allQueryTimes, now)
 	counters.allQueryTimes = pruneWindow(counters.allQueryTimes, now, 60*time.Second)
-	if len(counters.allQueryTimes) >= 1000 {
-		go blockClientAuto(clientIP, "Abuse: Query Rate Limit Exceeded (>1000/min)")
+	if len(counters.allQueryTimes) >= 10000 {
+		go blockClientAuto(clientIP, "Abuse: Query Rate Limit Exceeded (>10000/min)")
 		return // Blocked, we can stop analysis for this query
 	}
 
-	// --- 2. Single Domain Flood (>= 300 queries / 60s) ---
+	// --- 2. Single Domain Flood (>= 3000 queries / 60s) ---
 	if !isInfrastructureDomain(domain) {
 		counters.domainTimes[domain] = append(counters.domainTimes[domain], now)
 		counters.domainTimes[domain] = pruneWindow(counters.domainTimes[domain], now, 60*time.Second)
-		if len(counters.domainTimes[domain]) >= 300 {
-			go blockClientAuto(clientIP, "Abuse: Single Domain Flood (>300 queries/min)")
+		if len(counters.domainTimes[domain]) >= 3000 {
+			go blockClientAuto(clientIP, "Abuse: Single Domain Flood (>3000 queries/min)")
 			return
 		}
 	}
 
-	// --- 3. NXDOMAIN Flood (>= 300 / 60s) ---
+	// --- 3. NXDOMAIN Flood (>= 3000 / 60s) ---
 	if status == "NXDOMAIN" {
 		counters.nxdomainTimes = append(counters.nxdomainTimes, now)
 		counters.nxdomainTimes = pruneWindow(counters.nxdomainTimes, now, 60*time.Second)
-		if len(counters.nxdomainTimes) >= 300 {
-			go blockClientAuto(clientIP, "Abuse: NXDOMAIN Flood (>300 failed lookups/min)")
+		if len(counters.nxdomainTimes) >= 3000 {
+			go blockClientAuto(clientIP, "Abuse: NXDOMAIN Flood (>3000 failed lookups/min)")
 			return
 		}
 	}
 
-	// --- 4. Special TLD Scan (>= 300 unique subdomains/queries targeting one TLD, and that TLD covers >= 90% of total queries in 5 min) ---
+	// --- 4. Special TLD Scan (>= 5000 unique subdomains/queries targeting one TLD, and that TLD covers >= 95% of total queries in 5 min) ---
 	tld := extractTLD(domain)
 	if tld != "" && !isInfrastructureDomain(domain) {
 		counters.tldCounts[tld] = append(counters.tldCounts[tld], now)
@@ -98,7 +98,7 @@ func analyzeQuery(clientIP, domain, status string) {
 			total5m += len(times)
 		}
 
-		if len(counters.tldCounts[tld]) >= 1000 && float64(len(counters.tldCounts[tld]))/float64(total5m) >= 0.95 {
+		if len(counters.tldCounts[tld]) >= 5000 && float64(len(counters.tldCounts[tld]))/float64(total5m) >= 0.95 {
 			go blockClientAuto(clientIP, "Abuse: TLD Scan Detected (>95% queries to single TLD)")
 			return
 		}
@@ -258,14 +258,14 @@ func blockClientAuto(ip, reason string) {
 	RecordAbuseBlock()
 	configLock.Unlock()
 
+	ReloadPolicySnapshot() // Instantly apply ACL update in-memory without restarting CoreDNS
+
 	go SendSecurityWebhook("client_blocked", "Automatischer Client-Block", map[string]interface{}{
 		"client_ip": ip,
 		"reason":    reason,
 		"country":   cc,
 		"auto":      true,
 	})
-
-	go updateCorefile() // Instantly apply ACL update
 }
 
 func isRebindingDomain(domain string) bool {
@@ -368,7 +368,7 @@ func startAbuseCleanup(ctx context.Context) {
 			configLock.Unlock()
 
 			if changed {
-				go updateCorefile()
+				ReloadPolicySnapshot()
 			}
 		}
 	}
@@ -385,7 +385,9 @@ func isInfrastructureDomain(domain string) bool {
 		"fastly.net",
 		"github.com", "githubusercontent.com",
 		"spotify.com", "scdn.co",
-		"whatsapp.net",
+		"whatsapp.com", "whatsapp.net",
+		"meta.com", "facebook.com", "fbcdn.net",
+		"instagram.com", "snapchat.com",
 		"fabiseitz.de",
 	}
 	d := strings.ToLower(domain)

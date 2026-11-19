@@ -63,6 +63,14 @@ func handleFilteringStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func dispatchRuleReload(cfg *Config) {
+	if testMode {
+		reloadRulesFastNoLock(cfg)
+	} else {
+		go reloadRulesFastNoLock(cfg)
+	}
+}
+
 func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -252,7 +260,11 @@ func handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		sendJSONError(w, "Failed to save configuration", http.StatusInternalServerError)
 		return
 	}
-	reloadRulesFastNoLock(config.Clone())
+	cfgCopy := config.Clone()
+	if req.Type == "mapping" {
+		writeMappingsFile(cfgCopy.CustomMappings)
+	}
+	dispatchRuleReload(cfgCopy)
 	RecordAnnotation("rule", "admin", fmt.Sprintf("Added %s rule for %s", req.Type, domain))
 
 	w.WriteHeader(http.StatusOK)
@@ -346,7 +358,9 @@ func handleRuleRemove(w http.ResponseWriter, r *http.Request) {
 		sendJSONError(w, "Failed to save configuration", http.StatusInternalServerError)
 		return
 	}
-	reloadRulesFastNoLock(config.Clone())
+	cfgCopy := config.Clone()
+	writeMappingsFile(cfgCopy.CustomMappings)
+	dispatchRuleReload(cfgCopy)
 	RecordAnnotation("rule", "admin", fmt.Sprintf("Removed rule for %s", domain))
 
 	w.WriteHeader(http.StatusOK)

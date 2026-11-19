@@ -14,8 +14,9 @@ export async function apiFetch(endpoint, options = {}) {
         }
     }
 
+    const timeoutMs = options.timeout || 25000;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     // Inject CSRF protection header for state-changing requests
     const method = options.method?.toUpperCase();
@@ -73,7 +74,7 @@ export async function apiFetch(endpoint, options = {}) {
         } catch (err) {
             clearTimeout(timeoutId);
             if (err.name === 'AbortError') {
-                throw new Error('Request timed out after 10 seconds');
+                throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)} seconds`);
             }
             throw err;
         }

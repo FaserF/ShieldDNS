@@ -207,8 +207,25 @@ func syncContainerResolvConf(cfg *Config) {
 	if testMode || cfg == nil {
 		return
 	}
+	// Never overwrite resolv.conf in Home Assistant addon environment or when supervisor is present
+	if os.Getenv("SUPERVISOR_TOKEN") != "" || os.Getenv("HASSIO_TOKEN") != "" {
+		return
+	}
+	if _, err := os.Stat("/data/options.json"); err == nil {
+		return
+	}
+	if os.Getenv("DISABLE_RESOLV_SYNC") == "true" {
+		return
+	}
 	if _, err := os.Stat("/.dockerenv"); err != nil {
 		return
+	}
+	// Preserve Docker embedded DNS (127.0.0.11) and internal search domains
+	if existing, err := os.ReadFile("/etc/resolv.conf"); err == nil {
+		sExisting := string(existing)
+		if strings.Contains(sExisting, "127.0.0.11") || strings.Contains(sExisting, "local.hass.io") {
+			return
+		}
 	}
 	var sb strings.Builder
 	sb.WriteString("# Automatically managed from ShieldDNS UI Upstreams\n")

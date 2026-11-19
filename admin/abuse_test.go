@@ -23,8 +23,8 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 	ip := "1.2.3.4"
 	domain := "flood.com"
 
-	// Send 299 queries (threshold is 300)
-	for i := 0; i < 299; i++ {
+	// Send 2999 queries (threshold is 3000)
+	for i := 0; i < 2999; i++ {
 		analyzeQuery(ip, domain, "NOERROR")
 	}
 
@@ -38,10 +38,10 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 	configLock.RUnlock()
 
 	if blocked {
-		t.Fatal("Client should not be blocked at 299 queries")
+		t.Fatal("Client should not be blocked at 2999 queries")
 	}
 
-	// 300th query should trigger block
+	// 3000th query should trigger block
 	analyzeQuery(ip, domain, "NOERROR")
 
 	// Wait for background goroutine to update config
@@ -72,9 +72,9 @@ func TestAnalyzeQueryDomainFlood(t *testing.T) {
 	configLock.RUnlock()
 
 	if !blocked {
-		t.Fatal("Client should be blocked at 300 queries")
+		t.Fatal("Client should be blocked at 3000 queries")
 	}
-	if !hasInfo || info.Reason != "Abuse: Single Domain Flood (>300 queries/min)" || !info.Auto {
+	if !hasInfo || info.Reason != "Abuse: Single Domain Flood (>3000 queries/min)" || !info.Auto {
 		t.Fatalf("Missing or incorrect block reason: %v", info)
 	}
 }
@@ -95,8 +95,8 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 
 	ip := "5.5.5.5"
 
-	// Send 299 queries (threshold is 300)
-	for i := 0; i < 299; i++ {
+	// Send 2999 queries (threshold is 3000)
+	for i := 0; i < 2999; i++ {
 		// Use unique domains to avoid triggering Single Domain Flood logic (120 queries/domain)
 		domain := fmt.Sprintf("random-dga-%d.com", i)
 		analyzeQuery(ip, domain, "NXDOMAIN")
@@ -104,12 +104,12 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 
 	configLock.RLock()
 	if len(config.BlockedClients) > 0 {
-		t.Fatal("Client should not be blocked at 299 queries")
+		t.Fatal("Client should not be blocked at 2999 queries")
 	}
 	configLock.RUnlock()
 
-	// 300th query should trigger block
-	analyzeQuery(ip, "random-dga-300.com", "NXDOMAIN")
+	// 3000th query should trigger block
+	analyzeQuery(ip, "random-dga-3000.com", "NXDOMAIN")
 
 	// Wait for background goroutine to update config
 	for i := 0; i < 20; i++ {
@@ -126,7 +126,7 @@ func TestAnalyzeQueryNXDomainFlood(t *testing.T) {
 	info, hasInfo := config.BlockedClientsInfo[ip]
 	configLock.RUnlock()
 
-	if !hasInfo || info.Reason != "Abuse: NXDOMAIN Flood (>300 failed lookups/min)" {
+	if !hasInfo || info.Reason != "Abuse: NXDOMAIN Flood (>3000 failed lookups/min)" {
 		t.Fatalf("Client should be blocked for nxdomain_flood, got info: %v", info)
 	}
 }
