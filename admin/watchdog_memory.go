@@ -154,10 +154,10 @@ func evaluateMemoryHealth() {
 	estimatedShieldMB := float64(domainCount) * 1.3 / 1024.0
 
 	// Check Critical Memory Conditions:
-	// 1. Available RAM less than 200 MB, OR
-	// 2. Available RAM less than 12% of total, OR
+	// 1. Available RAM less than 250 MB, OR
+	// 2. Available RAM less than 6% of total, OR
 	// 3. ShieldDNS memory significantly exceeds the configured max budget
-	isUnderCriticalPressure := availMB < 200.0 || (totalMB > 0 && availMB < totalMB*0.12) || (maxBudget > 0 && estimatedShieldMB > effectiveBudget)
+	isUnderCriticalPressure := availMB < 250.0 || (totalMB > 0 && availMB < totalMB*0.06) || (maxBudget > 0 && estimatedShieldMB > effectiveBudget)
 
 	if isUnderCriticalPressure {
 		consecutiveStableRAM = 0
@@ -165,18 +165,31 @@ func evaluateMemoryHealth() {
 		return
 	}
 
+	// Check if any list is currently suspended
+	hasSuspendedLists := false
+	configLock.RLock()
+	for _, l := range config.Lists {
+		if l.EmergencySuspended {
+			hasSuspendedLists = true
+			break
+		}
+	}
+	configLock.RUnlock()
+
+	effectiveSheddingActive := sheddingActive || hasSuspendedLists
+
 	// Check if stable recovery is ongoing & re-verify peer offload health
-	if sheddingActive {
+	if effectiveSheddingActive {
 		go evaluatePeerOffload()
-		// If available RAM is now comfortably above safety margin (> 25% available and > 500 MB)
-		if availMB > 500.0 && (availMB/totalMB) > 0.25 && usedMB/totalMB < 0.75 {
+		// If available RAM is now comfortably above safety margin (> 12% available and > 400 MB)
+		if availMB > 400.0 && (availMB/totalMB) > 0.12 && usedMB/totalMB < 0.88 {
 			consecutiveStableRAM++
 			if consecutiveStableRAM == 4 { // Log once after 60 seconds of stable RAM
 				slog.Info("Memory pressure relieved stably; system ready for list recovery",
 					"available_mb", fmt.Sprintf("%.1f", availMB),
 					"used_mb", fmt.Sprintf("%.1f", usedMB),
 					"total_mb", fmt.Sprintf("%.1f", totalMB))
-			} else if consecutiveStableRAM >= 20 { // Automatically restore shed lists after 5 min (20 * 15s) of sustained healthy RAM
+			} else if consecutiveStableRAM >= 8 { // Automatically restore shed lists after 2 min (8 * 15s) of sustained healthy RAM
 				consecutiveStableRAM = 0
 				restoreShedListsInternal("automatic_watchdog")
 			}
@@ -501,7 +514,19 @@ func resolvePeerDNSTarget(raw string) string {
 // selectPeerOffloadCandidate returns a healthy, non-shedding peer DNS target when the local node
 // is in emergency RAM shedding, preventing forwarding loops by never offloading to a shedding peer.
 func selectPeerOffloadCandidate(cfg *Config, primShedding bool, primDNS string) string {
-	if cfg == nil || !cfg.EmergencySheddingActive || !cfg.ClusterPeerOffloadEnabled {
+	if cfg == nil || !cfg.ClusterPeerOffloadEnabled {
+		return ""
+	}
+	hasSuspended := cfg.EmergencySheddingActive
+	if !hasSuspended {
+		for _, l := range cfg.Lists {
+			if l.EmergencySuspended {
+				hasSuspended = true
+				break
+			}
+		}
+	}
+	if !hasSuspended {
 		return ""
 	}
 	if cfg.ClusterRole == "replica" {

@@ -60,3 +60,5 @@ AGENTS.md
 CLAUDE.md
 opencode.json
 __pycache__/
+patch.diff
+patch_all.diff

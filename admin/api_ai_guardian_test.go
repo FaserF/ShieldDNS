@@ -135,6 +135,16 @@ func TestAIRuleMetadataInConfig(t *testing.T) {
 }
 
 func TestTrustedInfrastructureDomain(t *testing.T) {
+	configLock.Lock()
+	oldDom := config.AdminDomain
+	config.AdminDomain = "tailnet.fabiseitz.de"
+	configLock.Unlock()
+	defer func() {
+		configLock.Lock()
+		config.AdminDomain = oldDom
+		configLock.Unlock()
+	}()
+
 	cases := []struct {
 		domain  string
 		trusted bool

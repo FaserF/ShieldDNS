@@ -30,7 +30,7 @@ type Config struct {
 	AdminPasswordHashed        string                       `json:"admin_password_hashed"`
 	APIKeys                    []APIKey                     `json:"api_keys"`
 	FilteringEnabled           bool                         `json:"filtering_enabled"`
-	AdminDomain                string                       `json:"admin_domain"`  // e.g. dns.fabiseitz.de
+	AdminDomain                string                       `json:"admin_domain"`  // e.g. dns.example.org
 	BlockPageIP                string                       `json:"block_page_ip"` // IP of the ShieldDNS server
 	LatencyTestInterval        int                          `json:"latency_test_interval"`
 	SmartSelectionPolicy       string                       `json:"smart_selection_policy"` // "fastest" or "random"
@@ -331,6 +331,14 @@ type ClusterConfigExport struct {
 	BlockedClientsInfo         map[string]BlockedClientInfo `json:"blocked_clients_info,omitempty"`
 	ClientRules                []ClientRule                 `json:"client_rules,omitempty"`
 	ClientAliases              map[string]string            `json:"client_aliases,omitempty"`
+	Groups                     []ClientGroup                `json:"groups,omitempty"`
+	Schedules                  []ScheduleRule               `json:"schedules,omitempty"`
+	QuickRules                 []QuickRule                  `json:"quick_rules,omitempty"`
+	LocalRecords               []LocalRecord                `json:"local_records,omitempty"`
+	LocalPTRUpstreams          []string                     `json:"local_ptr_upstreams,omitempty"`
+	AutoPTR                    bool                         `json:"auto_ptr,omitempty"`
+	CNAMECloakingEnabled       bool                         `json:"cname_cloaking_enabled,omitempty"`
+	AdminDomain                string                       `json:"admin_domain,omitempty"`
 	MCPServerEnabled           bool                         `json:"mcp_server_enabled"`
 	AIEnabled                  bool                         `json:"ai_enabled,omitempty"`
 	AIBaseURL                  string                       `json:"ai_base_url,omitempty"`

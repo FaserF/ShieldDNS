@@ -609,9 +609,19 @@ func isLocalOrTailnetHost(hostHeader string) bool {
 	if h == "localhost" || h == "127.0.0.1" || h == "::1" || h == "shielddns.local" {
 		return true
 	}
+	configLock.RLock()
+	adminDomain := strings.ToLower(strings.TrimSpace(config.AdminDomain))
+	workerDomain := strings.ToLower(strings.TrimSpace(config.ClusterWorkerDomain))
+	configLock.RUnlock()
+	if adminDomain != "" && (h == adminDomain || strings.HasSuffix(h, "."+adminDomain)) {
+		return true
+	}
+	if workerDomain != "" && (h == workerDomain || strings.HasSuffix(h, "."+workerDomain)) {
+		return true
+	}
 	if strings.HasSuffix(h, ".local") || strings.HasSuffix(h, ".lan") ||
 		strings.HasSuffix(h, ".home.arpa") || strings.HasSuffix(h, ".internal") ||
-		strings.HasSuffix(h, ".tailnet.fabiseitz.de") || strings.HasSuffix(h, ".ts.net") {
+		strings.HasSuffix(h, ".ts.net") {
 		return true
 	}
 

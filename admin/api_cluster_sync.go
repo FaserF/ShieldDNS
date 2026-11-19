@@ -175,9 +175,11 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 
 	// Preserve local emergency shedding state on replica to protect local node RAM
 	suspendedMap := make(map[string]bool)
+	hasSuspended := false
 	for _, l := range config.Lists {
 		if l.EmergencySuspended {
 			suspendedMap[strings.ToLower(strings.TrimSpace(l.URL))] = true
+			hasSuspended = true
 		}
 	}
 	config.Lists = exp.Lists
@@ -185,6 +187,10 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 		if suspendedMap[strings.ToLower(strings.TrimSpace(config.Lists[i].URL))] {
 			config.Lists[i].EmergencySuspended = true
 		}
+	}
+	config.EmergencySheddingActive = hasSuspended
+	if !hasSuspended {
+		config.EmergencyShedLists = nil
 	}
 	config.Allowlists = exp.Allowlists
 	normalizeListPriorities(&config)
@@ -291,6 +297,26 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	if exp.APIKeys != nil {
 		config.APIKeys = exp.APIKeys
 	}
+	if exp.Groups != nil {
+		config.Groups = exp.Groups
+	}
+	if exp.Schedules != nil {
+		config.Schedules = exp.Schedules
+	}
+	if exp.QuickRules != nil {
+		config.QuickRules = exp.QuickRules
+	}
+	if exp.LocalRecords != nil {
+		config.LocalRecords = exp.LocalRecords
+	}
+	if exp.LocalPTRUpstreams != nil {
+		config.LocalPTRUpstreams = exp.LocalPTRUpstreams
+	}
+	config.AutoPTR = exp.AutoPTR
+	config.CNAMECloakingEnabled = exp.CNAMECloakingEnabled
+	if exp.AdminDomain != "" {
+		config.AdminDomain = exp.AdminDomain
+	}
 
 	// Configure DNS Upstream: if failover mode is set, use Primary as first upstream!
 	if failover && primaryURL != "" {
@@ -317,41 +343,44 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	}
 	cfgClone := config.Clone()
 	configLock.Unlock()
+	ReloadPolicySnapshot()
 
 	blockAttributionLock.RLock()
 	attributionEmpty := len(blockAttribution) == 0
 	blockAttributionLock.RUnlock()
 
-	go func(countries []string, maliciousEnabled, maliciousTrigger bool) {
-		for _, c := range countries {
-			cc := strings.ToLower(strings.TrimSpace(c))
-			if len(cc) != 2 || cc[0] < 'a' || cc[0] > 'z' || cc[1] < 'a' || cc[1] > 'z' {
-				continue
+	if !testMode {
+		go func(countries []string, maliciousEnabled, maliciousTrigger bool) {
+			for _, c := range countries {
+				cc := strings.ToLower(strings.TrimSpace(c))
+				if len(cc) != 2 || cc[0] < 'a' || cc[0] > 'z' || cc[1] < 'a' || cc[1] > 'z' {
+					continue
+				}
+				zonePath := filepath.Join(geoCacheDir, cc+".zone")
+				if _, err := os.Stat(zonePath); os.IsNotExist(err) {
+					_ = syncCountryIPs(cc)
+				}
 			}
-			zonePath := filepath.Join(geoCacheDir, cc+".zone")
-			if _, err := os.Stat(zonePath); os.IsNotExist(err) {
-				_ = syncCountryIPs(cc)
+			maliciousMu.RLock()
+			maliciousEmpty := len(maliciousIPList) == 0
+			maliciousMu.RUnlock()
+			if maliciousEnabled && (maliciousTrigger || maliciousEmpty) {
+				_ = syncMaliciousIPs(false)
 			}
-		}
-		maliciousMu.RLock()
-		maliciousEmpty := len(maliciousIPList) == 0
-		maliciousMu.RUnlock()
-		if maliciousEnabled && (maliciousTrigger || maliciousEmpty) {
-			_ = syncMaliciousIPs(false)
-		}
-		corefileChanged := updateCorefile()
-		dnsCmdLock.Lock()
-		coreDNSRunning := dnsCmd != nil && dnsCmd.Process != nil
-		dnsCmdLock.Unlock()
-		if corefileChanged || !coreDNSRunning {
-			restartCoreDNS()
-		}
-	}(exp.BlockedCountries, exp.MaliciousIPBlockingEnabled, maliciousNewlyEnabled)
+			corefileChanged := updateCorefile()
+			dnsCmdLock.Lock()
+			coreDNSRunning := dnsCmd != nil && dnsCmd.Process != nil
+			dnsCmdLock.Unlock()
+			if corefileChanged || !coreDNSRunning {
+				restartCoreDNS()
+			}
+		}(exp.BlockedCountries, exp.MaliciousIPBlockingEnabled, maliciousNewlyEnabled)
 
-	if listsChanged || attributionEmpty {
-		go updateBlocklist(nil, true)
-	} else if customRulesChanged {
-		go reloadRulesFastNoLock(cfgClone)
+		if listsChanged || attributionEmpty {
+			go updateBlocklist(nil, true)
+		} else if customRulesChanged {
+			go reloadRulesFastNoLock(cfgClone)
+		}
 	}
 
 	return nil

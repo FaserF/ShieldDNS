@@ -257,7 +257,7 @@ var mcpVectorTools = []mcpToolDefinition{
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"anchor_domain": map[string]interface{}{"type": "string", "description": "Domain to protect (e.g. 'fabiseitz.de', 'internal-corp.net')"},
+					"anchor_domain": map[string]interface{}{"type": "string", "description": "Domain to protect (e.g. 'company.org', 'internal-corp.net')"},
 				},
 				"required": []string{"anchor_domain"},
 			},

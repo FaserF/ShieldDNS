@@ -388,9 +388,14 @@ func isInfrastructureDomain(domain string) bool {
 		"whatsapp.com", "whatsapp.net",
 		"meta.com", "facebook.com", "fbcdn.net",
 		"instagram.com", "snapchat.com",
-		"fabiseitz.de",
 	}
 	d := strings.ToLower(domain)
+	configLock.RLock()
+	adminDom := strings.ToLower(strings.TrimSpace(config.AdminDomain))
+	configLock.RUnlock()
+	if adminDom != "" && (d == adminDom || strings.HasSuffix(d, "."+adminDom)) {
+		return true
+	}
 	for _, s := range infraSuffixes {
 		if d == s || strings.HasSuffix(d, "."+s) {
 			return true
