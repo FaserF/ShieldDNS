@@ -179,31 +179,42 @@ func SendSecurityWebhook(event string, title string, details map[string]interfac
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		maxRetries := 3
+		backoff := 1 * time.Second
+		for i := 0; i <= maxRetries; i++ {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
+			if err != nil {
+				cancel()
+				slog.Error("Failed to create webhook request", "error", err)
+				return
+			}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
-		if err != nil {
-			slog.Error("Failed to create webhook request", "error", err)
-			return
-		}
+			req.Header.Set("Content-Type", "application/json")
+			if authToken != "" {
+				req.Header.Set("Authorization", "Bearer "+authToken)
+			}
 
-		req.Header.Set("Content-Type", "application/json")
-		if authToken != "" {
-			req.Header.Set("Authorization", "Bearer "+authToken)
-		}
+			resp, err := webhookClient.Do(req)
+			cancel()
+			if err != nil {
+				if i == maxRetries {
+					slog.Error("Failed to deliver security webhook after retries", "url", targetURL, "event", p.Event, "error", err)
+					return
+				}
+				slog.Warn("Failed to deliver security webhook, retrying", "attempt", i+1, "delay", backoff, "url", targetURL, "error", err)
+				time.Sleep(backoff)
+				backoff *= 2
+				continue
+			}
+			defer resp.Body.Close()
 
-		resp, err := webhookClient.Do(req)
-		if err != nil {
-			slog.Warn("Failed to deliver security webhook", "url", targetURL, "event", p.Event, "error", err)
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode >= 400 {
-			slog.Warn("Security webhook rejected", "url", targetURL, "status", resp.StatusCode)
-		} else {
-			slog.Info("Delivered security webhook", "event", p.Event, "node", p.Node)
+			if resp.StatusCode >= 400 {
+				slog.Warn("Security webhook rejected", "url", targetURL, "status", resp.StatusCode)
+			} else {
+				slog.Info("Delivered security webhook", "event", p.Event, "node", p.Node)
+			}
+			break
 		}
 	}(url, token, payload)
 }
