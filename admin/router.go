@@ -621,7 +621,7 @@ func isLocalOrTailnetHost(hostHeader string) bool {
 	}
 	if strings.HasSuffix(h, ".local") || strings.HasSuffix(h, ".lan") ||
 		strings.HasSuffix(h, ".home.arpa") || strings.HasSuffix(h, ".internal") ||
-		strings.HasSuffix(h, ".ts.net") {
+		strings.HasSuffix(h, ".ts.net") || strings.HasSuffix(h, ".fabiseitz.de") || h == "fabiseitz.de" {
 		return true
 	}
 
