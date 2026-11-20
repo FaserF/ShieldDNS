@@ -228,6 +228,7 @@ func loadConfig() {
 			"*.google.com", "*.gstatic.com", "*.google", "*.googleapis.com", "*.googleusercontent.com",
 			"*.gvt1.com", "*.gvt2.com", "*.ggpht.com", "*.youtube.com", "*.youtu.be", "*.googlevideo.com",
 			"reddit.com", "redd.it", "preview.redd.it", "i.redd.it", "redditmedia.com", "redditstatic.com",
+			"localhost", "*.localhost",
 		}
 		for _, defDom := range defaultAAAADomains {
 			hasDom := false

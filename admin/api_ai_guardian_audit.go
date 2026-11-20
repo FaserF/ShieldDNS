@@ -59,6 +59,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 		Domain   string
 		ClientIP string
 		Status   string
+		Count    int
 	}
 	var candidates []Candidate
 
@@ -77,6 +78,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 		var c Candidate
 		var count int
 		if err := rows.Scan(&c.Domain, &c.ClientIP, &c.Status, &count); err == nil {
+			c.Count = count
 			c.Domain = NormalizeDomain(c.Domain)
 			if c.Domain == "" || isTrustedInfrastructureDomain(c.Domain) {
 				continue
@@ -149,10 +151,10 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 			}
 		}
 
-		// Autonomous False Positive Handling
+		// Autonomous False Positive Handling (Strictly restricted to trusted LAN/Tailnet queries to prevent reflection flood abuse)
 		if isBlocked && (verdict.ThreatType == "false_positive" || (verdict.ThreatType == "clean" && verdict.RecommendedAction == "allow")) {
 			report.FalsePositives++
-			if autoFlagFP && verdict.RecommendedAction == "allow" && verdict.Confidence >= 0.95 && !customAllowedMap[cand.Domain] {
+			if autoFlagFP && verdict.RecommendedAction == "allow" && verdict.Confidence >= threshold && !customAllowedMap[cand.Domain] && IsPrivateOrTailnetIP(cand.ClientIP) && cand.Count < 500 {
 				domainsToAllow = append(domainsToAllow, cand.Domain)
 				aiRuleUpdates[cand.Domain] = AIRuleMetadata{
 					Domain:     cand.Domain,

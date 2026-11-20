@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/miekg/dns"
 )
 
 func TestAnalyzeQueryDomainFlood(t *testing.T) {
@@ -228,6 +230,39 @@ func TestIsCriticalIP_CellularSubnets(t *testing.T) {
 	// Random unwhitelisted IP should NOT be critical
 	if IsCriticalIP("203.0.113.195", "0.0.0.0", whitelist) {
 		t.Errorf("Expected 203.0.113.195 to NOT be critical")
+	}
+}
+
+func TestCheckPublicQueryFlood(t *testing.T) {
+	// Private/Tailscale client should never be refused or dropped
+	drop, refuse := CheckPublicQueryFlood("192.168.1.100", "united.com", dns.TypeTXT)
+	if drop || refuse {
+		t.Errorf("Expected private client to be allowed without drop/refuse, got drop=%v, refuse=%v", drop, refuse)
+	}
+
+	drop, refuse = CheckPublicQueryFlood("100.64.0.5", "united.com", dns.TypeANY)
+	if drop || refuse {
+		t.Errorf("Expected Tailnet client to be allowed without drop/refuse, got drop=%v, refuse=%v", drop, refuse)
+	}
+
+	// Public client querying ANY should be refused per RFC 8482
+	drop, refuse = CheckPublicQueryFlood("198.51.100.1", "victim.com", dns.TypeANY)
+	if drop || !refuse {
+		t.Errorf("Expected public ANY query to be refused per RFC 8482, got drop=%v, refuse=%v", drop, refuse)
+	}
+
+	// Public client flood on TXT query
+	publicFloodMu.Lock()
+	publicDomainTimes = make(map[string][]time.Time)
+	publicClientTimes = make(map[string][]time.Time)
+	publicFloodMu.Unlock()
+
+	for i := 0; i < 45; i++ {
+		CheckPublicQueryFlood("198.51.100.2", "reflection-target.com", dns.TypeTXT)
+	}
+	_, refuse = CheckPublicQueryFlood("198.51.100.2", "reflection-target.com", dns.TypeTXT)
+	if !refuse {
+		t.Errorf("Expected public TXT flood >40 queries in 5s to be refused")
 	}
 }
 

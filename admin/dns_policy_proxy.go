@@ -404,7 +404,8 @@ func (s *PolicySnapshot) matchFilterAAAADomain(qName string) bool {
 		clean == "reddit.com" || strings.HasSuffix(clean, ".reddit.com") ||
 		clean == "redd.it" || strings.HasSuffix(clean, ".redd.it") ||
 		clean == "redditmedia.com" || strings.HasSuffix(clean, ".redditmedia.com") ||
-		clean == "redditstatic.com" || strings.HasSuffix(clean, ".redditstatic.com") {
+		clean == "redditstatic.com" || strings.HasSuffix(clean, ".redditstatic.com") ||
+		clean == "localhost" || strings.HasSuffix(clean, ".localhost") || strings.HasPrefix(clean, "localhost.") {
 		return true
 	}
 	for _, d := range s.filterAAAADomains {
@@ -460,6 +461,20 @@ func handlePolicyDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	if clientIP == "127.0.0.1" || clientIP == "::1" {
 		if ecsIP := extractECSClientIP(r); ecsIP != "" {
 			clientIP = ecsIP
+		}
+	}
+
+	if len(r.Question) > 0 {
+		q := r.Question[0]
+		qName := strings.TrimSuffix(strings.ToLower(q.Name), ".")
+		if drop, refuse := CheckPublicQueryFlood(clientIP, qName, q.Qtype); drop || refuse {
+			if refuse {
+				refused := new(dns.Msg)
+				refused.SetRcode(r, dns.RcodeRefused)
+				refused.RecursionAvailable = false
+				_ = w.WriteMsg(refused)
+			}
+			return
 		}
 	}
 

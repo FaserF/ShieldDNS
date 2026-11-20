@@ -339,7 +339,10 @@ func parseLogLine(line string) {
 	}
 	if shouldLog {
 		bufferLock.Lock()
-		logBuffer = append(logBuffer, q)
+		// Bound logBuffer to max 5000 items to protect PostgreSQL connection pool and memory under external floods
+		if len(logBuffer) < 5000 {
+			logBuffer = append(logBuffer, q)
+		}
 		bufferLock.Unlock()
 	}
 

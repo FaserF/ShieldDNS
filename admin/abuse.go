@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/miekg/dns"
 )
 
 type clientAbuseCounters struct {
@@ -403,4 +405,80 @@ func isInfrastructureDomain(domain string) bool {
 		}
 	}
 	return false
+}
+
+var (
+	publicFloodMu        sync.Mutex
+	publicDomainTimes    = make(map[string][]time.Time)
+	publicClientTimes    = make(map[string][]time.Time)
+	publicFloodLastPurge = time.Now()
+)
+
+// CheckPublicQueryFlood inspects queries from public (non-LAN, non-Tailnet) IPs to prevent
+// distributed DNS reflection/amplification attacks (e.g. TXT/ANY floods targeting united.com, wisc.edu).
+func CheckPublicQueryFlood(clientIP string, domain string, qType uint16) (drop bool, refuse bool) {
+	if IsPrivateOrTailnetIP(clientIP) {
+		return false, false // Private, Tailnet, or Loopback clients are never limited
+	}
+
+	// 1. Enforce RFC 8482: Public ANY queries must be refused to prevent large response reflection
+	if qType == dns.TypeANY {
+		return false, true
+	}
+
+	now := time.Now()
+	publicFloodMu.Lock()
+	defer publicFloodMu.Unlock()
+
+	// Periodic purge every 60 seconds
+	if now.Sub(publicFloodLastPurge) > 60*time.Second {
+		cutoff := now.Add(-10 * time.Second)
+		for k, times := range publicDomainTimes {
+			if len(times) == 0 || times[len(times)-1].Before(cutoff) {
+				delete(publicDomainTimes, k)
+			}
+		}
+		for k, times := range publicClientTimes {
+			if len(times) == 0 || times[len(times)-1].Before(cutoff) {
+				delete(publicClientTimes, k)
+			}
+		}
+		publicFloodLastPurge = now
+	}
+
+	// 2. Per-client public rate limit (>40 queries / 2s -> block and refuse)
+	cTimes := append(publicClientTimes[clientIP], now)
+	cTimes = pruneWindow(cTimes, now, 2*time.Second)
+	publicClientTimes[clientIP] = cTimes
+	if len(cTimes) > 80 {
+		go blockClientAuto(clientIP, "Abuse: Public Query Rate Limit Exceeded (>40 qps)")
+		return false, true
+	}
+
+	// 3. Global per-domain amplification flood check across all public IPs
+	d := strings.ToLower(domain)
+	if !isInfrastructureDomain(d) {
+		dTimes := append(publicDomainTimes[d], now)
+		dTimes = pruneWindow(dTimes, now, 5*time.Second)
+		publicDomainTimes[d] = dTimes
+
+		// Stricter limit for TXT queries (classic amplification vector)
+		if qType == dns.TypeTXT {
+			if len(dTimes) > 100 { // >20 qps for TXT across public clients
+				return true, false // Drop to silence amplification
+			}
+			if len(dTimes) > 40 {
+				return false, true // Refuse
+			}
+		} else {
+			if len(dTimes) > 300 { // >60 qps for general types across public clients
+				return true, false
+			}
+			if len(dTimes) > 150 { // >30 qps
+				return false, true
+			}
+		}
+	}
+
+	return false, false
 }

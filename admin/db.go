@@ -619,11 +619,16 @@ func flushLogs(queries []Query) {
 		return
 	}
 
+	if len(queries) > 1000 {
+		queries = queries[:1000]
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		slog.Error("Error starting log transaction", "error", err)
 		return
 	}
+	defer tx.Rollback()
 
 	configLock.RLock()
 	localNodeName := config.ClusterNodeName
