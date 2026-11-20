@@ -389,10 +389,18 @@ func (s *PolicySnapshot) matchFilterAAAADomain(qName string) bool {
 		return false
 	}
 	// Built-in mitigation for Google Cloud Code / Antigravity / Gemini Code Assist endpoints,
-	// Google OAuth / APIs, and Reddit CDN / Fastly endpoints which suffer from IPv6 PMTU stalls on German residential WAN connections
-	if clean == "accounts.google.com" || clean == "googleapis.com" || strings.HasSuffix(clean, ".googleapis.com") ||
+	// Google OAuth / APIs / assets, YouTube playback, and Reddit CDN / Fastly endpoints which suffer from IPv6 PMTU stalls on residential WAN
+	if clean == "google.com" || strings.HasSuffix(clean, ".google.com") ||
+		clean == "gstatic.com" || strings.HasSuffix(clean, ".gstatic.com") ||
+		clean == "googleapis.com" || strings.HasSuffix(clean, ".googleapis.com") ||
 		clean == "googleusercontent.com" || strings.HasSuffix(clean, ".googleusercontent.com") ||
+		clean == "google" || strings.HasSuffix(clean, ".google") ||
 		clean == "gvt1.com" || strings.HasSuffix(clean, ".gvt1.com") ||
+		clean == "gvt2.com" || strings.HasSuffix(clean, ".gvt2.com") ||
+		clean == "ggpht.com" || strings.HasSuffix(clean, ".ggpht.com") ||
+		clean == "youtube.com" || strings.HasSuffix(clean, ".youtube.com") ||
+		clean == "youtu.be" || strings.HasSuffix(clean, ".youtu.be") ||
+		clean == "googlevideo.com" || strings.HasSuffix(clean, ".googlevideo.com") ||
 		clean == "reddit.com" || strings.HasSuffix(clean, ".reddit.com") ||
 		clean == "redd.it" || strings.HasSuffix(clean, ".redd.it") ||
 		clean == "redditmedia.com" || strings.HasSuffix(clean, ".redditmedia.com") ||

@@ -164,8 +164,13 @@ func TestPolicyProxy_GroupsSchedulesLocalRecordsAndCNAMECloaking(t *testing.T) {
 		t.Fatalf("expected CNAME cloaking detection, got blocked=%v target=%q", blocked, target)
 	}
 
-	// 8. Built-in and domain FilterAAAA suppression (mitigates IPv6 PMTU stalls)
-	for _, aaaaDom := range []string{"daily-cloudcode-pa.googleapis.com.", "accounts.google.com.", "oauth2.googleapis.com.", "preview.redd.it.", "i.redd.it.", "www.reddit.com."} {
+	// 8. Built-in and domain FilterAAAA suppression (mitigates IPv6 PMTU stalls for Google, YouTube & Reddit)
+	for _, aaaaDom := range []string{
+		"daily-cloudcode-pa.googleapis.com.", "accounts.google.com.", "oauth2.googleapis.com.",
+		"ssl.gstatic.com.", "fonts.gstatic.com.", "www.gstatic.com.", "play.google.com.",
+		"google.com.", "youtube.com.", "googlevideo.com.",
+		"preview.redd.it.", "i.redd.it.", "www.reddit.com.", "redditstatic.com.",
+	} {
 		reqTest := new(dns.Msg)
 		reqTest.SetQuestion(aaaaDom, dns.TypeAAAA)
 		reqTest.RecursionDesired = true
@@ -178,6 +183,45 @@ func TestPolicyProxy_GroupsSchedulesLocalRecordsAndCNAMECloaking(t *testing.T) {
 		}
 		if !resp.RecursionAvailable {
 			t.Fatalf("expected RecursionAvailable to be true for %s FilterAAAA response", aaaaDom)
+		}
+	}
+
+	// 9. RFC 6761 localhost and *.localhost loopback resolution
+	for _, tc := range []struct {
+		name     string
+		qtype    uint16
+		expected string
+	}{
+		{"localhost.", dns.TypeA, "127.0.0.1"},
+		{"auth.localhost.", dns.TypeA, "127.0.0.1"},
+		{"oauth.callback.localhost.", dns.TypeA, "127.0.0.1"},
+		{"1.0.0.127.in-addr.arpa.", dns.TypePTR, "localhost."},
+		{"1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa.", dns.TypePTR, "localhost."},
+	} {
+		reqLH := new(dns.Msg)
+		reqLH.SetQuestion(tc.name, tc.qtype)
+		reqLH.RecursionDesired = true
+		resp, dec = EvaluateDNSQuery(reqLH, "192.168.1.10")
+		if resp == nil || dec.Action != "local" || len(resp.Answer) == 0 {
+			t.Fatalf("expected local RFC 6761 response for %s (%d), got resp=%v dec=%+v", tc.name, tc.qtype, resp, dec)
+		}
+		if !resp.Authoritative {
+			t.Fatalf("expected Authoritative to be true for %s", tc.name)
+		}
+		if !resp.RecursionAvailable {
+			t.Fatalf("expected RecursionAvailable to be true for %s", tc.name)
+		}
+		switch tc.qtype {
+		case dns.TypeA:
+			aRec, ok := resp.Answer[0].(*dns.A)
+			if !ok || aRec.A.String() != tc.expected {
+				t.Fatalf("expected A %s for %s, got %v", tc.expected, tc.name, resp.Answer[0])
+			}
+		case dns.TypePTR:
+			ptrRec, ok := resp.Answer[0].(*dns.PTR)
+			if !ok || ptrRec.Ptr != tc.expected {
+				t.Fatalf("expected PTR %s for %s, got %v", tc.expected, tc.name, resp.Answer[0])
+			}
 		}
 	}
 }

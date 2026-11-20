@@ -250,7 +250,7 @@ func initServices() {
 	if _, err := os.Stat(CombinedHostsPath); os.IsNotExist(err) {
 		slog.Info("Creating initial empty hosts file")
 		os.MkdirAll(filepath.Dir(CombinedHostsPath), 0755)
-		os.WriteFile(CombinedHostsPath, []byte("# Initial ShieldDNS hosts file\n"), 0644)
+		os.WriteFile(CombinedHostsPath, []byte("# Initial ShieldDNS hosts file\n127.0.0.1 localhost\n::1 localhost\n"), 0644)
 	}
 }
 

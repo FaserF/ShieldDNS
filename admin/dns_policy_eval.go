@@ -45,8 +45,8 @@ func EvaluateDNSQuery(req *dns.Msg, clientIP string) (*dns.Msg, PolicyDecision) 
 		dec.Upstream = up
 	}
 
-	// 1. Local Records & Auto-PTR (always honored)
-	if resp := snap.matchLocalRecord(req, qName, q.Qtype); resp != nil {
+	// 1. Local Records & Auto-PTR (always honored, including RFC 6761 localhost)
+	if resp := snap.matchLocalRecord(req, qName, q.Qtype, dec.FilterAAAA); resp != nil {
 		dec.Action = "local"
 		dec.Reason = "Local DNS record"
 		return resp, dec
@@ -283,7 +283,44 @@ func matchesAnyService(domain string, serviceIDs []string) bool {
 	return false
 }
 
-func (s *PolicySnapshot) matchLocalRecord(req *dns.Msg, qName string, qType uint16) *dns.Msg {
+func (s *PolicySnapshot) matchLocalRecord(req *dns.Msg, qName string, qType uint16, filterAAAA bool) *dns.Msg {
+	// RFC 6761 Special-Use Domain Names: localhost and *.localhost loopback resolution
+	if qName == "localhost" || strings.HasSuffix(qName, ".localhost") {
+		resp := new(dns.Msg)
+		resp.SetReply(req)
+		resp.Authoritative = true
+		resp.RecursionAvailable = req.RecursionDesired
+		qFqdn := req.Question[0].Name
+		switch qType {
+		case dns.TypeA:
+			resp.Answer = append(resp.Answer, &dns.A{
+				Hdr: dns.RR_Header{Name: qFqdn, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 3600},
+				A:   net.IPv4(127, 0, 0, 1),
+			})
+		case dns.TypeAAAA:
+			if s == nil || (!filterAAAA && !s.filterAAAA && !s.matchFilterAAAADomain(qName)) {
+				resp.Answer = append(resp.Answer, &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: qFqdn, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: 3600},
+					AAAA: net.IPv6loopback,
+				})
+			}
+		}
+		return resp
+	}
+
+	// RFC 6761 reverse PTR loopback
+	if qType == dns.TypePTR && (qName == "1.0.0.127.in-addr.arpa" || qName == "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") {
+		resp := new(dns.Msg)
+		resp.SetReply(req)
+		resp.Authoritative = true
+		resp.RecursionAvailable = req.RecursionDesired
+		resp.Answer = append(resp.Answer, &dns.PTR{
+			Hdr: dns.RR_Header{Name: req.Question[0].Name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 3600},
+			Ptr: "localhost.",
+		})
+		return resp
+	}
+
 	// Auto-PTR lookup
 	if qType == dns.TypePTR {
 		if target, ok := s.autoPTR[strings.ToLower(dns.Fqdn(qName))]; ok {

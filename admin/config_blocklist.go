@@ -297,7 +297,7 @@ func writeCombinedHostsStreaming(targetPath string, mappings map[string]string, 
 
 	_, _ = bw.WriteString("# ShieldDNS Combined Hosts File\n# Generated at ")
 	_, _ = bw.WriteString(time.Now().Format(time.RFC3339))
-	_, _ = bw.WriteString("\n\n# Custom Mappings\n")
+	_, _ = bw.WriteString("\n\n# RFC 6761 Loopback Entries\n127.0.0.1 localhost\n::1 localhost\n\n# Custom Mappings\n")
 
 	for domain, ip := range mappings {
 		_, _ = bw.WriteString(ip)

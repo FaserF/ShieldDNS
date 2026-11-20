@@ -225,8 +225,8 @@ func loadConfig() {
 
 		// Ensure default FilterAAAADomains include Google APIs, OAuth, and Reddit CDN domains to prevent IPv6 PMTU stalls
 		defaultAAAADomains := []string{
-			"accounts.google.com", "googleapis.com", "*.googleapis.com", "googleusercontent.com", "*.googleusercontent.com",
-			"daily-cloudcode-pa.googleapis.com", "cloudcode-pa.googleapis.com",
+			"*.google.com", "*.gstatic.com", "*.google", "*.googleapis.com", "*.googleusercontent.com",
+			"*.gvt1.com", "*.gvt2.com", "*.ggpht.com", "*.youtube.com", "*.youtu.be", "*.googlevideo.com",
 			"reddit.com", "redd.it", "preview.redd.it", "i.redd.it", "redditmedia.com", "redditstatic.com",
 		}
 		for _, defDom := range defaultAAAADomains {
