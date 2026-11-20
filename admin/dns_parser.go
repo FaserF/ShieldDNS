@@ -337,6 +337,11 @@ func parseLogLine(line string) {
 			shouldLog = false
 		}
 	}
+	if shouldLog && !isInfrastructureDomain(qDomain) {
+		if !allowDomainFloodLogSample(qDomain) {
+			shouldLog = false
+		}
+	}
 	if shouldLog {
 		bufferLock.Lock()
 		// Bound logBuffer to max 5000 items to protect PostgreSQL connection pool and memory under external floods
@@ -392,7 +397,33 @@ type rateLimitEntry struct {
 var (
 	dohRateLimits          sync.Map // IP -> *rateLimitEntry
 	blockedClientLogSample sync.Map // clientIP -> int64 unix timestamp
+	domainLogSample        sync.Map // domain -> *domainSampleEntry
 )
+
+type domainSampleEntry struct {
+	sync.Mutex
+	lastSec int64
+	count   int
+}
+
+func allowDomainFloodLogSample(domain string) bool {
+	now := time.Now().Unix()
+	val, _ := domainLogSample.LoadOrStore(domain, &domainSampleEntry{lastSec: now})
+	entry := val.(*domainSampleEntry)
+	entry.Lock()
+	defer entry.Unlock()
+
+	if entry.lastSec != now {
+		entry.lastSec = now
+		entry.count = 1
+		return true
+	}
+	entry.count++
+	if entry.count <= 10 {
+		return true
+	}
+	return entry.count%50 == 0
+}
 
 func allowBlockedIPLogSample(ip string) bool {
 	now := time.Now().Unix()
