@@ -475,7 +475,8 @@ def collect() -> dict:
     version_path = os.path.join(PROJECT_ROOT, "VERSION")
     if os.path.exists(version_path):
         try:
-            version = open(version_path, encoding="utf-8").read().strip()
+            with open(version_path, encoding="utf-8") as f:
+                version = f.read().strip()
         except OSError:
             pass
     else:

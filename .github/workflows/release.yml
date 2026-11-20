@@ -458,7 +458,7 @@ jobs:
           git add VERSION admin/main.go admin/www/admin/assets/project_stats.json admin/www/admin/assets/contributors.json admin/www/admin/assets/contributors_fallback.json
           if ! git diff --staged --quiet; then
             git commit -m "chore: release version ${{ steps.get_version.outputs.version }} [skip ci]"
-            git pull --rebase origin main
+            git pull --rebase -X theirs origin main
             git push origin HEAD:main
           fi
 
