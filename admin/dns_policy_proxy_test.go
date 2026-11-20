@@ -193,6 +193,7 @@ func TestPolicyProxy_GroupsSchedulesLocalRecordsAndCNAMECloaking(t *testing.T) {
 		expected string
 	}{
 		{"localhost.", dns.TypeA, "127.0.0.1"},
+		{"localhost.lan.", dns.TypeA, "127.0.0.1"},
 		{"auth.localhost.", dns.TypeA, "127.0.0.1"},
 		{"oauth.callback.localhost.", dns.TypeA, "127.0.0.1"},
 		{"1.0.0.127.in-addr.arpa.", dns.TypePTR, "localhost."},

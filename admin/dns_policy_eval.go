@@ -284,8 +284,8 @@ func matchesAnyService(domain string, serviceIDs []string) bool {
 }
 
 func (s *PolicySnapshot) matchLocalRecord(req *dns.Msg, qName string, qType uint16, filterAAAA bool) *dns.Msg {
-	// RFC 6761 Special-Use Domain Names: localhost and *.localhost loopback resolution
-	if qName == "localhost" || strings.HasSuffix(qName, ".localhost") {
+	// RFC 6761 Special-Use Domain Names: localhost, *.localhost, and search-suffix localhost.* loopback resolution
+	if qName == "localhost" || strings.HasSuffix(qName, ".localhost") || strings.HasPrefix(qName, "localhost.") {
 		resp := new(dns.Msg)
 		resp.SetReply(req)
 		resp.Authoritative = true
