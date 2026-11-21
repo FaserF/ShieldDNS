@@ -1,64 +1,38 @@
-# AI Agent Reference for ShieldDNS
+# AI Agent Operational Reference & Guidelines
+
+Mandatory operational guidelines and standards for AI coding agents (Antigravity, Hermes Agent, OpenHands, Claude Code, Paseo) working across `@FaserF` repositories.
 
 ---
 
-## Core Operational & Token Efficiency Rules
-
-- **Minimal Prose**: Bullet points only (≤5 items for change summaries). No filler, pleasantries, or tool-call narration.
-- **No Unrequested Artifacts**: Never create implementation plans (unless complex architectural change) or walkthroughs (unless explicitly requested).
-- **Targeted Reads & Links**: Use targeted line ranges (`StartLine`/`EndLine`). Never echo back code. Reference files with markdown links.
-- **Proactive Subagents**: Delegate research/exploration to `research` subagents and test/module fixes to `self` subagents. Do not poll.
-- **Manifest First**: Consult `project_manifest.json` and `project_connections.json` before codebase exploration.
-- **Tests & Linters**: Report failures only. Verify before concluding tasks. Default to English (EN).
-
----
-
-## Subagent Strategy
-
-| Scenario | Subagent & Workspace Mode |
-|---|---|
-| Reading/searching codebase or docs | `research` (`inherit`) |
-| Bug fixes across multiple modules / features | `self` (`branch` or `share`) |
-| Running tests & linter verification | `self` (`inherit`) |
+## 1. Identity & Commits
+* **Bot Identity:** Automated actions, reviews, commits, and pull requests must be executed as `faserf-hermes-agent[bot]`.
+* **Author Details:**
+  * Git Name: `faserf-hermes-agent[bot]`
+  * Git Email: `342667397+faserf-hermes-agent[bot]@users.noreply.github.com`
+* **Conventional Commits:** All commits must follow conventional format (`feat(...)`, `fix(...)`, `chore(...)`, `refactor(...)`, `test(...)`, `docs(...)`).
+* **Pull Requests:** PR descriptions must link to corresponding issues (`Closes #123`, `Fixes #123`) and include an automated change summary.
 
 ---
 
-## Project Manifest & Connection Map (Single Source of Truth)
-
-- **Manifest**: `project_manifest.json` — Go backend endpoints, frontend views, API mappings, file tree.
-- **Connections**: `project_connections.json` — file-level mapping for specific full-stack feature flows (DNS core, MFA, Geo-block, system diagnostics, rules/presets).
-
----
-
-## Codebase Architecture
-
-### Backend (`/admin`)
-
-| Area | Path |
-|---|---|
-| App entry & routing | `admin/main.go` |
-| Endpoints / controllers | `admin/api_*.go` |
-| Core logics (DNS / DB) | `admin/dns.go`, `admin/db.go` |
-| Threat intel & Geo-block | `admin/geo.go`, `admin/malicious.go` |
-| Multi-factor Auth (MFA) | `admin/auth.go`, `admin/api_mfa.go` |
-| Backup & Restore | `admin/crypto_backup.go` |
-
-### Frontend (`/admin/www/admin`)
-
-| Area | Path |
-|---|---|
-| Index template | `admin/www/admin/index.html` |
-| App module logic | `admin/www/admin/js/app.js` |
-| Navigation controller | `admin/www/admin/js/core/navigation.js` |
-| Render helpers | `admin/www/admin/js/ui/renderers.js` |
-| Service API routes | `admin/www/admin/js/services/api.js` |
+## 2. Token & Execution Efficiency
+* **Minimal Prose:** Explanations and PR comments must be concise, structured with bullet points, and free of filler phrases.
+* **Targeted Reads & Diffs:** Read specific line ranges when analyzing code. Never re-print large existing source files in comments or logs.
+* **No Hardcoded Secrets:** Never hardcode or commit tokens, private keys, passwords, or credentials. All secrets must reside in GitHub Secrets or Infisical.
+* **English Default (EN):** All code, variable names, commit messages, pull requests, issue templates, and AI comments must strictly default to English (EN).
 
 ---
 
-## CLI Commands
+## 3. Code Quality & Architectural Hygiene
+* **File Limits:** Source files should strictly adhere to $\le 600$ lines (ideal target: $< 300$ lines). Break monolithic modules into cohesive sub-modules.
+* **Exception Hygiene:**
+  * NEVER use `raise e`. ALWAYS use `raise ... from e` or a naked `raise` to preserve tracebacks.
+  * Silent failures (`except: pass`) are strictly forbidden. Always log at `warning` or `debug` level.
+* **Type Safety & Linting:** Strict typing (`mypy` / `pyright`), Python `ruff` format and linting, Go `golangci-lint`, JavaScript/TypeScript `eslint`.
+* **Testing:** All new features or bug fixes must include corresponding unit tests (`pytest`, `go test`, `npm test`). Never weaken existing test assertions.
 
-| Task | Command | Dir |
-|---|---|---|
-| Backend compile | `go build -o shielddns-admin ./admin` | Root |
-| Run Go backend locally | `go run admin/main.go` | Root |
-| Run backend tests | `go test ./admin/...` | Root |
+---
+
+## 4. Privacy & Attribution Guardrails
+* **No Personal Domain Exposure:** Do NOT insert links to `fabiseitz.de` or internal Tailscale endpoints in public repositories or PR reviews.
+* **Bot Verification Link:** Reference the official GitHub App for information on automated agent actions:
+  [Hermes Agent GitHub App](https://github.com/apps/faserf-hermes-agent)
