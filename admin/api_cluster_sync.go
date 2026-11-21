@@ -329,9 +329,7 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 		setAtomicAdminDomain(config.AdminDomain)
 	}
 	if exp.AIRules != nil {
-		if config.AIRules == nil {
-			config.AIRules = make(map[string]AIRuleMetadata, len(exp.AIRules))
-		}
+		config.AIRules = make(map[string]AIRuleMetadata, len(exp.AIRules))
 		for k, v := range exp.AIRules {
 			config.AIRules[k] = v
 		}
