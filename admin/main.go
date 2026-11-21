@@ -264,15 +264,30 @@ func startWorkers() {
 	go startMetadataUpdater(appCtx)
 	go StartQPSWorker(appCtx)
 
+	// Seed healthy upstreams from config and start CoreDNS immediately using cached hosts on disk
+	// so DNS resolution has zero downtime during startup blocklist downloads.
+	healthLock.Lock()
+	if len(healthyUpstreams) == 0 && len(config.Upstreams) > 0 {
+		healthyUpstreams = append([]string(nil), config.Upstreams...)
+	}
+	if len(healthyDoT) == 0 && len(config.UpstreamDoT) > 0 {
+		healthyDoT = append([]string(nil), config.UpstreamDoT...)
+	}
+	healthLock.Unlock()
+	updateCorefile()
+	go startCoreDNS(appCtx)
+
 	// Trigger initial blocklist and malicious updates in background
 	// Sequential execution prevents multiple concurrent CoreDNS restarts or duplicate blocklist runs
 	go func() {
 		updateBlocklist(nil, false)
 		syncMaliciousIPs(false)
-		updateCorefile()
+		if updateCorefile() {
+			restartCoreDNS()
+		}
 		slog.Info("ShieldDNS Ready: Blocklists and Threat Intelligence loaded")
 
-		// Initial CoreDNS start after everything is ready
+		// Ensure CoreDNS is running if not already started
 		go startCoreDNS(appCtx)
 
 		// Start cluster replica sync after initial blocklist & CoreDNS bootstrap to avoid startup races/OOM
