@@ -26,6 +26,9 @@
 @@||geizhals.de^
 @@||paypal.com^
 @@||paypalobjects.com^
+@@||i.paypal.com^
+@@||kinguin.net^
+@@||kinguin.sjv.io^
 @@||klarna.com^
 @@||appleid.apple.com^
 @@||icloud.com^
