@@ -19,5 +19,5 @@ permissions:
 
 jobs:
   bot:
-    uses: FaserF/repo-template/.github/workflows/reusable-hermes-bot.yml@v1
+    uses: FaserF/repo-template/.github/workflows/reusable-hermes-bot.yml@6e3166402d636358ea41cec93278d1d5c47910a0 # v1.0.0
     secrets: inherit
