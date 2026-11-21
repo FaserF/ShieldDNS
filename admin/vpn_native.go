@@ -154,10 +154,19 @@ func syncNativeVPN(cfg *Config) {
 
 	stopLocked()
 
+	if cfg.ClusterRole == "replica" && strings.TrimSpace(cfg.GeoProxyIP) != "" {
+		slog.Debug("Native VPN skipped on cluster replica using remote Geo-Proxy", "mode", mode, "geo_proxy_ip", cfg.GeoProxyIP)
+		return
+	}
+
 	if mode == "native_openvpn" {
 		if _, err := exec.LookPath("openvpn"); err != nil {
 			nativeVPNLastError = "openvpn binary not found in PATH"
-			slog.Info("Native OpenVPN skipped: openvpn executable not found in PATH")
+			if cfg.ClusterRole == "replica" {
+				slog.Debug("Native OpenVPN skipped on replica: openvpn executable not found in PATH")
+			} else {
+				slog.Info("Native OpenVPN skipped: openvpn executable not found in PATH")
+			}
 			return
 		}
 		iface := strings.TrimSpace(cfg.VPNInterface)

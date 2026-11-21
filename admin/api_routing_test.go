@@ -244,21 +244,27 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	}
 
 	// 1. Default OFF: no YouTube domains should match SNI Geo-Route or generate template blocks
-	if _, matched := MatchSNIGeoRoute(cfg, "youtubei.googleapis.com"); matched {
-		t.Errorf("expected youtubei.googleapis.com NOT to match when YouTubeAdblockEnabled is false")
+	if _, matched := MatchSNIGeoRoute(cfg, "www.youtube.com"); matched {
+		t.Errorf("expected www.youtube.com NOT to match when YouTubeAdblockEnabled is false")
 	}
 	if zones := GetGeoRoutedZones(cfg); len(zones) != 0 {
 		t.Errorf("expected 0 geo-routed zones when disabled, got %v", zones)
 	}
 
-	// 2. Enable YouTube Adblock: YouTube & GoogleVideo domains should match, AdminDomain and unrelated domains must NOT match
+	// 2. Enable YouTube Adblock: regular YouTube & GoogleVideo domains should match; YouTube Music, AdminDomain and unrelated domains must NOT match
 	cfg.YouTubeAdblockEnabled = true
 	proxyURL, matched := MatchSNIGeoRoute(cfg, "rr1---sn-4g5ednsd.googlevideo.com")
 	if !matched || proxyURL != "http://127.0.0.1:8888" {
 		t.Errorf("expected googlevideo subdomain to match with proxy URL, got matched=%v proxy=%s", matched, proxyURL)
 	}
-	if _, matched := MatchSNIGeoRoute(cfg, "youtubei.googleapis.com"); !matched {
-		t.Errorf("expected youtubei.googleapis.com to match when YouTubeAdblockEnabled is true")
+	if _, matched := MatchSNIGeoRoute(cfg, "www.youtube.com"); !matched {
+		t.Errorf("expected www.youtube.com to match when YouTubeAdblockEnabled is true")
+	}
+	if _, matched := MatchSNIGeoRoute(cfg, "music.youtube.com"); matched {
+		t.Errorf("expected music.youtube.com NOT to match SNI Geo-Proxy so YouTube Music stays unblocked")
+	}
+	if _, matched := MatchSNIGeoRoute(cfg, "youtubei.googleapis.com"); matched {
+		t.Errorf("expected youtubei.googleapis.com NOT to match SNI Geo-Proxy so YouTube Music app works")
 	}
 	if _, matched := MatchSNIGeoRoute(cfg, "dns.example.com"); matched {
 		t.Errorf("expected AdminDomain dns.example.com never to match SNI Geo-Proxy")
@@ -354,8 +360,11 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	}
 
 	coreBlocks := getRoutingZoneBlocks(&config, "53", "853", "443", true, "/ssl/cert.pem", "/ssl/key.pem")
-	if !strings.Contains(coreBlocks, "youtube.com:11053") {
-		t.Errorf("expected youtube.com:11053 block in Corefile when NextDNSYouTube is true, got:\n%s", coreBlocks)
+	if !strings.Contains(coreBlocks, "www.youtube.com:11053") {
+		t.Errorf("expected www.youtube.com:11053 block in Corefile when NextDNSYouTube is true, got:\n%s", coreBlocks)
+	}
+	if strings.Contains(coreBlocks, "music.youtube.com:11053") || strings.Contains(coreBlocks, "youtubei.googleapis.com:11053") {
+		t.Errorf("did not expect music.youtube.com or youtubei.googleapis.com in NextDNS Corefile blocks, got:\n%s", coreBlocks)
 	}
 	if !strings.Contains(coreBlocks, "tls_servername 2351bb.dns.nextdns.io") {
 		t.Errorf("expected tls_servername 2351bb.dns.nextdns.io in Corefile, got:\n%s", coreBlocks)

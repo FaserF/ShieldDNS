@@ -8,6 +8,30 @@ import (
 	"time"
 )
 
+// isDomainBlockStatus returns true only for domain/blocklist blocks, excluding IP, policy, or threat-intel client blocks.
+func isDomainBlockStatus(status string) bool {
+	return status == StatusBlocked || status == "Blocked (Blocklist)"
+}
+
+// isKnownTrackerOrAdDomain guards against AI Guardian false-positive auto-allowing well-known ad/telemetry domains.
+func isKnownTrackerOrAdDomain(domain string) bool {
+	d := NormalizeDomain(domain)
+	if d == "" {
+		return false
+	}
+	knownTrackers := []string{
+		"posthog.com", "sentry.io", "doubleclick.net", "googlesyndication.com",
+		"google-analytics.com", "app-measurement.com", "datadoghq.com", "datadoghq.eu",
+		"appsflyersdk.com", "branch.io", "clarity.ms", "crashlytics.com",
+	}
+	for _, root := range knownTrackers {
+		if d == root || strings.HasSuffix(d, "."+root) {
+			return true
+		}
+	}
+	return false
+}
+
 // RunAIGuardianAuditCycle runs a full background audit scanning recent queries.
 func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 	startTime := time.Now()
@@ -84,7 +108,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 				continue
 			}
 			// Skip domains that already have custom rules unless checking for false positives
-			isBlocked := strings.HasPrefix(c.Status, "Blocked")
+			isBlocked := isDomainBlockStatus(c.Status)
 			if !isBlocked && customBlockedMap[c.Domain] {
 				continue
 			}
@@ -98,14 +122,16 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 	domainsToBlock := make([]string, 0)
 	domainsToAllow := make([]string, 0)
 	aiRuleUpdates := make(map[string]AIRuleMetadata)
+	triageErrors := 0
 
 	for _, cand := range candidates {
 		if ctx.Err() != nil {
 			break
 		}
-		isBlocked := strings.HasPrefix(cand.Status, "Blocked")
+		isBlocked := isDomainBlockStatus(cand.Status)
 		verdict, err := TriageDomainWithAI(ctx, cand.Domain, cand.ClientIP, isBlocked)
 		if err != nil {
+			triageErrors++
 			slog.Debug("AI triage failed for candidate", "domain", cand.Domain, "error", err)
 			continue
 		}
@@ -152,7 +178,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 		}
 
 		// Autonomous False Positive Handling (Strictly restricted to trusted LAN/Tailnet queries to prevent reflection flood abuse)
-		if isBlocked && (verdict.ThreatType == "false_positive" || (verdict.ThreatType == "clean" && verdict.RecommendedAction == "allow")) {
+		if isBlocked && !isKnownTrackerOrAdDomain(cand.Domain) && (verdict.ThreatType == "false_positive" || (verdict.ThreatType == "clean" && verdict.RecommendedAction == "allow")) {
 			report.FalsePositives++
 			if autoFlagFP && verdict.RecommendedAction == "allow" && verdict.Confidence >= threshold && !customAllowedMap[cand.Domain] && IsPrivateOrTailnetIP(cand.ClientIP) && cand.Count < 500 {
 				domainsToAllow = append(domainsToAllow, cand.Domain)
@@ -169,6 +195,10 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 				report.AutoAllowedDomains = append(report.AutoAllowedDomains, cand.Domain)
 			}
 		}
+	}
+
+	if triageErrors > 0 && report.DomainsInspected == 0 {
+		slog.Warn("AI Guardian audit cycle: all candidate triages failed", "errors", triageErrors)
 	}
 
 	// Apply autonomous changes if any domains were marked

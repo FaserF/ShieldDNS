@@ -20,8 +20,21 @@ import (
 var (
 	clusterConnLost      int32 // atomic: 1 = lost, 0 = healthy
 	clusterLastSyncError string
+	clusterErrMu         sync.RWMutex
 	clusterSyncMu        sync.Mutex
 )
+
+func getClusterLastSyncError() string {
+	clusterErrMu.RLock()
+	defer clusterErrMu.RUnlock()
+	return clusterLastSyncError
+}
+
+func setClusterLastSyncError(msg string) {
+	clusterErrMu.Lock()
+	clusterLastSyncError = msg
+	clusterErrMu.Unlock()
+}
 
 var (
 	clusterTransportVerified   = buildClusterTransport(true)
@@ -116,7 +129,7 @@ func handleClusterStatus(w http.ResponseWriter, r *http.Request) {
 		"last_sync":        lastSync,
 		"worker_domain":    config.ClusterWorkerDomain,
 		"connection_lost":  connLost,
-		"last_sync_error":  clusterLastSyncError,
+		"last_sync_error":  getClusterLastSyncError(),
 		"replicas":          sanitizedReplicas,
 		"replica_count":     len(replicas),
 		"local_mappings":    config.ClusterLocalMappings,
@@ -143,7 +156,7 @@ func handleClusterConnectionStatus(w http.ResponseWriter, r *http.Request) {
 		"primary_url":     primaryURL,
 		"connection_lost": connLost,
 		"last_sync":       lastSync,
-		"last_error":      clusterLastSyncError,
+		"last_error":      getClusterLastSyncError(),
 	})
 }
 
@@ -486,7 +499,7 @@ func handleClusterJoin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	atomic.StoreInt32(&clusterConnLost, 0)
-	clusterLastSyncError = ""
+	setClusterLastSyncError("")
 	restartClusterSyncLoop()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -521,7 +534,7 @@ func handleClusterSync(w http.ResponseWriter, r *http.Request) {
 	err := performReplicaSync(primaryURL, apiToken, instType, failover)
 	if err != nil {
 		atomic.StoreInt32(&clusterConnLost, 1)
-		clusterLastSyncError = err.Error()
+		setClusterLastSyncError(err.Error())
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -533,7 +546,7 @@ func handleClusterSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	atomic.StoreInt32(&clusterConnLost, 0)
-	clusterLastSyncError = ""
+	setClusterLastSyncError("")
 	restartClusterSyncLoop()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -563,7 +576,7 @@ func handleClusterLeave(w http.ResponseWriter, r *http.Request) {
 	configLock.Unlock()
 
 	atomic.StoreInt32(&clusterConnLost, 0)
-	clusterLastSyncError = ""
+	setClusterLastSyncError("")
 	restartClusterSyncLoop()
 
 	w.Header().Set("Content-Type", "application/json")

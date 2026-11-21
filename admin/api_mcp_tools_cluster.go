@@ -70,7 +70,7 @@ var mcpClusterTools = []mcpToolDefinition{
 				"failover_mode":    failoverMode,
 				"last_sync":        lastSync,
 				"connection_lost":  connLost,
-				"last_sync_error":  clusterLastSyncError,
+				"last_sync_error":  getClusterLastSyncError(),
 				"replicas":         sanitizedReplicas,
 				"replica_count":    len(replicas),
 			}, nil
@@ -102,12 +102,12 @@ var mcpClusterTools = []mcpToolDefinition{
 			err := performReplicaSync(primaryURL, apiToken, instType, failover)
 			if err != nil {
 				atomic.StoreInt32(&clusterConnLost, 1)
-				clusterLastSyncError = err.Error()
+				setClusterLastSyncError(err.Error())
 				return nil, fmt.Errorf("sync failed: %w", err)
 			}
 
 			atomic.StoreInt32(&clusterConnLost, 0)
-			clusterLastSyncError = ""
+			setClusterLastSyncError("")
 
 			return map[string]interface{}{
 				"success": true,
@@ -217,7 +217,7 @@ var mcpClusterTools = []mcpToolDefinition{
 			connLost := atomic.LoadInt32(&clusterConnLost) == 1
 			if role == "replica" {
 				if connLost {
-					issues = append(issues, fmt.Sprintf("Replica disconnected from Primary (%s): %s", primaryURL, clusterLastSyncError))
+					issues = append(issues, fmt.Sprintf("Replica disconnected from Primary (%s): %s", primaryURL, getClusterLastSyncError()))
 					suggestions = append(suggestions, "Verify network route to Primary, check API token validity, and use trigger_cluster_sync to retry.")
 				}
 				if failover && primaryURL == "" {
@@ -232,7 +232,7 @@ var mcpClusterTools = []mcpToolDefinition{
 					"node_name":        nodeName,
 					"log_sharing_mode": logMode,
 					"connection_lost":  connLost,
-					"last_sync_error":  clusterLastSyncError,
+					"last_sync_error":  getClusterLastSyncError(),
 					"replica_count":    len(replicas),
 				},
 				"profile_analysis": map[string]interface{}{

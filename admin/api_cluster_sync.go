@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -116,7 +117,9 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 
 	// Trigger log synchronization exclusively during regular cluster sync
 	go func() {
-		_ = SyncClusterLogs()
+		if err := SyncClusterLogs(); err != nil {
+			slog.Warn("Cluster log sync failed", "error", err)
+		}
 	}()
 
 	return nil
@@ -335,7 +338,7 @@ func applyClusterExport(exp ClusterConfigExport, primaryURL, apiToken, instType 
 	}
 	config.AIEnabled = exp.AIEnabled
 	if exp.AIBaseURL != "" {
-		config.AIBaseURL = exp.AIBaseURL
+		config.AIBaseURL = rewriteLoopbackAIURL(exp.AIBaseURL, primaryURL)
 	}
 	if exp.AIModel != "" {
 		config.AIModel = exp.AIModel
@@ -509,50 +512,57 @@ func handleClusterIngestLogs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-var lastSyncQueryID int64
-var lastSyncQueryMu sync.Mutex
+var (
+	lastSyncQueryID          int64
+	lastSyncQueryInitialized bool
+	lastSyncQueryMu          sync.Mutex
+)
 
-// SyncClusterLogs forwards recent query logs to the primary (or replica) if configured
-func SyncClusterLogs() error {
-	configLock.RLock()
-	role := config.ClusterRole
-	logMode := config.ClusterLogSharingMode
-	primaryURL := config.ClusterPrimaryURL
-	apiToken := config.ClusterPrimaryToken
-	nodeName := config.ClusterNodeName
-	configLock.RUnlock()
-
-	if logMode == "" || logMode == "local_only" {
-		return nil
+// rewriteLoopbackAIURL rewrites loopback AI base URLs (127.0.0.1/localhost/::1) exported by Primary
+// to the Primary's reachable hostname so replicas do not hit their own loopback interface.
+func rewriteLoopbackAIURL(rawAIURL, primaryURL string) string {
+	aiURL := strings.TrimSpace(rawAIURL)
+	if aiURL == "" || strings.TrimSpace(primaryURL) == "" {
+		return aiURL
 	}
-
-	if role != "replica" || primaryURL == "" || apiToken == "" {
-		return nil
+	parsedAI, err := url.Parse(aiURL)
+	if err != nil {
+		return aiURL
 	}
-
-	if nodeName == "" {
-		nodeName = "ShieldDNS Replica"
+	aiHost := parsedAI.Hostname()
+	if aiHost != "127.0.0.1" && !strings.EqualFold(aiHost, "localhost") && aiHost != "::1" {
+		return aiURL
 	}
+	parsedPrimary, err := url.Parse(strings.TrimSpace(primaryURL))
+	if err != nil {
+		return aiURL
+	}
+	pHost := parsedPrimary.Hostname()
+	if pHost == "" || pHost == "127.0.0.1" || strings.EqualFold(pHost, "localhost") || pHost == "::1" {
+		return aiURL
+	}
+	if port := parsedAI.Port(); port != "" {
+		parsedAI.Host = net.JoinHostPort(pHost, port)
+	} else {
+		parsedAI.Host = pHost
+	}
+	return parsedAI.String()
+}
 
-	lastSyncQueryMu.Lock()
-	minID := lastSyncQueryID
-	lastSyncQueryMu.Unlock()
-
-	// Select queries created since last sync that originated from this node (prevent echo loops)
+func readLocalClusterSyncBatch(minID int64, nodeName string, limit int) ([]Query, int64, error) {
 	rows, err := dbQuery(`
 		SELECT id, timestamp, domain, type, status, client_ip, is_cache_hit, duration_ms, country_code, node_name
 		FROM queries
-		WHERE id > ? AND (node_name = '' OR node_name = ?)
-		ORDER BY id ASC LIMIT 500
-	`, minID, nodeName)
+		WHERE id > ? AND (node_name IS NULL OR node_name = '' OR node_name = ?)
+		ORDER BY id ASC LIMIT ?
+	`, minID, nodeName, limit)
 	if err != nil {
-		return fmt.Errorf("failed to read local queries for cluster sync: %w", err)
+		return nil, minID, fmt.Errorf("failed to read local queries for cluster sync: %w", err)
 	}
 	defer rows.Close()
 
 	var queriesToPush []Query
-	var maxSeenID int64 = minID
-
+	maxSeenID := minID
 	for rows.Next() {
 		var q Query
 		var ts string
@@ -571,17 +581,33 @@ func SyncClusterLogs() error {
 		}
 		queriesToPush = append(queriesToPush, q)
 	}
+	if err := rows.Err(); err != nil {
+		return queriesToPush, maxSeenID, err
+	}
+	return queriesToPush, maxSeenID, nil
+}
 
-	if len(queriesToPush) == 0 {
+// SyncClusterLogs forwards recent query logs to the primary (or replica) if configured
+func SyncClusterLogs() error {
+	configLock.RLock()
+	role := config.ClusterRole
+	logMode := config.ClusterLogSharingMode
+	primaryURL := config.ClusterPrimaryURL
+	apiToken := config.ClusterPrimaryToken
+	nodeName := config.ClusterNodeName
+	verifyTLS := config.VerifyUpstreamTLS
+	configLock.RUnlock()
+
+	if logMode == "" || logMode == "local_only" {
 		return nil
 	}
 
-	payloadData, err := json.Marshal(map[string]interface{}{
-		"node_name": nodeName,
-		"queries":   queriesToPush,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to encode queries payload: %w", err)
+	if role != "replica" || primaryURL == "" || apiToken == "" {
+		return nil
+	}
+
+	if nodeName == "" {
+		nodeName = "ShieldDNS Replica"
 	}
 
 	if !isValidRedirectUrl(primaryURL) {
@@ -606,41 +632,81 @@ func SyncClusterLogs() error {
 		return fmt.Errorf("invalid cluster log ingest endpoint: %s", endpoint)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payloadData))
-	if err != nil {
-		return err
+	lastSyncQueryMu.Lock()
+	if !lastSyncQueryInitialized {
+		if lastSyncQueryID == 0 {
+			var initID sql.NullInt64
+			cutoff := time.Now().UTC().Add(-10 * time.Minute)
+			if row := dbQueryRow("SELECT COALESCE(MAX(id), 0) FROM queries WHERE timestamp < ?", cutoff); row != nil {
+				_ = row.Scan(&initID)
+			}
+			if initID.Valid && initID.Int64 > lastSyncQueryID {
+				lastSyncQueryID = initID.Int64
+			}
+		}
+		lastSyncQueryInitialized = true
 	}
+	minID := lastSyncQueryID
+	lastSyncQueryMu.Unlock()
 
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-API-Key", apiToken)
-	httpReq.Header.Set("X-Shield-Request", "true")
-
-	configLock.RLock()
-	verifyTLS := config.VerifyUpstreamTLS
-	configLock.RUnlock()
-
+	const batchSize = 500
+	const maxBatches = 5
 	client := newClusterHTTPClient(10*time.Second, verifyTLS)
 
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return fmt.Errorf("error pushing query logs to primary: %w", err)
-	}
-	defer resp.Body.Close()
+	for batchIdx := 0; batchIdx < maxBatches; batchIdx++ {
+		queriesToPush, maxSeenID, err := readLocalClusterSyncBatch(minID, nodeName, batchSize)
+		if err != nil {
+			return err
+		}
+		if len(queriesToPush) == 0 {
+			break
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
-		return fmt.Errorf("primary returned HTTP %d on log ingest: %s", resp.StatusCode, string(b))
-	}
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		payloadData, err := json.Marshal(map[string]interface{}{
+			"node_name": nodeName,
+			"queries":   queriesToPush,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to encode queries payload: %w", err)
+		}
 
-	lastSyncQueryMu.Lock()
-	if maxSeenID > lastSyncQueryID {
-		lastSyncQueryID = maxSeenID
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payloadData))
+		if err != nil {
+			cancel()
+			return err
+		}
+
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("X-API-Key", apiToken)
+		httpReq.Header.Set("X-Shield-Request", "true")
+
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			cancel()
+			return fmt.Errorf("error pushing query logs to primary: %w", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			b, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+			resp.Body.Close()
+			cancel()
+			return fmt.Errorf("primary returned HTTP %d on log ingest: %s", resp.StatusCode, string(b))
+		}
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		resp.Body.Close()
+		cancel()
+
+		lastSyncQueryMu.Lock()
+		if maxSeenID > lastSyncQueryID {
+			lastSyncQueryID = maxSeenID
+		}
+		minID = lastSyncQueryID
+		lastSyncQueryMu.Unlock()
+
+		if len(queriesToPush) < batchSize {
+			break
+		}
 	}
-	lastSyncQueryMu.Unlock()
 
 	return nil
 }

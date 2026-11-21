@@ -87,7 +87,7 @@ func TestClusterStatusHandler(t *testing.T) {
 	configLock.Unlock()
 
 	atomic.StoreInt32(&clusterConnLost, 0)
-	clusterLastSyncError = ""
+	setClusterLastSyncError("")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/cluster/status", nil)
 	w := httptest.NewRecorder()
@@ -116,7 +116,7 @@ func TestClusterStatusHandler(t *testing.T) {
 
 func TestClusterOfflineFallback(t *testing.T) {
 	atomic.StoreInt32(&clusterConnLost, 1)
-	clusterLastSyncError = "connection refused"
+	setClusterLastSyncError("connection refused")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/cluster/connection-status", nil)
 	w := httptest.NewRecorder()
@@ -290,5 +290,23 @@ func TestListsEqual(t *testing.T) {
 	c := []List{{Name: "L1", URL: "https://example.com/1.txt", Enabled: false, Entries: 100}}
 	if listsEqual(a, c) {
 		t.Errorf("expected listsEqual to detect Enabled change")
+	}
+}
+
+func TestRewriteLoopbackAIURL(t *testing.T) {
+	cases := []struct {
+		aiURL   string
+		primary string
+		want    string
+	}{
+		{"http://127.0.0.1:20128/v1", "http://oracle-vm.tailnet.fabiseitz.de:9443", "http://oracle-vm.tailnet.fabiseitz.de:20128/v1"},
+		{"http://localhost:20128/v1", "https://dns.fabiseitz.de", "http://dns.fabiseitz.de:20128/v1"},
+		{"http://100.64.0.1:20128/v1", "http://oracle-vm.tailnet.fabiseitz.de:9443", "http://100.64.0.1:20128/v1"},
+		{"http://127.0.0.1:20128/v1", "http://127.0.0.1:9443", "http://127.0.0.1:20128/v1"},
+	}
+	for _, tc := range cases {
+		if got := rewriteLoopbackAIURL(tc.aiURL, tc.primary); got != tc.want {
+			t.Errorf("rewriteLoopbackAIURL(%q, %q) = %q; want %q", tc.aiURL, tc.primary, got, tc.want)
+		}
 	}
 }

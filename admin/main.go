@@ -342,11 +342,11 @@ func startClusterReplicaSync(ctx context.Context) {
 	slog.Info("Cluster replica: starting background sync with Primary", "primary", pURL)
 	if err := performReplicaSync(pURL, pTok, iType, failover); err != nil {
 		atomic.StoreInt32(&clusterConnLost, 1)
-		clusterLastSyncError = err.Error()
+		setClusterLastSyncError(err.Error())
 		slog.Warn("Cluster replica initial sync failed: continuing with cached configuration", "error", err)
 	} else {
 		atomic.StoreInt32(&clusterConnLost, 0)
-		clusterLastSyncError = ""
+		setClusterLastSyncError("")
 		slog.Info("Cluster replica initial sync succeeded")
 	}
 
@@ -379,7 +379,7 @@ func startClusterReplicaSync(ctx context.Context) {
 				time.Sleep(10 * time.Second)
 				if retryErr := performReplicaSync(currPURL, currPTok, currIType, currFailover); retryErr != nil {
 					wasLost := atomic.SwapInt32(&clusterConnLost, 1)
-					clusterLastSyncError = retryErr.Error()
+					setClusterLastSyncError(retryErr.Error())
 					slog.Warn("Cluster periodic sync failed", "error", retryErr, "retry_in", currentInterval*2)
 					if currentInterval < 10*time.Minute {
 						currentInterval *= 2
@@ -393,7 +393,7 @@ func startClusterReplicaSync(ctx context.Context) {
 					}
 				} else {
 					wasLost := atomic.SwapInt32(&clusterConnLost, 0)
-					clusterLastSyncError = ""
+					setClusterLastSyncError("")
 					currentInterval = baseInterval
 					if wasLost == 1 {
 						slog.Info("Cluster connection restored, interval reset to base", "interval", baseInterval)
@@ -405,7 +405,7 @@ func startClusterReplicaSync(ctx context.Context) {
 				}
 			} else {
 				wasLost := atomic.SwapInt32(&clusterConnLost, 0)
-				clusterLastSyncError = ""
+				setClusterLastSyncError("")
 				currentInterval = baseInterval
 				if wasLost == 1 {
 					slog.Info("Cluster connection restored, interval reset to base", "interval", baseInterval)

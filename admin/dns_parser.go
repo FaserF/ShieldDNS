@@ -222,23 +222,36 @@ func parseLogLine(line string) {
 	// ACL / Client / Geo Blocking check
 	// CoreDNS acl plugin returns REFUSED for blocked clients/CIDRs
 	if rcode == "REFUSED" {
-		isBlocked = true
-		status = StatusBlockedPolicy
+		isClientBlocked := false
 
 		// Check if it was blocked by the automated malicious IP intelligence feed
 		if IsMaliciousIP(clientIP) {
+			isBlocked = true
 			status = StatusBlockedMalicious
+			isClientBlocked = true
 		}
 
 		// Check if it was a specifically blocked client IP (Manual block has highest priority)
 		configLock.RLock()
 		for _, bip := range config.BlockedClients {
 			if bip == clientIP {
+				isBlocked = true
 				status = StatusBlockedClient
+				isClientBlocked = true
 				break
 			}
 		}
 		configLock.RUnlock()
+
+		if !isClientBlocked {
+			// Upstream resolvers routinely return REFUSED for private/local reverse DNS lookups (.in-addr.arpa / .ip6.arpa);
+			// do not misclassify those as local policy blocks.
+			isReverseLookup := strings.HasSuffix(qDomain, ".in-addr.arpa") || strings.HasSuffix(qDomain, ".ip6.arpa")
+			if !isReverseLookup {
+				isBlocked = true
+				status = StatusBlockedPolicy
+			}
+		}
 	}
 
 	// Heuristic for Cache Hit: Very low latency (< 1.5ms) and valid response.

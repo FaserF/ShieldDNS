@@ -214,3 +214,20 @@ func TestApplyCurrentRulesDropsTrustedInfrastructure(t *testing.T) {
 		t.Errorf("Expected ads.tracker.com to remain in attribution")
 	}
 }
+
+func TestIsDomainBlockStatusAndKnownTrackerGuard(t *testing.T) {
+	if !isDomainBlockStatus(StatusBlocked) || !isDomainBlockStatus("Blocked (Blocklist)") {
+		t.Errorf("expected StatusBlocked and Blocked (Blocklist) to be domain block statuses")
+	}
+	for _, st := range []string{StatusBlockedClient, StatusBlockedPolicy, StatusBlockedMalicious, StatusAllowed} {
+		if isDomainBlockStatus(st) {
+			t.Errorf("did not expect %q to be treated as domain blocklist block", st)
+		}
+	}
+	if !isKnownTrackerOrAdDomain("app.posthog.com") || !isKnownTrackerOrAdDomain("o427061.ingest.sentry.io") {
+		t.Errorf("expected posthog and sentry to be flagged as known tracker domains")
+	}
+	if isKnownTrackerOrAdDomain("holodisks.com") {
+		t.Errorf("did not expect holodisks.com to match known tracker list")
+	}
+}

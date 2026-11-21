@@ -472,3 +472,24 @@ func TestUpdateCorefileWildcardTemplates(t *testing.T) {
 		t.Errorf("Expected second updateCorefile() call with identical config to return false")
 	}
 }
+
+func TestParseLogLine_RefusedReverseLookupNotBlockedPolicy(t *testing.T) {
+	bufferLock.Lock()
+	logBuffer = nil
+	bufferLock.Unlock()
+
+	recentQueriesLock.Lock()
+	recentQueries = make(map[string]querySignature)
+	recentQueriesLock.Unlock()
+
+	parseLogLine(`192.168.1.50:5353 PTR 116.1.168.192.in-addr.arpa. REFUSED qr,rd,ra 0.002s "-"`)
+
+	bufferLock.Lock()
+	defer bufferLock.Unlock()
+	if len(logBuffer) != 1 {
+		t.Fatalf("Expected 1 query in buffer, got %d", len(logBuffer))
+	}
+	if logBuffer[0].Status != StatusAllowed {
+		t.Errorf("Expected PTR REFUSED for non-blocked client to be %q, got %q", StatusAllowed, logBuffer[0].Status)
+	}
+}
