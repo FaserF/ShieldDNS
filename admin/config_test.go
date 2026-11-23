@@ -488,3 +488,30 @@ func TestApplyCurrentRules_ImportantRulePrecedence(t *testing.T) {
 		t.Errorf("c.amazon-adsystem.com should have remained blocked due to $important flag!")
 	}
 }
+
+func TestAntiAdblockListParsing(t *testing.T) {
+	prevDataDir := DataDir
+	DataDir = filepath.Join("..", "official")
+	defer func() { DataDir = prevDataDir }()
+
+	list := List{
+		Name: "Anti-Adblock & Nag Banner Blocklist",
+		URL:  "file://" + filepath.Join(DataDir, "blocklists", "anti-adblock.txt"),
+	}
+	blockMap := make(map[string][]string)
+	importantMap := make(map[string]struct{})
+
+	processList(&list, blockMap, nil, nil, importantMap)
+
+	if list.Entries == 0 {
+		t.Fatalf("Expected anti-adblock.txt to yield parsed entries, got 0")
+	}
+	for _, domain := range []string{"btloader.com", "getadmiral.com", "fundingchoicesmessages.google.com"} {
+		if _, ok := blockMap[domain]; !ok {
+			t.Errorf("Expected %s to be in blockMap", domain)
+		}
+		if _, ok := importantMap[domain]; !ok {
+			t.Errorf("Expected %s to be marked $important", domain)
+		}
+	}
+}

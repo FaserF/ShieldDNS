@@ -503,7 +503,7 @@ func processList(list *List, blockMap map[string][]string, allowMap map[string]s
 			parts := strings.Split(list.URL, "/official/")
 			if len(parts) == 2 {
 				switch parts[1] {
-				case "allowlists/default.txt", "blocklists/default.txt", "blocklists/search-ads-hybrid.txt":
+				case "allowlists/default.txt", "blocklists/default.txt", "blocklists/anti-adblock.txt", "blocklists/search-ads-hybrid.txt":
 					file, err = openLocalOfficialFile(parts[1])
 					if err == nil {
 						useLocal = true

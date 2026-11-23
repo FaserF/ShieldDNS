@@ -3,6 +3,7 @@ package main
 var DefaultPresets = []List{
 	// --- Official ---
 	{Name: "ShieldDNS Official Blocklist", URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/blocklists/default.txt", Enabled: true, Category: "Official", IsRecommended: true, Priority: "high"},
+	{Name: "Anti-Adblock & Nag Banner Blocklist", URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/blocklists/anti-adblock.txt", Enabled: true, Category: "Official", IsRecommended: true, Priority: "high"},
 	{Name: "Search Ads Hybrid Blocklist", URL: "https://raw.githubusercontent.com/FaserF/ShieldDNS/main/official/blocklists/search-ads-hybrid.txt", Enabled: false, Category: "Official", Priority: "normal"},
 
 	// --- General Blocking ---

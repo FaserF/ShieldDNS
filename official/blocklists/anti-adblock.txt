@@ -1,0 +1,40 @@
+# ShieldDNS Official Anti-Adblock & Nag Banner Blocklist
+# Format: AdBlock/AdGuard-style domain rules
+# Blocks third-party anti-adblock, ad-recovery, and "disable your adblocker" script domains.
+# Note: First-party inline anti-adblock checks (rendered directly by the site's own domain)
+# require a browser-level content blocker (e.g. uBlock Origin) for cosmetic/scriptlet filtering.
+
+# Admiral (Ad-recovery & anti-adblock walls)
+||getadmiral.com^$important
+||admiral.mgr.consensu.org^$important
+||succeedscene.com^$important
+||goddesslamps.com^$important
+
+# Blockthrough (Ad-recovery & acceptable-ads reinsertion)
+||btloader.com^$important
+||cdn.btloader.com^$important
+||blockthrough.com^$important
+
+# Ad-Shield (Anti-adblock circumvention & recovery)
+||ad-shield.io^$important
+||adshield.io^$important
+||error-report.com^$important
+
+# Google Funding Choices (Anti-adblock nag banners)
+||fundingchoicesmessages.google.com^$important
+
+# Yahoo / TechCrunch Ad-Recovery & Telemetry
+||fc.yahoo.com^$important
+||udc.yahoo.com^$important
+||udcm.yahoo.com^$important
+
+# Legacy & Third-Party Anti-Adblock Detection Scripts
+||pagefair.com^$important
+||pagefair.net^$important
+||yavli.com^$important
+||adrecover.com^$important
+||detectadblock.com^$important
+||fuckadblock.com^$important
+||antiblock.org^$important
+||adblockanalytics.com^$important
+||blockadblock.com^$important
