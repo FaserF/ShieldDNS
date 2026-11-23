@@ -59,7 +59,7 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 		return fmt.Errorf("invalid cluster sync endpoint: %s", endpoint)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
@@ -668,7 +668,7 @@ func SyncClusterLogs() error {
 			return fmt.Errorf("failed to encode queries payload: %w", err)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payloadData))
 		if err != nil {
 			cancel()

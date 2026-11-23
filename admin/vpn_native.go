@@ -92,18 +92,57 @@ func GetEffectiveGeoBindIP(cfg *Config) string {
 	return GetVPNInterfaceIP(iface)
 }
 
+// resolveUpstreamTarget resolves targetAddr ("host:port") using external public resolvers
+// so the SNI proxy never hairpins onto its own GeoProxyIP via local ShieldDNS CoreDNS.
+func resolveUpstreamTarget(targetAddr, geoProxyIP string, timeout time.Duration) string {
+	host, port, err := net.SplitHostPort(targetAddr)
+	if err != nil {
+		return targetAddr
+	}
+	if net.ParseIP(host) != nil {
+		return targetAddr
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	for _, dnsServer := range []string{"1.1.1.1:53", "9.9.9.9:53", "8.8.8.8:53"} {
+		r := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				return (&net.Dialer{Timeout: 2 * time.Second}).DialContext(ctx, "udp", dnsServer)
+			},
+		}
+		ips, err := r.LookupIP(ctx, "ip4", host)
+		if err != nil {
+			continue
+		}
+		for _, ip := range ips {
+			s := ip.String()
+			if s != "" && s != geoProxyIP && !ip.IsLoopback() {
+				return net.JoinHostPort(s, port)
+			}
+		}
+	}
+	return targetAddr
+}
+
 func dialViaInterfaceOrDirect(targetAddr, overrideIface string, timeout time.Duration) (net.Conn, error) {
+	configLock.RLock()
+	cfg := config.Clone()
+	configLock.RUnlock()
+
+	resolvedTarget := resolveUpstreamTarget(targetAddr, GetEffectiveGeoProxyIP(cfg), timeout)
+
 	if overrideIface != "" {
 		if ip := GetVPNInterfaceIP(overrideIface); ip != "" {
 			if parsed := net.ParseIP(ip); parsed != nil {
 				d := &net.Dialer{Timeout: timeout, LocalAddr: &net.TCPAddr{IP: parsed}}
-				return d.Dial("tcp", targetAddr)
+				if conn, err := d.Dial("tcp", resolvedTarget); err == nil {
+					return conn, nil
+				}
 			}
 		}
 	}
-	configLock.RLock()
-	cfg := config.Clone()
-	configLock.RUnlock()
 
 	if bindIP := GetEffectiveGeoBindIP(cfg); bindIP != "" {
 		if parsed := net.ParseIP(bindIP); parsed != nil {
@@ -111,10 +150,12 @@ func dialViaInterfaceOrDirect(targetAddr, overrideIface string, timeout time.Dur
 				Timeout:   timeout,
 				LocalAddr: &net.TCPAddr{IP: parsed},
 			}
-			return dialer.Dial("tcp", targetAddr)
+			if conn, err := dialer.Dial("tcp", resolvedTarget); err == nil {
+				return conn, nil
+			}
 		}
 	}
-	return net.DialTimeout("tcp", targetAddr, timeout)
+	return net.DialTimeout("tcp", resolvedTarget, timeout)
 }
 
 // syncNativeVPN starts, stops, or restarts the embedded OpenVPN / WireGuard tunnel inside ShieldDNS.
@@ -218,6 +259,31 @@ func syncNativeVPN(cfg *Config) {
 		nativeVPNActiveIf = iface
 		nativeVPNLastError = ""
 		nativeVPNStartedAt = time.Now()
+		go func(c *exec.Cmd, ifaceName string, cfgCopy *Config) {
+			err := c.Wait()
+			if ctx.Err() != nil {
+				return
+			}
+			nativeVPNMu.Lock()
+			stillCurrent := nativeVPNCmd == c
+			if stillCurrent {
+				if err != nil {
+					nativeVPNLastError = fmt.Sprintf("openvpn exited: %v", err)
+				} else {
+					nativeVPNLastError = "openvpn exited unexpectedly"
+				}
+				nativeVPNCmd = nil
+			}
+			nativeVPNMu.Unlock()
+			slog.Warn("Native OpenVPN process exited; scheduling restart", "interface", ifaceName, "error", err)
+			if stillCurrent {
+				time.AfterFunc(15*time.Second, func() {
+					if appCtx.Err() == nil {
+						syncNativeVPN(cfgCopy)
+					}
+				})
+			}
+		}(cmd, iface, cfg.Clone())
 		slog.Info("Native OpenVPN started in non-intrusive split-tunnel mode", "interface", iface)
 		return
 	}
