@@ -1,12 +1,1 @@
-# Global owner for any changes
-*                               @FaserF
-
-# GitHub Actions & Automation (sole owner, overrides global)
-/.github/*                      @FaserF
-/.github/workflows/*            @FaserF
-/.github/ISSUE_TEMPLATE/*       @FaserF
-/.github/scripts/*              @FaserF
-
-# Documentation & Markdown
-*.md                            @FaserF
-/docs/*                         @FaserF
+* @faserf-hermes-agent
