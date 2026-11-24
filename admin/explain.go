@@ -426,10 +426,20 @@ evalAI:
 	}
 
 	if askAI && cfg.AIEnabled {
-		ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+		aiTimeout := time.Duration(cfg.AITimeoutSeconds) * time.Second
+		if aiTimeout <= 0 {
+			aiTimeout = 30 * time.Second
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), aiTimeout)
 		defer cancel()
 		verdict, err := TriageDomainWithAI(ctx, norm, clientIP, exp.Outcome == "blocked")
-		if err == nil && verdict != nil {
+		if err != nil {
+			exp.Stages = append(exp.Stages, ResolutionStage{
+				Stage:  "ai_guardian",
+				Status: "error",
+				Detail: fmt.Sprintf("Omniroute AI assessment failed: %v", err),
+			})
+		} else if verdict != nil {
 			exp.AIVerdict = verdict
 			exp.Stages = append(exp.Stages, ResolutionStage{
 				Stage:  "ai_guardian",

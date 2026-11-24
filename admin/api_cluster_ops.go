@@ -122,7 +122,7 @@ func handleClusterCompare(w http.ResponseWriter, r *http.Request) {
 			var rTot, rBlk, rHit int64
 			var rLat float64
 			row := dbQueryRow(
-				"SELECT COUNT(*), SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), SUM(CASE WHEN is_cache_hit = 1 THEN 1 ELSE 0 END), COALESCE(AVG(duration_ms), 0) FROM queries WHERE node_name = ?",
+				"SELECT COUNT(*), COALESCE(SUM(CASE WHEN status LIKE 'Blocked%' THEN 1 ELSE 0 END), 0), COALESCE(SUM(CASE WHEN is_cache_hit IS TRUE THEN 1 ELSE 0 END), 0), COALESCE(AVG(duration_ms), 0) FROM queries WHERE node_name = ?",
 				rep.Name,
 			)
 			if row != nil {

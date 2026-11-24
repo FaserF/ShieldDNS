@@ -100,7 +100,7 @@ func CallOpenAIChatCompletion(ctx context.Context, messages []OpenAIChatMessage)
 		Model:       model,
 		Messages:    messages,
 		Temperature: 0.1,
-		MaxTokens:   350,
+		MaxTokens:   1000,
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -246,6 +246,27 @@ func isTrustedInfrastructureDomain(domain string) bool {
 	return isTrustedInfrastructureDomainLocked(domain, adminDom)
 }
 
+// stripAIThinkingTags removes <think>...</think> or <reasoning>...</reasoning> blocks emitted by reasoning models.
+func stripAIThinkingTags(s string) string {
+	for _, tag := range []string{"think", "reasoning"} {
+		openTag := "<" + tag + ">"
+		closeTag := "</" + tag + ">"
+		for {
+			start := strings.Index(strings.ToLower(s), openTag)
+			if start == -1 {
+				break
+			}
+			end := strings.Index(strings.ToLower(s[start:]), closeTag)
+			if end == -1 {
+				s = s[:start]
+				break
+			}
+			s = s[:start] + s[start+end+len(closeTag):]
+		}
+	}
+	return strings.TrimSpace(s)
+}
+
 // TriageDomainWithAI performs structured threat and category triage on a domain.
 func TriageDomainWithAI(ctx context.Context, domain string, clientIP string, isBlocked bool) (*AITriageVerdict, error) {
 	normDomain := NormalizeDomain(domain)
@@ -303,8 +324,8 @@ Respond with JSON only.`, normDomain, vectorAssessment.IsThreat, vectorAssessmen
 		return nil, err
 	}
 
-	// Clean any markdown formatting backticks from response if returned
-	cleaned := strings.TrimSpace(content)
+	// Clean any reasoning tags and markdown formatting backticks from response if returned
+	cleaned := stripAIThinkingTags(content)
 	if strings.HasPrefix(cleaned, "```json") {
 		cleaned = strings.TrimPrefix(cleaned, "```json")
 		cleaned = strings.TrimSuffix(cleaned, "```")
@@ -522,7 +543,7 @@ var mcpAITools = []mcpToolDefinition{
 				rules = append(rules, r)
 			}
 			return map[string]interface{}{
-				"total": rules,
+				"rules": rules,
 				"count": len(rules),
 			}, nil
 		},

@@ -123,6 +123,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 	domainsToAllow := make([]string, 0)
 	aiRuleUpdates := make(map[string]AIRuleMetadata)
 	triageErrors := 0
+	var lastTriageErr error
 
 	for _, cand := range candidates {
 		if ctx.Err() != nil {
@@ -132,6 +133,7 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 		verdict, err := TriageDomainWithAI(ctx, cand.Domain, cand.ClientIP, isBlocked)
 		if err != nil {
 			triageErrors++
+			lastTriageErr = err
 			slog.Debug("AI triage failed for candidate", "domain", cand.Domain, "error", err)
 			continue
 		}
@@ -198,7 +200,8 @@ func RunAIGuardianAuditCycle(ctx context.Context) (*AIAuditReport, error) {
 	}
 
 	if triageErrors > 0 && report.DomainsInspected == 0 {
-		slog.Warn("AI Guardian audit cycle: all candidate triages failed", "errors", triageErrors)
+		slog.Error("AI Guardian audit cycle: all candidate triages failed", "errors", triageErrors, "last_error", lastTriageErr)
+		return nil, fmt.Errorf("all %d AI triage requests failed: %w", triageErrors, lastTriageErr)
 	}
 
 	// Apply autonomous changes if any domains were marked

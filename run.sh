@@ -140,7 +140,7 @@ is_port_busy() {
     return 1
 }
 
-DNS_PORT="53"
+DNS_PORT="${DNS_PORT:-53}"
 if is_port_busy "${DNS_PORT}"; then
     echo "⚠️  Port 53 is BUSY. Switching DNS to Fallback Port: 10053"
     DNS_PORT="10053"
@@ -171,7 +171,7 @@ export GOMAXPROCS
 # Initial Corefile (if backend hasn't generated one yet)
 ACTUAL_COREDNS_PORT="${INTERNAL_DOH_PORT}"
 if [ ! -f "$COREFILE_PATH" ]; then
-    cat <<EOF > $COREFILE_PATH
+    cat <<EOF > "$COREFILE_PATH"
 .:${DNS_PORT} {
     forward . ${UPSTREAM_DNS}
     log
@@ -198,9 +198,9 @@ ADMIN_PID=$!
 # CoreDNS is managed by the Go backend (shielddns-admin)
 # so it handles log parsing and restarts automatically.
 
-wait -n $ADMIN_PID
+wait "$ADMIN_PID"
 echo "⏹️  Shutting down services..."
 # Kill all background jobs gracefully
-kill -TERM "$(jobs -p)" 2>/dev/null || true
+jobs -p | xargs -r kill -TERM 2>/dev/null || true
 echo "ℹ️  ShieldDNS has stopped."
 exit 0

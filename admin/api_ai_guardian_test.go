@@ -231,3 +231,12 @@ func TestIsDomainBlockStatusAndKnownTrackerGuard(t *testing.T) {
 		t.Errorf("did not expect holodisks.com to match known tracker list")
 	}
 }
+
+func TestStripAIThinkingTags(t *testing.T) {
+	raw := "<think>evaluating {domain} heuristics</think>\n```json\n{\"is_threat\": false}\n```"
+	got := stripAIThinkingTags(raw)
+	want := "```json\n{\"is_threat\": false}\n```"
+	if got != want {
+		t.Errorf("stripAIThinkingTags() = %q; want %q", got, want)
+	}
+}

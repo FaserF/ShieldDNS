@@ -629,7 +629,12 @@ func flushLogs(queries []Query) {
 
 	tx, err := db.Begin()
 	if err != nil {
-		slog.Error("Error starting log transaction", "error", err)
+		errStr := err.Error()
+		if strings.Contains(errStr, "57P03") || strings.Contains(errStr, "connection refused") || strings.Contains(errStr, "bad connection") {
+			slog.Warn("Database temporarily unavailable for log flush", "error", err)
+		} else {
+			slog.Error("Error starting log transaction", "error", err)
+		}
 		return
 	}
 	defer tx.Rollback()
