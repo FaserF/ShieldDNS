@@ -77,16 +77,19 @@ type PolicySnapshot struct {
 	filterAAAA        bool
 	filterAAAADomains []string
 	blockPageIP       string
-	globalSafeSearch bool
-	globalYTMode     string
-	engineAddr       string
-	compiledAt       time.Time
+	globalSafeSearch       bool
+	globalYTMode           string
+	localPTRUpstreamsCount int
+	engineAddr             string
+	compiledAt             time.Time
 }
 
 var (
 	policySnapshotPtr atomic.Pointer[PolicySnapshot]
 	policyProxyOnce   sync.Once
 	policyProxyPort   = "5354"
+	policyUDPClient   = &dns.Client{Timeout: 4 * time.Second}
+	policyTCPClient   = &dns.Client{Net: "tcp", Timeout: 4 * time.Second}
 )
 
 // ReloadPolicySnapshot compiles the current Config and active schedule states into an atomic snapshot.
@@ -117,9 +120,10 @@ func compilePolicySnapshot(cfg *Config, now time.Time) *PolicySnapshot {
 		filterAAAA:        cfg.FilterAAAA,
 		filterAAAADomains: append([]string(nil), cfg.FilterAAAADomains...),
 		blockPageIP:       cfg.BlockPageIP,
-		globalSafeSearch: cfg.SafeSearchEnabled,
-		globalYTMode:     cfg.YouTubeRestriction,
-		engineAddr:       "127.0.0.1:" + enginePort,
+		globalSafeSearch:       cfg.SafeSearchEnabled,
+		globalYTMode:           cfg.YouTubeRestriction,
+		localPTRUpstreamsCount: len(cfg.LocalPTRUpstreams),
+		engineAddr:             "127.0.0.1:" + enginePort,
 		compiledAt:       now,
 	}
 
@@ -400,6 +404,10 @@ func (s *PolicySnapshot) matchFilterAAAADomain(qName string) bool {
 		clean == "ggpht.com" || strings.HasSuffix(clean, ".ggpht.com") ||
 		clean == "youtube.com" || strings.HasSuffix(clean, ".youtube.com") ||
 		clean == "youtu.be" || strings.HasSuffix(clean, ".youtu.be") ||
+		clean == "yt.be" || strings.HasSuffix(clean, ".yt.be") ||
+		clean == "ytimg.com" || strings.HasSuffix(clean, ".ytimg.com") ||
+		clean == "youtubekids.com" || strings.HasSuffix(clean, ".youtubekids.com") ||
+		clean == "youtube-nocookie.com" || strings.HasSuffix(clean, ".youtube-nocookie.com") ||
 		clean == "googlevideo.com" || strings.HasSuffix(clean, ".googlevideo.com") ||
 		clean == "reddit.com" || strings.HasSuffix(clean, ".reddit.com") ||
 		clean == "redd.it" || strings.HasSuffix(clean, ".redd.it") ||
@@ -514,16 +522,14 @@ func handlePolicyDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	}
 
 	start := time.Now()
-	c := new(dns.Client)
-	c.Timeout = 4 * time.Second
 	isTCP := (w.RemoteAddr() != nil && w.RemoteAddr().Network() == "tcp")
+	c := policyUDPClient
 	if isTCP {
-		c.Net = "tcp"
+		c = policyTCPClient
 	}
 	resp, _, err := c.Exchange(r, upstream)
 	if err == nil && resp != nil && resp.Truncated && !isTCP {
-		c.Net = "tcp"
-		resp, _, err = c.Exchange(r, upstream)
+		resp, _, err = policyTCPClient.Exchange(r, upstream)
 	}
 	durMs := float64(time.Since(start).Microseconds()) / 1000.0
 	if err != nil || resp == nil {

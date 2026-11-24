@@ -200,6 +200,8 @@ func isTrustedInfrastructureDomainLocked(domain string, adminDom string) bool {
 	trustedRoots := []string{
 		"fabiseitz.de",
 		"googleapis.com", "gstatic.com", "google.com", "googleusercontent.com", "gvt1.com", "gvt2.com",
+		"googlevideo.com", "ytimg.com", "ggpht.com", "youtube.com", "youtu.be", "yt.be", "youtubekids.com", "youtube-nocookie.com",
+		"ajay.app", "returnyoutubedislikeapi.com",
 		"microsoft.com", "windowsupdate.com", "live.com", "office.com", "azure.com",
 		"apple.com", "icloud.com", "mzstatic.com",
 		"github.com", "githubusercontent.com", "ghcr.io",

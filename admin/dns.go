@@ -62,7 +62,8 @@ const CorefileTemplate = `{{.RoutingBlocks}}
     forward . {{.Upstreams}} {
         health_check 10s
         max_fails 5
-        expire 10s
+        expire 60s
+        max_concurrent 1000
         {{if .TLSServerName}}tls_servername {{.TLSServerName}}{{end}}
         {{if .Policy}}policy {{.Policy}}{{end}}
     }

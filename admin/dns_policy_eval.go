@@ -52,6 +52,17 @@ func EvaluateDNSQuery(req *dns.Msg, clientIP string) (*dns.Msg, PolicyDecision) 
 		return resp, dec
 	}
 
+	// 1b. Fast local NXDOMAIN for RFC1918 private PTR queries when no local PTR upstream is configured
+	if q.Qtype == dns.TypePTR && snap.localPTRUpstreamsCount == 0 && isPrivateReverseZone(qName) {
+		resp := new(dns.Msg)
+		resp.SetRcode(req, dns.RcodeNameError)
+		resp.Authoritative = true
+		resp.RecursionAvailable = req.RecursionDesired
+		dec.Action = "local"
+		dec.Reason = "RFC1918 private PTR fast NXDOMAIN"
+		return resp, dec
+	}
+
 	// 2. FilterAAAA for group, global config, or domain match
 	if q.Qtype == dns.TypeAAAA && (dec.FilterAAAA || snap.filterAAAA || snap.matchFilterAAAADomain(qName)) {
 		resp := new(dns.Msg)
@@ -487,4 +498,20 @@ func buildIPReply(req *dns.Msg, ipStr string) *dns.Msg {
 		}
 	}
 	return resp
+}
+
+func isPrivateReverseZone(qName string) bool {
+	if strings.HasSuffix(qName, ".10.in-addr.arpa") || qName == "10.in-addr.arpa" ||
+		strings.HasSuffix(qName, ".168.192.in-addr.arpa") || qName == "168.192.in-addr.arpa" {
+		return true
+	}
+	if strings.HasSuffix(qName, ".172.in-addr.arpa") {
+		for o := 16; o <= 31; o++ {
+			suffix := fmt.Sprintf(".%d.172.in-addr.arpa", o)
+			if strings.HasSuffix(qName, suffix) {
+				return true
+			}
+		}
+	}
+	return false
 }

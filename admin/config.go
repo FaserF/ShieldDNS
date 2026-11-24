@@ -227,6 +227,7 @@ func loadConfig() {
 		defaultAAAADomains := []string{
 			"*.google.com", "*.gstatic.com", "*.google", "*.googleapis.com", "*.googleusercontent.com",
 			"*.gvt1.com", "*.gvt2.com", "*.ggpht.com", "*.youtube.com", "*.youtu.be", "*.googlevideo.com",
+			"ytimg.com", "*.ytimg.com", "youtubekids.com", "*.youtubekids.com", "yt.be", "youtube-nocookie.com", "*.youtube-nocookie.com",
 			"reddit.com", "redd.it", "preview.redd.it", "i.redd.it", "redditmedia.com", "redditstatic.com",
 			"localhost", "*.localhost",
 		}

@@ -427,16 +427,16 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 		}
 		sb.WriteString(strings.Join(zoneHeaders, " ") + " {\n")
 		sb.WriteString("    bind 127.0.0.1\n")
-		if cfg.DNSSECEnabled {
+		if cfg.DNSSECEnabled && !strings.Contains(k.tlsServerName, "nextdns.io") {
 			sb.WriteString("    dnssec\n")
 		}
 		sb.WriteString("    metadata\n")
-		sb.WriteString("    cache 300 {\n        success 10000\n        denial 5000\n        prefetch 5 1m 10%\n        serve_stale 1h\n    }\n")
+		sb.WriteString("    cache 3600 {\n        success 20000\n        denial 1000\n        prefetch 1 1m 10%\n        serve_stale 1h\n    }\n")
 		for _, d := range domains {
 			// Suppress HTTPS/SVCB (type 65) for geo/NextDNS zones to prevent HTTP/3 direct handshake bypass and NextDNS FORMERR
 			sb.WriteString(fmt.Sprintf("    template IN HTTPS %s {\n        rcode NOERROR\n    }\n", d))
 		}
-		sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 5s\n", k.upstreamStr))
+		sb.WriteString(fmt.Sprintf("    forward . %s {\n        health_check 10s\n        expire 60s\n        max_concurrent 1000\n        policy sequential\n", k.upstreamStr))
 		if k.tlsServerName != "" {
 			sb.WriteString(fmt.Sprintf("        tls_servername %s\n", k.tlsServerName))
 		}
@@ -455,10 +455,12 @@ func getTemplateBlocks(cfg *Config) string {
 	var sb strings.Builder
 
 	// 1. SmartDNS / Geo-Proxy Redirection Blocks (YouTube Ad-Free & VPN Geo-Routed Domains)
+	geoZonesSet := make(map[string]bool)
 	geoIP := GetEffectiveGeoProxyIP(cfg)
 	if geoIP != "" {
 		geoZones := GetGeoRoutedZones(cfg)
 		for _, zone := range geoZones {
+			geoZonesSet[zone] = true
 			parsedGeo := net.ParseIP(geoIP)
 			if parsedGeo != nil && parsedGeo.To4() == nil {
 				sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n", zone))
@@ -473,6 +475,13 @@ func getTemplateBlocks(cfg *Config) string {
 				sb.WriteString(fmt.Sprintf("    template IN AAAA %s {\n        rcode NOERROR\n    }\n", zone))
 			}
 			sb.WriteString(fmt.Sprintf("    template IN HTTPS %s {\n        rcode NOERROR\n    }\n", zone))
+		}
+	}
+
+	// Suppress HTTPS/SVCB (type 65) for core YouTube CDN & Innertube API domains to prevent >1s Android retry stalls
+	for _, d := range []string{"youtubei.googleapis.com", "ytimg.com", "ggpht.com", "gvt1.com", "gvt2.com", "googlevideo.com", "s.youtube.com"} {
+		if !geoZonesSet[d] {
+			sb.WriteString(fmt.Sprintf("    template IN HTTPS %s {\n        rcode NOERROR\n    }\n", d))
 		}
 	}
 

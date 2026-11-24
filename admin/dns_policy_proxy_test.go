@@ -168,7 +168,7 @@ func TestPolicyProxy_GroupsSchedulesLocalRecordsAndCNAMECloaking(t *testing.T) {
 	for _, aaaaDom := range []string{
 		"daily-cloudcode-pa.googleapis.com.", "accounts.google.com.", "oauth2.googleapis.com.",
 		"ssl.gstatic.com.", "fonts.gstatic.com.", "www.gstatic.com.", "play.google.com.",
-		"google.com.", "youtube.com.", "googlevideo.com.",
+		"google.com.", "youtube.com.", "googlevideo.com.", "i.ytimg.com.", "yt.be.", "youtubekids.com.", "youtube-nocookie.com.",
 		"preview.redd.it.", "i.redd.it.", "www.reddit.com.", "redditstatic.com.",
 	} {
 		reqTest := new(dns.Msg)
@@ -223,6 +223,17 @@ func TestPolicyProxy_GroupsSchedulesLocalRecordsAndCNAMECloaking(t *testing.T) {
 			if !ok || ptrRec.Ptr != tc.expected {
 				t.Fatalf("expected PTR %s for %s, got %v", tc.expected, tc.name, resp.Answer[0])
 			}
+		}
+	}
+
+	// 10. RFC1918 private PTR queries return fast local NXDOMAIN when no local PTR upstream is configured
+	for _, ptrName := range []string{"1.0.18.172.in-addr.arpa.", "61.1.168.192.in-addr.arpa.", "5.0.0.10.in-addr.arpa."} {
+		reqPTR := new(dns.Msg)
+		reqPTR.SetQuestion(ptrName, dns.TypePTR)
+		reqPTR.RecursionDesired = true
+		resp, dec = EvaluateDNSQuery(reqPTR, "192.168.1.10")
+		if resp == nil || resp.Rcode != dns.RcodeNameError || dec.Action != "local" {
+			t.Fatalf("expected fast NXDOMAIN for private PTR %s, got resp=%v dec=%+v", ptrName, resp, dec)
 		}
 	}
 }
