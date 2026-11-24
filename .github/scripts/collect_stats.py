@@ -110,7 +110,7 @@ def get_stats() -> dict:
 
             fpath = os.path.join(root, f)
             try:
-                with open(fpath, "r", encoding="utf-8", errors="ignore") as fp:
+                with open(fpath, encoding="utf-8", errors="ignore") as fp:
                     lines = count_clean_lines(fp)
             except OSError:
                 continue
@@ -299,7 +299,7 @@ def collect_contributors() -> list[dict]:
     except Exception:  # noqa: BLE001
         if os.path.exists(fallback_path):
             try:
-                with open(fallback_path, "r", encoding="utf-8") as f:
+                with open(fallback_path, encoding="utf-8") as f:
                     return json.load(f)
             except Exception:  # noqa: BLE001
                 pass
@@ -309,7 +309,7 @@ def collect_contributors() -> list[dict]:
     fallback_data = None
     if os.path.exists(fallback_path):
         try:
-            with open(fallback_path, "r", encoding="utf-8") as f:
+            with open(fallback_path, encoding="utf-8") as f:
                 fallback_data = json.load(f)
                 fallback_total_commits = sum(
                     c.get("commit_count", 0) for c in fallback_data
@@ -483,7 +483,7 @@ def collect() -> dict:
         # Fall back to main.go parsing
         try:
             with open(
-                os.path.join(PROJECT_ROOT, "admin", "main.go"), "r", encoding="utf-8"
+                os.path.join(PROJECT_ROOT, "admin", "main.go"), encoding="utf-8"
             ) as f:
                 content = f.read()
                 match = re.search(r'Version\s*=\s*"v?([^"]+)"', content)
@@ -552,7 +552,7 @@ def write_json(stats: dict, path: str = OUTPUT_JSON) -> None:
             should_write_fallback = True
             if os.path.exists(fallback_path):
                 try:
-                    with open(fallback_path, "r", encoding="utf-8") as f:
+                    with open(fallback_path, encoding="utf-8") as f:
                         old_fallback = json.load(f)
                     should_write_fallback = check_contributors_changed(
                         old_fallback, contribs

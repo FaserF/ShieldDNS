@@ -53,7 +53,7 @@ def update_source_code(new_version):
         print(f"Error: {file_path} not found")
         return
 
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         content = f.read()
 
     # Normalize version: ensure it has the 'v' prefix for the Go constant
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     # If no tag is found, fallback to the version in the source code
     if not latest_tag:
         try:
-            with open("admin/main.go", "r", encoding="utf-8") as f:
+            with open("admin/main.go", encoding="utf-8") as f:
                 core_content = f.read()
                 match = re.search(r'Version\s*=\s*"v?([^"]+)"', core_content)
                 if match:

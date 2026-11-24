@@ -53,7 +53,7 @@ ALLOWED_EXTENSIONS = {
 def get_file_content(path):
     if os.path.exists(path):
         try:
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(path, encoding="utf-8", errors="ignore") as f:
                 return f.read()
         except (OSError, UnicodeDecodeError):
             return ""
@@ -88,7 +88,7 @@ def generate_file_tree(startpath):
 def _write_json(path: str, data: dict, key_exclude: str = "timestamp") -> None:
     if os.path.isfile(path):
         try:
-            with open(path, "r", encoding="utf-8") as fh:
+            with open(path, encoding="utf-8") as fh:
                 existing = json.load(fh)
             existing_cmp = {k: v for k, v in existing.items() if k != key_exclude}
             new_cmp = {k: v for k, v in data.items() if k != key_exclude}
