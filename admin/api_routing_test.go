@@ -324,7 +324,7 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	config.VPNProvider = "privado"
 	config.VPNDefaultCountry = "AL"
 	config.VPNInterface = "tun_shield"
-	config.VPNPassword = "secret-password"
+	config.VPN[REDACTED_SECRET_77211]
 	configLock.Unlock()
 
 	sanitized := config.SanitizedCopy()
@@ -349,7 +349,7 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	// 8. Verify NextDNS Routing and DoT Corefile generation
 	configLock.Lock()
 	config.NextDNSProfileID = "2351bb"
-	config.NextDNSAPIKey = "3be9cf7680280fc4e73c59b52a1bc3b6bea250fb"
+	config.NextDNS[REDACTED_SECRET_72627]
 	config.NextDNSYouTube = true
 	config.NextDNSReddit = true
 	configLock.Unlock()

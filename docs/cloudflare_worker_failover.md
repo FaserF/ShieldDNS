@@ -141,7 +141,7 @@ Full script reference:
 const CONFIG = {
   HEALTH_CHECK_PATH: "/api/health/live",
   HEALTH_TIMEOUT_MS: 1500,
-  WORKER_SHARED_SECRET: "shielddns-worker-secure-token",
+  WORKER_SHARED_[REDACTED_SECRET_02003],
 
   NODES: [
     {

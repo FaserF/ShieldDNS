@@ -62,3 +62,9 @@ opencode.json
 __pycache__/
 patch.diff
 patch_all.diff
+
+# Security: credentials and environment files
+.env
+.env.local
+*.pem
+*.key

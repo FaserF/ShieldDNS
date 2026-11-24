@@ -41,7 +41,7 @@ async function testPage(url, pageName) {
                         },
                         body: JSON.stringify({
                             mode: 'standalone',
-                            password: 'TestPassword123!'
+                            [REDACTED_SECRET_63719]
                         })
                     });
                     if (!setupRes.ok && setupRes.status !== 409) {
@@ -54,7 +54,7 @@ async function testPage(url, pageName) {
                         'Content-Type': 'application/json',
                         'X-Shield-Request': 'true'
                     },
-                    body: JSON.stringify({ password: 'TestPassword123!' })
+                    body: JSON.stringify({ [REDACTED_SECRET_63719] })
                 });
                 if (!loginRes.ok) {
                     throw new Error(`Login failed with HTTP ${loginRes.status}`);

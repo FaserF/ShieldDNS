@@ -16,7 +16,7 @@
 const CONFIG = {
   HEALTH_CHECK_PATH: "/api/health/live",
   HEALTH_TIMEOUT_MS: 1500,
-  WORKER_SHARED_SECRET: "__WORKER_SHARED_SECRET__",
+  WORKER_SHARED_[REDACTED_SECRET_86313],
 
   /**
    * NODES: Define any number of primary/replica/edge instances.
