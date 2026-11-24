@@ -404,6 +404,10 @@ func initDB() {
 		addColumnIfNotExists("queries", "country_code", "TEXT")
 		addColumnIfNotExists("queries", "node_name", "TEXT DEFAULT ''")
 	}
+
+	if !testMode && DBPath != ":memory:" {
+		go ensurePerformanceIndexes()
+	}
 }
 
 // isValidSQLName checks if a string is a valid SQL table or column name.

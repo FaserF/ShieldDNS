@@ -13,11 +13,9 @@ import (
 )
 
 var (
-	cachedUniqueClients int
-	lastUniqueUpdate    time.Time
-	statsCache          Stats
-	statsCacheTime      time.Time
-	statsCacheMu        sync.Mutex
+	statsCache     Stats
+	statsCacheTime time.Time
+	statsCacheMu   sync.Mutex
 )
 
 func getStatsData() Stats {
@@ -41,38 +39,16 @@ func getStatsData() Stats {
 		s.CacheHits = cacheHits
 	}
 
-	// 1b. Get Average Latency
-	avg, err := GetAverageLatency()
-	if err == nil {
-		s.AverageLatency = avg
-	}
+	// 1b. Get Average Latency (cached with background refresh)
+	s.AverageLatency = getCachedAverageLatency()
 
 	// 2. Refresh dynamic fields
 	blockAttributionLock.RLock()
 	s.BlockedDomains = int64(len(blockAttribution))
 	blockAttributionLock.RUnlock()
 
-	// Unique clients (cached for 1 minute independently)
-	statsLock.RLock()
-	lastUpdate := lastUniqueUpdate
-	cachedUC := cachedUniqueClients
-	statsLock.RUnlock()
-
-	if db != nil && time.Since(lastUpdate) > 1*time.Minute {
-		var uniqueClients int
-		err := dbQueryRow("SELECT COUNT(DISTINCT client_ip) FROM queries WHERE timestamp > datetime('now', '-24 hours') AND client_ip != 'DoH Proxy'").Scan(&uniqueClients)
-		if err == nil {
-			statsLock.Lock()
-			cachedUniqueClients = uniqueClients
-			lastUniqueUpdate = time.Now()
-			statsLock.Unlock()
-			s.UniqueClients = uniqueClients
-		} else {
-			s.UniqueClients = cachedUC
-		}
-	} else {
-		s.UniqueClients = cachedUC
-	}
+	// Unique clients (cached with background refresh)
+	s.UniqueClients = getCachedUniqueClients()
 
 	// 3. Versions and Metadata
 	s.Version = Version
@@ -83,7 +59,7 @@ func getStatsData() Stats {
 	s.LatestCoreDNSVersion = latest.CoreDNS
 	s.LatestAlpineVersion = latest.Alpine
 
-	if dbBytes := getDBSizeBytes(); dbBytes > 0 {
+	if dbBytes := getCachedDBSizeBytes(); dbBytes > 0 {
 		s.DBSizeMB = float64(dbBytes) / (1024 * 1024)
 	}
 
@@ -196,24 +172,7 @@ func getStatsData() Stats {
 }
 
 func handleStats(w http.ResponseWriter, r *http.Request) {
-	statsCacheMu.Lock()
-	if time.Since(statsCacheTime) < 10*time.Second {
-		s := statsCache
-		statsCacheMu.Unlock()
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(s)
-		return
-	}
-	statsCacheMu.Unlock()
-
-	s := getStatsData()
-
-	// Update Cache
-	statsCacheMu.Lock()
-	statsCache = s
-	statsCacheTime = time.Now()
-	statsCacheMu.Unlock()
-
+	s := getCachedStatsResponse()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s)
 }
@@ -422,80 +381,20 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleTopBlocked(w http.ResponseWriter, r *http.Request) {
-	rows, err := dbQuery(`
-		SELECT domain, COUNT(*) as count
-		FROM queries
-		WHERE status LIKE 'Blocked%' AND timestamp > datetime('now', '-24 hours')
-		GROUP BY domain
-		ORDER BY count DESC
-		LIMIT 10
-	`)
+	result, err := getCachedTopBlocked()
 	if err != nil {
 		http.Error(w, "Error querying database", http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	result := make([]map[string]interface{}, 0)
-	for rows.Next() {
-		var domain string
-		var count int
-		rows.Scan(&domain, &count)
-		result = append(result, map[string]interface{}{"domain": domain, "count": count})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
 
 func handleTopClients(w http.ResponseWriter, r *http.Request) {
-	rows, err := dbQuery(`
-		SELECT client_ip, COUNT(*) as count
-		FROM queries
-		WHERE timestamp > datetime('now', '-24 hours') AND client_ip != 'DoH Proxy'
-		GROUP BY client_ip
-		ORDER BY count DESC
-		LIMIT 10
-	`)
+	result, err := getCachedTopClients()
 	if err != nil {
 		http.Error(w, "Error querying database", http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	configLock.RLock()
-	aliases := config.ClientAliases
-	configLock.RUnlock()
-
-	result := make([]map[string]interface{}, 0)
-	for rows.Next() {
-		var client_ip string
-		var count int
-		rows.Scan(&client_ip, &count)
-		if client_ip == "" {
-			client_ip = "Unknown"
-		}
-		alias := ""
-		if aliases != nil {
-			alias = aliases[client_ip]
-		}
-		// Look up the country code from any available cache
-		countryCode := ""
-		if val, ok := ipInfoCache.Load(client_ip); ok {
-			countryCode = val.(IPInfo).CountryCode
-		}
-		if countryCode == "" || countryCode == "-" || countryCode == "geo" {
-			countryCode = GetCountryCodeCached(client_ip)
-		}
-
-		if countryCode == "geo" || countryCode == "-" {
-			countryCode = ""
-		}
-		result = append(result, map[string]interface{}{
-			"client_ip":    client_ip,
-			"client_alias": alias,
-			"count":        count,
-			"country_code": strings.ToLower(countryCode),
-		})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)

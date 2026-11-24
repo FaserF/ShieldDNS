@@ -62,8 +62,6 @@ func main() {
 	StartSIEMSinks(appCtx)
 	startWorkers()
 
-	// Ensure Corefile is generated with correct settings before starting CoreDNS
-	updateCorefile()
 	initWebAuthn()
 
 	mux := setupRouter()
@@ -264,8 +262,8 @@ func startWorkers() {
 	go startMetadataUpdater(appCtx)
 	go StartQPSWorker(appCtx)
 
-	// Seed healthy upstreams from config and start CoreDNS immediately using cached hosts on disk
-	// so DNS resolution has zero downtime during startup blocklist downloads.
+	// Seed healthy upstreams and launch CoreDNS + blocklist downloads asynchronously
+	// so HTTP/Ingress healthcheck listeners start without waiting on upstream DNS lookups.
 	healthLock.Lock()
 	if len(healthyUpstreams) == 0 && len(config.Upstreams) > 0 {
 		healthyUpstreams = append([]string(nil), config.Upstreams...)
@@ -274,12 +272,12 @@ func startWorkers() {
 		healthyDoT = append([]string(nil), config.UpstreamDoT...)
 	}
 	healthLock.Unlock()
-	updateCorefile()
-	go startCoreDNS(appCtx)
 
-	// Trigger initial blocklist and malicious updates in background
 	// Sequential execution prevents multiple concurrent CoreDNS restarts or duplicate blocklist runs
 	go func() {
+		updateCorefile()
+		go startCoreDNS(appCtx)
+
 		updateBlocklist(nil, false)
 		syncMaliciousIPs(false)
 		if updateCorefile() {

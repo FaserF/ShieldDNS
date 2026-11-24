@@ -85,7 +85,7 @@ func performReplicaSync(primaryURL, apiToken, instType string, failover bool) er
 		req.Header.Set("X-Cluster-Shedding", "false")
 	}
 
-	client := newClusterHTTPClient(7*time.Second, verifyTLS)
+	client := newClusterHTTPClient(20*time.Second, verifyTLS)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -649,7 +649,7 @@ func SyncClusterLogs() error {
 
 	const batchSize = 500
 	const maxBatches = 5
-	client := newClusterHTTPClient(10*time.Second, verifyTLS)
+	client := newClusterHTTPClient(25*time.Second, verifyTLS)
 
 	for batchIdx := 0; batchIdx < maxBatches; batchIdx++ {
 		queriesToPush, maxSeenID, err := readLocalClusterSyncBatch(minID, nodeName, batchSize)

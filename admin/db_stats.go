@@ -135,15 +135,22 @@ func initializeStatsFromDB() {
 	}
 
 	statsLock.Lock()
-	defer statsLock.Unlock()
-
 	atomic.StoreInt64(&stats.TotalQueries, total)
 	atomic.StoreInt64(&stats.BlockedQueries, blocked)
 	atomic.StoreInt64(&stats.CacheHits, cacheHits)
 	stats.QueryTypes = queryTypes
 	stats.TopCountries = topCountries
+	statsLock.Unlock()
 
 	slog.Info("Statistics initialized from database", "total", total, "blocked", blocked, "cache_hits", cacheHits)
+
+	// Pre-warm stats caches in background so API endpoints respond without cold-scan delays
+	refreshAverageLatencyCache()
+	refreshUniqueClientsCache()
+	refreshDBSizeCache()
+	_, _ = refreshTopBlockedCache()
+	_, _ = refreshTopClientsCache()
+	refreshStatsCache()
 }
 
 func refreshStats() {
@@ -180,12 +187,18 @@ func refreshStats() {
 	}
 
 	statsLock.Lock()
-	defer statsLock.Unlock()
-
 	atomic.StoreInt64(&stats.TotalQueries, total)
 	atomic.StoreInt64(&stats.BlockedQueries, blocked)
 	atomic.StoreInt64(&stats.CacheHits, cacheHits)
 	if len(queryTypes) > 0 {
 		stats.QueryTypes = queryTypes
 	}
+	statsLock.Unlock()
+
+	refreshAverageLatencyCache()
+	refreshUniqueClientsCache()
+	refreshDBSizeCache()
+	_, _ = refreshTopBlockedCache()
+	_, _ = refreshTopClientsCache()
+	refreshStatsCache()
 }
