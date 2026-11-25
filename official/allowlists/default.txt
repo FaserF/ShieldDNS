@@ -58,6 +58,21 @@
 @@||githubusercontent.com^
 @@||tailscale.com^
 @@||tailscale.io^
+# Google Cast / Google Nest Speakers & Android Private DNS Connectivity
+# Reason: Required for Cast device discovery, cloud device graph, connectivity checks, and Nest audio/video playback when using Private DNS (DoT/DoH) or ShieldDNS blocklists.
+@@||cast.google.com^$important
+@@||chromecast.com^$important
+@@||clients1.google.com^$important
+@@||clients2.google.com^$important
+@@||clients3.google.com^$important
+@@||clients4.google.com^$important
+@@||connectivitycheck.gstatic.com^$important
+@@||googlehomefoyer-pa.googleapis.com^$important
+@@||home-devices.googleapis.com^$important
+@@||cast-pa.googleapis.com^$important
+@@||gvt3.com^$important
+@@||mtalk.google.com^$important
+@@||android.clients.google.com^$important
 @@||shoop.de^
 @@||reddit.com^
 @@||www.reddit.com^
