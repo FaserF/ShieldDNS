@@ -14,3 +14,4 @@ jobs:
     uses: FaserF/repo-template/.github/workflows/reusable-issue-triage.yml@bb7c89863ddbd1db78b84756002adf4433eebdcc # v1.0.19
     with:
       auto_openhands: true
+    secrets: inherit
