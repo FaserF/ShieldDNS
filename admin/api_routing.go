@@ -294,6 +294,9 @@ func getNextDNSDomainPatterns(cfg *Config) []string {
 	}
 	if cfg.NextDNSYouTube {
 		for _, d := range defaultYouTubeGeoDomains {
+			if strings.EqualFold(strings.TrimSpace(d), "googlevideo.com") {
+				continue
+			}
 			addDom(d)
 		}
 	}

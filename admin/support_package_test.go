@@ -24,7 +24,7 @@ func TestSupportPackageAndAnnotations(t *testing.T) {
 	origCfg := config
 	config = Config{
 		AdminPasswordHashed: "$2a$10$supersecretpasswordhash",
-		AI[REDACTED_SECRET_04015],
+		AIAPIKey:            "test-ai-key",
 		WebhookToken:        "whsec-very-secret-token",
 		ClusterPrimaryToken: "cluster-secret-key",
 		ClientAliases:       map[string]string{"192.168.1.44": "Secret Personal Laptop"},

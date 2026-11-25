@@ -243,7 +243,7 @@ func syncContainerResolvConf(cfg *Config) {
 	if count == 0 {
 		return
 	}
-	sb.WriteString("options timeout:2 attempts:2 rotate\n")
+	sb.WriteString("options timeout:2 attempts:2\n")
 	desired := []byte(sb.String())
 	if existing, err := os.ReadFile("/etc/resolv.conf"); err == nil && bytes.Equal(existing, desired) {
 		return
@@ -373,6 +373,11 @@ func getRoutingZoneBlocks(cfg *Config, dnsPort, dotPort, dohPort string, hasCert
 		if cfg.NextDNSYouTube {
 			for _, d := range defaultYouTubeGeoDomains {
 				dom := strings.ToLower(strings.Trim(strings.TrimPrefix(d, "*."), "."))
+				// Exclude googlevideo.com from NextDNS SNI-proxy rewriting so video chunks stream
+				// directly from local Google Edge CDNs instead of throttling through NextDNS's Tirana proxy.
+				if dom == "googlevideo.com" {
+					continue
+				}
 				if _, exists := zoneTargets[dom]; !exists && isValidDomain(dom) {
 					zoneTargets[dom] = routingTarget{upstreams: nextUpstreams, tlsServerName: nextSNI}
 				}

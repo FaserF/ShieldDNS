@@ -324,7 +324,7 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	config.VPNProvider = "privado"
 	config.VPNDefaultCountry = "AL"
 	config.VPNInterface = "tun_shield"
-	config.VPN[REDACTED_SECRET_77211]
+	config.VPNPassword = "test-vpn-pass"
 	configLock.Unlock()
 
 	sanitized := config.SanitizedCopy()
@@ -349,7 +349,7 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	// 8. Verify NextDNS Routing and DoT Corefile generation
 	configLock.Lock()
 	config.NextDNSProfileID = "2351bb"
-	config.NextDNS[REDACTED_SECRET_72627]
+	config.NextDNSAPIKey = "test-nextdns-key"
 	config.NextDNSYouTube = true
 	config.NextDNSReddit = true
 	configLock.Unlock()
@@ -363,8 +363,8 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	if !strings.Contains(coreBlocks, "www.youtube.com:11053") {
 		t.Errorf("expected www.youtube.com:11053 block in Corefile when NextDNSYouTube is true, got:\n%s", coreBlocks)
 	}
-	if strings.Contains(coreBlocks, "music.youtube.com:11053") || strings.Contains(coreBlocks, "youtubei.googleapis.com:11053") {
-		t.Errorf("did not expect music.youtube.com or youtubei.googleapis.com in NextDNS Corefile blocks, got:\n%s", coreBlocks)
+	if strings.Contains(coreBlocks, "music.youtube.com:11053") || strings.Contains(coreBlocks, "youtubei.googleapis.com:11053") || strings.Contains(coreBlocks, "googlevideo.com:11053") {
+		t.Errorf("did not expect music.youtube.com, youtubei.googleapis.com, or googlevideo.com in NextDNS Corefile blocks, got:\n%s", coreBlocks)
 	}
 	if !strings.Contains(coreBlocks, "tls_servername 2351bb.dns.nextdns.io") {
 		t.Errorf("expected tls_servername 2351bb.dns.nextdns.io in Corefile, got:\n%s", coreBlocks)

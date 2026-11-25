@@ -73,6 +73,12 @@
 @@||gvt3.com^$important
 @@||mtalk.google.com^$important
 @@||android.clients.google.com^$important
+# Spotify Connect & Cast Streaming
+# Reason: Required for Spotify Connect discovery, Cast playback, and CDN audio/metadata endpoints without blocklist interference.
+@@||spotify.com^$important
+@@||scdn.co^$important
+@@||spotifycdn.com^$important
+@@||spclient.wg.spotify.com^$important
 @@||shoop.de^
 @@||reddit.com^
 @@||www.reddit.com^
