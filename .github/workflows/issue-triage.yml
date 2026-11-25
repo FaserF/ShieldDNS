@@ -11,6 +11,6 @@ permissions:
 
 jobs:
   triage:
-    uses: FaserF/repo-template/.github/workflows/reusable-issue-triage.yml@80e0d10b029e916e7815e99a3d5950c0f081e82f # v1.0.14
+    uses: FaserF/repo-template/.github/workflows/reusable-issue-triage.yml@bb7c89863ddbd1db78b84756002adf4433eebdcc # v1.0.19
     with:
       auto_openhands: true
