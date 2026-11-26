@@ -349,7 +349,7 @@ func TestYouTubeAdblockAndSNIGeoRouting(t *testing.T) {
 	// 8. Verify NextDNS Routing and DoT Corefile generation
 	configLock.Lock()
 	config.NextDNSProfileID = "2351bb"
-	config.NextDNSAPIKey = "test-nextdns-key"
+	config.NextDNSAPIKey = "REDACTED_SECRET_67023"
 	config.NextDNSYouTube = true
 	config.NextDNSReddit = true
 	configLock.Unlock()
