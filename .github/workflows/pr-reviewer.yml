@@ -11,5 +11,5 @@ permissions:
 
 jobs:
   review:
-    uses: FaserF/repo-template/.github/workflows/reusable-pr-reviewer.yml@0a1c41c5ff41169eb149bf4be0fd628e6bbef192 # v1.0.21
+    uses: FaserF/repo-template/.github/workflows/reusable-pr-reviewer.yml@fd84eaa19fc59f7a7d0db1545f1a045b8709892c # v1.0.23
     secrets: inherit
