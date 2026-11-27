@@ -10,5 +10,5 @@ permissions:
 
 jobs:
   release:
-    uses: FaserF/repo-template/.github/workflows/reusable-release.yml@fd84eaa19fc59f7a7d0db1545f1a045b8709892c # v1.0.23
+    uses: FaserF/repo-template/.github/workflows/reusable-release.yml@e8f0d30ea124ee57668c45f590fedb5a3804a773 # v1.0.24
     secrets: inherit
