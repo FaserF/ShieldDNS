@@ -3,7 +3,7 @@ module shielddns-admin
 go 1.26.0
 
 require (
-	github.com/go-sql-driver/mysql v1.10.2
+	github.com/go-sql-driver/mysql v1.11.0
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
